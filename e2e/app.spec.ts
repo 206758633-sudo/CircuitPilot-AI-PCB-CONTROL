@@ -22,6 +22,12 @@ async function mockRuntimeHealth(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  // 默认让 Runtime 整体不可达：否则用例结果会取决于开发者本机是否恰好开着真实
+  // `npm run dev:runtime`。真实 Runtime 可达时应用会进入 REAL 会话，断言 DEMO 边界的
+  // 用例就会偶发失败（实测同一份代码在 Runtime 开着时出现过 20/21）。
+  // 需要真实会话的用例在下面之后注册自己的 fulfill 路由即可 —— Playwright 中
+  // 后注册的路由优先匹配。
+  await page.route('http://127.0.0.1:4178/api/**', (route) => route.abort());
   await page.route('http://127.0.0.1:4178/api/chat/status', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, chat: { ready: true, provider: { id: 'codex_account', label: 'Codex账号', kind: 'cli', ready: true }, activeSessions: 0 } }) }));
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
@@ -32,7 +38,8 @@ test.beforeEach(async ({ page }) => {
 test('八个主页面可导航、可恢复Hash并明确标注Demo边界', async ({ page }) => {
   for (const [id, title] of pages) {
     await openPage(page, id, title);
-    await expect(page.locator('.demo-flag')).toContainText(/DEMO MODE|REAL READ-ONLY/);
+    // 界面上真实的文案是 “REAL READ ONLY”（空格），不是 “REAL READ-ONLY”。
+    await expect(page.locator('.demo-flag')).toContainText(/DEMO MODE|REAL READ ONLY/);
     await expect(page.locator('.page-head')).toContainText('DEMO 数据');
   }
   await page.reload();

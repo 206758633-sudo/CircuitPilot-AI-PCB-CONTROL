@@ -22,6 +22,18 @@
   --red: #c7473a;
   --blue: #4381a5;
   --shadow: 0 16px 48px rgba(14, 20, 18, .11);
+  /* 深色面板（EDA控制台）与等宽字体令牌。
+     这些令牌此前只被 var() 引用、从未定义，而且没有回退值，
+     于是 border/background/color/font 这些声明会在“计算值阶段”整条失效
+     （例如 .design-plan-editor、.eda-copilot、.advanced-toggle 实际完全没有边框，
+     等宽字体也全部回退成继承字体）。这里按各面板既有的深色配色补全。 */
+  --font-sans: 'IBM Plex Sans Variable', 'PingFang SC', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --surface: #101b1a;
+  --text: #edf6f2;
+  --border: rgba(164, 199, 185, .28);
+  --cyan: #22d3ee;
+  --amber: #d8a52a;
 }
 
 * { box-sizing: border-box; }
