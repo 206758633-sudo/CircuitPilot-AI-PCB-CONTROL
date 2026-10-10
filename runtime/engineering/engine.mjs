@@ -1,0 +1,26 @@
+import crypto from 'node:crypto';
+import { validateStackup } from './stackup.mjs';
+import { analyzeHighSpeed } from './highspeed.mjs';
+import { planBgaEscape, planLayerTransition, validateViaCapabilities } from './hdi.mjs';
+import { analyzeRf, createSimulationHandoff } from './rf.mjs';
+import { placeSilkscreen, solveLayout } from './layout.mjs';
+const hash = (v) => crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
+
+export function runEngineeringAnalysis(input = {}) {
+  const stackup = validateStackup(input.stackup); const layout = solveLayout(input.layout || {}); const silkscreen = placeSilkscreen({ placements: layout.placements, forbidden: input.layout?.forbidden || [] });
+  const highSpeed = (input.highSpeed || []).map(analyzeHighSpeed);
+  const viaCapabilities = validateViaCapabilities(input.hdi || {});
+  const transitions = (input.hdi?.transitions || []).map((t) => planLayerTransition({ ...t, layerCount: input.hdi.layerCount, viaTypes: input.hdi.viaTypes, maxStackedMicrovias: input.hdi.maxStackedMicrovias }));
+  const bga = (input.hdi?.bga || []).map(planBgaEscape); const rf = (input.rf || []).map(analyzeRf);
+  const simulationJobs = (input.rf || []).map((item) => createSimulationHandoff({ ...item.simulationJob, stackupHash: hash(stackup.stackup) }));
+  const findings = [...stackup.findings,...layout.findings,...silkscreen.findings,...highSpeed.flatMap((r)=>r.findings),...viaCapabilities.findings,...transitions.flatMap((r)=>r.findings),...bga.flatMap((r)=>r.findings),...rf.flatMap((r)=>r.findings)];
+  const components = input.layout?.components || [];
+  const placementOperations = layout.placements.map((p)=>({ type:'pcb.component.modify',stage:'placement',args:{ primitiveId:String((components.find((c)=>c.ref===p.ref)||{}).primitiveId||''),property:{x:p.x,y:p.y,rotation:p.rotation,layer:1,primitiveLock:false}} })).filter((o)=>o.args.primitiveId);
+  const routeOperations = (input.highSpeed || []).flatMap((network) => (network.routeGeometry || []).map((segment) => ({ type:'pcb.line.create', stage:'routing', args:{ net:String(network.net || ''), layer:segment.layer, startX:Number(segment.startX), startY:Number(segment.startY), endX:Number(segment.endX), endY:Number(segment.endY), lineWidth:Number(segment.lineWidth) } })));
+  const viaOperations = (input.hdi?.placedVias || []).map((via) => ({ type:'pcb.via.create', stage:'vias', args:{ net:String(via.net || ''), x:Number(via.x), y:Number(via.y), holeDiameter:Number(via.holeDiameter), diameter:Number(via.diameter), ...(via.viaType === undefined ? {} : { viaType:via.viaType }) } }));
+  const operations = [...placementOperations,...routeOperations,...viaOperations];
+  const report = { schemaVersion:1, kind:'advanced-pcb-engineering-report', stackup, highSpeed, hdi:{viaCapabilities,transitions,bga}, rf, layout, silkscreen, simulationJobs, findings, operations, passed: findings.length===0, humanReviewRequired:true, officialDrcRequired:true, onlineDfmRequired:true };
+  return { ...report, reportHash: hash(report) };
+}
+
+export function engineeringProfiles() { return { highSpeed:['usb2','can','rs485','spi','clock200'], layers:[4,6,8], rfMaxGHz:2.4, transmissionLines:['microstrip','stripline','cpwg'], solvers:{analytical:'implemented',external:'handoff-only'}, productionBoundary:'official-drc-dfm-human-review' }; }

@@ -1,0 +1,19 @@
+node_modules/
+dist/
+playwright-report/
+test-results/
+coverage/
+*.tsbuildinfo
+.DS_Store
+
+# Rust / Tauri build artifacts (1.5 GB — never commit)
+src-tauri/target/
+
+# Local tooling state
+.vite/
+.auto-coding/
+.claude/
+.codex/
+
+# Generated test output
+artifacts/*.png

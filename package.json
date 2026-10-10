@@ -1,0 +1,47 @@
+{
+  "name": "circuitpilot-control-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:runtime": "node runtime/server.mjs",
+    "dev:full": "node scripts/dev-full.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc -b --pretty false",
+    "test": "npm run typecheck && vitest run && npm run test:runtime",
+    "test:runtime": "node --test \"runtime/**/*.test.mjs\"",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "ci": "npm run typecheck && vitest run && npm run test:runtime && npm run build",
+    "desktop:check": "node scripts/check-desktop-toolchain.mjs",
+    "desktop:release-check": "node scripts/check-macos-release.mjs",
+    "desktop:dev": "npm run desktop:check && tauri dev",
+    "desktop:build": "npm run desktop:check && tauri build",
+    "desktop:release": "npm run desktop:release-check && tauri build --bundles app,dmg"
+  },
+  "dependencies": {
+    "@fontsource-variable/ibm-plex-sans": "^5.2.6",
+    "@fontsource/ibm-plex-mono": "^5.2.6",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "@tauri-apps/cli": "^2.8.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.10.7",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.0.0",
+    "typescript": "~5.6.3",
+    "vite": "^6.1.0",
+    "vitest": "^3.0.7"
+  }
+}
