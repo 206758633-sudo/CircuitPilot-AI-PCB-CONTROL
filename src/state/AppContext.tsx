@@ -5,10 +5,11 @@ import { logger, safeError } from '../utils/logger';
 import { RuntimeApiError, runtimeClient } from '../services/runtimeClient';
 
 export const STORAGE_KEY = 'circuitpilot-state-v4';
-export const PREVIOUS_STORAGE_KEY = 'circuitpilot-state-v3';
-export const LEGACY_STORAGE_KEY = 'circuitpilot-demo-state-v1';
+// 仅在本文件内用于旧版本状态迁移，不对外导出（此前多余的 export 会让人误以为它们是公共 API）。
+const PREVIOUS_STORAGE_KEY = 'circuitpilot-state-v3';
+const LEGACY_STORAGE_KEY = 'circuitpilot-demo-state-v1';
 
-export const createProjectChat = (projectId: string): ChatState => ({
+const createProjectChat = (projectId: string): ChatState => ({
   sessionId: `chat-${projectId}-${Date.now()}`,
   messages: [],
   status: 'idle',

@@ -105,10 +105,6 @@ export function SegmentedTabs({ items, value, onChange, label }: { items: Array<
   );
 }
 
-export function EmptyState({ icon, title, description, action }: { icon?: ReactNode; title: string; description: string; action?: ReactNode }) {
-  return <div className="empty-state">{icon && <div className="empty-state__icon">{icon}</div>}<h3>{title}</h3><p>{description}</p>{action}</div>;
-}
-
 export function TableFrame({ children, label }: { children: ReactNode; label: string }) {
   return <div className="table-wrap" role="region" aria-label={label} tabIndex={0}>{children}</div>;
 }

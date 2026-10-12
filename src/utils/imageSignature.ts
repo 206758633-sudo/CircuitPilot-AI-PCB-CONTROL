@@ -39,7 +39,8 @@ export function sniffImageMime(bytes: Uint8Array): ImageMime | null {
   return null;
 }
 
-export function isSupportedImageMime(mime: string): mime is ImageMime {
+// 仅在 verifyImageSignature 内部使用，不对外导出。
+function isSupportedImageMime(mime: string): mime is ImageMime {
   return (IMAGE_MIME_TYPES as readonly string[]).includes(mime.trim().toLowerCase());
 }
 
