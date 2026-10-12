@@ -369,8 +369,61 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = new
   return { server, sessionToken, httpTokenIssuance };
 }
 
-export function startRuntime({ port = RUNTIME_PORT } = {}) {
-  const { server } = createRuntimeServer();
+/**
+ * 从 stdin 读取壳层通过管道下发的会话令牌（首行，读到换行或 EOF 为止）。
+ *
+ * 为什么走管道而不是环境变量：macOS 上同一用户的其它进程可以用 `ps -E` 读到
+ * 别人进程的环境变量，令牌放在环境里等于对“本机同用户进程”这个威胁模型完全暴露。
+ * 管道内容不落在 argv、环境变量或磁盘上，同用户进程无法读取。
+ *
+ * 超时返回空串；由调用方决定是 fail closed 还是回退。
+ */
+export function readTokenFromStdin({ timeoutMs = 5000, stdin = process.stdin } = {}) {
+  return new Promise((resolve) => {
+    let buffer = '';
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      stdin.removeListener('data', onData);
+      stdin.removeListener('end', onEnd);
+      stdin.removeListener('error', onError);
+      try { stdin.pause(); } catch { /* 流已关闭时忽略 */ }
+      resolve(value);
+    };
+    const onData = (chunk) => { buffer += chunk; const index = buffer.indexOf('\n'); if (index >= 0) finish(buffer.slice(0, index).trim()); };
+    const onEnd = () => finish(buffer.trim());
+    const onError = () => finish('');
+    const timer = setTimeout(() => finish(''), timeoutMs);
+    stdin.setEncoding('utf8');
+    stdin.on('data', onData);
+    stdin.on('end', onEnd);
+    stdin.on('error', onError);
+    stdin.resume();
+  });
+}
+
+/**
+ * 解析启动时的令牌来源。
+ *
+ * 壳层会设置 CIRCUITPILOT_TOKEN_STDIN=1 并通过管道写入令牌。此时必须 fail closed：
+ * 一旦管道没送到就退化成“随机令牌 + HTTP 发放”，会把已经关掉的攻击面重新打开，
+ * 所以这种情况直接拒绝启动，而不是悄悄降级。
+ */
+export async function resolveStartupToken({ env = process.env, readStdin = readTokenFromStdin } = {}) {
+  const expectStdin = env.CIRCUITPILOT_TOKEN_STDIN === '1';
+  const stdinToken = expectStdin ? await readStdin() : '';
+  if (expectStdin && stdinToken.length < 16) {
+    return { ok: false, reason: `CIRCUITPILOT_TOKEN_STDIN=1 但 stdin 上没有读到有效令牌（收到 ${stdinToken.length} 字符）` };
+  }
+  if (stdinToken) return { ok: true, runtimeToken: stdinToken, source: 'stdin' };
+  if (typeof env.CIRCUITPILOT_RUNTIME_TOKEN === 'string' && env.CIRCUITPILOT_RUNTIME_TOKEN) return { ok: true, runtimeToken: env.CIRCUITPILOT_RUNTIME_TOKEN, source: 'env' };
+  return { ok: true, runtimeToken: undefined, source: 'none' };
+}
+
+export function startRuntime({ port = RUNTIME_PORT, runtimeToken } = {}) {
+  const { server } = createRuntimeServer({ runtimeToken });
   // 端口被占用时不要假装启动成功：细节已由上面的 error 监听器记录，这里只负责非零退出。
   server.once('error', () => process.exit(1));
   server.listen(port, RUNTIME_HOST, () => logger.info('Runtime', 'CircuitPilot Runtime started', { host: RUNTIME_HOST, port }));
@@ -383,4 +436,17 @@ export function startRuntime({ port = RUNTIME_PORT } = {}) {
   return server;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) startRuntime();
+async function main() {
+  const resolved = await resolveStartupToken();
+  if (!resolved.ok) {
+    // fail closed：见 resolveStartupToken 的说明。
+    logger.error('Runtime', 'Refusing to start without the token the shell promised to pipe', { reason: resolved.reason });
+    process.exit(1);
+  }
+  // 只记录令牌“来源”，绝不记录令牌本身：这是可观测证据，用来核实发布版到底走的哪条通道
+  // （stdin=壳层管道，env=开发/测试，none=随机令牌+受信 Origin 引导）。
+  logger.info('Runtime', 'Session token source resolved', { source: resolved.source });
+  return startRuntime({ runtimeToken: resolved.runtimeToken });
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

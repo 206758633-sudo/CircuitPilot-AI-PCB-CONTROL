@@ -1,6 +1,6 @@
 use std::{
     fs::{File, OpenOptions},
-    io::Read,
+    io::{Read, Write},
     net::{SocketAddr, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
@@ -110,16 +110,26 @@ pub fn run() {
                     .and_then(open_log_sinks)
                     .unwrap_or((Stdio::null(), Stdio::null()));
                 let token = generate_token()?;
-                child = Some(
-                    Command::new(node)
-                        .arg(&server)
-                        .current_dir(&resource_dir)
-                        .env("CIRCUITPILOT_RUNTIME_TOKEN", &token)
-                        .stdin(Stdio::null())
-                        .stdout(log_out)
-                        .stderr(log_err)
-                        .spawn()?,
-                );
+                // 令牌只经 stdin 管道交给 sidecar，不放进环境变量：macOS 上同一用户的其它进程
+                // 可以用 `ps -E` 读到别人进程的环境变量，管道内容则读不到。
+                // 同时设置 CIRCUITPILOT_TOKEN_STDIN=1，让 Runtime 在没收到令牌时 fail closed，
+                // 而不是退化成“随机令牌 + HTTP 发放”。
+                let mut spawned = Command::new(node)
+                    .arg(&server)
+                    .current_dir(&resource_dir)
+                    .env("CIRCUITPILOT_TOKEN_STDIN", "1")
+                    .stdin(Stdio::piped())
+                    .stdout(log_out)
+                    .stderr(log_err)
+                    .spawn()?;
+                if let Some(mut sink) = spawned.stdin.take() {
+                    if let Err(error) = sink.write_all(format!("{token}\n").as_bytes()).and_then(|_| sink.flush()) {
+                        // 子进程读不到令牌会自行退出；这里只记录，不让整个应用起不来。
+                        eprintln!("CircuitPilot: failed to pipe the Runtime token to the sidecar: {error}");
+                    }
+                    drop(sink);
+                }
+                child = Some(spawned);
                 injected_token = Some(token);
             }
             app.manage(RuntimeProcess(Mutex::new(child)));

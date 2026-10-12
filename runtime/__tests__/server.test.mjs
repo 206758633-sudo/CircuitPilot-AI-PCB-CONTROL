@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import test from 'node:test';
-import { createRuntimeServer } from '../server.mjs';
+import { PassThrough } from 'node:stream';
+import { createRuntimeServer, readTokenFromStdin, resolveStartupToken } from '../server.mjs';
 
 const fakeKeychain = {
   async configured() { return false; },
@@ -183,4 +184,72 @@ test('injected shell token disables HTTP token issuance entirely (the C-03 resid
 
   // health 仍然公开可读（用于连通性探测），只是不再携带凭据。
   assert.equal(noOrigin.ok, true);
+});
+
+test('令牌经 stdin 管道下发：读到首行即为令牌', async () => {
+  const stdin = new PassThrough();
+  const pending = readTokenFromStdin({ stdin });
+  stdin.write('shell-piped-token-0123456789abcdef\n');
+  assert.equal(await pending, 'shell-piped-token-0123456789abcdef');
+});
+
+test('令牌经 stdin 下发：EOF 前没有换行也能读到（管道写完即关闭的情况）', async () => {
+  const stdin = new PassThrough();
+  const pending = readTokenFromStdin({ stdin });
+  stdin.end('shell-piped-token-0123456789abcdef');
+  assert.equal(await pending, 'shell-piped-token-0123456789abcdef');
+});
+
+test('stdin 一直没有数据时按超时返回空串，不挂死启动流程', async () => {
+  const stdin = new PassThrough();
+  assert.equal(await readTokenFromStdin({ stdin, timeoutMs: 30 }), '');
+});
+
+test('壳层声明用 stdin 传令牌却没送到时必须 fail closed（不允许退化成 HTTP 发放）', async () => {
+  // 关键安全属性：退回“随机令牌 + HTTP 发放”会把已关闭的攻击面重新打开。
+  const missing = await resolveStartupToken({ env: { CIRCUITPILOT_TOKEN_STDIN: '1' }, readStdin: async () => '' });
+  assert.equal(missing.ok, false);
+  assert.match(missing.reason, /stdin/);
+
+  // 过短的“令牌”同样不算数（与注入令牌 >= 16 字符的下限一致）。
+  const tooShort = await resolveStartupToken({ env: { CIRCUITPILOT_TOKEN_STDIN: '1' }, readStdin: async () => 'short' });
+  assert.equal(tooShort.ok, false);
+});
+
+test('管道令牌优先于环境变量；没有声明用管道时回退到环境变量', async () => {
+  const fromStdin = await resolveStartupToken({ env: { CIRCUITPILOT_TOKEN_STDIN: '1', CIRCUITPILOT_RUNTIME_TOKEN: 'env-token-should-lose-000' }, readStdin: async () => 'piped-token-wins-0123456789ab' });
+  assert.deepEqual(fromStdin, { ok: true, runtimeToken: 'piped-token-wins-0123456789ab', source: 'stdin' });
+
+  const fromEnv = await resolveStartupToken({ env: { CIRCUITPILOT_RUNTIME_TOKEN: 'env-token-only-0123456789ab' }, readStdin: async () => 'ignored-token-0123456789abcde' });
+  assert.deepEqual(fromEnv, { ok: true, runtimeToken: 'env-token-only-0123456789ab', source: 'env' });
+
+  // 两条通道都没有：开发模式的随机令牌 + 受信 Origin 引导，来源必须如实标注为 none。
+  const neither = await resolveStartupToken({ env: {}, readStdin: async () => '' });
+  assert.deepEqual(neither, { ok: true, runtimeToken: undefined, source: 'none' });
+});
+
+test('经 stdin 取得的令牌进入 Runtime 后同样关闭 HTTP 令牌发放', async () => {
+  // 端到端串起来：管道 -> resolveStartupToken -> createRuntimeServer，
+  // 确认新通道拿到的令牌与之前环境变量注入的令牌具有同等的安全效果。
+  const stdin = new PassThrough();
+  const pending = readTokenFromStdin({ stdin });
+  stdin.end('piped-token-from-shell-0123456789\n');
+  const resolved = await resolveStartupToken({ env: { CIRCUITPILOT_TOKEN_STDIN: '1' }, readStdin: () => pending });
+  assert.equal(resolved.ok, true);
+
+  const { server, sessionToken, httpTokenIssuance } = createRuntimeServer({ keychain: fakeKeychain, runtimeToken: resolved.runtimeToken });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    assert.equal(sessionToken, 'piped-token-from-shell-0123456789');
+    assert.equal(httpTokenIssuance, false);
+    // 伪造受信 Origin 也领不到引导令牌。
+    const health = await (await fetch(`${base}/api/health`, { headers: { origin: TRUSTED_ORIGIN } })).json();
+    assert.equal(health.sessionProof, undefined);
+    // 不带令牌被拒，带管道令牌可用。
+    assert.equal((await fetch(`${base}/api/providers`)).status, 401);
+    assert.equal((await fetch(`${base}/api/providers`, { headers: { 'x-circuitpilot-token': resolved.runtimeToken } })).status, 200);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });

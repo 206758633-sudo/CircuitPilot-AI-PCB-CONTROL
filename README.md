@@ -81,9 +81,19 @@ Runtime扫描 `127.0.0.1:49620-49629`，只有 `/health` 返回 `service: "easye
 
 - `GET /api/health` 是唯一公开路由；其余路由（含只读 GET）都要求 `x-circuitpilot-token`。
 - Host 头必须是回环地址，防止 DNS 重绑定；非回环 Host 返回 `403 HOST_FORBIDDEN`。
-- 令牌有且只有两条不经由 HTTP 的交付通道（生产/桌面模式）：
-  Tauri 壳层为每次启动生成一次性令牌，通过**进程环境变量** `CIRCUITPILOT_RUNTIME_TOKEN` 传给 sidecar，
-  并用 `WebviewWindowBuilder::initialization_script` 在页面脚本执行前注入 `window.__CIRCUITPILOT_RUNTIME_TOKEN__`。
+- 令牌有且只有两条不经由 HTTP 的交付通道：
+  1. **生产/桌面模式（默认）**：Tauri 壳层为每次启动生成一次性令牌，经 **stdin 管道**
+     交给 sidecar（同时设置 `CIRCUITPILOT_TOKEN_STDIN=1`），并用
+     `WebviewWindowBuilder::initialization_script` 在页面脚本执行前注入
+     `window.__CIRCUITPILOT_RUNTIME_TOKEN__`。
+     **为什么不放环境变量**：环境变量会进入 `ps -E` 可见的进程环境、崩溃转储与
+     `launchd` 相关工具链，属于"本机同用户进程可读"的暴露面；管道内容不落在
+     argv、环境变量或磁盘上。启动日志会记录令牌来源（只记 `source`，不记令牌本身），
+     可据此核实发布版走的是哪条通道。
+     若壳层声明用管道但管道没送到，Runtime 会**拒绝启动**（fail closed），
+     而不会退化成"随机令牌 + HTTP 发放"把已关闭的攻击面重新打开。
+  2. **开发/测试模式**：`CIRCUITPILOT_RUNTIME_TOKEN` 环境变量或浏览器引导（见下一条）。
+     这条通道仅用于本机开发与自动化测试，发布版不使用。
 - **一旦令牌由壳层注入，Runtime 会彻底关闭 HTTP 令牌发放**：`/api/health` 不再返回 `sessionProof`，
   因此本机其它进程即使伪造 `Origin` 也领不到令牌（回归测试见 `runtime/__tests__/server.test.mjs`
   的 “injected shell token disables HTTP token issuance entirely”）。
@@ -91,6 +101,10 @@ Runtime扫描 `127.0.0.1:49620-49629`，只有 `/health` 返回 `service: "easye
   且不带 `Origin` 的本机进程调用 `/api/health` 只会拿到 `ok:true`，不会拿到令牌。
 - 若本机已经有一个外部 Runtime 在跑（例如先执行了 `npm run dev:runtime`），壳层无法得知它的令牌，
   此时不注入令牌，前端回退到上述开发模式引导，以免破坏开发流程。
+- 残余暴露面（如实说明）：令牌仍需经回环 HTTP 请求头 `x-circuitpilot-token` 从 WebView 送到 Runtime，
+  在 macOS 上抓取回环流量需要 root/BPF 权限。要连这一层也消除，就得把前端全部流量改为
+  Unix 域套接字或 Tauri IPC 代理——那是架构级改动，会让每个请求改道；对"同用户非特权进程"
+  这一威胁模型，stdin 管道 + 关闭 HTTP 发放已经等价，因此当前没有采用 UDS/IPC。
 
 ## 修改日志与问题中心
 
