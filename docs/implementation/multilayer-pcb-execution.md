@@ -80,6 +80,17 @@
 - 新增 `pcb.layers.setCount`（write，只放行 2,4,…,32 偶数层）、
   `pcb.layers.copperCount`（read）
 
+### 2.7 用 EDA 实际发现的层列表核对（写入前门禁）
+
+`PcbManager.verifyDocumentLayers` 在任何写入之前，用 `pcb.layers.read` **实际返回**的
+层列表核对计划要写入的每一层都存在。`getAllLayers()` 返回的 `id` 就是官方
+`EPCB_LayerId`，与 `layers.mjs` 换算出的层号同源，因此可以直接比对。
+
+- 文档缺层 → `PCB_LAYER_NOT_IN_DOCUMENT`，**在写入前**拒绝（否则内层操作会失败，
+  或更糟：静默不生效，计划显示“已执行”而板子根本没改）
+- 核对结果（请求层、可用层、文档铜层数、声明层数）记入执行记录作为复核证据
+- 统计铜层时明确排除丝印(3/4)、阻焊(5/6)等非铜层
+
 ## 3. 盲埋孔 / 微孔执行能力：结论与残余
 
 **结论：不是被 EDA API 挡住，是我们的桥没透传。**
@@ -142,7 +153,7 @@ EDA 支持到 32 层，但 `validateStackup` 只为 4/6/8 定义校验与阻抗�
 
 | 门禁 | 结果 |
 | --- | --- |
-| `node --test "runtime/**/*.test.mjs"` | 130/130 通过 |
+| `node --test "runtime/**/*.test.mjs"` | 131/131 通过 |
 | `npx tsc -b` | 0 错误 |
 | `npx vitest run` | 42/42 通过 |
 | `npm run test:coverage` | 退出码 0（阈值内） |
@@ -152,7 +163,7 @@ EDA 支持到 32 层，但 `validateStackup` 只为 4/6/8 定义校验与阻抗�
 | `npm run build` | 通过 |
 
 新增回归测试（本轮）：层模型 8、桥接能力 2、阻抗反解 10、制造档位 11、
-多层执行 12、四层高速板全流程 4。
+多层执行 13（含文档层核对）、四层高速板全流程 4。
 
 `runtime/__tests__/multilayer-design.test.mjs` 是核心验证目标：一块
 USB（90Ω 差分，外层微带）+ SPI 时钟（内层 L2）的四层高速板，

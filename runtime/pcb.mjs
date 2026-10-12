@@ -102,6 +102,26 @@ export class PcbManager {
     context.targetFingerprint = digest({ windowId: context.windowId, project: context.project, document: context.pcb?.document, sourceDigest: context.sourceDigest });
     return context;
   }
+  /**
+   * 用 EDA **实际发现**的层列表核对计划要写入的每一层都真实存在。
+   *
+   * pcb.layers.read 返回的 id 就是官方 EPCB_LayerId，与本项目 layers.mjs 换算出的
+   * 层号同源，因此可以直接比对。文档缺层时必须**在任何写入之前**拒绝：否则内层操作
+   * 会失败，或者更糟——静默不生效，让计划显示“已执行”而板子根本没改。
+   */
+  verifyDocumentLayers(plan, context) {
+    const layers = context?.pcb?.layers;
+    // 读不到层列表时不在这里阻断：上下文完整性已由 before.complete 兜底。
+    if (!Array.isArray(layers) || !layers.length) return null;
+    const available = new Set(layers.map((layer) => Number(layer?.id)));
+    const requested = [...new Set(plan.operations.map((operation) => operation.args?.layer).filter((layer) => Number.isInteger(layer)))].sort((a, b) => a - b);
+    const missingLayers = requested.filter((layer) => !available.has(layer));
+    if (missingLayers.length) throw Object.assign(new Error(`嘉立创EDA当前文档缺少计划所需的层: ${missingLayers.join(', ')}；请先设置铜箔层数并确认叠层`), { code: 'PCB_LAYER_NOT_IN_DOCUMENT', missingLayers });
+    // 铜层编号：1/2 是外层，15..44 是内层（3/4 是丝印、5/6 是阻焊，不能算进来）。
+    const copperLayerIds = [...available].filter((id) => id === 1 || id === 2 || (id >= 15 && id <= 44)).sort((a, b) => a - b);
+    return { requestedLayers: requested, availableLayers: [...available].sort((a, b) => a - b), documentCopperLayerIds: copperLayerIds, documentCopperLayerCount: copperLayerIds.length, declaredLayerCount: Number(plan.board?.layers) };
+  }
+
   approve({ plan, targetFingerprint, windowId, stages = ['sync','outline','placement','save','drc','rollback'] }) {
     const normalized = normalizePcbPlan(plan);
     if (!normalized.ready) throw Object.assign(new Error(`PCB计划信息不完整: ${normalized.missing.join(', ')}`), { code: 'PCB_PLAN_INCOMPLETE' });
@@ -116,9 +136,11 @@ export class PcbManager {
     const before = await this.context();
     if (before.targetFingerprint !== targetFingerprint || before.windowId !== windowId) throw Object.assign(new Error('PCB目标已变化，请重新读取并批准'), { code: 'PCB_TARGET_DRIFT' });
     if (!before.complete) throw Object.assign(new Error(`PCB上下文读取不完整: ${(before.pcb?.readErrors || []).map((item) => item.name).join(', ')}`), { code: 'PCB_CONTEXT_INCOMPLETE', readErrors: before.pcb?.readErrors || [] });
+    // 写入前用文档实际层列表核对：缺层必须在这里失败，而不是等内层操作静默不生效。
+    const layerCheck = this.verifyDocumentLayers(normalized.plan, before);
     const source = unwrap(await this.bridge.execute('pcb.source.read', {}, { allowSensitiveRead: true }));
     if (typeof source !== 'string' || !source.length) throw Object.assign(new Error('无法建立非空PCB源码快照'), { code: 'PCB_SNAPSHOT_EMPTY' });
-    const execution = { id: crypto.randomUUID(), state: 'snapshotting', planHash: normalized.planHash, targetFingerprint, events: [], snapshot: { digest: documentSourceDigest(source), size: source.length }, stageSnapshots: [], progress: { completed: 0, total: normalized.plan.operations.length }, readback: null, drc: null };
+    const execution = { id: crypto.randomUUID(), state: 'snapshotting', planHash: normalized.planHash, targetFingerprint, events: [], snapshot: { digest: documentSourceDigest(source), size: source.length }, stageSnapshots: [], progress: { completed: 0, total: normalized.plan.operations.length }, layerCheck, readback: null, drc: null };
     this.executions.set(execution.id, execution);
     this.running = true;
     const event = (stage, status, detail = {}) => execution.events.push({ at: new Date().toISOString(), stage, status, detail });

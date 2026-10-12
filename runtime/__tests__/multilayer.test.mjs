@@ -248,3 +248,54 @@ test('四层计划端到端可执行：语义编译 -> 执行计划 -> 管理器
   assert.equal(typeof result.readback.sourceDigest, 'string');
   assert.ok(result.events.some((event) => event.stage === 'readback'));
 });
+
+test('用 EDA 实际发现的层列表核对：文档是两层板时四层计划必须在写入前被拒', async () => {
+  const execPlan = normalizePcbPlan(compileSemanticPlan(fourLayerInput()).compiled);
+  assert.equal(execPlan.ready, true);
+
+  const run = async (layers) => {
+    const commands = [];
+    let source = '{"board":"before"}';
+    const bridge = {
+      selectedWindowId: 'W1',
+      async execute(id, args = {}) {
+        commands.push({ id, args });
+        if (id === 'project.current') return { result: { uuid: 'P1' } };
+        if (id === 'document.current') return { result: { uuid: 'D1', documentType: 3 } };
+        if (id === 'pcb.layers.read') return { result: layers };
+        if (/^pcb\.(nets|components|lines|vias|pours|regions|texts)\.read$/.test(id)) return { result: [] };
+        if (id === 'pcb.rules.read') return { result: {} };
+        if (id === 'pcb.source.read') return { result: source };
+        if (id === 'document.source.restore') { source = args.source; return { result: true }; }
+        if (id === 'pcb.save') return { result: true };
+        if (id === 'pcb.drc') return { result: [] };
+        source = '{"board":"mutated"}';
+        return { result: { primitiveId: `${id}-1` } };
+      },
+    };
+    const manager = new PcbManager({ bridge, approvals: new ApprovalStore() });
+    const context = await manager.context();
+    const approval = manager.approve({ plan: execPlan.plan, targetFingerprint: context.targetFingerprint, windowId: context.windowId });
+    return manager.execute({ plan: execPlan.plan, approvalToken: approval.token, targetFingerprint: context.targetFingerprint, windowId: context.windowId })
+      .then((result) => ({ ok: true, result, commands }), (error) => ({ ok: false, error, commands }));
+  };
+
+  // 文档实际只有外层与板框层（两层板的层列表）→ 必须拒绝。
+  const rejected = await run([{ id: 1, name: 'Top' }, { id: 2, name: 'Bottom' }, { id: 11, name: 'BoardOutline' }]);
+  assert.equal(rejected.ok, false, '两层文档不应接受四层计划');
+  assert.equal(rejected.error.code, 'PCB_LAYER_NOT_IN_DOCUMENT');
+  assert.deepEqual(rejected.error.missingLayers, [15, 16]);
+  const writes = rejected.commands.filter((command) => ['pcb.line.create', 'pcb.pour.create', 'pcb.via.create', 'pcb.component.modify'].includes(command.id));
+  assert.equal(writes.length, 0, `拒绝必须发生在任何写入之前: ${JSON.stringify(writes)}`);
+
+  // 文档确实有四层铜（含内层 15/16）→ 通过，并记录层核对证据供人工复核。
+  const accepted = await run([{ id: 1, name: 'Top' }, { id: 11, name: 'BoardOutline' }, { id: 15, name: 'Inner1' }, { id: 16, name: 'Inner2' }, { id: 2, name: 'Bottom' }]);
+  assert.equal(accepted.ok, true, JSON.stringify(accepted.error ?? {}));
+  assert.deepEqual(accepted.result.layerCheck.documentCopperLayerIds, [1, 2, 15, 16]);
+  assert.equal(accepted.result.layerCheck.documentCopperLayerCount, 4);
+  assert.equal(accepted.result.layerCheck.declaredLayerCount, 4);
+  assert.ok(accepted.result.layerCheck.requestedLayers.includes(15));
+  // 丝印(3)/阻焊(5) 之类非铜层不得被算作铜层。
+  const withDecoys = await run([{ id: 1 }, { id: 3 }, { id: 5 }, { id: 11 }, { id: 15 }, { id: 16 }, { id: 2 }]);
+  assert.deepEqual(withDecoys.result.layerCheck.documentCopperLayerIds, [1, 2, 15, 16], '丝印/阻焊层不得混入铜层统计');
+});
