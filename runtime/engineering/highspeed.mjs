@@ -1,4 +1,4 @@
-import { finding, microstripImpedance, propagationDelayPsPerMm } from './stackup.mjs';
+import { differentialFromSingleEnded, finding, microstripImpedance, propagationDelayPsPerMm } from './stackup.mjs';
 
 export const HIGH_SPEED_PROFILES = Object.freeze({
   usb2: { id: 'usb2', differentialOhm: 90, toleranceOhm: 10, maxSkewMm: 0.5, minSpacingWidths: 3, continuousReference: true },
@@ -23,8 +23,12 @@ export function analyzeHighSpeed(input = {}) {
     try { impedance = microstripImpedance(input.geometry); } catch { findings.push(finding('IMPEDANCE_INPUT_INVALID', '阻抗几何或材料参数无效', 'geometry')); }
   } else findings.push(finding('IMPEDANCE_GEOMETRY_REQUIRED', '缺少线宽、铜厚、介质厚度和介电常数', 'geometry'));
   if (impedance && profile.differentialOhm) {
-    const coupling = Math.exp(-0.96 * Number(input.pairGapMm || 0) / Number(input.geometry.heightMm));
-    const differentialOhm = 2 * impedance.impedanceOhm * (1 - 0.48 * coupling);
+    // 公式已抽到 stackup.mjs：正反两个方向必须共用同一实现（详见那里的注释）。
+    const { differentialOhm } = differentialFromSingleEnded({
+      singleEndedOhm: impedance.impedanceOhm,
+      pairGapMm: input.pairGapMm,
+      heightMm: Number(input.geometry.heightMm),
+    });
     impedance = { ...impedance, differentialOhm };
     if (Math.abs(differentialOhm - profile.differentialOhm) > profile.toleranceOhm) findings.push(finding('DIFFERENTIAL_IMPEDANCE', `估算差分阻抗${differentialOhm.toFixed(1)}Ω超出目标`, 'geometry'));
   }

@@ -11,13 +11,48 @@ const MAX_COMPONENTS = 1_000;
 /** 已登记的语义/编译计划数量上限，防止长期运行的Runtime无界增长。 */
 const MAX_STORED_PLANS = 200;
 
+/**
+ * 与层数无关的保守工艺下界。
+ *
+ * 来源：项目原有的本地保守配置。**这不是**对嘉立创当前能力的声明：
+ * 我们无法在离线环境核实板厂的多层工艺表（嘉立创EDA 内置的
+ * 'JLCPCB Capability(...)' 规则配置由云端下发，应用包内没有明文），
+ * 所以刻意只沿用这套“比板厂能力更严”的值 —— 保守值只会让设计更容易制造，
+ * 不会放宽约束。投产前必须用 pcb.rules.read 读到的规则配置或在线 DFM 复核。
+ */
+const CONSERVATIVE_LIMITS = Object.freeze({
+  minTrackMm: 0.2, minClearanceMm: 0.2,
+  minViaDiameterMm: 0.6, minViaDrillMm: 0.3, minCopperToEdgeMm: 0.3,
+  minSilkHeightMm: 1, minSilkStrokeMm: 0.15, thermalReliefSpokes: 4,
+});
+
+const SINGLE_LAYER_NOTE = '这是本地保守规则配置，不替代嘉立创当前工艺能力或在线DFM。';
+const MULTI_LAYER_NOTE = '四层以上档位的工艺下界沿用本地保守值（比板厂能力更严，不会更松），不构成对嘉立创多层板实际能力的声明；投产前必须以 pcb.rules.read 读到的规则配置或在线 DFM 复核，并提供叠层证据。';
+
 export const RULE_PROFILES = Object.freeze({
   'jlc-low-cost-2l': Object.freeze({
     id: 'jlc-low-cost-2l', label: '嘉立创低成本双层板（保守规则）', layers: 2,
-    thicknessMm: 1.6, copperOz: 1, minTrackMm: 0.2, minClearanceMm: 0.2,
-    minViaDiameterMm: 0.6, minViaDrillMm: 0.3, minCopperToEdgeMm: 0.3,
-    minSilkHeightMm: 1, minSilkStrokeMm: 0.15, thermalReliefSpokes: 4,
-    note: '这是本地保守规则配置，不替代嘉立创当前工艺能力或在线DFM。',
+    thicknessMm: 1.6, copperOz: 1, ...CONSERVATIVE_LIMITS,
+    stackupRequired: false, impedanceControlled: false, requiresFabricatorEvidence: false,
+    note: SINGLE_LAYER_NOTE,
+  }),
+  'jlc-4l': Object.freeze({
+    id: 'jlc-4l', label: '嘉立创四层板（保守规则）', layers: 4,
+    thicknessMm: 1.6, copperOz: 1, ...CONSERVATIVE_LIMITS,
+    stackupRequired: true, impedanceControlled: true, requiresFabricatorEvidence: true,
+    note: MULTI_LAYER_NOTE,
+  }),
+  'jlc-6l': Object.freeze({
+    id: 'jlc-6l', label: '嘉立创六层板（保守规则）', layers: 6,
+    thicknessMm: 1.6, copperOz: 1, ...CONSERVATIVE_LIMITS,
+    stackupRequired: true, impedanceControlled: true, requiresFabricatorEvidence: true,
+    note: MULTI_LAYER_NOTE,
+  }),
+  'jlc-8l': Object.freeze({
+    id: 'jlc-8l', label: '嘉立创八层板（保守规则）', layers: 8,
+    thicknessMm: 1.6, copperOz: 1, ...CONSERVATIVE_LIMITS,
+    stackupRequired: true, impedanceControlled: true, requiresFabricatorEvidence: true,
+    note: MULTI_LAYER_NOTE,
   }),
 });
 
@@ -26,6 +61,16 @@ const positive = (value) => finite(value) && value > 0;
 const text = (value) => typeof value === 'string' ? value.trim() : '';
 const array = (value) => Array.isArray(value) ? value : [];
 const issue = (code, message, path, severity = 'blocking') => ({ code, message, path, severity });
+
+/**
+ * 判定计划是否绑定了叠层证据。
+ * 受理两种形式：constraints.impedance.stackupSource（阻抗计算用的板厂叠层来源）
+ * 或 evidence 里一条 kind/type 为 stackup 的条目。
+ */
+function hasStackupEvidence(plan) {
+  if (text(plan.constraints?.impedance?.stackupSource)) return true;
+  return array(plan.evidence).some((item) => ['stackup'].includes(text(item?.kind)) || ['stackup'].includes(text(item?.type)));
+}
 
 function normalizePoint(input = {}) {
   return { xMm: Number(input.xMm), yMm: Number(input.yMm) };
@@ -49,10 +94,14 @@ export function normalizeSemanticPlan(input = {}) {
     endpoints: array(item.endpoints).map((endpoint) => ({ ref: text(endpoint.ref), pin: text(endpoint.pin), ...normalizePoint(endpoint) })),
     differentialPair: item.differentialPair ? { mate: text(item.differentialPair.mate), impedanceOhm: Number(item.differentialPair.impedanceOhm), toleranceOhm: Number(item.differentialPair.toleranceOhm), lengthToleranceMm: Number(item.differentialPair.lengthToleranceMm) } : null,
   }));
+  // 先解析档位再取默认值：改造前无论选了哪个档位，minClearance/minCopperToEdge 的
+  // 默认值都硬取自双层档位，导致指定四层档位时静默套用了双层的数值。
+  const requestedProfileId = text(input.constraints?.profileId) || 'jlc-low-cost-2l';
+  const baseProfile = RULE_PROFILES[requestedProfileId] || RULE_PROFILES['jlc-low-cost-2l'];
   const constraints = {
-    profileId: text(input.constraints?.profileId) || 'jlc-low-cost-2l',
-    minClearanceMm: Number(input.constraints?.minClearanceMm ?? RULE_PROFILES['jlc-low-cost-2l'].minClearanceMm),
-    minCopperToEdgeMm: Number(input.constraints?.minCopperToEdgeMm ?? RULE_PROFILES['jlc-low-cost-2l'].minCopperToEdgeMm),
+    profileId: requestedProfileId,
+    minClearanceMm: Number(input.constraints?.minClearanceMm ?? baseProfile.minClearanceMm),
+    minCopperToEdgeMm: Number(input.constraints?.minCopperToEdgeMm ?? baseProfile.minCopperToEdgeMm),
     safety: input.constraints?.safety || null,
     thermal: input.constraints?.thermal || null,
     impedance: input.constraints?.impedance || null,
@@ -69,7 +118,12 @@ export function validateSemanticPlan(plan) {
   if (!positive(board.widthMm) || !positive(board.heightMm)) issues.push(issue('BOARD_DIMENSIONS_REQUIRED', '必须提供有限且大于零的板框尺寸', 'board'));
   if (![2,4,6,8].includes(board.layers)) issues.push(issue('BOARD_LAYER_UNSUPPORTED', '层数必须为已支持的2/4/6/8层', 'board.layers'));
   if (!positive(board.thicknessMm) || !positive(board.copperOz)) issues.push(issue('STACKUP_REQUIRED', '必须确认板厚和铜厚', 'board'));
-  if (!RULE_PROFILES[plan.constraints?.profileId]) issues.push(issue('RULE_PROFILE_UNKNOWN', '制造规则配置不存在', 'constraints.profileId'));
+  const profile = RULE_PROFILES[plan.constraints?.profileId];
+  if (!profile) issues.push(issue('RULE_PROFILE_UNKNOWN', '制造规则配置不存在', 'constraints.profileId'));
+  // 档位与层数必须匹配：改造前只检查档位存在，四层板套用双层档位也能通过校验。
+  else if (profile.layers !== board.layers) issues.push(issue('RULE_PROFILE_LAYER_MISMATCH', `规则档位 ${profile.id} 适用于 ${profile.layers} 层，但计划声明 ${board.layers} 层`, 'constraints.profileId'));
+  // 多层板必须绑定叠层证据：没有叠层就无从判定内层角色、参考平面与阻抗。
+  else if (profile.stackupRequired && !hasStackupEvidence(plan)) issues.push(issue('MULTILAYER_STACKUP_EVIDENCE_REQUIRED', `${profile.layers}层计划必须提供叠层证据（constraints.impedance.stackupSource 或 kind 为 stackup 的 evidence 条目）`, 'constraints.impedance'));
   if (!plan.evidence?.length) issues.push(issue('EVIDENCE_REQUIRED', '必须绑定至少一项工程或器件证据', 'evidence'));
   if (array(plan.components).length > MAX_COMPONENTS) issues.push(issue('COMPONENT_LIMIT_EXCEEDED', `器件数量超过上限${MAX_COMPONENTS}`, 'components'));
   const refs = new Set();

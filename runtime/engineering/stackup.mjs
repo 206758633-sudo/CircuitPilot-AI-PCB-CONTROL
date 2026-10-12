@@ -46,3 +46,19 @@ export function cpwgImpedance({ widthMm, gapMm, heightMm, er }) {
 }
 
 export function propagationDelayPsPerMm(effectiveEr) { if (!positive(effectiveEr)) throw new Error('ER_INVALID'); return Math.sqrt(effectiveEr) / 0.299792458; }
+
+/**
+ * 单端阻抗 -> 差分阻抗（含线间距耦合修正）。
+ *
+ * 这里是该公式的**唯一**实现：正向分析（highspeed.mjs）与反向求解（impedance.mjs）
+ * 都必须调用它。否则会出现最难查的一类问题——用 A 公式反解出的线宽，
+ * 被 B 公式判定为超差，两边都“有测试”、都自洽，但合起来是错的。
+ */
+export function differentialFromSingleEnded({ singleEndedOhm, pairGapMm, heightMm }) {
+  if (!positive(singleEndedOhm) || !positive(heightMm)) throw new Error('IMPEDANCE_INPUT_INVALID');
+  // 与改造前的 highspeed.mjs 逐字一致：`Number(input.pairGapMm || 0)`，
+  // 即 undefined/NaN/空串都按 0 处理（不引入新的拒绝路径）。
+  const gapMm = Number(pairGapMm || 0);
+  const coupling = Math.exp(-0.96 * gapMm / heightMm);
+  return { differentialOhm: 2 * singleEndedOhm * (1 - 0.48 * coupling), coupling, gapMm };
+}
