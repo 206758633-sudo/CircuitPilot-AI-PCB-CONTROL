@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { digest } from './design.mjs';
-import { countCopperLayers, isCopperLayerId, planCopperRoles, resolveLayerReference } from './engineering/layers.mjs';
+import { countCopperLayers, isCopperLayerId, isPlanCopperLayerCount, planCopperRoles, resolveLayerReference } from './engineering/layers.mjs';
 import { validateStackup } from './engineering/stackup.mjs';
 
 export const PRODUCTION_SCHEMA_VERSION = 1;
@@ -30,6 +30,10 @@ const CONSERVATIVE_LIMITS = Object.freeze({
 
 const SINGLE_LAYER_NOTE = '这是本地保守规则配置，不替代嘉立创当前工艺能力或在线DFM。';
 const MULTI_LAYER_NOTE = '四层以上档位的工艺下界沿用本地保守值（比板厂能力更严，不会更松），不构成对嘉立创多层板实际能力的声明；投产前必须以 pcb.rules.read 读到的规则配置或在线 DFM 复核，并提供叠层证据。';
+const HIGH_LAYER_NOTE = '十层以上档位在离线环境完全无法核实板厂能力（层数上限、叠层总厚度、压合次数与对准精度都需确认），工艺下界沿用保守值，不构成对嘉立创多层板实际能力的声明，且本档位不代表板厂真能生产该层数；必须提供板厂叠层与能力证据后才能投产。';
+
+/** 多层档位覆盖全部受支持层数，不再只有 4/6/8：层数上限由板厂能力决定，不由我们的枚举决定。 */
+const MULTI_LAYER_COUNTS = Object.freeze([4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32]);
 
 export const RULE_PROFILES = Object.freeze({
   'jlc-low-cost-2l': Object.freeze({
@@ -38,24 +42,12 @@ export const RULE_PROFILES = Object.freeze({
     stackupRequired: false, impedanceControlled: false, requiresFabricatorEvidence: false,
     note: SINGLE_LAYER_NOTE,
   }),
-  'jlc-4l': Object.freeze({
-    id: 'jlc-4l', label: '嘉立创四层板（保守规则）', layers: 4,
+  ...Object.fromEntries(MULTI_LAYER_COUNTS.map((layers) => [`jlc-${layers}l`, Object.freeze({
+    id: `jlc-${layers}l`, label: `嘉立创${layers}层板（保守规则）`, layers,
     thicknessMm: 1.6, copperOz: 1, ...CONSERVATIVE_LIMITS,
     stackupRequired: true, impedanceControlled: true, requiresFabricatorEvidence: true,
-    note: MULTI_LAYER_NOTE,
-  }),
-  'jlc-6l': Object.freeze({
-    id: 'jlc-6l', label: '嘉立创六层板（保守规则）', layers: 6,
-    thicknessMm: 1.6, copperOz: 1, ...CONSERVATIVE_LIMITS,
-    stackupRequired: true, impedanceControlled: true, requiresFabricatorEvidence: true,
-    note: MULTI_LAYER_NOTE,
-  }),
-  'jlc-8l': Object.freeze({
-    id: 'jlc-8l', label: '嘉立创八层板（保守规则）', layers: 8,
-    thicknessMm: 1.6, copperOz: 1, ...CONSERVATIVE_LIMITS,
-    stackupRequired: true, impedanceControlled: true, requiresFabricatorEvidence: true,
-    note: MULTI_LAYER_NOTE,
-  }),
+    note: layers > 8 ? HIGH_LAYER_NOTE : MULTI_LAYER_NOTE,
+  })])),
 });
 
 const finite = (value) => typeof value === 'number' && Number.isFinite(value);
@@ -141,7 +133,7 @@ export function validateSemanticPlan(plan) {
   const issues = [];
   const board = plan.board || {};
   if (!positive(board.widthMm) || !positive(board.heightMm)) issues.push(issue('BOARD_DIMENSIONS_REQUIRED', '必须提供有限且大于零的板框尺寸', 'board'));
-  if (![2,4,6,8].includes(board.layers)) issues.push(issue('BOARD_LAYER_UNSUPPORTED', '层数必须为已支持的2/4/6/8层', 'board.layers'));
+  if (!isPlanCopperLayerCount(board.layers)) issues.push(issue('BOARD_LAYER_UNSUPPORTED', '层数必须为 2,4,6,…,32 中的偶数（官方 setTheNumberOfCopperLayers 范围）', 'board.layers'));
   if (!positive(board.thicknessMm) || !positive(board.copperOz)) issues.push(issue('STACKUP_REQUIRED', '必须确认板厚和铜厚', 'board'));
   const profile = RULE_PROFILES[plan.constraints?.profileId];
   if (!profile) issues.push(issue('RULE_PROFILE_UNKNOWN', '制造规则配置不存在', 'constraints.profileId'));

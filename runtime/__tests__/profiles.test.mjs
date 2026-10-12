@@ -25,11 +25,17 @@ function fourLayerPlan(overrides = {}) {
 }
 const codes = (result) => result.issues.map((item) => item.code);
 
-test('四个制造规则档位齐备，且多层档位标注叠层与阻抗要求', () => {
-  assert.deepEqual(Object.keys(RULE_PROFILES).sort(), ['jlc-4l', 'jlc-6l', 'jlc-8l', 'jlc-low-cost-2l']);
+test('每个受支持层数都恰好有一个档位，且多层档位标注叠层与阻抗要求', () => {
+  const ids = Object.keys(RULE_PROFILES);
+  // 2 层一档 + 4..32 共 15 个多层档位。
+  assert.equal(ids.length, 16, `档位数量不对: ${ids.join(' ')}`);
+  for (const layers of [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32]) {
+    const matching = ids.filter((id) => RULE_PROFILES[id].layers === layers);
+    assert.equal(matching.length, 1, `${layers} 层应恰好有一个档位: ${JSON.stringify(matching)}`);
+  }
   for (const [id, profile] of Object.entries(RULE_PROFILES)) {
     assert.equal(profile.id, id, '档位 id 必须与键一致，否则按 profileId 取用会错位');
-    assert.ok([2, 4, 6, 8].includes(profile.layers));
+    assert.ok([2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32].includes(profile.layers));
     assert.ok(profile.minTrackMm > 0 && profile.minClearanceMm > 0 && profile.minCopperToEdgeMm > 0);
     assert.ok(profile.note && profile.note.length > 0, '档位必须带来源/局限说明');
     assert.equal(profile.stackupRequired, profile.layers > 2, `层数与叠层要求不一致: ${id}`);
@@ -39,7 +45,7 @@ test('四个制造规则档位齐备，且多层档位标注叠层与阻抗要�
 
 test('多层档位的工艺数值沿用保守下界，不冒充板厂已核实能力', () => {
   const base = RULE_PROFILES['jlc-low-cost-2l'];
-  for (const id of ['jlc-4l', 'jlc-6l', 'jlc-8l']) {
+  for (const id of ['jlc-4l', 'jlc-6l', 'jlc-8l', 'jlc-16l', 'jlc-32l']) {
     const profile = RULE_PROFILES[id];
     // 保守值的含义：只允许比双层档位更严，不允许更松（更松就等于凭空放宽了制造约束）。
     assert.ok(profile.minTrackMm >= base.minTrackMm, `${id} 最小线宽不得松于双层档位`);
@@ -47,6 +53,7 @@ test('多层档位的工艺数值沿用保守下界，不冒充板厂已核实�
     assert.ok(profile.minViaDiameterMm >= base.minViaDiameterMm);
     assert.equal(profile.requiresFabricatorEvidence, true, `${id} 必须标注需要板厂证据`);
     assert.match(profile.note, /不构成对嘉立创多层板实际能力的声明/, `${id} 必须写明这不是板厂能力声明`);
+    if (profile.layers > 8) assert.match(profile.note, /不代表板厂真能生产该层数/, `${id} 必须写明高层数不代表板厂能生产`);
   }
 });
 

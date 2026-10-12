@@ -4,6 +4,8 @@ import { analyzeHighSpeed } from './highspeed.mjs';
 import { planBgaEscape, planLayerTransition, validateViaCapabilities } from './hdi.mjs';
 import { analyzeRf, createSimulationHandoff } from './rf.mjs';
 import { placeSilkscreen, solveLayout } from './layout.mjs';
+import { MAX_COPPER_LAYERS, PLAN_COPPER_LAYER_COUNTS } from './layers.mjs';
+import { RULE_PROFILES } from '../production.mjs';
 const hash = (v) => crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
 
 export function runEngineeringAnalysis(input = {}) {
@@ -23,4 +25,6 @@ export function runEngineeringAnalysis(input = {}) {
   return { ...report, reportHash: hash(report) };
 }
 
-export function engineeringProfiles() { return { highSpeed:['usb2','can','rs485','spi','clock200'], layers:[4,6,8], rfMaxGHz:2.4, transmissionLines:['microstrip','stripline','cpwg'], solvers:{analytical:'implemented',external:'handoff-only'}, productionBoundary:'official-drc-dfm-human-review' }; }
+// 能力清单必须由真实实现推导，不能另抄一份常量：曾经这里硬写 layers:[4,6,8]，
+// 执行路径扩到 2..32 后它就变成了对外撒谎的过期能力声明。
+export function engineeringProfiles() { return { highSpeed:['usb2','can','rs485','spi','clock200'], layers:[...PLAN_COPPER_LAYER_COUNTS], maxCopperLayers:MAX_COPPER_LAYERS, layerProfiles:Object.keys(RULE_PROFILES), rfMaxGHz:2.4, transmissionLines:['microstrip','stripline','cpwg'], solvers:{analytical:'implemented',external:'handoff-only'}, productionBoundary:'official-drc-dfm-human-review' }; }

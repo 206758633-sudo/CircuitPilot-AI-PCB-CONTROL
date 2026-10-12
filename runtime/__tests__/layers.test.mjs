@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  LAYER_IDS, copperLayerIds, countCopperLayers, isCopperLayerId, isEdaCopperLayerCount, isPlanCopperLayerCount,
+  EDA_COPPER_LAYER_COUNTS, LAYER_IDS, PLAN_COPPER_LAYER_COUNTS, copperLayerIds, countCopperLayers, isCopperLayerId, isEdaCopperLayerCount, isPlanCopperLayerCount,
   layerIdToStackupIndex, layerRole, stackupIndexToLayerId, validateLayerReferences,
 } from '../engineering/layers.mjs';
 import { normalizePcbPlan } from '../pcb.mjs';
@@ -56,18 +56,19 @@ test('按叠层顺序换算铜层编号：2/4/6/8 层', () => {
   assert.equal(layerIdToStackupIndex(4, 3), -1);
 });
 
-test('层数校验区分 EDA 能力（到 32）与执行放行范围（2/4/6/8）', () => {
+test('执行放行范围已与 EDA 能力对齐（2..32 偶数），但仍是两个独立常量', () => {
   assert.ok(isEdaCopperLayerCount(32));
-  assert.ok(isEdaCopperLayerCount(10));
-  assert.ok(isPlanCopperLayerCount(8));
-  assert.ok(!isPlanCopperLayerCount(10), '10 层以上没有叠层校验模型，不应被放行');
+  assert.ok(isPlanCopperLayerCount(10), '叠层证据模型已覆盖 2..32，10 层应放行');
+  assert.ok(isPlanCopperLayerCount(32));
   assert.ok(!isPlanCopperLayerCount(3), '奇数层不是合法铜层数');
+  assert.ok(!isPlanCopperLayerCount(34), '超出官方 setTheNumberOfCopperLayers 上限');
   assert.ok(!isEdaCopperLayerCount(0));
   assert.throws(() => copperLayerIds(3), /COPPER_LAYER_COUNT_UNSUPPORTED/);
-  // 10 层是合法 EDA 层数（换算函数能算），但不在执行放行范围内 —— 两者是不同的问题，
-  // 不能混为一谈：换算能力到 32，放行范围只到 8。
+  // 换算能力覆盖到 32。
   assert.equal(copperLayerIds(10).length, 10);
-  assert.ok(!isPlanCopperLayerCount(10));
+  assert.equal(copperLayerIds(32).length, 32);
+  // 两者语义不同（EDA 能做什么 / 我们放行什么），刻意分开维护；当前值恰好一致。
+  assert.deepEqual([...PLAN_COPPER_LAYER_COUNTS], [...EDA_COPPER_LAYER_COUNTS]);
 });
 
 test('四层板把叠层序号当 layer 用会被拦下（会静默画到丝印层的缺陷）', () => {
@@ -114,10 +115,15 @@ test('两层板行为不变：仍放行，且叠层不是必需项', () => {
   assert.ok(!isCopperLayerId(15, 2), '两层板不存在内层铜');
 });
 
-test('非叠层层数（奇数/超范围/非数字）继续被拒', () => {
-  for (const layers of [3, 5, 10, 0, -2, 'four']) {
+test('非法层数继续被拒；合法高层数只因缺叠层证据被拒', () => {
+  for (const layers of [3, 5, 34, 0, -2, 3.5, 'four']) {
     const result = normalizePcbPlan({ board: { ...board2, layers }, operations: [outline, save, drc] });
     assert.equal(result.ready, false, `layers=${layers} 不应被放行`);
     assert.ok(result.missing.includes('board-rules'), `layers=${layers} 应报 board-rules: ${result.missing}`);
   }
+  // 10 层是合法层数：拒绝的原因必须是“缺叠层证据”，而不是“层数不支持”。
+  const ten = normalizePcbPlan({ board: { ...board2, layers: 10 }, operations: [outline, save, drc] });
+  assert.equal(ten.ready, false);
+  assert.ok(!ten.missing.includes('board-rules'), `10 层不该被当成非法层数: ${ten.missing}`);
+  assert.ok(ten.missing.some((item) => item.startsWith('stackup:')), `应因缺叠层被拒: ${ten.missing}`);
 });

@@ -46,12 +46,15 @@ export const EDA_COPPER_LAYER_COUNTS = Object.freeze(
 );
 
 /**
- * 执行路径当前放行的层数。
+ * 执行路径放行的层数。
  *
- * 刻意小于 EDA 能力（32）：validateStackup 目前只为 4/6/8 定义铜层校验与阻抗上下文，
- * 10 层以上没有叠层证据模型，放行等于让没有校验能力的层数进入生产。
+ * 曾刻意小于 EDA 能力（只放行 2/4/6/8），理由是 validateStackup 当时只为 4/6/8
+ * 定义铜层校验与阻抗上下文 —— 放行没有校验能力的层数，等于让无叠层证据的设计进入生产。
+ * 现在 validateStackup 已覆盖 2..32 的全部偶数层，前提消除，因此与 EDA 能力对齐。
+ * 二者仍是两个概念：EDA_COPPER_LAYER_COUNTS 描述“EDA 能做什么”，
+ * 这里描述“我们的执行路径放行什么”；将来若再次出现能力差，不要合并它们。
  */
-export const PLAN_COPPER_LAYER_COUNTS = Object.freeze([2, 4, 6, 8]);
+export const PLAN_COPPER_LAYER_COUNTS = EDA_COPPER_LAYER_COUNTS;
 
 const ROLE_BY_LAYER_ID = new Map([
   [LAYER_IDS.TOP, 'top-copper'],

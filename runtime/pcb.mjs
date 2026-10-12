@@ -14,7 +14,7 @@ export const PCB_CAPABILITIES = Object.freeze([
   { id: 'manual-routing', status: 'experimental', api: 'PCB_PrimitiveLine/PCB_PrimitiveVia', production: false, reason: '官方图元写API为Beta' },
   { id: 'autorouting', status: 'user-assisted', api: 'PCB_Document.autoRouting', production: false, reason: '官方明确禁止在生产环境使用Beta自动布线API' },
   { id: 'copper-pour', status: 'experimental', api: 'PCB_PrimitivePour.create', production: false, reason: '官方图元写API为Beta' },
-  { id: 'multi-layer', status: 'experimental', api: 'PCB_Layer.setTheNumberOfCopperLayers', production: false, reason: '官方标记为Beta；执行路径目前只放行 2/4/6/8 层（4 层以上必须有可验证叠层），变更层数后必须人工复核叠层与设计规则' },
+  { id: 'multi-layer', status: 'experimental', api: 'PCB_Layer.setTheNumberOfCopperLayers', production: false, reason: '官方标记为Beta；执行路径放行 2,4,6,…,32 层（2 层以上必须有可验证叠层证据），变更层数后必须人工复核叠层与设计规则' },
   { id: 'inner-layer-routing', status: 'experimental', api: 'PCB_PrimitiveLine/PrimitivePour + 内层铜层编号', production: false, reason: '内层铜层编号自 15 起（3/4 是丝印），必须经 engineering/layers.mjs 换算，禁止裸写层号' },
   { id: 'blind-buried-via', status: 'experimental', api: 'PCB_PrimitiveVia.create(...,designRuleBlindViaName)', production: false, reason: '盲埋孔跨度由板内已存在的设计规则项名定义，不是层号；且 viaType 取值编码（官方类型为 0/1/2 枚举，运行时 JS 已混淆）未经真机核实' },
   { id: '3d-check', status: 'supported', api: 'PCB_ManufactureData.get3DFile', production: false, reason: '只能证明文件可生成，不等同DFM通过' },
@@ -43,7 +43,7 @@ export function normalizePcbPlan(input = {}) {
   const plan = { apiVersion: PCB_API_VERSION, kind: 'pcb-production-plan', title: String(input.title || 'PCB production plan'), board, constraints: input.constraints || {}, operations, ...(input.stackup ? { stackup: input.stackup } : {}) };
   const missing = [];
   if (![board.widthMm,board.heightMm,board.layers,board.thicknessMm,board.copperOz,board.mountingHoles].every(finite)) missing.push('board');
-  // 层数不再写死 2：改为放行 validateStackup 有校验能力的 2/4/6/8。
+  // 层数不再写死 2：放行 validateStackup 有校验能力的 2,4,6,…,32 层。
   // EDA 本身支持到 32 层，但 10 层以上没有叠层证据模型，放行等于让无校验的层数进入生产。
   if (board.widthMm <= 0 || board.heightMm <= 0 || !isPlanCopperLayerCount(board.layers) || board.thicknessMm <= 0 || board.copperOz <= 0 || board.mountingHoles < 0) missing.push('board-rules');
   // 四层以上必须带可验证叠层：没有叠层证据，就无法判定内层角色、参考平面与阻抗，也无法核对铜层编号。

@@ -6,7 +6,9 @@ export function validateStackup(input = {}) {
   const stackup = { id: String(input.id || ''), source: String(input.source || ''), layers: Array.isArray(input.layers) ? input.layers : [], capabilities: input.capabilities || {} };
   const findings = [];
   if (!stackup.id || !stackup.source) findings.push(finding('STACKUP_EVIDENCE_REQUIRED', '叠层必须包含版本标识和板厂来源', 'stackup'));
-  if (![4,6,8].includes(stackup.layers.filter((l) => l.type === 'copper').length)) findings.push(finding('STACKUP_LAYER_COUNT_UNSUPPORTED', '高级引擎支持4/6/8个铜层', 'stackup.layers'));
+  // 与官方 setTheNumberOfCopperLayers 的范围一致：2,4,6,…,32（最多 32 铜层）。
+  const copperCount = stackup.layers.filter((l) => l.type === 'copper').length;
+  if (!(Number.isInteger(copperCount) && copperCount >= 2 && copperCount <= 32 && copperCount % 2 === 0)) findings.push(finding('STACKUP_LAYER_COUNT_UNSUPPORTED', '铜层数必须是 2,4,6,…,32 中的偶数', 'stackup.layers'));
   for (const [i, layer] of stackup.layers.entries()) {
     if (!['copper','dielectric'].includes(layer.type)) findings.push(finding('STACKUP_LAYER_TYPE_INVALID', `第${i + 1}层类型无效`, `layers.${i}`));
     if (layer.type === 'copper' && !positive(Number(layer.thicknessUm))) findings.push(finding('COPPER_THICKNESS_REQUIRED', `铜层${layer.name || i}缺少厚度`, `layers.${i}.thicknessUm`));
