@@ -88,6 +88,22 @@ try {
 }
 check('dmg-capability', dmgProbe.passed, dmgProbe.detail);
 
+// hdiutil 可用并不代表 DMG 一定能打包成功：bundle_dmg.sh 之后还会用 AppleScript 让 Finder
+// 摆好安装窗口。这一步在无 GUI 会话或未授权“自动化”时会报 -10004（权限违例），
+// 表现为编译与 hdiutil 都成功、却在最后一步失败并残留一个已挂载的临时卷。
+// 之前只探测 hdiutil 会漏掉这种情况，所以这里单独探测 Finder 自动化。
+const finder = run('/usr/bin/osascript', ['-e', 'tell application "Finder" to get name of startup disk']);
+check(
+  'dmg-window-automation',
+  finder.status === 0,
+  finder.status === 0
+    ? 'Finder 自动化可用（DMG 安装窗口布局步骤可执行）'
+    : `Finder 自动化不可用：${`${finder.stderr || finder.stdout}`.trim().split('\n').filter(Boolean).pop() || '未知原因'}（bundle_dmg.sh 用它摆安装窗口。在受限沙箱下它与 hdiutil 一起失败，因而无法单独隔离它的影响；只有在 hdiutil 正常、仅缺 macOS“自动化”授权时才可能单独导致最后一步失败）`,
+  // 非阻断项：hdiutil 那关已经覆盖沙箱类失败；此项仅作提示，
+  // 以免在“其实能打出 .dmg”的环境里误判整体不可发布。
+  false,
+);
+
 const blockedBy = checks.filter((item) => item.blocker && !item.passed);
 console.log(JSON.stringify({ ready: blockedBy.length === 0, blockedBy: blockedBy.map((item) => item.id), checks }, null, 2));
 if (blockedBy.length) process.exit(1);
