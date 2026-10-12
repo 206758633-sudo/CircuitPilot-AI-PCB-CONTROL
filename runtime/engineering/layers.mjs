@@ -127,6 +127,58 @@ export function countCopperLayers(stackup) {
 }
 
 /**
+ * 把“层引用”解析成真实的铜层编号。
+ *
+ * 受理三种写法，全部换算成铜层编号后才返回：
+ *   - 铜层编号：1 / 15 / … / 2（必须确实是该层数的铜层）
+ *   - 符号名：'L1'..'L32'（按叠层顺序，L2 在四层板上是 15 而不是 2，也不是 3）
+ *   - 'TOP' / 'BOTTOM'
+ * 无法解析时返回 null，由调用方报错；绝不猜测、绝不夹到最近的层。
+ */
+export function resolveLayerReference(value, layerCount) {
+  if (!isEdaCopperLayerCount(layerCount)) return null;
+  if (typeof value === 'number') return isCopperLayerId(value, layerCount) ? value : null;
+  const name = String(value ?? '').trim().toUpperCase();
+  if (!name) return null;
+  if (name === 'TOP') return LAYER_IDS.TOP;
+  if (name === 'BOTTOM') return LAYER_IDS.BOTTOM;
+  const match = /^L(\d{1,2})$/.exec(name);
+  if (!match) return null;
+  const ids = copperLayerIds(layerCount);
+  const index = Number(match[1]) - 1;
+  return index >= 0 && index < ids.length ? ids[index] : null;
+}
+
+/**
+ * 依据叠层推导每层角色（信号层/地平面/电源平面）。
+ *
+ * 叠层条目可用 role 显式声明（'signal'|'ground'|'power'）；未声明时按工程惯例推导：
+ * 外层为信号层，内层交替为地平面、电源平面 —— 四层板即 L1 信号 / L2 地 / L3 电源 / L4 信号。
+ * 推导结果带 source 字段标明是“叠层声明的”还是“推导的”，便于人工复核时区分。
+ */
+export function planCopperRoles(stackup, layerCount) {
+  if (!isEdaCopperLayerCount(layerCount)) throw new Error(`COPPER_LAYER_COUNT_UNSUPPORTED: ${layerCount}`);
+  const ids = copperLayerIds(layerCount);
+  const declared = Array.isArray(stackup?.layers) ? stackup.layers.filter((layer) => layer?.type === 'copper') : [];
+  const layers = ids.map((layerId, index) => {
+    const declaredRole = ['signal', 'ground', 'power'].includes(declared[index]?.role) ? declared[index].role : null;
+    if (declaredRole) return { layerId, index, role: declaredRole, source: 'stackup-declared' };
+    const isOuter = index === 0 || index === ids.length - 1;
+    if (isOuter) return { layerId, index, role: 'signal', source: 'derived-outer-signal' };
+    return { layerId, index, role: index % 2 === 1 ? 'ground' : 'power', source: 'derived-inner-alternating' };
+  });
+  return {
+    layerCount,
+    layers,
+    signalLayers: layers.filter((layer) => layer.role === 'signal'),
+    groundPlaneLayers: layers.filter((layer) => layer.role === 'ground'),
+    powerPlaneLayers: layers.filter((layer) => layer.role === 'power'),
+    // 每个铜层都必须恰好有一个角色，否则说明映射漏了层。
+    isComplete: layers.length === layerCount && layers.every((layer) => layer.role),
+  };
+}
+
+/**
  * 校验计划里所有跨层引用都落在“声明层数的铜层集合”内。
  *
  * 板框（BOARD_OUTLINE）是合法例外：它本来就画在非铜的板框层上。

@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { compileSemanticPlan, evaluateCompiledPlan, normalizeSemanticPlan, RULE_PROFILES, validateSemanticPlan } from '../production.mjs';
 
+/** 本地记录的板厂叠层数据（4/6/8 层通用）。没有这份数据，多层板不允许执行。 */
+const stackupOf = (copperLayers) => ({
+  id: `local-${copperLayers}l`, source: '本地记录的板厂叠层',
+  layers: Array.from({ length: copperLayers * 2 - 1 }, (_, index) => (index % 2 === 0
+    ? { name: `L${index / 2 + 1}`, type: 'copper', thicknessUm: 35 }
+    : { name: `d${index}`, type: 'dielectric', thicknessMm: 0.2, er: 4.3 })),
+});
+
 /** 四层板的基准语义计划：测试只改需要观察的那一项，其余保持合法。 */
 function fourLayerPlan(overrides = {}) {
   const component = (ref, xMm) => ({ ref, primitiveId: `${ref}-id`, footprint: 'R0603', side: 'top', placement: { xMm, yMm: 5, rotation: 0, locked: false }, sizeMm: { width: 1.6, height: 0.8 } });
@@ -11,7 +19,7 @@ function fourLayerPlan(overrides = {}) {
     nets: [{ name: 'USB_DP', class: 'signal', endpoints: [{ ref: 'R1', pin: '1', xMm: 5, yMm: 5 }, { ref: 'R2', pin: '1', xMm: 15, yMm: 5 }] }],
     silkscreen: [], decisions: [],
     evidence: [{ kind: 'schematic', id: 'sch-1' }],
-    constraints: { profileId: 'jlc-4l', impedance: { stackupSource: '嘉立创四层板 1.6mm 标准叠层' } },
+    constraints: { profileId: 'jlc-4l', impedance: { stackupSource: '嘉立创四层板 1.6mm 标准叠层' }, stackup: stackupOf(4) },
     ...overrides,
   };
 }
@@ -51,7 +59,7 @@ test('四层板套用双层档位必须被拦下（改造前只检查档位是�
 test('六层/八层板同样要求档位匹配', () => {
   for (const [layers, profileId] of [[6, 'jlc-6l'], [8, 'jlc-8l']]) {
     const board = { widthMm: 60, heightMm: 40, layers, thicknessMm: 1.6, copperOz: 1, mountingHoles: 4 };
-    const ok = normalizeSemanticPlan(fourLayerPlan({ board, constraints: { profileId, impedance: { stackupSource: 'x' } } }));
+    const ok = normalizeSemanticPlan(fourLayerPlan({ board, constraints: { profileId, impedance: { stackupSource: 'x' }, stackup: stackupOf(layers) } }));
     assert.equal(ok.ready, true, `${layers}层 + ${profileId} 应通过: ${JSON.stringify(codes(ok))}`);
     const mismatched = normalizeSemanticPlan(fourLayerPlan({ board, constraints: { profileId: 'jlc-4l', impedance: { stackupSource: 'x' } } }));
     assert.ok(codes(mismatched).includes('RULE_PROFILE_LAYER_MISMATCH'), `${layers}层套用四层档位应被拦下`);
@@ -64,16 +72,28 @@ test('多层计划没有叠层证据时阻断', () => {
   assert.equal(noEvidence.ready, false);
 });
 
-test('叠层证据两种形式都受理：stackupSource 或 kind=stackup 的证据条目', () => {
-  const viaConstraint = normalizeSemanticPlan(fourLayerPlan({ constraints: { profileId: 'jlc-4l', impedance: { stackupSource: '板厂叠层单 A' } } }));
-  assert.ok(!codes(viaConstraint).includes('MULTILAYER_STACKUP_EVIDENCE_REQUIRED'));
+test('叠层证据必须是数据：仅有来源字符串或标签不足以放行', () => {
+  // 只有来源字符串：这一条以前能放行，现在必须阻断 —— 执行阶段要用真实叠层数据
+  // 校验铜层数与介质参数，只有字符串时编译结果进不了执行。
+  const sourceOnly = normalizeSemanticPlan(fourLayerPlan({ constraints: { profileId: 'jlc-4l', impedance: { stackupSource: '板厂叠层单 A' } } }));
+  assert.ok(codes(sourceOnly).includes('MULTILAYER_STACKUP_EVIDENCE_REQUIRED'), `只有来源字符串不应放行: ${JSON.stringify(codes(sourceOnly))}`);
+  assert.equal(sourceOnly.ready, false);
 
-  const viaEvidence = normalizeSemanticPlan(fourLayerPlan({ evidence: [{ kind: 'stackup', id: 'stack-1' }], constraints: { profileId: 'jlc-4l' } }));
-  assert.ok(!codes(viaEvidence).includes('MULTILAYER_STACKUP_EVIDENCE_REQUIRED'), `evidence 形式未被受理: ${JSON.stringify(codes(viaEvidence))}`);
+  // 只有 evidence 标签同样不够。
+  const tagOnly = normalizeSemanticPlan(fourLayerPlan({ evidence: [{ kind: 'stackup', id: 'x' }], constraints: { profileId: 'jlc-4l' } }));
+  assert.ok(codes(tagOnly).includes('MULTILAYER_STACKUP_EVIDENCE_REQUIRED'));
 
-  // 只有非叠层证据时仍然阻断。
-  const wrongKind = normalizeSemanticPlan(fourLayerPlan({ evidence: [{ kind: 'thermal', id: 'x' }], constraints: { profileId: 'jlc-4l' } }));
-  assert.ok(codes(wrongKind).includes('MULTILAYER_STACKUP_EVIDENCE_REQUIRED'));
+  // 提供真实叠层数据后放行。
+  const withData = normalizeSemanticPlan(fourLayerPlan({ constraints: { profileId: 'jlc-4l', stackup: stackupOf(4) } }));
+  assert.equal(withData.ready, true, `提供叠层数据后应放行: ${JSON.stringify(codes(withData))}`);
+
+  // 叠层铜层数与 board.layers 不一致必须阻断。
+  const wrongCount = normalizeSemanticPlan(fourLayerPlan({ constraints: { profileId: 'jlc-4l', stackup: stackupOf(6) } }));
+  assert.ok(codes(wrongCount).includes('STACKUP_LAYER_COUNT_MISMATCH'), `层数不一致应报错: ${JSON.stringify(codes(wrongCount))}`);
+
+  // 叠层数据不完整（缺介电常数）同样阻断，并带出具体证据缺口。
+  const incomplete = normalizeSemanticPlan(fourLayerPlan({ constraints: { profileId: 'jlc-4l', stackup: { id: 'x', source: 'y', layers: [{ name: 'L1', type: 'copper', thicknessUm: 35 }] } } }));
+  assert.ok(codes(incomplete).includes('MULTILAYER_STACKUP_EVIDENCE_REQUIRED'), JSON.stringify(codes(incomplete)));
 });
 
 test('双层计划不受新规则影响：无需叠层证据，仍可编译', () => {
@@ -88,7 +108,7 @@ test('双层计划不受新规则影响：无需叠层证据，仍可编译', ()
 test('默认工艺值跟随所选档位，而不是固定取双层档位', () => {
   for (const id of Object.keys(RULE_PROFILES)) {
     const board = { widthMm: 60, heightMm: 40, layers: RULE_PROFILES[id].layers, thicknessMm: 1.6, copperOz: 1, mountingHoles: 0 };
-    const { plan } = normalizeSemanticPlan(fourLayerPlan({ board, constraints: { profileId: id, impedance: { stackupSource: 'x' } } }));
+    const { plan } = normalizeSemanticPlan(fourLayerPlan({ board, constraints: { profileId: id, impedance: { stackupSource: 'x' }, stackup: stackupOf(RULE_PROFILES[id].layers) } }));
     assert.equal(plan.constraints.minClearanceMm, RULE_PROFILES[id].minClearanceMm, `${id} 的间距默认值取错档位`);
     assert.equal(plan.constraints.minCopperToEdgeMm, RULE_PROFILES[id].minCopperToEdgeMm, `${id} 的板边净空默认值取错档位`);
   }

@@ -3,6 +3,8 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { digest } from './design.mjs';
+import { countCopperLayers, isCopperLayerId, planCopperRoles, resolveLayerReference } from './engineering/layers.mjs';
+import { validateStackup } from './engineering/stackup.mjs';
 
 export const PRODUCTION_SCHEMA_VERSION = 1;
 
@@ -63,13 +65,22 @@ const array = (value) => Array.isArray(value) ? value : [];
 const issue = (code, message, path, severity = 'blocking') => ({ code, message, path, severity });
 
 /**
- * 判定计划是否绑定了叠层证据。
- * 受理两种形式：constraints.impedance.stackupSource（阻抗计算用的板厂叠层来源）
- * 或 evidence 里一条 kind/type 为 stackup 的条目。
+ * 多层计划的叠层证据校验。
+ *
+ * 刻意要求**叠层数据**（constraints.stackup）而不是只给一个来源字符串：
+ * 执行阶段（pcb.mjs）会用同一套 validateStackup 再校验一次，只有字符串时
+ * 编译结果根本进不了执行 —— 语义阶段放行、执行阶段必拒，等于骗用户。
+ * 两个阶段共用同一个证据模型，才不会出现“到执行时才发现缺数据”。
  */
-function hasStackupEvidence(plan) {
-  if (text(plan.constraints?.impedance?.stackupSource)) return true;
-  return array(plan.evidence).some((item) => ['stackup'].includes(text(item?.kind)) || ['stackup'].includes(text(item?.type)));
+function multilayerStackupIssue(plan) {
+  const stackup = plan.constraints?.stackup;
+  const layerCount = plan.board?.layers;
+  if (!stackup) return issue('MULTILAYER_STACKUP_EVIDENCE_REQUIRED', `${layerCount}层计划必须提供叠层数据（constraints.stackup：铜层厚度、介质厚度与介电常数、板厂来源）`, 'constraints.stackup');
+  const check = validateStackup(stackup);
+  if (!check.ready) return issue('MULTILAYER_STACKUP_EVIDENCE_REQUIRED', `叠层证据不足: ${[...new Set(check.findings.map((item) => item.code))].join('|')}`, 'constraints.stackup');
+  const copperCount = countCopperLayers(stackup);
+  if (copperCount !== layerCount) return issue('STACKUP_LAYER_COUNT_MISMATCH', `叠层铜层数${copperCount}与board.layers声明的${layerCount}不一致`, 'constraints.stackup');
+  return null;
 }
 
 function normalizePoint(input = {}) {
@@ -93,6 +104,10 @@ export function normalizeSemanticPlan(input = {}) {
     name: text(item.name), class: text(item.class) || 'signal',
     endpoints: array(item.endpoints).map((endpoint) => ({ ref: text(endpoint.ref), pin: text(endpoint.pin), ...normalizePoint(endpoint) })),
     differentialPair: item.differentialPair ? { mate: text(item.differentialPair.mate), impedanceOhm: Number(item.differentialPair.impedanceOhm), toleranceOhm: Number(item.differentialPair.toleranceOhm), lengthToleranceMm: Number(item.differentialPair.lengthToleranceMm) } : null,
+    // 目标布线层：保留原始声明（可能是 'L2'/15/1），解析结果在 layerId。
+    // 解析失败时 layerId 为 null，由 validateSemanticPlan 报错，绝不猜测层号。
+    layer: item.layer === undefined || item.layer === null ? null : item.layer,
+    layerId: item.layer === undefined || item.layer === null ? null : resolveLayerReference(item.layer, Number(boardInput.layers)),
   }));
   // 先解析档位再取默认值：改造前无论选了哪个档位，minClearance/minCopperToEdge 的
   // 默认值都硬取自双层档位，导致指定四层档位时静默套用了双层的数值。
@@ -105,6 +120,14 @@ export function normalizeSemanticPlan(input = {}) {
     safety: input.constraints?.safety || null,
     thermal: input.constraints?.thermal || null,
     impedance: input.constraints?.impedance || null,
+    // 叠层声明（可选）：用于推导每层角色（信号/地平面/电源平面）。进入 constraints 即进入计划哈希。
+    stackup: input.constraints?.stackup ? { ...input.constraints.stackup, layers: array(input.constraints.stackup.layers) } : null,
+    // 显式平面铺铜：多层板不指定时按叠层角色自动推导（内层地/电源平面）。
+    planes: array(input.constraints?.planes).map((plane) => ({
+      net: text(plane.net), layer: plane.layer, layerId: resolveLayerReference(plane.layer, board.layers),
+    })),
+    // 地平面缝合孔默认开启（多层板有地平面时）；显式传 false 可关闭。
+    groundStitching: input.constraints?.groundStitching !== false,
     keepouts: array(input.constraints?.keepouts).map((zone) => ({ xMm: Number(zone.xMm), yMm: Number(zone.yMm), widthMm: Number(zone.widthMm), heightMm: Number(zone.heightMm), layers: array(zone.layers) })),
   };
   const plan = { schemaVersion: PRODUCTION_SCHEMA_VERSION, kind: 'pcba-semantic-plan', projectId: text(input.projectId), title: text(input.title) || 'PCBA production plan', board, constraints, components, nets, silkscreen: array(input.silkscreen), evidence: array(input.evidence), decisions: array(input.decisions), createdBy: 'codex-structured-output' };
@@ -123,7 +146,7 @@ export function validateSemanticPlan(plan) {
   // 档位与层数必须匹配：改造前只检查档位存在，四层板套用双层档位也能通过校验。
   else if (profile.layers !== board.layers) issues.push(issue('RULE_PROFILE_LAYER_MISMATCH', `规则档位 ${profile.id} 适用于 ${profile.layers} 层，但计划声明 ${board.layers} 层`, 'constraints.profileId'));
   // 多层板必须绑定叠层证据：没有叠层就无从判定内层角色、参考平面与阻抗。
-  else if (profile.stackupRequired && !hasStackupEvidence(plan)) issues.push(issue('MULTILAYER_STACKUP_EVIDENCE_REQUIRED', `${profile.layers}层计划必须提供叠层证据（constraints.impedance.stackupSource 或 kind 为 stackup 的 evidence 条目）`, 'constraints.impedance'));
+  else if (profile.stackupRequired) { const stackupIssue = multilayerStackupIssue(plan); if (stackupIssue) issues.push(stackupIssue); }
   if (!plan.evidence?.length) issues.push(issue('EVIDENCE_REQUIRED', '必须绑定至少一项工程或器件证据', 'evidence'));
   if (array(plan.components).length > MAX_COMPONENTS) issues.push(issue('COMPONENT_LIMIT_EXCEEDED', `器件数量超过上限${MAX_COMPONENTS}`, 'components'));
   const refs = new Set();
@@ -137,6 +160,12 @@ export function validateSemanticPlan(plan) {
   for (const [index, net] of array(plan.nets).entries()) {
     if (!net.name || net.endpoints.length < 2) issues.push(issue('NET_ENDPOINTS_REQUIRED', `网络${net.name || index}至少需要两个端点`, `nets.${index}`));
     if (net.differentialPair && (!positive(net.differentialPair.impedanceOhm) || !text(net.differentialPair.mate))) issues.push(issue('DIFF_PAIR_INCOMPLETE', `差分网络${net.name}缺少配对或阻抗`, `nets.${index}.differentialPair`));
+    // 声明了布线层但解析不出铜层编号：宁可阻断，也不能退回默认层悄悄画错层。
+    if (net.layer !== null && net.layer !== undefined && net.layerId === null) issues.push(issue('NET_LAYER_INVALID', `网络${net.name}声明的布线层${JSON.stringify(net.layer)}不是${board.layers}层板的铜层`, `nets.${index}.layer`));
+  }
+  for (const [index, plane] of array(plan.constraints?.planes).entries()) {
+    if (!plane.net) issues.push(issue('PLANE_NET_REQUIRED', '平面铺铜必须指定网络', `constraints.planes.${index}.net`));
+    if (plane.layerId === null) issues.push(issue('PLANE_LAYER_INVALID', `平面层${JSON.stringify(plane.layer)}不是${board.layers}层板的铜层`, `constraints.planes.${index}.layer`));
   }
   const voltage = Number(plan.constraints?.safety?.workingVoltageV);
   if (finite(voltage) && voltage >= 60 && (!positive(Number(plan.constraints.safety.clearanceMm)) || !positive(Number(plan.constraints.safety.creepageMm)))) issues.push(issue('SAFETY_CLEARANCE_REQUIRED', '高于或等于60V时必须由工程师确认电气间隙和爬电距离', 'constraints.safety'));
@@ -159,24 +188,72 @@ export function compileSemanticPlan(input = {}) {
   const [width, height] = [normalized.plan.board.widthMm, normalized.plan.board.heightMm];
   for (const [startX,startY,endX,endY] of [[0,0,width,0],[width,0,width,height],[width,height,0,height],[0,height,0,0]]) operations.push({ type: 'pcb.line.create', stage: 'outline', args: { net: '', layer: 11, startX, startY, endX, endY, lineWidth: 0.2, primitiveLock: true } });
   for (const component of [...normalized.plan.components].sort((a,b) => a.ref.localeCompare(b.ref))) operations.push({ type: 'pcb.component.modify', stage: 'placement', ref: component.ref, args: { primitiveId: component.primitiveId, property: { x: component.placement.xMm, y: component.placement.yMm, rotation: component.placement.rotation, layer: component.side === 'bottom' ? 2 : 1, primitiveLock: component.placement.locked } } });
+  // 目标布线层：显式声明优先（已在校验阶段解析为合法铜层编号）；
+  // 未声明时，若该网络的焊盘全在底面就布到底层，否则布到顶层 —— 与两层板行为一致。
+  const componentByRef = new Map(normalized.plan.components.map((component) => [component.ref, component]));
+  const padLayerOf = (ref) => (componentByRef.get(ref)?.side === 'bottom' ? 2 : 1);
+  const sortedNets = [...normalized.plan.nets].sort((a,b) => a.name.localeCompare(b.name));
+  const routeLayerOf = (net) => {
+    if (net.layerId !== null) return net.layerId;
+    const padLayers = new Set(net.endpoints.map((endpoint) => padLayerOf(endpoint.ref)));
+    return padLayers.size === 1 && padLayers.has(2) ? 2 : 1;
+  };
   const routes = [];
-  for (const net of [...normalized.plan.nets].sort((a,b) => a.name.localeCompare(b.name))) {
+  for (const net of sortedNets) {
     const widthMm = net.class === 'power' ? Math.max(0.5, profile.minTrackMm) : Math.max(0.2, profile.minTrackMm);
+    const layer = routeLayerOf(net);
     for (let index = 1; index < net.endpoints.length; index += 1) {
       const start = net.endpoints[index - 1]; const end = net.endpoints[index];
       const bend = { xMm: end.xMm, yMm: start.yMm };
-      for (const [a,b] of [[start,bend],[bend,end]]) if (a.xMm !== b.xMm || a.yMm !== b.yMm) routes.push({ net: net.name, layer: 1, start: a, end: b, widthMm, strategy: 'deterministic-manhattan' });
+      for (const [a,b] of [[start,bend],[bend,end]]) if (a.xMm !== b.xMm || a.yMm !== b.yMm) routes.push({ net: net.name, layer, start: a, end: b, widthMm, strategy: 'deterministic-manhattan' });
     }
   }
   for (const route of routes) operations.push({ type: 'pcb.line.create', stage: 'routing', args: { net: route.net, layer: route.layer, startX: route.start.xMm, startY: route.start.yMm, endX: route.end.xMm, endY: route.end.yMm, lineWidth: route.widthMm, primitiveLock: false } });
-  operations.push({ type: 'pcb.pour.create', stage: 'copper', args: { net: 'GND', layer: 1, clearance: profile.minClearanceMm, outline: [[0,0],[width,0],[width,height],[0,height]], removeIslands: true, thermalReliefSpokes: profile.thermalReliefSpokes } });
+
+  // 层间转换（通孔）：焊盘所在层与走线层不同时，物理上必须打过孔。
+  // 通孔是官方签名里 viaType 的默认行为，因此这里刻意不传 viaType ——
+  // 该参数的取值编码尚无法离线核实，不在关键路径上冒险。
+  const vias = [];
+  const viaKeys = new Set();
+  const pushVia = (net, xMm, yMm, reason) => {
+    const key = `${net}:${xMm}:${yMm}:${reason}`;
+    if (viaKeys.has(key)) return;
+    viaKeys.add(key);
+    vias.push({ net, xMm, yMm, reason });
+  };
+  for (const net of sortedNets) {
+    const layer = routeLayerOf(net);
+    for (const endpoint of net.endpoints) if (padLayerOf(endpoint.ref) !== layer) pushVia(net.name, endpoint.xMm, endpoint.yMm, 'pad-to-route-layer-transition');
+  }
+
+  // 覆铜：顶层地铺铜保持不变（与两层板一致），多层板再按叠层角色铺内层平面。
+  // 平面按层号升序输出，便于人工按叠层顺序复核；显式声明优先于自动推导。
+  const planeByLayer = new Map();
+  if (normalized.plan.board.layers > 2) {
+    const roles = planCopperRoles(normalized.plan.constraints.stackup, normalized.plan.board.layers);
+    const powerNet = sortedNets.find((net) => net.class === 'power')?.name;
+    for (const plane of roles.groundPlaneLayers) planeByLayer.set(plane.layerId, { net: 'GND', layer: plane.layerId, role: 'ground-plane' });
+    // 没有电源网络就不铺电源平面：不凭空发明网络名。
+    if (powerNet) for (const plane of roles.powerPlaneLayers) planeByLayer.set(plane.layerId, { net: powerNet, layer: plane.layerId, role: 'power-plane' });
+  }
+  for (const plane of normalized.plan.constraints.planes) planeByLayer.set(plane.layerId, { net: plane.net, layer: plane.layerId, role: 'explicit-plane' });
+  const topPour = planeByLayer.get(1) ?? { net: 'GND', layer: 1, role: 'top-ground-pour' };
+  const pours = [topPour, ...[...planeByLayer.values()].filter((pour) => pour.layer !== 1).sort((a, b) => a.layer - b.layer)];
+  for (const pour of pours) operations.push({ type: 'pcb.pour.create', stage: 'copper', args: { net: pour.net, layer: pour.layer, clearance: profile.minClearanceMm, outline: [[0,0],[width,0],[width,height],[0,height]], removeIslands: true, thermalReliefSpokes: profile.thermalReliefSpokes } });
+
+  // 地平面缝合孔：把顶层地铺铜与内层地平面连起来，避免平面悬空。
+  if (normalized.plan.board.layers > 2 && profile.groundStitching !== false && pours.some((pour) => pour.net === 'GND' && pour.layer !== 1)) {
+    for (const [xMm, yMm] of [[1, 1], [width - 1, 1], [width - 1, height - 1], [1, height - 1]]) pushVia('GND', xMm, yMm, 'ground-plane-stitching');
+  }
+  for (const via of vias) operations.push({ type: 'pcb.via.create', stage: 'routing', args: { net: via.net, x: via.xMm, y: via.yMm, holeDiameter: profile.minViaDrillMm, diameter: profile.minViaDiameterMm } });
+
   operations.push({ type: 'pcb.save', stage: 'save', args: {} }, { type: 'pcb.drc', stage: 'validation', args: {} });
-  const quality = evaluateCompiledPlan(normalized.plan, profile, routes);
-  const compiledPlan = { apiVersion: 1, kind: 'pcb-production-plan', semanticPlanHash: normalized.planHash, title: normalized.plan.title, board: normalized.plan.board, constraints: { profileId: profile.id, minClearanceMm: profile.minClearanceMm, minCopperToEdgeMm: profile.minCopperToEdgeMm }, operations };
+  const quality = evaluateCompiledPlan(normalized.plan, profile, routes, operations);
+  const compiledPlan = { apiVersion: 1, kind: 'pcb-production-plan', semanticPlanHash: normalized.planHash, title: normalized.plan.title, board: normalized.plan.board, constraints: { profileId: profile.id, minClearanceMm: profile.minClearanceMm, minCopperToEdgeMm: profile.minCopperToEdgeMm }, ...(normalized.plan.constraints.stackup ? { stackup: normalized.plan.constraints.stackup } : {}), operations };
   return { ...normalized, compiled: compiledPlan, compiledPlanHash: digest(compiledPlan), quality };
 }
 
-export function evaluateCompiledPlan(plan, profile, routes = []) {
+export function evaluateCompiledPlan(plan, profile, routes = [], operations = []) {
   const findings = [];
   const boxes = plan.components.map((component) => ({ ref: component.ref, ...placementBox(component) }));
   for (const box of boxes) if (box.left < profile.minCopperToEdgeMm || box.top < profile.minCopperToEdgeMm || box.right > plan.board.widthMm - profile.minCopperToEdgeMm || box.bottom > plan.board.heightMm - profile.minCopperToEdgeMm) findings.push(issue('COMPONENT_EDGE_CLEARANCE', `${box.ref}未满足板边净空`, `components.${box.ref}`));
@@ -184,7 +261,16 @@ export function evaluateCompiledPlan(plan, profile, routes = []) {
   for (const net of plan.nets.filter((item) => item.differentialPair)) if (!plan.constraints.impedance?.stackupSource) findings.push(issue('IMPEDANCE_STACKUP_REQUIRED', `${net.name}需要板厂叠层证据后才能计算阻抗`, `constraints.impedance`));
   const routedNets = new Set(routes.map((route) => route.net));
   for (const net of plan.nets) if (!routedNets.has(net.name)) findings.push(issue('UNROUTED_NET', `${net.name}没有生成确定性路径`, `nets.${net.name}`));
-  return { passed: findings.length === 0, findings, metrics: { componentCount: plan.components.length, netCount: plan.nets.length, routedNetCount: routedNets.size, trackSegmentCount: routes.length, viaCount: 0, pourCount: 1 }, humanReviewRequired: true };
+  // 指标从真实操作序列统计，而不是写死：改造前 viaCount 恒为 0、pourCount 恒为 1，
+  // 多层板会因此报出与实际不符的统计。usedLayers 只统计铜层 ——
+  // 板框画在非铜的板框层(11)上，混进来会让人误以为铜层被用到了 11 层。
+  const hasOperations = operations.length > 0;
+  const viaCount = hasOperations ? operations.filter((operation) => operation.type === 'pcb.via.create').length : 0;
+  const pourCount = hasOperations ? operations.filter((operation) => operation.type === 'pcb.pour.create').length : 1;
+  const usedLayers = hasOperations
+    ? [...new Set(operations.filter((operation) => ['pcb.line.create', 'pcb.pour.create'].includes(operation.type)).map((operation) => operation.args.layer).filter((layer) => isCopperLayerId(layer, plan.board?.layers)))].sort((a, b) => a - b)
+    : [];
+  return { passed: findings.length === 0, findings, metrics: { componentCount: plan.components.length, netCount: plan.nets.length, routedNetCount: routedNets.size, trackSegmentCount: routes.length, viaCount, pourCount, usedLayers }, humanReviewRequired: true };
 }
 
 function sha256(filePath) {
