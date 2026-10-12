@@ -4,6 +4,8 @@ import { Badge, Button, Panel, Stat } from '../components/ui';
 import { ConfirmDialog } from '../components/overlays';
 import { useApp } from '../state/AppContext';
 import { RuntimeApiError, runtimeClient } from '../services/runtimeClient';
+import { invalidateTaskApproval } from '../state/taskMachine';
+import { IMAGE_MIME_TYPES, verifyImageSignature } from '../utils/imageSignature';
 import type { BomDraft, ChatMessage, ChatState, ComponentItem, Requirement, RequirementSuggestion } from '../types';
 
 const quickPrompts = [
@@ -68,12 +70,21 @@ export function AiTasksPage() {
     const selected = Array.from(files).slice(0, Math.max(0, 4 - attachments.length));
     const accepted: PendingAttachment[] = [];
     for (const file of selected) {
-      const image = ['image/png','image/jpeg','image/webp','image/gif'].includes(file.type);
+      const image = (IMAGE_MIME_TYPES as readonly string[]).includes(file.type);
       const textFile = file.type.startsWith('text/') || TEXT_FILE.test(file.name);
       if (!image && !textFile) { notify('附件格式暂不支持', `${file.name}：对话目前支持PNG/JPG/WebP/GIF和文本、CSV、JSON、XML、YAML、网表等文本类文件。`, 'warning'); continue; }
       if (image && file.size > 5 * 1024 * 1024) { notify('图片过大', `${file.name}超过5MB。`, 'warning'); continue; }
       if (textFile && file.size > 1024 * 1024) { notify('文件过大', `${file.name}超过1MB。`, 'warning'); continue; }
-      if (image) { const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); }); accepted.push({ id: `attachment-${Date.now()}-${accepted.length}`, name: file.name, mime: file.type, size: file.size, kind: 'image', payload: dataUrl.split(',')[1] || '' }); }
+      if (image) {
+        // 客户端失败关闭：File.type 可被伪造，必须用真实文件签名复核后才接受图片。
+        let bytes: Uint8Array;
+        try { bytes = new Uint8Array(await file.arrayBuffer()); }
+        catch { notify('图片读取失败', `${file.name}：无法读取文件字节，已拒绝该附件。`, 'danger'); continue; }
+        const verdict = verifyImageSignature(bytes, file.type);
+        if (!verdict.ok) { notify('图片签名校验未通过', `${file.name}：${verdict.reason}。为避免伪造载荷，已拒绝该附件。`, 'danger'); continue; }
+        const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); });
+        accepted.push({ id: `attachment-${Date.now()}-${accepted.length}`, name: file.name, mime: verdict.detected, size: file.size, kind: 'image', payload: dataUrl.split(',')[1] || '' });
+      }
       else accepted.push({ id: `attachment-${Date.now()}-${accepted.length}`, name: file.name, mime: file.type || 'text/plain', size: file.size, kind: 'text', payload: (await file.text()).slice(0, 200_000) });
     }
     setAttachments((current) => [...current, ...accepted].slice(0, 4));
@@ -98,7 +109,8 @@ export function AiTasksPage() {
       const candidate = { ...result.candidate, planHash: result.planning?.planHash };
       setProductionCandidate(candidate);
       if (candidate.status === 'ready' && result.planning?.ready) {
-        dispatch({ type: 'PATCH_TASK', patch: { status: 'planned', planHash: result.planning.planHash, unknowns: [], evidence: ['Codex结构化PCBA计划', '实时嘉立创EDA PCB证据'] } });
+        // 新生成的计划会替换旧批准：显式让原批准失效，避免旧批准被静默复用到新的计划哈希上。
+        dispatch({ type: 'SET_TASK', task: invalidateTaskApproval(state.task, { planHash: result.planning.planHash, unknowns: [], evidence: ['Codex结构化PCBA计划', '实时嘉立创EDA PCB证据'] }) });
         addAudit('ai', '生成可验证PCBA语义计划', result.planning.planHash, 'success');
         notify('PCBA计划已通过Schema校验', '请进入EDA页继续编译、审查和批准，当前尚未写入。', 'success');
       } else {

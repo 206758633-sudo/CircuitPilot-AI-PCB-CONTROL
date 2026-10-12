@@ -1,0 +1,14 @@
+# 交付物里的二进制资产：禁止行尾/编码转换，并禁用文本化 diff，
+# 避免在审阅或工具链处理时误改这些不可逆的交付文件。
+*.step  -text -diff
+*.stl   -text -diff
+*.icns  -text -diff
+*.ico   -text -diff
+*.png   -text -diff
+*.woff  -text -diff
+*.woff2 -text -diff
+*.dmg   -text -diff
+
+# 锁定文件属于生成物：在代码托管界面折叠，减少审阅噪声。
+package-lock.json     linguist-generated=true
+src-tauri/Cargo.lock  linguist-generated=true

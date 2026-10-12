@@ -15,6 +15,7 @@ import { ProductionManager } from './production.mjs';
 import { engineeringProfiles, runEngineeringAnalysis } from './engineering/engine.mjs';
 import { engineeringFixtures } from './engineering/fixtures.mjs';
 import { startDetached } from './process.mjs';
+import { RUNTIME_VERSION } from './version.mjs';
 
 const runtimeParentPid = process.ppid;
 const parentWatchdog = setInterval(() => {
@@ -97,9 +98,13 @@ function isLoopbackHost(hostHeader) {
 }
 
 export function createRuntimeServer({ keychain = new MacKeychain(), bridge = new BridgeClient(), diagnostics = systemDiagnostics, chat = null, design = null, pcb = null, production = null, runtimeToken = process.env.CIRCUITPILOT_RUNTIME_TOKEN } = {}) {
-  // Tauri 壳层可以通过环境变量注入令牌，使令牌完全不经由 HTTP 分发；
-  // 独立开发模式（npm run dev:full）才回退到随机令牌 + 受信 Origin 引导。
-  const sessionToken = typeof runtimeToken === 'string' && runtimeToken.length >= 16 ? runtimeToken : crypto.randomBytes(24).toString('base64url');
+  const injectedToken = typeof runtimeToken === 'string' && runtimeToken.length >= 16;
+  // Tauri 壳层通过环境变量注入令牌时，令牌完全不经由 HTTP 分发，因此彻底关闭
+  // HTTP 令牌发放：此时本机任何进程（哪怕伪造 Origin）都无法再通过 /api/health 领到令牌，
+  // 只能由持有令牌的 WebView 发起请求。这是对“本机同用户进程可伪造 Origin”这一残余风险的收口。
+  // 独立开发模式（npm run dev:full，没有注入令牌）才回退到随机令牌 + 受信 Origin 引导。
+  const httpTokenIssuance = !injectedToken;
+  const sessionToken = injectedToken ? runtimeToken : crypto.randomBytes(24).toString('base64url');
   const chatManager = chat || new ChatManager({ keychain, bridge });
   const designManager = design || new DesignManager({ bridge });
   const pcbManager = pcb || new PcbManager({ bridge });
@@ -131,16 +136,27 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = new
     // 其余路由（含只读 GET）一律要求会话令牌，避免本机任意进程读取设计数据、日志和工具链路径。
     const isPublicRoute = method === 'GET' && url.pathname === '/api/health';
     if (!isPublicRoute && request.headers['x-circuitpilot-token'] !== sessionToken) {
+      // 鉴权失败必须留下可审计痕迹（但不记录令牌本身）。此前这里静默返回 401，
+      // 排查“前端为什么连不上”时日志里什么都看不到。
+      logger.warn('Http', 'Rejected request with invalid session token', {
+        method,
+        path: url.pathname,
+        // 注意：字段名不能包含 token/key/secret/credential，否则会被 logger 的
+        // SECRET_KEYS 规则整段涂成 [REDACTED]，日志就失去诊断价值了。
+        hadAuthHeader: typeof request.headers['x-circuitpilot-token'] === 'string',
+        issuanceEnabled: httpTokenIssuance,
+      });
       return sendJson(response, 401, runtimeError(Object.assign(new Error('Runtime会话令牌无效'), { code: 'RUNTIME_TOKEN_INVALID' })), origin);
     }
 
     try {
       let result;
       if (method === 'GET' && url.pathname === '/api/health') {
-        // 令牌只发给受信任的浏览器来源（开发端口或 Tauri WebView）。
-        // 不带 Origin 的本机进程（curl / 脚本 / 其它 App）不再能领取写权限凭据。
+        // 令牌只发给受信任的浏览器来源（开发端口或 Tauri WebView），而且只有在
+        // 令牌没有由壳层注入时才发放；不带 Origin 的本机进程（curl / 脚本 / 其它 App）
+        // 永远拿不到写权限凭据。
         const trustedOrigin = typeof origin === 'string' && ALLOWED_ORIGINS.has(origin);
-        result = { ok: true, service: 'circuitpilot-runtime', version: '0.6.1', host: RUNTIME_HOST, ...(trustedOrigin ? { sessionProof: sessionToken } : {}) };
+        result = { ok: true, service: 'circuitpilot-runtime', version: RUNTIME_VERSION, host: RUNTIME_HOST, ...(httpTokenIssuance && trustedOrigin ? { sessionProof: sessionToken } : {}) };
       } else if (method === 'GET' && url.pathname === '/api/diagnostics') {
         result = { ok: true, diagnostics: await diagnostics() };
       } else if (method === 'GET' && url.pathname === '/api/providers') {
@@ -350,7 +366,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = new
   // 这里统一记录，便于定位“端口被占用”和“权限不足”。
   server.on('error', (error) => logger.error('Http', 'Runtime server error', { code: error.code, message: error.message, host: RUNTIME_HOST }));
   server.on('close', () => chatManager.close?.());
-  return { server, sessionToken };
+  return { server, sessionToken, httpTokenIssuance };
 }
 
 export function startRuntime({ port = RUNTIME_PORT } = {}) {

@@ -83,6 +83,49 @@ describe('appReducer', () => {
     expect(applied.projectChats[initial.activeProjectId].messages[0].bomDraft?.status).toBe('applied');
   });
 
+  it('applies a BOM draft whose owner matches the active project', () => {
+    const initial = createSeedState();
+    const draft = { id: 'draft-own', status: 'draft' as const, title: 'AI BOM', summary: '', blockingQuestions: [], assumptions: [], items: [], projectId: initial.activeProjectId };
+    const withDraft = appReducer(initial, { type: 'ADD_CHAT_MESSAGE', message: { id: 'assistant-bom-own', role: 'assistant', content: '草案', createdAt: 'now', status: 'complete', bomDraft: draft } });
+    const component = { id: 'cmp-own', projectId: initial.activeProjectId, refdes: 'U97', mpn: 'TEST', manufacturer: 'Maker', package: 'QFN', lcscId: '', qty: 1, status: 'pending' as const, value: 'MCU' };
+    const applied = appReducer(withDraft, { type: 'APPLY_BOM_DRAFT', messageId: 'assistant-bom-own', components: [component], appliedAt: 'now' });
+    expect(applied).not.toBe(withDraft);
+    expect(applied.components).toContainEqual(component);
+    expect(applied.projectChats[initial.activeProjectId].messages[0].bomDraft?.status).toBe('applied');
+  });
+
+  it('refuses to apply a BOM draft that belongs to another project', () => {
+    const initial = createSeedState();
+    const draft = { id: 'draft-foreign', status: 'draft' as const, title: 'AI BOM', summary: '', blockingQuestions: [], assumptions: [], items: [], projectId: 'motor-node' };
+    const withDraft = appReducer(initial, { type: 'ADD_CHAT_MESSAGE', message: { id: 'assistant-bom-foreign', role: 'assistant', content: '草案', createdAt: 'now', status: 'complete', bomDraft: draft } });
+    const component = { id: 'cmp-foreign', projectId: initial.activeProjectId, refdes: 'U98', mpn: 'TEST', manufacturer: 'Maker', package: 'QFN', lcscId: '', qty: 1, status: 'pending' as const, value: 'MCU' };
+    const blocked = appReducer(withDraft, { type: 'APPLY_BOM_DRAFT', messageId: 'assistant-bom-foreign', components: [component], appliedAt: 'now' });
+    expect(blocked).toBe(withDraft);
+    expect(blocked.components).toEqual(initial.components);
+    expect(blocked.projectChats[initial.activeProjectId].messages[0].bomDraft?.status).toBe('draft');
+  });
+
+  it('refuses to apply a BOM draft whose message lives in another project chat', () => {
+    const initial = createSeedState();
+    const draft = { id: 'draft-chat', status: 'draft' as const, title: 'AI BOM', summary: '', blockingQuestions: [], assumptions: [], items: [] };
+    const withDraft = appReducer(initial, { type: 'ADD_CHAT_MESSAGE', message: { id: 'assistant-bom-chat', role: 'assistant', content: '草案', createdAt: 'now', status: 'complete', bomDraft: draft } });
+    const switched = appReducer(withDraft, { type: 'SET_ACTIVE_PROJECT', id: 'motor-node' });
+    const component = { id: 'cmp-chat', projectId: 'motor-node', refdes: 'U96', mpn: 'TEST', manufacturer: 'Maker', package: 'QFN', lcscId: '', qty: 1, status: 'pending' as const, value: 'MCU' };
+    const blocked = appReducer(switched, { type: 'APPLY_BOM_DRAFT', messageId: 'assistant-bom-chat', components: [component], appliedAt: 'now' });
+    expect(blocked).toBe(switched);
+    expect(blocked.projectChats[initial.activeProjectId].messages[0].bomDraft?.status).toBe('draft');
+  });
+
+  it('refuses to apply BOM components that are tagged with another project', () => {
+    const initial = createSeedState();
+    const draft = { id: 'draft-tag', status: 'draft' as const, title: 'AI BOM', summary: '', blockingQuestions: [], assumptions: [], items: [], projectId: initial.activeProjectId };
+    const withDraft = appReducer(initial, { type: 'ADD_CHAT_MESSAGE', message: { id: 'assistant-bom-tag', role: 'assistant', content: '草案', createdAt: 'now', status: 'complete', bomDraft: draft } });
+    const component = { id: 'cmp-tag', projectId: 'motor-node', refdes: 'U95', mpn: 'TEST', manufacturer: 'Maker', package: 'QFN', lcscId: '', qty: 1, status: 'pending' as const, value: 'MCU' };
+    const blocked = appReducer(withDraft, { type: 'APPLY_BOM_DRAFT', messageId: 'assistant-bom-tag', components: [component], appliedAt: 'now' });
+    expect(blocked).toBe(withDraft);
+    expect(blocked.components).toEqual(initial.components);
+  });
+
   it('keeps independent chat history for each selected project', () => {
     const initial = createSeedState();
     const projectA = initial.activeProjectId;

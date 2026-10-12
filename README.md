@@ -80,10 +80,17 @@ Runtime扫描 `127.0.0.1:49620-49629`，只有 `/health` 返回 `service: "easye
 ### Runtime 访问控制
 
 - `GET /api/health` 是唯一公开路由；其余路由（含只读 GET）都要求 `x-circuitpilot-token`。
-- 会话令牌只发给受信任的浏览器来源（`http://127.0.0.1:4177` 等开发端口，或 Tauri WebView 的 `tauri://localhost`）。不带 `Origin` 的本机进程调用 `/api/health` 只会拿到 `ok:true`，不会拿到令牌。
 - Host 头必须是回环地址，防止 DNS 重绑定；非回环 Host 返回 `403 HOST_FORBIDDEN`。
-- Tauri 壳层可以用环境变量 `CIRCUITPILOT_RUNTIME_TOKEN` 注入令牌，使令牌完全不经过 HTTP 分发。
-- 已知残余风险：本机同用户的任意进程都能伪造 `Origin` 头。要彻底消除需要改用 Unix 域套接字或 Tauri IPC 传递身份，属于后续架构项。
+- 令牌有且只有两条不经由 HTTP 的交付通道（生产/桌面模式）：
+  Tauri 壳层为每次启动生成一次性令牌，通过**进程环境变量** `CIRCUITPILOT_RUNTIME_TOKEN` 传给 sidecar，
+  并用 `WebviewWindowBuilder::initialization_script` 在页面脚本执行前注入 `window.__CIRCUITPILOT_RUNTIME_TOKEN__`。
+- **一旦令牌由壳层注入，Runtime 会彻底关闭 HTTP 令牌发放**：`/api/health` 不再返回 `sessionProof`，
+  因此本机其它进程即使伪造 `Origin` 也领不到令牌（回归测试见 `runtime/__tests__/server.test.mjs`
+  的 “injected shell token disables HTTP token issuance entirely”）。
+- 只有在没有注入令牌的开发模式（`npm run dev:full`，浏览器直连）下，才回退到「随机令牌 + 受信 Origin 引导」，
+  且不带 `Origin` 的本机进程调用 `/api/health` 只会拿到 `ok:true`，不会拿到令牌。
+- 若本机已经有一个外部 Runtime 在跑（例如先执行了 `npm run dev:runtime`），壳层无法得知它的令牌，
+  此时不注入令牌，前端回退到上述开发模式引导，以免破坏开发流程。
 
 ## 修改日志与问题中心
 
@@ -107,25 +114,45 @@ npm run desktop:check
 工具链齐全后：
 
 ```bash
-npm run desktop:dev
-npm run desktop:build
+npm run desktop:dev     # tauri dev（beforeDevCommand 会先 dev:full）
+npm run desktop:app     # 只产出 .app（不依赖 hdiutil，适合受限环境与 CI）
+npm run desktop:build   # .app + .dmg
+npm run desktop:release # 先跑发布门禁（签名/公证/sidecar/DMG 能力），再打包
 ```
 
-本机 Rust/Cargo 已安装（1.98.0），`npm run desktop:check` 通过。但仓库里最新的 `CircuitPilot_0.2.0_aarch64.dmg` 生成于 2026-08-25 18:25，早于此后对 `src/` 的修改；修复前 `npx tsc -b` 有 18 处类型错误，会让 `npm run build` 与 `beforeBuildCommand` 直接失败，所以不存在对应当前源码的桌面包。本次修复已让 typecheck 恢复通过，但没有在本次变更中重跑完整的 `tauri build`，因此桌面包仍未按当前提交验收。Web构建成功不会被当作桌面包成功。发布版还需要把Node Runtime打包为受控Sidecar并完成Apple签名与公证。
+Node Runtime 现在会作为受控 sidecar 打进应用包：`beforeBuildCommand` 会调用
+`scripts/stage-runtime-sidecar.mjs`，把当前 Node 二进制瘦身到目标架构后放到
+`src-tauri/binaries/node-<target-triple>`（由 Tauri 的 `externalBin` 复制到
+`CircuitPilot.app/Contents/MacOS/node`）。因此发布版不再要求用户机器上装过 Node；
+代价是安装包增大约 114 MB。
+
+```bash
+npm run sidecar:stage   # 单独重新生成 sidecar（已是最新时会跳过）
+npm run desktop:release-check  # 发布门禁：工具链/版本一致性/sidecar/entitlements/签名/公证/DMG 能力
+```
+
+`desktop:release-check` 会把“`hdiutil` 无法创建磁盘映像”这类只有在打包最后一步才会暴露的问题提前报出来。
+若它报告 `dmg-capability` 失败（受限或无 GUI 会话下属于预期），用 `npm run desktop:app` 只产出 `.app`。
+Apple 签名与公证需要本机具备 Developer ID 证书与公证凭证（`APPLE_TEAM_ID` 及 App Store Connect API Key 或 Apple ID），
+仓库本身无法提供这两项凭据，因此在缺少它们的机器上门禁会如实失败。
 
 ## 验证
 
 ```bash
 npm run typecheck
 npm run build
-npm test
+npm test                # typecheck + vitest + runtime(node:test)
+npm run test:coverage   # 带覆盖率地板门禁（实测 行11.64%/分支8.15%/函数8.36%/语句9.84%，阈值取整向下设定）
 npm run test:e2e
+npm run desktop:release-check
 openspec validate integrate-real-ai-eda-runtime
 openspec validate add-real-codex-pcba-chat
 openspec validate implement-controlled-simple-board-design --strict
 ```
 
 回环端口测试和Playwright在受限沙箱中需要本机网络/浏览器权限。
+版本号只有一个数据源：`runtime/version.mjs`，由 `runtime/__tests__/version.test.mjs`
+强制校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 与之一致。
 
 ## 项目结构
 
@@ -148,6 +175,7 @@ openspec validate implement-controlled-simple-board-design --strict
 - 首次真实快照/恢复演练及 MCU、电源、LED、按键现场写入尚未执行；仍缺用户确认的专用空白工程和精确嘉立创EDA器件库身份。
 - Claude Code、OpenAI API与Anthropic API尚未接入真实聊天会话。
 - P0 尚未自动从确认后的器件/引脚证据编译完整连线 operations；计划不完整时会保持阻塞。
-- Node Runtime尚未作为自包含Sidecar进入签名的Mac安装包。
+- Node Runtime 现在会作为自包含 sidecar 打进 `.app`（见上文“桌面壳层”），但仍**未完成 Apple 签名与公证**：
+  需要本机具备 Developer ID 证书与公证凭证，`npm run desktop:release-check` 会在缺少时如实失败。
 - 没有有效OpenAI/Anthropic Key时，不会伪造API连接测试成功。
 - 没有真实Bridge窗口时，不会把Demo响应标成真实EDA结果。

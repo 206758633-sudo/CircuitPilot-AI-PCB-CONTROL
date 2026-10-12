@@ -338,7 +338,9 @@ test('所有主页面可见按钮都有名称，禁用按钮都有原因且不�
 test('1280×800工业工作台视觉基线与控制台错误检查', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+  // 带上 URL：否则失败信息只有 “Failed to load resource: net::ERR_FAILED”，
+  // 无法判断是哪个请求挂了（曾因此把一个真实的门禁问题当成随机波动）。
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(`${message.text()} @ ${message.location()?.url || 'unknown'}`); });
   // 应用启动会握手/api/health并读取providers/diagnostics；mock模式下不stub它们会被浏览器记为连接失败错误。
   await mockRuntimeHealth(page);
   await page.route('http://127.0.0.1:4178/api/providers', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, providers: [] }) }));

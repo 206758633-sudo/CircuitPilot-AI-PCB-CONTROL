@@ -54,6 +54,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'REMOVE_ASSET': return { ...state, assets: state.assets.filter((item) => item.id !== action.id) };
     case 'UPDATE_COMPONENT': return { ...state, components: state.components.map((item) => item.id === action.component.id ? action.component : item) };
     case 'APPLY_BOM_DRAFT': {
+      // 纵深防御：即便调用方漏检，reducer 也拒绝把草案写入非当前项目。
+      // 这里同时校验“草案所属项目”“草案所在会话所属项目”和“来料器件的projectId”，
+      // 因为这三者中的任意一个错位都会把BOM写进错误项目。
+      let messageProjectId: string | undefined;
+      let draftProjectId: string | undefined;
+      for (const [projectId, chat] of Object.entries(state.projectChats)) {
+        const message = chat.messages.find((item) => item.id === action.messageId);
+        if (!message) continue;
+        messageProjectId = projectId;
+        draftProjectId = message.bomDraft?.projectId;
+        break;
+      }
+      const foreignMessage = messageProjectId !== undefined && messageProjectId !== state.activeProjectId;
+      const foreignDraft = Boolean(draftProjectId && draftProjectId !== state.activeProjectId);
+      const foreignComponent = action.components.some((item) => Boolean(item.projectId && item.projectId !== state.activeProjectId));
+      if (foreignMessage || foreignDraft || foreignComponent) return state;
       const incomingRefs = new Set(action.components.map((item) => item.refdes.trim().toUpperCase()));
       const components = [
         ...state.components.filter((item) => item.projectId !== state.activeProjectId || !incomingRefs.has(item.refdes.trim().toUpperCase())),

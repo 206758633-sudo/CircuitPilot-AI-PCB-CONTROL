@@ -9,6 +9,9 @@ coverage/
 # Rust / Tauri build artifacts (1.5 GB — never commit)
 src-tauri/target/
 
+# 打包用的 Node sidecar（约119MB，由 scripts/stage-runtime-sidecar.mjs 在构建前生成）
+src-tauri/binaries/
+
 # Local tooling state
 .vite/
 .auto-coding/

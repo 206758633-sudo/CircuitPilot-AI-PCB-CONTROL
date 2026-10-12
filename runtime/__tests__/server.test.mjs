@@ -156,3 +156,31 @@ test('runtime exposes normalized authenticated read-only EasyEDA device search',
   assert.equal(body.search.readOnly, true);
   assert.deepEqual(body.search.candidates[0].footprint, { name: 'LQFP48', uuid: 'F1', libraryUuid: 'L1' });
 });
+
+test('injected shell token disables HTTP token issuance entirely (the C-03 residual risk)', async (context) => {
+  // Tauri 壳层通过环境变量注入令牌时，任何本机进程都不应再能从 HTTP 领到令牌，
+  // 即使它伪造了受信任的 Origin —— 这正是“本机同用户进程可伪造 Origin”的收口。
+  const injected = 'shell-injected-token-0123456789abcdef';
+  const { server, httpTokenIssuance } = createRuntimeServer({ keychain: fakeKeychain, runtimeToken: injected });
+  assert.equal(httpTokenIssuance, false, 'injected mode must turn HTTP token issuance off');
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const noOrigin = await (await fetch(`${base}/api/health`)).json();
+  assert.equal('sessionProof' in noOrigin, false);
+
+  // 攻击者伪造受信任 Origin 也拿不到令牌。
+  const forgedOrigin = await (await fetch(`${base}/api/health`, { headers: { origin: TRUSTED_ORIGIN } })).json();
+  assert.equal('sessionProof' in forgedOrigin, false, 'Origin forgery must not yield the token when the shell owns it');
+
+  // 只有真正持有令牌的 WebView 能通过鉴权。
+  assert.equal((await fetch(`${base}/api/providers`)).status, 401);
+  assert.equal((await fetch(`${base}/api/providers`, { headers: { 'x-circuitpilot-token': 'wrong-token-wrong-token' } })).status, 401);
+  const authorized = await fetch(`${base}/api/providers`, { headers: { 'x-circuitpilot-token': injected } });
+  assert.equal(authorized.status, 200);
+  assert.equal((await authorized.json()).ok, true);
+
+  // health 仍然公开可读（用于连通性探测），只是不再携带凭据。
+  assert.equal(noOrigin.ok, true);
+});

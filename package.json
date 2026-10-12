@@ -1,7 +1,7 @@
 {
   "name": "circuitpilot-control-demo",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -11,14 +11,17 @@
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc -b --pretty false",
     "test": "npm run typecheck && vitest run && npm run test:runtime",
+    "test:coverage": "vitest run --coverage",
     "test:runtime": "node --test \"runtime/**/*.test.mjs\"",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "ci": "npm run typecheck && vitest run && npm run test:runtime && npm run build",
+    "sidecar:stage": "node scripts/stage-runtime-sidecar.mjs",
     "desktop:check": "node scripts/check-desktop-toolchain.mjs",
     "desktop:release-check": "node scripts/check-macos-release.mjs",
     "desktop:dev": "npm run desktop:check && tauri dev",
+    "desktop:app": "npm run desktop:check && tauri build --bundles app",
     "desktop:build": "npm run desktop:check && tauri build",
     "desktop:release": "npm run desktop:release-check && tauri build --bundles app,dmg"
   },
@@ -33,15 +36,17 @@
     "@playwright/test": "^1.51.1",
     "@tauri-apps/cli": "^2.8.0",
     "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.2.0",
-    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.10.7",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^5.0.3",
     "jsdom": "^26.0.0",
     "typescript": "~5.6.3",
     "vite": "^6.1.0",
-    "vitest": "^3.0.7"
+    "vitest": "^5.0.3"
+  },
+  "overrides": {
+    "source-map-js": "^1.2.2"
   }
 }

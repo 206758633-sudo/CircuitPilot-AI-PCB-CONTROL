@@ -2,7 +2,27 @@ import type { BomDraft, DesignApproval, DesignExecution, EasyEdaDeviceSearchItem
 
 const BASE_URL = import.meta.env.VITE_RUNTIME_URL || 'http://127.0.0.1:4178';
 const REQUEST_TIMEOUT = 12_000;
-let sessionProof: string | null = null;
+
+declare global {
+  interface Window {
+    /**
+     * Tauri 壳层在页面脚本执行前注入的运行时会话令牌。
+     * 一旦存在，令牌就完全不经由 HTTP 分发（生产模式下 Runtime 也会关闭 HTTP 发放），
+     * 因此本机其它进程即使伪造 Origin 也无法再领取令牌。
+     */
+    __CIRCUITPILOT_RUNTIME_TOKEN__?: string;
+  }
+}
+
+function readInjectedToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const value = window.__CIRCUITPILOT_RUNTIME_TOKEN__;
+  return typeof value === 'string' && value.length >= 16 ? value : null;
+}
+
+// 注入的令牌是权威凭据：它无法通过 /api/health 重新获取，所以 401 时不能清空后盲目重试。
+const injectedToken = readInjectedToken();
+let sessionProof: string | null = injectedToken;
 
 export class RuntimeApiError extends Error {
   code: string;
@@ -20,7 +40,8 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true, ti
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    // 除 /api/health 外，Runtime 的所有路由（含只读 GET）都要求会话令牌，因此先完成一次引导握手。
+    // 除 /api/health 外，Runtime 的所有路由（含只读 GET）都要求会话令牌。
+    // 开发模式下先完成一次引导握手；壳层注入令牌时 sessionProof 已就绪，不会走这一步。
     if (!sessionProof && path !== '/api/health') await runtimeClient.health();
     const response = await fetch(`${BASE_URL}${path}`, {
       ...init,
@@ -33,7 +54,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true, ti
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      if (response.status === 401 && retry) {
+      if (response.status === 401 && retry && !injectedToken) {
         sessionProof = null;
         await runtimeClient.health();
         return request<T>(path, init, false, timeoutMs);
@@ -53,8 +74,10 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true, ti
 export const runtimeClient = {
   baseUrl: BASE_URL,
   async health() {
-    const result = await request<{ ok: true; service: string; version: string; sessionProof: string }>('/api/health');
-    sessionProof = result.sessionProof;
+    const result = await request<{ ok: true; service: string; version: string; sessionProof?: string }>('/api/health');
+    // 只有 Runtime 真的下发了令牌（开发模式）才更新；生产模式下 HTTP 不再发放令牌，
+    // 必须保留壳层注入的令牌，否则会被 undefined 覆盖掉。
+    if (typeof result.sessionProof === 'string' && result.sessionProof.length >= 16) sessionProof = result.sessionProof;
     return { service: result.service, version: result.version };
   },
   async diagnostics() {
