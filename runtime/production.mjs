@@ -108,6 +108,8 @@ export function normalizeSemanticPlan(input = {}) {
     // 解析失败时 layerId 为 null，由 validateSemanticPlan 报错，绝不猜测层号。
     layer: item.layer === undefined || item.layer === null ? null : item.layer,
     layerId: item.layer === undefined || item.layer === null ? null : resolveLayerReference(item.layer, Number(boardInput.layers)),
+    // 显式线宽（通常来自阻抗反解）：null 表示按网络类别取默认值。
+    widthMm: item.widthMm === undefined || item.widthMm === null ? null : Number(item.widthMm),
   }));
   // 先解析档位再取默认值：改造前无论选了哪个档位，minClearance/minCopperToEdge 的
   // 默认值都硬取自双层档位，导致指定四层档位时静默套用了双层的数值。
@@ -162,6 +164,8 @@ export function validateSemanticPlan(plan) {
     if (net.differentialPair && (!positive(net.differentialPair.impedanceOhm) || !text(net.differentialPair.mate))) issues.push(issue('DIFF_PAIR_INCOMPLETE', `差分网络${net.name}缺少配对或阻抗`, `nets.${index}.differentialPair`));
     // 声明了布线层但解析不出铜层编号：宁可阻断，也不能退回默认层悄悄画错层。
     if (net.layer !== null && net.layer !== undefined && net.layerId === null) issues.push(issue('NET_LAYER_INVALID', `网络${net.name}声明的布线层${JSON.stringify(net.layer)}不是${board.layers}层板的铜层`, `nets.${index}.layer`));
+    if (net.widthMm !== null && !(finite(net.widthMm) && net.widthMm > 0)) issues.push(issue('NET_WIDTH_INVALID', `网络${net.name}声明的线宽无效`, `nets.${index}.widthMm`));
+    else if (net.widthMm !== null && net.widthMm < (RULE_PROFILES[plan.constraints?.profileId]?.minTrackMm ?? 0)) issues.push(issue('TRACK_WIDTH_BELOW_PROFILE', `网络${net.name}线宽${net.widthMm}mm低于档位最小线宽${RULE_PROFILES[plan.constraints.profileId].minTrackMm}mm`, `nets.${index}.widthMm`));
   }
   for (const [index, plane] of array(plan.constraints?.planes).entries()) {
     if (!plane.net) issues.push(issue('PLANE_NET_REQUIRED', '平面铺铜必须指定网络', `constraints.planes.${index}.net`));
@@ -200,7 +204,8 @@ export function compileSemanticPlan(input = {}) {
   };
   const routes = [];
   for (const net of sortedNets) {
-    const widthMm = net.class === 'power' ? Math.max(0.5, profile.minTrackMm) : Math.max(0.2, profile.minTrackMm);
+    // 显式线宽（如阻抗反解结果）优先；否则按网络类别取默认值。
+    const widthMm = net.widthMm ?? (net.class === 'power' ? Math.max(0.5, profile.minTrackMm) : Math.max(0.2, profile.minTrackMm));
     const layer = routeLayerOf(net);
     for (let index = 1; index < net.endpoints.length; index += 1) {
       const start = net.endpoints[index - 1]; const end = net.endpoints[index];
