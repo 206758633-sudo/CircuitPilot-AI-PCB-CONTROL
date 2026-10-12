@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import { ApprovalStore, digest, documentSourceDigest } from './design.mjs';
+import { countCopperLayers, isPlanCopperLayerCount, validateLayerReferences } from './engineering/layers.mjs';
+import { validateStackup } from './engineering/stackup.mjs';
 
 export const PCB_API_VERSION = 1;
 export const PCB_CAPABILITIES = Object.freeze([
@@ -35,10 +37,22 @@ export function normalizePcbPlan(input = {}) {
     thicknessMm: Number(input.board?.thicknessMm), copperOz: Number(input.board?.copperOz), mountingHoles: Number(input.board?.mountingHoles ?? 0),
   };
   const operations = Array.isArray(input.operations) ? input.operations : [];
-  const plan = { apiVersion: PCB_API_VERSION, kind: 'pcb-production-plan', title: String(input.title || 'PCB production plan'), board, constraints: input.constraints || {}, operations };
+  const plan = { apiVersion: PCB_API_VERSION, kind: 'pcb-production-plan', title: String(input.title || 'PCB production plan'), board, constraints: input.constraints || {}, operations, ...(input.stackup ? { stackup: input.stackup } : {}) };
   const missing = [];
   if (![board.widthMm,board.heightMm,board.layers,board.thicknessMm,board.copperOz,board.mountingHoles].every(finite)) missing.push('board');
-  if (board.widthMm <= 0 || board.heightMm <= 0 || board.layers !== 2 || board.thicknessMm <= 0 || board.copperOz <= 0 || board.mountingHoles < 0) missing.push('board-rules');
+  // 层数不再写死 2：改为放行 validateStackup 有校验能力的 2/4/6/8。
+  // EDA 本身支持到 32 层，但 10 层以上没有叠层证据模型，放行等于让无校验的层数进入生产。
+  if (board.widthMm <= 0 || board.heightMm <= 0 || !isPlanCopperLayerCount(board.layers) || board.thicknessMm <= 0 || board.copperOz <= 0 || board.mountingHoles < 0) missing.push('board-rules');
+  // 四层以上必须带可验证叠层：没有叠层证据，就无法判定内层角色、参考平面与阻抗，也无法核对铜层编号。
+  if (isPlanCopperLayerCount(board.layers) && board.layers > 2) {
+    const stackupCheck = validateStackup(input.stackup);
+    if (!stackupCheck.ready) missing.push(`stackup:${[...new Set(stackupCheck.findings.map((finding) => finding.code))].join('|')}`);
+    else if (countCopperLayers(input.stackup) !== board.layers) missing.push(`stackup-layer-count-mismatch:${countCopperLayers(input.stackup)}!=${board.layers}`);
+  }
+  // 层号换算陷阱：内层铜层编号从 15 起（3/4 是丝印）。叠层序号绝不能直接当 layer 用。
+  for (const violation of validateLayerReferences(board, operations)) {
+    missing.push(`${violation.index >= 0 ? `operation-${violation.index}` : 'board'}:${violation.reason}:${violation.layer}`);
+  }
   for (const [index, operation] of operations.entries()) if (!allowedOperationTypes.has(operation?.type)) missing.push(`operation-${index}:${operation?.type || 'missing'}`);
   if (!operations.length) missing.push('operations');
   if (operations.length > MAX_OPERATIONS) missing.push(`operations-limit:${operations.length}`);
