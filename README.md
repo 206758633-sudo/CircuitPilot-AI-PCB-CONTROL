@@ -154,6 +154,17 @@ openspec validate implement-controlled-simple-board-design --strict
 版本号只有一个数据源：`runtime/version.mjs`，由 `runtime/__tests__/version.test.mjs`
 强制校验 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 与之一致。
 
+依赖审计注意：若本机 npm registry 指向 npmmirror，`npm audit` 会因该镜像未实现
+`/-/npm/v1/security/*` 而报 `404 NOT_IMPLEMENTED`。这不是依赖问题，请用官方源复核：
+
+```bash
+npm audit --registry=https://registry.npmjs.org
+```
+
+`manufacturing/CircuitPilot-CH32V003-P0-3D.step`（约 13.8MB）直接入库，并用 `.gitattributes`
+标记为二进制（禁止行尾转换与文本 diff）。当前只有个别大体积交付物，引入 Git LFS 会让所有
+贡献者多出安装与拉取步骤而收益不足；若 STEP/STL 数量继续增长，再迁移到 LFS。
+
 ## 项目结构
 
 - `runtime/`：回环HTTP Runtime、Provider、Keychain、Bridge、日志与诊断。

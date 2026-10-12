@@ -135,3 +135,34 @@ test('device library search is fixed read-only and validates keyword or LCSC inp
   await client.execute('library.device.search', { query: 'C12345', mode: 'lcsc', limit: 20, page: 1 });
   assert.match(calls.at(-1).options.body, /getByLcscIds/);
 });
+
+test('每个 buildCode 命令都把参数当作 JSON 数据插值（整体不变量，含未来新增命令）', () => {
+  // 上面的用例手工列出了 5 个命令。这里改成对 COMMANDS 里所有 buildCode 命令统一施加不变量：
+  // 任何一个“新加命令时忘了 JSON.stringify”的改动都会在这里失败，而不是等到线上被注入。
+  // 扩展源码不在本仓库内，无法验证接收端，所以协议安全只能靠这条出栈侧的冻结不变量守住。
+  const generators = Object.entries(COMMANDS).filter(([, command]) => typeof command.buildCode === 'function');
+  assert.ok(generators.length >= 10, `buildCode 命令数量异常（${generators.length}），不变量可能已失效`);
+
+  // 用 Proxy 让任意参数名都返回恶意字符串，无需为每个命令维护参数表。
+  const hostileArgs = new Proxy({}, { get: (_target, key) => (typeof key === 'string' ? HOSTILE : undefined), has: () => true });
+
+  for (const [commandId, command] of generators) {
+    const code = command.buildCode(hostileArgs);
+    assert.equal(typeof code, 'string', `${commandId} 的 buildCode 未返回字符串`);
+    // 把字符串字面量全部替换掉后，生成的源码里不允许再残留任何恶意片段。
+    const withoutStrings = code.replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/'(?:[^'\\]|\\.)*'/g, "''");
+    assert.ok(!withoutStrings.includes(INJECTION_MARKER), `${commandId} 把参数插到了字符串字面量之外：${code}`);
+    // 反向确认：恶意值确实作为转义后的数据出现在字符串字面量里（否则上面的检查是空转）。
+    assert.ok(code.includes('__CIRCUITPILOT_INJECTION_MARKER__'), `${commandId} 没有把注入标记放入字符串字面量：${code}`);
+  }
+});
+
+test('所有 buildCode 命令在恶意参数下生成的源码都是可解析的合法表达式', () => {
+  const generators = Object.entries(COMMANDS).filter(([, command]) => typeof command.buildCode === 'function');
+  const hostileArgs = new Proxy({}, { get: (_target, key) => (typeof key === 'string' ? HOSTILE : undefined), has: () => true });
+  for (const [commandId, command] of generators) {
+    const code = command.buildCode(hostileArgs);
+    // 只做语法解析，不执行：注入成功的话这里会直接抛 SyntaxError。
+    assert.doesNotThrow(() => new Function('eda', `return (async () => { ${code} })()`), `${commandId} 生成的源码无法解析`);
+  }
+});
