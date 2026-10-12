@@ -166,3 +166,34 @@ test('所有 buildCode 命令在恶意参数下生成的源码都是可解析的
     assert.doesNotThrow(() => new Function('eda', `return (async () => { ${code} })()`), `${commandId} 生成的源码无法解析`);
   }
 });
+
+test('盲埋孔：规则项名必须与 viaType 同时给出，且不能注入', () => {
+  const base = { net: 'GND', x: 1, y: 2, holeDiameter: 0.3, diameter: 0.6 };
+  // 只给规则项名不给 viaType：位置参数顺序上说不通，拒绝而不是猜。
+  assert.throws(() => validateArgs('pcb.via.create', { ...base, designRuleBlindViaName: 'L1-L2' }), { code: 'EDA_COMMAND_ARGS_INVALID' });
+  // 规则项名类型/长度非法。
+  for (const bad of ['', '   ', 7, 'x'.repeat(121)]) {
+    assert.throws(() => validateArgs('pcb.via.create', { ...base, viaType: 'blind', designRuleBlindViaName: bad }), { code: 'EDA_COMMAND_ARGS_INVALID' });
+  }
+  // 合法组合通过，并且两个值都以 JSON 字面量出现在第 6、7 个位置参数上。
+  validateArgs('pcb.via.create', { ...base, viaType: 'blind', designRuleBlindViaName: 'L1-L2' });
+  const code = COMMANDS['pcb.via.create'].buildCode({ ...base, viaType: 'blind', designRuleBlindViaName: 'L1-L2' });
+  assert.match(code, /create\("GND",1,2,0\.3,0\.6,"blind","L1-L2"\)/);
+  // 不给规则项名时，签名与改造前一致（通孔路径行为不变）。
+  const through = COMMANDS['pcb.via.create'].buildCode({ ...base, viaType: 'via' });
+  assert.match(through, /create\("GND",1,2,0\.3,0\.6,"via"\)/);
+  assert.equal(COMMANDS['pcb.via.create'].buildCode(base), 'return await eda.pcb_PrimitiveVia.create("GND",1,2,0.3,0.6);');
+});
+
+test('铜箔层数命令：只放行偶数层，写入命令需要内部授权', () => {
+  assert.equal(COMMANDS['pcb.layers.setCount'].permission, 'write');
+  for (const good of [2, 4, 6, 8, 32]) validateArgs('pcb.layers.setCount', { layers: good });
+  for (const bad of [0, 1, 3, 5, 34, 2.5, '4']) {
+    assert.throws(() => validateArgs('pcb.layers.setCount', { layers: bad }), { code: 'EDA_COMMAND_ARGS_INVALID' }, `layers=${bad} 应被拒`);
+  }
+  const code = COMMANDS['pcb.layers.setCount'].buildCode({ layers: 4 });
+  assert.match(code, /setTheNumberOfCopperLayers\(4\)/);
+  // 返回 false 不是成功：必须抛错，不能让“没设成”被当成设成了。
+  assert.match(code, /ok!==true\)throw/);
+  assert.equal(COMMANDS['pcb.layers.copperCount'].permission, 'read');
+});

@@ -1,4 +1,5 @@
 import { BRIDGE_PORTS } from './config.mjs';
+import { isEdaCopperLayerCount } from './engineering/layers.mjs';
 
 const COMMANDS = Object.freeze({
   'project.current': {
@@ -94,6 +95,8 @@ const COMMANDS = Object.freeze({
       return {document:settled.document.value||null,layers:settled.layers.value||[],nets:settled.nets.value||[],components:settled.components.value||[],lines:settled.lines.value||[],vias:settled.vias.value||[],pours:settled.pours.value||[],regions:settled.regions.value||[],texts:settled.texts.value||[],readErrors};`,
   },
   'pcb.layers.read': { permission: 'read', description: '读取PCB层列表', signature: 'PCB_Layer.getAllLayers()', code: 'const items=(await eda.pcb_Layer.getAllLayers())||[];return items.map(item=>({id:item.id,name:item.name,type:item.type,color:item.color,locked:item.locked,layerStatus:item.layerStatus,transparency:item.transparency}));' },
+  'pcb.layers.copperCount': { permission: 'read', description: '读取PCB铜箔层数', signature: 'PCB_Layer.getTheNumberOfCopperLayers()', code: 'return await eda.pcb_Layer.getTheNumberOfCopperLayers();' },
+  'pcb.layers.setCount': { permission: 'write', description: '设置PCB铜箔层数（官方Beta；新建PCB默认2层）', signature: 'PCB_Layer.setTheNumberOfCopperLayers(n)', buildCode: ({ layers }) => `const ok=await eda.pcb_Layer.setTheNumberOfCopperLayers(${JSON.stringify(layers)});if(ok!==true)throw new Error('PCB_LAYER_COUNT_FAILED');return ok;` },
   'pcb.nets.read': { permission: 'read', description: '读取PCB网络列表', signature: 'PCB_Net.getAllNets()', code: 'return await eda.pcb_Net.getAllNets();' },
   'pcb.components.read': { permission: 'read', description: '读取PCB器件图元ID', signature: 'PCB_PrimitiveComponent.getAllPrimitiveId()', code: 'return await eda.pcb_PrimitiveComponent.getAllPrimitiveId();' },
   'pcb.lines.read': { permission: 'read', description: '读取PCB线段图元ID', signature: 'PCB_PrimitiveLine.getAllPrimitiveId()', code: 'return await eda.pcb_PrimitiveLine.getAllPrimitiveId();' },
@@ -108,7 +111,15 @@ const COMMANDS = Object.freeze({
   'pcb.save': { permission: 'write', description: '保存当前PCB文档', signature: 'PCB_Document.save()', code: 'return await eda.pcb_Document.save();' },
   'pcb.component.modify': { permission: 'write-beta', description: '固定坐标修改PCB器件（官方Beta）', signature: 'PCB_PrimitiveComponent.modify(id,property)', buildCode: ({ primitiveId, property }) => `return await eda.pcb_PrimitiveComponent.modify(${JSON.stringify(primitiveId)},${JSON.stringify(property)});` },
   'pcb.line.create': { permission: 'write-beta', description: '创建PCB线段/板框线（官方Beta）', signature: 'PCB_PrimitiveLine.create(net,layer,x1,y1,x2,y2,width,lock)', buildCode: ({ net = '', layer, startX, startY, endX, endY, lineWidth = 0.2, primitiveLock = false }) => `return await eda.pcb_PrimitiveLine.create(${JSON.stringify(net)},${JSON.stringify(layer)},${JSON.stringify(startX)},${JSON.stringify(startY)},${JSON.stringify(endX)},${JSON.stringify(endY)},${JSON.stringify(lineWidth)},${JSON.stringify(primitiveLock)});` },
-  'pcb.via.create': { permission: 'write-beta', description: '创建PCB过孔（官方Beta）', signature: 'PCB_PrimitiveVia.create(net,x,y,hole,diameter)', buildCode: ({ net, x, y, holeDiameter, diameter, viaType }) => `return await eda.pcb_PrimitiveVia.create(${JSON.stringify(net)},${JSON.stringify(x)},${JSON.stringify(y)},${JSON.stringify(holeDiameter)},${JSON.stringify(diameter)}${viaType === undefined ? '' : `,${JSON.stringify(viaType)}`});` },
+  'pcb.via.create': { permission: 'write-beta', description: '创建PCB过孔（官方Beta；盲埋孔跨度由设计规则项名指定，null 表示非盲埋孔）', signature: 'PCB_PrimitiveVia.create(net,x,y,hole,diameter,viaType?,designRuleBlindViaName?)', buildCode: ({ net, x, y, holeDiameter, diameter, viaType, designRuleBlindViaName }) => {
+    const positional = [JSON.stringify(net), JSON.stringify(x), JSON.stringify(y), JSON.stringify(holeDiameter), JSON.stringify(diameter)];
+    // 官方签名为位置参数：designRuleBlindViaName 是第 7 个，必须先填 viaType 才能填它。
+    // viaType 的取值编码（官方类型是 0/1/2 枚举，但运行时 JS 已混淆、无法核实）
+    // 因此这里保持原样透传，不擅自改动语义。
+    if (viaType !== undefined || designRuleBlindViaName !== undefined) positional.push(JSON.stringify(viaType));
+    if (designRuleBlindViaName !== undefined) positional.push(JSON.stringify(designRuleBlindViaName));
+    return `return await eda.pcb_PrimitiveVia.create(${positional.join(',')});`;
+  } },
   'pcb.pour.create': { permission: 'write-beta', description: '创建PCB覆铜（官方Beta）', signature: 'PCB_PrimitivePour.create(net,layer,polygon,...)', buildCode: ({ net, layer, complexPolygon, preserveSilos = false, pourName = 'GND', pourPriority = 0, lineWidth = 0.2, primitiveLock = false }) => `return await eda.pcb_PrimitivePour.create(${JSON.stringify(net)},${JSON.stringify(layer)},${JSON.stringify(complexPolygon)},undefined,${JSON.stringify(preserveSilos)},${JSON.stringify(pourName)},${JSON.stringify(pourPriority)},${JSON.stringify(lineWidth)},${JSON.stringify(primitiveLock)});` },
   'pcb.drc': { permission: 'validate', description: '运行官方PCB DRC并返回详细结果', signature: 'PCB_Drc.check(true,false,true)', code: 'return await eda.pcb_Drc.check(true,false,true);' },
   'pcb.drc.ui': { permission: 'validate', description: '在嘉立创EDA界面显示PCB DRC', signature: 'PCB_Drc.check(true,true,true)', code: 'return await eda.pcb_Drc.check(true,true,true);' },
@@ -181,7 +192,16 @@ function validateArgs(commandId, args = {}) {
   }
   if (commandId === 'pcb.via.create') {
     if (typeof args.net !== 'string' || ![args.x,args.y,args.holeDiameter,args.diameter].every(finiteCoordinate) || args.holeDiameter <= 0 || args.diameter <= args.holeDiameter) throw Object.assign(new Error('PCB过孔参数无效'), { code: 'EDA_COMMAND_ARGS_INVALID' });
-    if (args.viaType !== undefined && typeof args.viaType !== 'string') throw Object.assign(new Error('PCB过孔类型无效'), { code: 'EDA_COMMAND_ARGS_INVALID' });
+    if (args.viaType !== undefined && typeof args.viaType !== 'string' && typeof args.viaType !== 'number') throw Object.assign(new Error('PCB过孔类型无效'), { code: 'EDA_COMMAND_ARGS_INVALID' });
+    if (args.designRuleBlindViaName !== undefined) {
+      if (typeof args.designRuleBlindViaName !== 'string' || !args.designRuleBlindViaName.trim() || args.designRuleBlindViaName.length > 120) throw Object.assign(new Error('盲埋孔设计规则项名称无效'), { code: 'EDA_COMMAND_ARGS_INVALID' });
+      // 规则项名“定义过孔的开始层与结束层”，但它在签名里排在 viaType 之后：
+      // 不给 viaType 就无从判断这到底是不是盲埋孔，宁可拒绝也不猜。
+      if (args.viaType === undefined) throw Object.assign(new Error('指定盲埋孔规则项时必须同时给出 viaType'), { code: 'EDA_COMMAND_ARGS_INVALID' });
+    }
+  }
+  if (commandId === 'pcb.layers.setCount') {
+    if (!isEdaCopperLayerCount(args.layers)) throw Object.assign(new Error('铜箔层数必须是 2,4,6,…,32 中的偶数'), { code: 'EDA_COMMAND_ARGS_INVALID' });
   }
   if (commandId === 'pcb.pour.create') {
     if (typeof args.net !== 'string' || !args.net.length || (typeof args.layer !== 'string' && typeof args.layer !== 'number') || !args.complexPolygon || typeof args.complexPolygon !== 'object') throw Object.assign(new Error('PCB覆铜参数无效'), { code: 'EDA_COMMAND_ARGS_INVALID' });
