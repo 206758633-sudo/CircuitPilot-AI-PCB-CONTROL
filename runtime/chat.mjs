@@ -216,7 +216,9 @@ export class ChatManager {
   constructor({ keychain, bridge, client = new CodexAppServerClient(), providerStatus = providerStatuses } = {}) { this.keychain = keychain; this.bridge = bridge; this.client = client; this.providerStatus = providerStatus; this.sessions = new Map(); this.busy = new Set(); }
 
   async status() {
-    const providers = await this.providerStatus(this.keychain);
+    // 对话就绪只看 Codex 账号，因此只查这一个 Provider：全量探测会为每个第三方平台
+    // 各执行一次钥匙串查询，而这里根本用不到它们的结论。
+    const providers = await this.providerStatus(this.keychain, ['codex_account']);
     const codex = providers.find((item) => item.id === 'codex_account');
     return { ready: Boolean(codex?.ready), provider: codex || null, activeSessions: this.sessions.size };
   }

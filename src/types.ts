@@ -370,7 +370,7 @@ export interface EngineeringAnalysis {
   passed: boolean;
   reportHash: string;
   findings: EngineeringFinding[];
-  operations: Array<{ type: 'pcb.component.modify' | 'pcb.line.create' | 'pcb.via.create'; stage: string; args: Record<string, unknown> }>;
+  operations: Array<{ type: 'pcb.component.modify' | 'pcb.line.create' | 'pcb.outline.create' | 'pcb.via.create' | 'pcb.pour.create' | 'pcb.importChanges' | 'pcb.save' | 'pcb.drc'; stage: string; args: Record<string, unknown> }>;
   highSpeed: Array<{ passed: boolean; findings: EngineeringFinding[]; metrics: Record<string, unknown>; provenance: Record<string, unknown> }>;
   hdi: { viaCapabilities: { ready: boolean; findings: EngineeringFinding[] }; transitions: Array<{ passed: boolean; findings: EngineeringFinding[]; transitions: unknown[] }>; bga: Array<{ passed: boolean; findings: EngineeringFinding[] }> };
   rf: Array<{ passed: boolean; findings: EngineeringFinding[]; metrics: Record<string, unknown>; provenance: Record<string, unknown> }>;
@@ -383,7 +383,22 @@ export interface EngineeringAnalysis {
 }
 
 export type RuntimeMode = 'demo' | 'real_read_only' | 'controlled_write';
-export type ProviderId = 'demo' | 'codex_account' | 'openai_api' | 'claude_account' | 'anthropic_api';
+export type AccountProviderId = 'codex_account' | 'claude_account';
+export type ApiProviderId =
+  | 'openai_api'
+  | 'anthropic_api'
+  | 'deepseek_api'
+  | 'moonshot_api'
+  | 'zhipu_api'
+  | 'dashscope_api'
+  | 'siliconflow_api'
+  | 'openrouter_api'
+  | 'gemini_api'
+  | 'xai_api'
+  | 'groq_api'
+  | 'mistral_api';
+
+export type ProviderId = 'demo' | AccountProviderId | ApiProviderId;
 
 export interface ProviderSummary {
   id: Exclude<ProviderId, 'demo'>;
@@ -396,6 +411,8 @@ export interface ProviderSummary {
   version?: string;
   status?: string;
   personalOnly?: boolean;
+  /** 平台控制台（Key 申请）地址，只有 API 型 Provider 由 Runtime 声明。 */
+  keyUrl?: string;
 }
 
 export interface RuntimeDiagnostic {

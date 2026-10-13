@@ -80,6 +80,11 @@ test('runtime binds a session proof and rejects untrusted mutations', async (con
   const denied = await fetch(`${base}/api/providers/openai_api/key`, { method: 'POST', headers: { origin: 'http://127.0.0.1:4177', 'content-type': 'application/json' }, body: JSON.stringify({ key: 'sk-not-a-real-key-1234' }) });
   assert.equal(denied.status, 401);
 
+  // 打开平台控制台会调起系统浏览器，属于会产生可见副作用的动作，必须同样受会话令牌保护，
+  // 否则本机任意进程都能反复弹出浏览器窗口。（未授权时在路由前就被拒绝，不会真的打开浏览器。）
+  const deniedConsole = await fetch(`${base}/api/providers/deepseek_api/console`, { method: 'POST', headers: { origin: 'http://127.0.0.1:4177' } });
+  assert.equal(deniedConsole.status, 401);
+
   const accepted = await fetch(`${base}/api/providers/openai_api/key`, { method: 'POST', headers: { origin: 'http://127.0.0.1:4177', 'content-type': 'application/json', 'x-circuitpilot-token': health.sessionProof }, body: JSON.stringify({ key: 'sk-not-a-real-key-1234' }) });
   const body = await accepted.json();
   assert.equal(accepted.status, 200);

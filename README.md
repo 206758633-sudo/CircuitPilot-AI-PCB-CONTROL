@@ -22,10 +22,14 @@ npm run dev:full
 1. 进入“系统设置”，点击“刷新本机状态”。
 2. 选择一种 Provider：
    - Codex账号：使用本机 Codex CLI 官方登录，不读取账号密码。
-   - OpenAI API：Key 由 Runtime 写入 macOS 钥匙串。
    - Claude Code个人账号：仅用于用户自己的本机工作流。
-   - Anthropic API：适合后续可分发产品。
    - Demo本地模拟：Runtime离线时的显式降级模式。
+   - 官方 API：OpenAI API、Anthropic API，Key 由 Runtime 写入 macOS 钥匙串。
+   - 第三方平台 API：DeepSeek、Moonshot/Kimi、智谱 GLM、阿里云百炼（通义千问）、
+     硅基流动、OpenRouter、Google Gemini、xAI Grok、Groq、Mistral。
+     在 Provider 下拉框里按“国内平台 API / 国际平台 API”分组选择，
+     点“去平台申请Key”可直接打开该平台的官方控制台；每个平台的 Key 在钥匙串里
+     是独立条目，撤销某一个平台不会影响其它平台。
 3. 点击“测试连接”。API 测试只读取模型列表；完整Key不会返回前端。
 4. 打开嘉立创EDA专业版并确认 Run API Gateway / 外部交互已开启。
 5. 启动 EasyEDA Bridge 后，进入“EDA控制”运行全量检查。
@@ -57,9 +61,15 @@ P0 仅覆盖原理图，不代表 PCB 布局、布线、铺铜、Gerber/BOM/CPL 
 ## 凭据与撤销
 
 - 浏览器只保存Provider ID、模型、安全策略与就绪摘要。
-- API Key保存在macOS钥匙串：
-  - `com.circuitpilot.provider.openai`
-  - `com.circuitpilot.provider.anthropic`
+- API Key保存在macOS钥匙串，每个平台一个独立条目（`runtime/config.mjs` 的 `KEYCHAIN_SERVICES`）：
+  - `com.circuitpilot.provider.openai` / `com.circuitpilot.provider.anthropic`
+  - `com.circuitpilot.provider.deepseek` / `moonshot` / `zhipu` / `dashscope` / `siliconflow`
+  - `com.circuitpilot.provider.openrouter` / `gemini` / `xai` / `groq` / `mistral`
+- 新增第三方平台只需三处声明，不需要改 `server.mjs`：`runtime/providers.mjs` 的 `PROVIDERS`
+  表（模型列表地址 + 鉴权方式）、`runtime/config.mjs` 的 `KEYCHAIN_SERVICES`、
+  `src/data/providerCatalog.ts` 的界面目录（分组、Key 申请入口与模型建议）。
+- 鉴权头由 `authHeaders()` 统一生成（Bearer / `x-api-key` / `x-goog-api-key`），
+  Key 不会出现在 URL、日志和错误信息里。
 - 在设置页点击“撤销Key”可明确删除对应钥匙串项。
 - 重置本地工作区不会删除钥匙串凭据，避免无提示破坏账号配置。
 

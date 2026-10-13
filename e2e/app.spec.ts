@@ -320,6 +320,62 @@ test('Codex官方登录识别已认证状态并自动更新Provider', async ({ p
   await expect(page.locator('.provider-status')).toContainText('Logged in using ChatGPT'); await expect(page.getByText('READY',{exact:true})).toBeVisible();
 });
 
+test('第三方平台API登录口可按平台保存Key、显示独立凭据状态并给出申请入口', async ({ page }) => {
+  await page.route('http://127.0.0.1:4178/api/health', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, service: 'circuitpilot-runtime', version: '0.6.1', sessionProof: 'e2e-provider-session-proof' }) }));
+  await page.route('http://127.0.0.1:4178/api/diagnostics', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, diagnostics: { checkedAt: new Date().toISOString() } }) }));
+  let configured = false;
+  await page.route('http://127.0.0.1:4178/api/providers', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, providers: [{ id: 'deepseek_api', label: 'DeepSeek 开放平台', kind: 'api', configured, ready: configured, keyUrl: 'https://platform.deepseek.com/api_keys' }] }) }));
+  const stored: string[] = [];
+  await page.route('http://127.0.0.1:4178/api/providers/deepseek_api/key', (route) => {
+    stored.push(String(route.request().postDataJSON().key));
+    configured = true;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, credential: { configured: true, hint: '••••1234' } }) });
+  });
+  const consoles: string[] = [];
+  await page.route('http://127.0.0.1:4178/api/providers/deepseek_api/console', (route) => {
+    consoles.push(route.request().url());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, console: { provider: 'deepseek_api', url: 'https://platform.deepseek.com/api_keys', opened: true } }) });
+  });
+  await openPage(page, 'settings', '系统设置');
+  await page.getByRole('button', { name: '刷新本机状态' }).click();
+  // Demo/账号型没有平台控制台入口。
+  await expect(page.getByRole('button', { name: '去平台申请Key' })).toHaveCount(0);
+  await page.getByLabel('Provider').selectOption('deepseek_api');
+  // 打包后的桌面壳层不会为 target="_blank" 开新窗口，所以入口必须走本机 Runtime 调起系统浏览器。
+  const keyButton = page.getByRole('button', { name: '去平台申请Key' });
+  await expect(keyButton).toBeVisible();
+  await keyButton.click();
+  await expect.poll(() => consoles.length).toBe(1);
+  await expect(page.locator('.toast').filter({ hasText: '的 Key 管理页' })).toBeVisible();
+  await expect(page.locator('.provider-status')).toContainText('尚未配置');
+  await page.locator('input[type="password"]').fill('sk-e2e-third-party-key-1234');
+  await page.getByRole('button', { name: '安全保存' }).click();
+  // toast 只渲染 message（title 不落 DOM），所以按提示正文断言。
+  await expect(page.locator('.toast').filter({ hasText: '已写入macOS钥匙串' })).toBeVisible();
+  expect(stored).toEqual(['sk-e2e-third-party-key-1234']);
+  // Key 只经请求体送往本机Runtime，前端不保留明文（输入框清空且不落 LocalStorage）。
+  await expect(page.locator('input[type="password"]')).toHaveValue('');
+  const persisted = await page.evaluate(() => Object.values(localStorage).join('\n'));
+  expect(persisted).not.toContain('sk-e2e-third-party-key-1234');
+  await expect(page.locator('.provider-status')).toContainText('钥匙串中已配置');
+  await expect(page.getByRole('button', { name: '撤销Key' })).toBeVisible();
+});
+
+test('切换到第三方平台时会把不属于该平台的模型回落为auto', async ({ page }) => {
+  await mockRuntimeHealth(page);
+  await page.route('http://127.0.0.1:4178/api/providers', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, providers: [] }) }));
+  await page.route('http://127.0.0.1:4178/api/diagnostics', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, diagnostics: { checkedAt: new Date().toISOString() } }) }));
+  await openPage(page, 'settings', '系统设置');
+  await page.getByLabel('Provider').selectOption('openai_api');
+  await page.getByLabel('模型').fill('gpt-5.6-sol');
+  await page.getByLabel('Provider').selectOption('deepseek_api');
+  await expect(page.getByLabel('模型')).toHaveValue('auto');
+  // 平台建议列表里已有的模型不会被重置。
+  await page.getByLabel('模型').fill('deepseek-reasoner');
+  await page.getByLabel('Provider').selectOption('moonshot_api');
+  await expect(page.getByLabel('模型')).toHaveValue('auto');
+});
+
 test('所有主页面可见按钮都有名称，禁用按钮都有原因且不存在无处理器死按钮', async ({ page }) => {
   for (const [id, title] of pages) {
     await openPage(page, id, title);

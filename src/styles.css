@@ -129,7 +129,7 @@ kbd { padding: 2px 5px; color: #828c88; background: #171b1b; border: 1px solid #
 .panel__body { padding: 16px; }
 .hero-panel { border-left: 4px solid var(--orange); }
 
-.button { min-height: 34px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-size: 11px; font-weight: 600; border: 1px solid transparent; border-radius: 2px; cursor: pointer; transition: background .15s, border .15s, transform .15s; }
+.button { min-height: 34px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-size: 11px; font-weight: 600; border: 1px solid transparent; border-radius: 2px; cursor: pointer; text-decoration: none; transition: background .15s, border .15s, transform .15s; }
 .button:hover:not(:disabled) { transform: translateY(-1px); }
 .button--primary { color: #fff; background: var(--orange); border-color: var(--orange-dark); }
 .button--primary:hover:not(:disabled) { background: #f0712f; }

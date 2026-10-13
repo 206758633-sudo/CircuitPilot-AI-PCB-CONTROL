@@ -35,9 +35,21 @@ export const EDA_APP_CANDIDATES = [
   '/Applications/EasyEDA Pro.app',
 ];
 
+// 每个 API Provider 一个独立钥匙串条目：撤销/轮换某个平台的 Key 不会影响其它平台。
+// 新增平台时在这里补一行即可（与 providers.mjs 的 PROVIDERS 表一一对应）。
 export const KEYCHAIN_SERVICES = {
   openai_api: 'com.circuitpilot.provider.openai',
   anthropic_api: 'com.circuitpilot.provider.anthropic',
+  deepseek_api: 'com.circuitpilot.provider.deepseek',
+  moonshot_api: 'com.circuitpilot.provider.moonshot',
+  zhipu_api: 'com.circuitpilot.provider.zhipu',
+  dashscope_api: 'com.circuitpilot.provider.dashscope',
+  siliconflow_api: 'com.circuitpilot.provider.siliconflow',
+  openrouter_api: 'com.circuitpilot.provider.openrouter',
+  gemini_api: 'com.circuitpilot.provider.gemini',
+  xai_api: 'com.circuitpilot.provider.xai',
+  groq_api: 'com.circuitpilot.provider.groq',
+  mistral_api: 'com.circuitpilot.provider.mistral',
 };
 
 export const KEYCHAIN_ACCOUNT = 'api-key';

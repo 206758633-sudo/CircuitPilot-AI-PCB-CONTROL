@@ -111,6 +111,11 @@ export const runtimeClient = {
     const result = await request<{ test: { ready?: boolean; ok?: boolean; models?: string[]; status?: string } }>(`/api/providers/${id}/test`, { method: 'POST' });
     return result.test;
   },
+  /** 桌面壳层不允许 target="_blank" 新窗口，因此由本机 Runtime 调起系统浏览器打开平台控制台。 */
+  async openProviderConsole(id: ProviderId) {
+    const result = await request<{ console: { provider: string; url: string; opened: boolean } }>(`/api/providers/${id}/console`, { method: 'POST' });
+    return result.console;
+  },
   async discoverBridge() {
     const result = await request<{ bridge: { port: number; health: unknown } | null }>('/api/eda/discover');
     return result.bridge;

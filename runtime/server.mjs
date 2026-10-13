@@ -9,7 +9,7 @@ import { DesignManager, normalizePlan } from './design.mjs';
 import { systemDiagnostics } from './diagnostics.mjs';
 import { MacKeychain } from './keychain.mjs';
 import { listEvents, logger, redact } from './logger.mjs';
-import { providerStatuses, startProviderLogin, testProvider } from './providers.mjs';
+import { openProviderConsole, providerStatuses, startProviderLogin, testProvider } from './providers.mjs';
 import { compileCh32v003Fixture, normalizePcbPlan, PcbManager } from './pcb.mjs';
 import { ProductionManager } from './production.mjs';
 import { engineeringProfiles, runEngineeringAnalysis } from './engineering/engine.mjs';
@@ -179,6 +179,11 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = new
         const id = url.pathname.split('/')[3];
         result = { ok: true, test: await testProvider(id, keychain) };
         logger.info('Provider', 'Provider connection test completed', { provider: id });
+      } else if (method === 'POST' && /^\/api\/providers\/[^/]+\/console$/.test(url.pathname)) {
+        // 只传 Provider id，URL 由 Runtime 侧声明表决定；详情见 providers.mjs 的 openProviderConsole。
+        const id = url.pathname.split('/')[3];
+        result = { ok: true, console: await openProviderConsole(id) };
+        logger.info('Provider', 'Opened provider console in the system browser', { provider: id });
       } else if (method === 'GET' && url.pathname === '/api/eda/discover') {
         const match = await bridge.discover();
         result = { ok: true, bridge: match };
