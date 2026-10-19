@@ -1,0 +1,146 @@
+{
+  "kind": "production-export-manifest",
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-16T07:05:42.001Z",
+  "outDir": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-16",
+  "outputClass": "draft",
+  "decisionTicket": "bd3ba1e507b91d9b03d1695a8c960164",
+  "gateFingerprint": "a1aa70c0592b33c66c949a0bdd23c16edeadf875ca658ca143595dc52a59280c",
+  "humanSignoffRequired": true,
+  "files": [
+    {
+      "kind": "gerber",
+      "name": "GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip",
+      "path": "GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip",
+      "bytes": 37855,
+      "sha256": "fc89a9bc7d87a2eca9691caa28caf039dd8f3f90ead68d02eb96043b303aab1e",
+      "chunks": 1,
+      "retriesUsed": 0,
+      "edaName": "CircuitPilot-Gerber"
+    },
+    {
+      "kind": "bom",
+      "name": "BOM_CircuitPilot-bom-DRAFT-NOT-FOR-ORDER.csv",
+      "path": "BOM_CircuitPilot-bom-DRAFT-NOT-FOR-ORDER.csv",
+      "bytes": 2328,
+      "sha256": "ac27704c9dd77834cc98fa6e978a3ee8f8261058df5bda54c468631b4d80b238",
+      "chunks": 1,
+      "retriesUsed": 0,
+      "edaName": "CircuitPilot-BOM.csv"
+    },
+    {
+      "kind": "cpl",
+      "name": "CPL_CircuitPilot-cpl-DRAFT-NOT-FOR-ORDER.csv",
+      "path": "CPL_CircuitPilot-cpl-DRAFT-NOT-FOR-ORDER.csv",
+      "bytes": 9408,
+      "sha256": "722e9eb721c917c0dcaa749bec18d67b18bfa7993f40fa73d01146bbe0e8e41d",
+      "chunks": 1,
+      "retriesUsed": 0,
+      "edaName": "CircuitPilot-CPL"
+    }
+  ],
+  "verification": {
+    "id": "artifacts",
+    "title": "生产文件",
+    "findings": [
+      {
+        "code": "RELEASE_GATE_PASSED",
+        "severity": "info",
+        "message": "CPL 坐标与实机读回一致（22 个位号，容差 0.05mm）",
+        "field": null
+      }
+    ],
+    "evidence": {
+      "gerber": {
+        "path": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-16/GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip",
+        "bytes": 37855,
+        "draft": true,
+        "copperLayerCount": 2,
+        "innerLayers": [],
+        "outline": [
+          "Gerber_BoardOutlineLayer.GKO"
+        ],
+        "drills": [
+          "Gerber_DrillDrawingLayer.GDD",
+          "Drill_PTH_Through.DRL",
+          "Drill_NPTH_Through.DRL"
+        ]
+      },
+      "bom": {
+        "path": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-16/BOM_CircuitPilot-bom-DRAFT-NOT-FOR-ORDER.csv",
+        "bytes": 2328,
+        "draft": true,
+        "rows": 13,
+        "designators": 22,
+        "headers": [
+          "No.",
+          "Quantity",
+          "Comment",
+          "Designator",
+          "Footprint",
+          "Value",
+          "Manufacturer Part",
+          "Manufacturer",
+          "Supplier Part",
+          "Supplier"
+        ]
+      },
+      "cpl": {
+        "path": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-16/CPL_CircuitPilot-cpl-DRAFT-NOT-FOR-ORDER.csv",
+        "bytes": 9408,
+        "draft": true,
+        "rows": 22,
+        "designators": [
+          "U1",
+          "U2",
+          "U3",
+          "U7",
+          "U8",
+          "U4",
+          "LED1",
+          "R1",
+          "Q1",
+          "R2",
+          "R3",
+          "R4",
+          "LED2",
+          "LED3",
+          "LED4",
+          "LED5",
+          "LED6",
+          "C1",
+          "C2",
+          "C3",
+          "C4",
+          "C5"
+        ]
+      }
+    },
+    "status": "pass",
+    "blockingCount": 0,
+    "waived": [
+      {
+        "code": "RELEASE_ARTIFACT_DRAFT_MARKER",
+        "message": "gerber 产物文件名自带草稿标记（/Users/jescochen/Desktop/AI- PCBA/release/2026-10-16/GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip）：这是草稿，不能用于下单",
+        "why": "本次就是按草稿产出：草稿标记是我们自己强制加上的，不算文件问题"
+      },
+      {
+        "code": "RELEASE_ARTIFACT_DRAFT_MARKER",
+        "message": "bom 产物文件名自带草稿标记（/Users/jescochen/Desktop/AI- PCBA/release/2026-10-16/BOM_CircuitPilot-bom-DRAFT-NOT-FOR-ORDER.csv）：这是草稿，不能用于下单",
+        "why": "本次就是按草稿产出：草稿标记是我们自己强制加上的，不算文件问题"
+      },
+      {
+        "code": "RELEASE_ARTIFACT_DRAFT_MARKER",
+        "message": "cpl 产物文件名自带草稿标记（/Users/jescochen/Desktop/AI- PCBA/release/2026-10-16/CPL_CircuitPilot-cpl-DRAFT-NOT-FOR-ORDER.csv）：这是草稿，不能用于下单",
+        "why": "本次就是按草稿产出：草稿标记是我们自己强制加上的，不算文件问题"
+      },
+      {
+        "code": "RELEASE_ARTIFACT_MISSING",
+        "message": "缺少 step 产物",
+        "why": "本次没有申请导出 step，因此不算缺失"
+      }
+    ],
+    "note": "已豁免 4 条与本次产出类别无关的检查（原因见 waived）"
+  },
+  "released": false
+}

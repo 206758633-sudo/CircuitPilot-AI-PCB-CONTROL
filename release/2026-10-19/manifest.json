@@ -1,0 +1,71 @@
+{
+  "kind": "production-export-manifest",
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-19T12:37:33.773Z",
+  "outDir": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-19",
+  "outputClass": "draft",
+  "decisionTicket": "dcd90ce1f2cbe9b77c4807123eb4805f",
+  "gateFingerprint": "2efdd91c060fd7f7a670102628aba3b7176ce3ad03033fb04f9a0143cd442ee7",
+  "humanSignoffRequired": true,
+  "files": [
+    {
+      "kind": "gerber",
+      "name": "GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip",
+      "path": "GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip",
+      "bytes": 252536,
+      "sha256": "a6f7170b1eae9c66dfd01972b21b1f71528691a6ded057967598827b165bc992",
+      "chunks": 1,
+      "retriesUsed": 0,
+      "edaName": "CircuitPilot-Gerber"
+    }
+  ],
+  "verification": {
+    "id": "artifacts",
+    "title": "生产文件",
+    "findings": [],
+    "evidence": {
+      "gerber": {
+        "path": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-19/GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip",
+        "bytes": 252536,
+        "draft": true,
+        "copperLayerCount": 2,
+        "innerLayers": [],
+        "outline": [
+          "Gerber_BoardOutlineLayer.GKO"
+        ],
+        "drills": [
+          "Gerber_DrillDrawingLayer.GDD",
+          "Drill_PTH_Through.DRL",
+          "Drill_NPTH_Through.DRL",
+          "Drill_PTH_Through_Via.DRL"
+        ]
+      }
+    },
+    "status": "pass",
+    "blockingCount": 0,
+    "waived": [
+      {
+        "code": "RELEASE_ARTIFACT_DRAFT_MARKER",
+        "message": "gerber 产物文件名自带草稿标记（/Users/jescochen/Desktop/AI- PCBA/release/2026-10-19/GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip）：这是草稿，不能用于下单",
+        "why": "本次就是按草稿产出：草稿标记是我们自己强制加上的，不算文件问题"
+      },
+      {
+        "code": "RELEASE_ARTIFACT_MISSING",
+        "message": "缺少 bom 产物",
+        "why": "本次没有申请导出 bom，因此不算缺失"
+      },
+      {
+        "code": "RELEASE_ARTIFACT_MISSING",
+        "message": "缺少 cpl 产物",
+        "why": "本次没有申请导出 cpl，因此不算缺失"
+      },
+      {
+        "code": "RELEASE_ARTIFACT_MISSING",
+        "message": "缺少 step 产物",
+        "why": "本次没有申请导出 step，因此不算缺失"
+      }
+    ],
+    "note": "已豁免 4 条与本次产出类别无关的检查（原因见 waived）"
+  },
+  "released": false
+}

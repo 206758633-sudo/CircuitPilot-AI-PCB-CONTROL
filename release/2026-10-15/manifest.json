@@ -1,0 +1,127 @@
+{
+  "kind": "production-export-manifest",
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-16T02:31:01.047Z",
+  "outDir": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-15",
+  "outputClass": "final",
+  "decisionTicket": "958d4b027a0ace0544414ecee7b2da1f",
+  "gateFingerprint": "50103bea4f83cfd6698cf7e035b270ed7c7dd9e544d3345bf7fe0e4556d71a85",
+  "humanSignoffRequired": true,
+  "files": [
+    {
+      "kind": "gerber",
+      "name": "GERBER_CircuitPilot-gerber.zip",
+      "path": "GERBER_CircuitPilot-gerber.zip",
+      "bytes": 76842,
+      "sha256": "374df20df08d03dd9056486d0db59081bd923a425d8575c259d82b4c0b9d8a77",
+      "chunks": 1,
+      "retriesUsed": 0,
+      "edaName": "CircuitPilot-Gerber"
+    },
+    {
+      "kind": "bom",
+      "name": "BOM_CircuitPilot-bom.csv",
+      "path": "BOM_CircuitPilot-bom.csv",
+      "bytes": 1584,
+      "sha256": "6ceffbf5f25e66804208b835238c02c80d5c231e0c789e24c134dd2726be8904",
+      "chunks": 1,
+      "retriesUsed": 0,
+      "edaName": "CircuitPilot-BOM.csv"
+    },
+    {
+      "kind": "cpl",
+      "name": "CPL_CircuitPilot-cpl.csv",
+      "path": "CPL_CircuitPilot-cpl.csv",
+      "bytes": 4410,
+      "sha256": "007a14b7f0071069837afcb4538c3e4b4f614df120346aeaa90185f25cc3b5a3",
+      "chunks": 1,
+      "retriesUsed": 0,
+      "edaName": "CircuitPilot-CPL"
+    }
+  ],
+  "verification": {
+    "id": "artifacts",
+    "title": "生产文件",
+    "findings": [
+      {
+        "code": "RELEASE_GATE_PASSED",
+        "severity": "info",
+        "message": "CPL 坐标与实机读回一致（12 个位号，容差 0.05mm）",
+        "field": null
+      }
+    ],
+    "evidence": {
+      "gerber": {
+        "path": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-15/GERBER_CircuitPilot-gerber.zip",
+        "bytes": 76842,
+        "draft": false,
+        "copperLayerCount": 6,
+        "innerLayers": [
+          "Gerber_InnerLayer1.G1",
+          "Gerber_InnerLayer2.G2",
+          "Gerber_InnerLayer3.G3",
+          "Gerber_InnerLayer4.G4"
+        ],
+        "outline": [
+          "Gerber_BoardOutlineLayer.GKO"
+        ],
+        "drills": [
+          "Gerber_DrillDrawingLayer.GDD",
+          "Drill_PTH_Through.DRL",
+          "Drill_NPTH_Through.DRL",
+          "Drill_PTH_Through_Via.DRL"
+        ]
+      },
+      "bom": {
+        "path": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-15/BOM_CircuitPilot-bom.csv",
+        "bytes": 1584,
+        "draft": false,
+        "rows": 8,
+        "designators": 12,
+        "headers": [
+          "No.",
+          "Quantity",
+          "Comment",
+          "Designator",
+          "Footprint",
+          "Value",
+          "Manufacturer Part",
+          "Manufacturer",
+          "Supplier Part",
+          "Supplier"
+        ]
+      },
+      "cpl": {
+        "path": "/Users/jescochen/Desktop/AI- PCBA/release/2026-10-15/CPL_CircuitPilot-cpl.csv",
+        "bytes": 4410,
+        "draft": false,
+        "rows": 12,
+        "designators": [
+          "U1",
+          "U2",
+          "U3",
+          "U4",
+          "U5",
+          "U6",
+          "D1",
+          "J1",
+          "R1",
+          "R2",
+          "R3",
+          "R4"
+        ]
+      }
+    },
+    "status": "pass",
+    "blockingCount": 0,
+    "waived": [
+      {
+        "code": "RELEASE_ARTIFACT_MISSING",
+        "message": "缺少 step 产物",
+        "why": "本次没有申请导出 step，因此不算缺失"
+      }
+    ],
+    "note": "已豁免 1 条与本次产出类别无关的检查（原因见 waived）"
+  },
+  "released": true
+}
