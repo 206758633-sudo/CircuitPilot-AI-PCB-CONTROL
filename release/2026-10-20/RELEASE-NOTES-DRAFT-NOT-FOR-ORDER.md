@@ -5,7 +5,7 @@
   - PCB：`2844799d86eeed27`（PCB1）—— **本轮已由 2 层升级为 4 层**（Top / Inner1 / Inner2 / Bottom）
   - 原理图：`8db59ac7bbc9510b`（p1）
 - 板卡：60 mm × 40 mm，**4 层**，1.6 mm，1 oz
-- **放行状态：`DRAFT-NOT-FOR-ORDER`，`humanSignoffRequired=true`，`orderEnabled=false`，未签核，禁止下单**
+- **放行状态：`DRAFT-NOT-FOR-ORDER`**（产物清单：`outputClass=draft`、`released=false`、`humanSignoffRequired=true`），未签核，**禁止下单**
 
 > 本目录所有文件均为**草稿**（文件名强制带 `-DRAFT-NOT-FOR-ORDER`），由 CircuitPilot 运行时
 > `/api/production/export` 在「先裁决、后导出、再复核」的通道中产生。未通过放行门禁、未人工签核，
@@ -19,7 +19,7 @@
 | `BOM_CircuitPilot-bom-DRAFT-NOT-FOR-ORDER.csv` | 9,146 B | EDA 原生 BOM；U3/U15 为 DNP 预留（决策 D6，不贴装、不进 BOM） |
 | `CPL_CircuitPilot-cpl-DRAFT-NOT-FOR-ORDER.csv` | 70,830 B | EDA 原生贴装坐标（布局未变，180 器件） |
 | `GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip` | 330,691 B | EDA 原生 Gerber，**含 `Gerber_InnerLayer1.G1` + `Gerber_InnerLayer2.G2`** 与 PTH 钻孔 |
-| `manifest.json` | 7,7xx B | 产物清单：outputClass=draft、sha256、gateFingerprint、humanSignoffRequired=true |
+| `manifest.json` | 7,7xx B | 产物清单：outputClass=draft、released=false、sha256、gateFingerprint、humanSignoffRequired=true |
 
 生成通道（可复现）：
 

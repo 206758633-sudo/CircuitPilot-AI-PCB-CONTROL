@@ -3,7 +3,7 @@
 - 记录时间：2026-10-20 14:56（Asia/Shanghai）
 - 嘉立创EDA工程：智能衣橱助手 `5e1059beff734847ba4b38b557e8ed59`；PCB1 `2844799d86eeed27`；原理图 p1 `8db59ac7bbc9510b`
 - 板卡：60 mm × 40 mm，**4 层**，1.6 mm，1 oz
-- **放行状态：DRAFT-NOT-FOR-ORDER**（`humanSignoffRequired=true` / `orderEnabled=false`，未签核，禁止下单）
+- **放行状态：DRAFT-NOT-FOR-ORDER**（manifest：`outputClass=draft` / `released=false` / `humanSignoffRequired=true`，未签核，禁止下单）
 
 ## 一、当前设计状态（2026-10-20 14:35 实测，4 层）
 
