@@ -986,3 +986,50 @@
 - ② 若坚持 2 层：需微调 U9/U10 相对位置（≥0.5mm 错位）并重跑布局→重布，属于布局变更，需重新跑规划/验证/审计；
 - ③ 门禁取证链：把 ERC/DRC/产物写入运行时证据库并重跑 gate；人工签核保留；
 - ④ 未结工程输入（摄像头 FPC 24P、舵机 3 脚序、WS2812 级联、SW1–3 角色、2 层 USB 90Ω）需业务确认。
+
+#### 73. 升级 4 层板并完成 4 层设计：DRC 110 → 63，GND 孤岛 33 → 2（2026-10-20 14:00-14:40）
+
+**背景**：用户要求「CircuitPilot 至少具备 4 层板设计能力」。仓库里多层能力此前只有离线证据
+（假桥测试，见 `multilayer-pcb-execution.md` §2/§5），产品 HTTP 接口层没有「读/设置铜层数」的能力，
+真实工程上也从未跑过 4 层。本轮把它做成**真机可用的产品能力**并直接用在「智能衣橱助手」上。
+
+**1) 产品能力补齐**
+- 新增 `GET /api/eda/pcb/layers`（读铜层数+层表）与 `POST /api/eda/pcb/layers`（写，body `{copperLayers, approvalIds}`）：
+  层数校验 → write 批准门禁 → `pcb.layers.setCount` → 读回校验（`copperLayerIds(4)=[1,15,16,2]` 逐层存在且 SIGNAL）→ 保存 → 证据。
+- `EVIDENCE_KINDS` 新增 `pcb-layer-stack`；真机执行落盘 `artifacts/evidence/pcb-layer-stack/`。
+- 测试：`runtime/__tests__/pcb-layers-http.test.mjs` 5 用例（含「setCount 返回 true 但层数没变必须 409」的负控）。
+- 真机：`2 → 4` 层成功（`changed:true`、`verification.matched:true`、`saved:true`），幂等复跑 `4→4` 也通过
+  （说明能力可重复、不是一次性偶然）；内层 Inner1/Inner2（id 15/16）激活。
+
+**2) 4 层设计流水线（全程 CircuitPilot 通道）**
+- 铺铜：GND 从 2 块扩到 **4 块**（Top / Inner1 / Inner2 / Bottom，solid、`preserveSilos=false`）；
+- 重布：清空铜 → 导出 4 层 DSN（自动含 Inner1/Inner2）→ 预处理（间距 7.0/6.95 mil、线宽 5 mil）→
+  Freerouting 2.5.0（`-mp 250 -mt 8 -us Global`）→ SES 导入（EDA 正确落到 layer 15/16）→ 批量回置 5 mil → 重建 4 块铺铜 → 保存。
+- 两次方案对比：
+
+| 方案 | GND 参与布线 | 走线/过孔 | 层分布（Top/Inner1/Inner2/Bottom） | DRC |
+|---|---|---|---|---|
+| A | 否（铺铜+缝合） | 1108 / 138 | 785 / 165 / 129 / 29 | 89（Clearance 1） |
+| **B（采用）** | **是** | **1508 / 154** | **1145 / 174 / 157 / 32** | **63（Clearance 0）** |
+
+**3) 最终 DRC（4 层，2026-10-20 14:33，运行时任务通道取证）**
+- **63 项**：Connection 62（SMD 焊盘 60 / 过孔 2）+ Netlist 1，**Clearance 0 ✓**；
+- 对比：2 层 110 → **4 层 63（-43%）**；GND 未连焊盘 **33 → 2**（仅 `U8_23`、`C12_2`）；
+- 剩余 58 个信号焊盘 / 20 网：仍是 U9/U10 等 **0.4 mm 间距 QFN 的出线几何约束**（不做 via-in-pad 无解），
+  4 层解决的是 GND 平面与走线通道，不改变焊盘间距。
+- Netlist 1 项为 `Import Changes` 聚合项，需人工判定。
+
+**4) 制造草稿（4 层）**
+- `POST /api/production/export {requested:"draft", kinds:[bom,cpl,gerber], outDir:"release/2026-10-20"}`：
+  BOM 9,146 B / CPL 70,830 B（布局未变）/ Gerber **325,878 B，含 `Gerber_InnerLayer1.G1` + `Gerber_InnerLayer2.G2`** / manifest 7,774 B；
+- 复核结论仍为 `PRODUCTION_EXPORT_VERIFY_FAILED`（缺产物取证）→ 全部 **DRAFT-NOT-FOR-ORDER，禁止下单**；
+- 2 层版本（同日 11:30，DRC 110）移到 `release/2026-10-20-2l/` 存档并在文件头标注「已被 4 层取代」；
+- 状态记录与说明同步更新：`manufacturing/wardrobe-assistant/RELEASE-STATUS-DRAFT.md`、`release/2026-10-20/RELEASE-NOTES-DRAFT-NOT-FOR-ORDER.md`。
+
+**5) 门禁与残余**
+- 放行门禁仍是 **10 项阻塞**，全部为取证/流程类（产物取证 ×3、原理图取证 ×2、原理图未就绪、仿真未跑、
+  DRC 取证、布局未确认、物料身份）；布局类 105 项早已清零。
+- 4 层能力边界：盲埋孔未实现（`viaType` 编码未真机核实、无规则项创建命令）；4 层阻抗反解需板厂叠层参数，
+  本轮 USB 90 Ω 仍按 5 mil 保守线宽、未做阻抗控制；ERC 仍为 0 错 6 警告（聚合）。
+- 下一步：① 若要求 DRC 进一步清零，需在「via-in-pad/更细板厂规则」与「挪动 U9/U10 出线口」之间做工程决策；
+  ② 门禁取证链（ERC/DRC/产物/签核）按流程补齐；③ 4 层叠层参数与阻抗目标需业务/板厂输入。

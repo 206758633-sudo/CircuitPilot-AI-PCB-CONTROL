@@ -30,7 +30,7 @@ export function hdiBgaFixture() {
 }
 
 export function rf24gFixture() {
-  const input=highSpeedUsbFixture(); input.highSpeed=[]; input.rf=[{frequencyGHz:2.4,targetOhm:50,toleranceOhm:5,geometry:{widthMm:0.3,gapMm:0.05,heightMm:0.18,er:4.1},antennaKeepout:{verified:true,evidence:'fixture:antenna-drawing-rev-a'},viaFence:{lengthMm:20,pitchMm:1},simulationEvidence:{hash:'sha256:fixture-openems-result'},simulationJob:{solver:'openEMS',geometryHash:'sha256:fixture-geometry',frequencySweepGHz:[0.1,2.4],ports:[{id:'P1',impedanceOhm:50}]}}]; return input;
+  const input=highSpeedUsbFixture(); input.highSpeed=[]; input.rf=[{frequencyGHz:2.4,targetOhm:50,toleranceOhm:5,geometry:{widthMm:0.3,gapMm:0.05,heightMm:0.18,er:4.1},antennaKeepout:{verified:true,evidence:'fixture:antenna-drawing-rev-a'},viaFence:{lengthMm:20,pitchMm:1},simulationEvidence:{source:'fixture',solver:'openEMS',hash:'fixture-openems-result',note:'样板数据，不是求解器产出，不能当验收结论'},demo:true,simulationJob:{solver:'openEMS',geometryHash:'sha256:fixture-geometry',frequencySweepGHz:[0.1,2.4],ports:[{id:'P1',impedanceOhm:50}]}}]; return input;
 }
 
 export const engineeringFixtures={ 'HS-USB2-4L':highSpeedUsbFixture, 'HDI-BGA-6L':hdiBgaFixture, 'RF-24G-4L':rf24gFixture };

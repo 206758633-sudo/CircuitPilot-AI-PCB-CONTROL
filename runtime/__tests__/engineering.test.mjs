@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { runEngineeringAnalysis } from '../engineering/engine.mjs';
@@ -8,6 +11,9 @@ import { analyzeRf } from '../engineering/rf.mjs';
 import { solveLayout } from '../engineering/layout.mjs';
 import { finding } from '../engineering/stackup.mjs';
 import { createRuntimeServer } from '../server.mjs';
+
+// 运行时文件锁/状态文件落在状态目录：测试隔离，避免并行测试互相干扰。
+process.env.CIRCUITPILOT_STATE_DIR = process.env.CIRCUITPILOT_STATE_DIR || mkdtempSync(join(tmpdir(), 'cp-eng-state-'));
 
 test('three golden fixtures emit provenance, hashes and allowlisted operations', () => {
   for (const [id, build] of Object.entries(engineeringFixtures)) {
@@ -215,4 +221,54 @@ test('规模守卫：接近 MAX_COMPONENTS 的器件在细网格大板上仍能�
       assert.equal(refOverlap(result.placements[i], result.placements[j], 0), false, `${result.placements[i].ref} 与 ${result.placements[j].ref} 重叠`);
     }
   }
+});
+
+test('布局规则 API：规则包元信息、样板审计、404 与报告并入', async (context) => {
+  const keychain = { async configured() { return false; }, async read() { throw new Error('unused'); } };
+  const { server } = createRuntimeServer({ keychain });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const health = await (await fetch(`${base}/api/health`, { headers: { origin: 'http://127.0.0.1:4177' } })).json();
+  const headers = { 'x-circuitpilot-token': health.sessionProof };
+
+  const packResponse = await fetch(`${base}/api/engineering/layout-rules`, { headers });
+  const pack = await packResponse.json();
+  assert.equal(packResponse.status, 200);
+  assert.equal(pack.pack.total, 128);
+  assert.equal(pack.pack.hash.length, 64);
+  assert.deepEqual(pack.fixtures, ['ESP32-TEST-BOARD', 'ESP32-TEST-BOARD-RECTIFIED']);
+  assert.equal(pack.pack.rules, undefined, '规则包路由不能把 128 条正文塞进响应');
+
+  const post = (path, body) => fetch(`${base}${path}`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+  const defective = await (await post('/api/engineering/layout-rules/audit', { fixtureId: 'ESP32-TEST-BOARD' })).json();
+  assert.equal(defective.audit.summary.blockingFailures, 50);
+  assert.equal(defective.audit.passed, false);
+  assert.equal(defective.audit.releaseReady, false);
+  assert.equal(defective.audit.gatesSummary['GATE-01'], 'FAIL');
+  assert.ok(defective.audit.findings.every((finding) => finding.code.startsWith('LAYOUT_RULE_')));
+
+  const rectified = await (await post('/api/engineering/layout-rules/audit', { fixtureId: 'ESP32-TEST-BOARD-RECTIFIED' })).json();
+  assert.equal(rectified.audit.summary.FAIL, 0);
+  assert.equal(rectified.audit.releaseReady, true);
+  assert.deepEqual(Object.values(rectified.audit.gatesSummary), Array(7).fill('PASS'));
+
+  const missing = await post('/api/engineering/layout-rules/audit', { fixtureId: 'NOT-A-FIXTURE' });
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json()).error.code, 'LAYOUT_RULE_FIXTURE_NOT_FOUND');
+
+  const minimal = await (await post('/api/engineering/layout-rules/audit', { input: { board: { widthMm: 70, heightMm: 48 } } })).json();
+  assert.equal(minimal.audit.summary.FAIL, 0);
+  assert.equal(minimal.audit.releaseReady, false);
+  assert.ok(minimal.audit.summary.REVIEW > 100);
+
+  const merged = await (await fetch(`${base}/api/engineering/analyze`, {
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ input: { ...engineeringFixtures['HDI-BGA-6L'](), layoutRules: { board: { widthMm: 70, heightMm: 48 } } } }),
+  })).json();
+  assert.equal(merged.analysis.layoutRules.kind, 'pcba-layout-rule-audit');
+  assert.equal(merged.analysis.layoutRules.summary.total, 128);
+  assert.equal(merged.analysis.releaseReady, false);
 });

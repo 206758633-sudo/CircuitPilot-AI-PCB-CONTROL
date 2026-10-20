@@ -25,7 +25,7 @@ function fourLayerStackup() {
 
 const board4 = { widthMm: 60, heightMm: 40, layers: 4, thicknessMm: 1.6, copperOz: 1, mountingHoles: 4 };
 const board2 = { widthMm: 45, heightMm: 30, layers: 2, thicknessMm: 1.6, copperOz: 1, mountingHoles: 0 };
-const outline = { type: 'pcb.line.create', args: { net: '', layer: LAYER_IDS.BOARD_OUTLINE, startX: 0, startY: 0, endX: 60, endY: 0, lineWidth: 0.2, primitiveLock: true } };
+const outline = { type: 'pcb.outline.create', args: { layer: LAYER_IDS.BOARD_OUTLINE, originXMm: 0, originYMm: 0, widthMm: 60, heightMm: 40 } };
 const save = { type: 'pcb.save', args: {} };
 const drc = { type: 'pcb.drc', args: {} };
 const lineOn = (layer) => ({ type: 'pcb.line.create', args: { net: 'USB_DP', layer, startX: 1, startY: 1, endX: 10, endY: 1, lineWidth: 0.2, primitiveLock: false } });

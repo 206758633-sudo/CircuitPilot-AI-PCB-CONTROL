@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { createApprovalService } from './approval-service.mjs';
 
 export const DESIGN_API_VERSION = 1;
 const REQUIRED_BLOCKS = ['mcu', 'power', 'led', 'button'];
@@ -62,30 +63,60 @@ export function normalizePlan(input = {}) {
 }
 
 export class ApprovalStore {
-  constructor({ ttlMs = 5 * 60_000, now = () => Date.now() } = {}) { this.ttlMs = ttlMs; this.now = now; this.tokens = new Map(); }
+  /**
+   * 计划批准：统一批准服务（C2）的适配器——内存一次性令牌 + TTL（默认 5 分钟），
+   * 生命周期事件写进统一账本（approvalId = 令牌哈希前 16 位，绝不存令牌原文）。
+   * 令牌/绑定字段与旧实现保持一致，DesignManager/PcbManager 无需改动。
+   */
+  constructor({ ttlMs = 5 * 60_000, now = () => Date.now(), ledger = null, scope = 'plan' } = {}) {
+    this.ttlMs = ttlMs; this.now = now; this.ledger = ledger; this.scope = scope;
+    this.service = createApprovalService({
+      now,
+      defaultTtlMs: ttlMs,
+      maxEntries: 200,
+      onEvent: (event) => this.auditEvent(event),
+    });
+  }
+  auditEvent(event) {
+    if (!this.ledger) return;
+    const record = event.record;
+    this.ledger.record({
+      scope: this.scope,
+      action: event.action,
+      approvalId: record?.tokenDigest ? record.tokenDigest.slice(0, 16) : 'unknown-token',
+      bindings: record ? {
+        planHash: record.bindings.planHash ?? null,
+        targetFingerprint: record.bindings.targetFingerprint ?? null,
+        windowId: record.bindings.windowId ?? null,
+        steps: Array.isArray(record.bindings.steps) ? record.bindings.steps.length : null,
+      } : {},
+      note: event.action === 'replayed' && !record ? '批准令牌不存在' : '',
+    });
+  }
   issue({ planHash, targetFingerprint, windowId, steps }) {
     if (![planHash, targetFingerprint, windowId].every((item) => typeof item === 'string' && item.length)) throw Object.assign(new Error('审批绑定信息不完整'), { code: 'APPROVAL_INVALID' });
-    const token = crypto.randomBytes(32).toString('base64url');
-    const record = { planHash, targetFingerprint, windowId, steps: [...steps].sort(), expiresAt: this.now() + this.ttlMs, used: false };
-    this.tokens.set(digest(token), record);
-    return { token, ...record };
+    const sortedSteps = [...steps].sort();
+    const issued = this.service.issue({ scope: this.scope, bindings: { planHash, targetFingerprint, windowId, steps: sortedSteps }, ttlMs: this.ttlMs });
+    return { token: issued.token, planHash, targetFingerprint, windowId, steps: sortedSteps, expiresAt: issued.expiresAt, used: false };
   }
   consume(token, expected) {
-    const key = digest(String(token || ''));
-    const record = this.tokens.get(key);
-    if (!record) throw Object.assign(new Error('批准令牌无效'), { code: 'APPROVAL_INVALID' });
-    if (record.used) throw Object.assign(new Error('批准令牌已使用'), { code: 'APPROVAL_REPLAYED' });
-    if (record.expiresAt <= this.now()) throw Object.assign(new Error('批准令牌已过期'), { code: 'APPROVAL_EXPIRED' });
-    for (const field of ['planHash', 'targetFingerprint', 'windowId']) if (record[field] !== expected[field]) throw Object.assign(new Error(`批准绑定不匹配:${field}`), { code: 'APPROVAL_MISMATCH' });
-    record.used = true;
-    return { ...record };
+    const consumed = this.service.consumeToken({
+      token,
+      requiredScope: this.scope,
+      expectedBindings: { planHash: expected.planHash, targetFingerprint: expected.targetFingerprint, windowId: expected.windowId },
+    });
+    return {
+      planHash: consumed.bindings.planHash,
+      targetFingerprint: consumed.bindings.targetFingerprint,
+      windowId: consumed.bindings.windowId,
+      steps: consumed.bindings.steps,
+      expiresAt: consumed.expiresAt,
+      used: true,
+    };
   }
   revoke(token) {
-    const key = digest(String(token || ''));
-    const record = this.tokens.get(key);
-    if (!record || record.used) throw Object.assign(new Error('批准令牌无效或已使用'), { code: 'APPROVAL_INVALID' });
-    record.used = true; record.cancelled = true;
-    return { cancelled: true, planHash: record.planHash, windowId: record.windowId };
+    const revoked = this.service.revokeToken({ token });
+    return { cancelled: true, planHash: revoked.bindings.planHash, windowId: revoked.bindings.windowId };
   }
 }
 
@@ -146,7 +177,40 @@ export function wireOperationMatches(operation, wires) {
 }
 
 export class DesignManager {
-  constructor({ bridge, approvals = new ApprovalStore() }) { this.bridge = bridge; this.approvals = approvals; this.executions = new Map(); this.running = false; }
+  constructor({ bridge, approvals = null, store = null, ledger = null }) {
+    this.bridge = bridge; this.approvals = approvals || new ApprovalStore({ ledger }); this.store = store; this.executions = new Map(); this.running = false; this.persistenceError = null;
+    // 执行历史落盘：重启 Runtime 后仍能查到某次写入做了什么、结果如何。
+    // 状态文件损坏时直接抛错，由 server 降级为内存并大声记日志（不返回假记录、不假装历史还在）。
+    if (store) {
+      const state = store.load();
+      for (const item of Array.isArray(state?.data?.executions) ? state.data.executions : []) {
+        if (item && typeof item.id === 'string') this.executions.set(item.id, item);
+      }
+    }
+  }
+  /** 把当前执行记录写入状态文件；失败只记录标志，不掩盖"板上已经发生写入"这一事实。 */
+  persist() {
+    if (!this.store) return;
+    try {
+      this.store.save({ executions: [...this.executions.values()] });
+      this.persistenceError = null;
+    } catch (error) {
+      this.persistenceError = { code: 'EXECUTION_PERSIST_FAILED', message: String(error?.message || error).slice(0, 300), at: new Date().toISOString() };
+    }
+  }
+  /** 列表只返回摘要：完整执行对象可能很大（事件/快照摘要），按 id 再取详情。 */
+  list() {
+    return [...this.executions.values()]
+      .map((item) => ({
+        kind: 'schematic', id: item.id, state: item.state, planHash: item.planHash,
+        createdAt: item.events?.[0]?.at || null,
+        eventCount: item.events?.length ?? 0,
+        createdPrimitiveIds: item.createdPrimitiveIds?.length ?? 0,
+        error: item.error || null,
+        drc: item.drc ? { passed: Boolean(item.drc.passed), findings: Array.isArray(item.drc.findings) ? item.drc.findings.length : null } : null,
+      }))
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  }
   async context() {
     const [project, document, catalog, componentData, wires, source] = await Promise.all([
       this.bridge.execute('project.current'), this.bridge.execute('document.current'), this.bridge.execute('schematic.catalog'), this.bridge.execute('schematic.components'), this.bridge.execute('schematic.wires'),
@@ -281,7 +345,7 @@ export class DesignManager {
         } catch (rollbackError) { execution.state = 'rollback_failed'; event('rollback', 'failed', { code: rollbackError.code || 'ROLLBACK_FAILED', message: rollbackError.message }); }
       } else execution.state = 'failed';
       execution.error = { code: error.code || 'EXECUTION_FAILED', message: error.message };
-    } finally { if (execution.snapshot) delete execution.snapshot.source; this.running = false; }
+    } finally { if (execution.snapshot) delete execution.snapshot.source; this.running = false; this.persist(); }
     return execution;
   }
   get(id) { return this.executions.get(id) || null; }

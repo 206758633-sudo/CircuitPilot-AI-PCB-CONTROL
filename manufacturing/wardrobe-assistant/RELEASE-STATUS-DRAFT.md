@@ -1,20 +1,21 @@
-# 智能衣橱助手 · 制造放行状态记录（DRAFT / 禁止下单）
+# 智能衣橱助手 · 制造放行状态记录（4 层板 / DRAFT / 禁止下单）
 
-- 记录时间：2026-10-20 11:30（Asia/Shanghai）
+- 记录时间：2026-10-20 14:35（Asia/Shanghai）
 - 嘉立创EDA工程：智能衣橱助手 `5e1059beff734847ba4b38b557e8ed59`；PCB1 `2844799d86eeed27`；原理图 p1 `8db59ac7bbc9510b`
-- 板卡：60 mm × 40 mm，2 层，1.6 mm，1 oz
+- 板卡：60 mm × 40 mm，**4 层**，1.6 mm，1 oz
 - **放行状态：DRAFT-NOT-FOR-ORDER**（`humanSignoffRequired=true` / `orderEnabled=false`，未签核，禁止下单）
 
-## 一、当前设计状态（2026-10-20 实测）
+## 一、当前设计状态（2026-10-20 14:35 实测，4 层）
 
 | 项目 | 实测 | 说明 |
 |---|---|---|
+| 铜层数 | **4** | Top / Inner1(id15) / Inner2(id16) / Bottom；由 CircuitPilot 新增的 `GET/POST /api/eda/pcb/layers` 真机完成 `2→4` |
 | 元件 | 180 | 与 BOM 位号一致（U3/U15 为 DNP） |
 | 焊盘 | 602 | 有网 430 |
-| 布局 | 180/180 落位、0 blocking、HPWL 1756.2 mm | CircuitPilot 规划器整板重排（机械件锚定） |
-| 铺铜 | 2 | 顶层 + 底层 GND 铺铜，`preserveSilos=false` 重建后已填充 |
-| 走线/过孔 | **1339 线 / 153 过孔** | 整板重布（Freerouting 2.5.0）+ GND 缝合 + 残余 A\* 补线 |
-| **PCB DRC** | **未清零 ✗：110 项**（Connection 109 / **Clearance 0** / Netlist 1） | 基线 609 → 193 → **110**；Clearance 已清零 |
+| 布局 | 180/180 落位、0 blocking、HPWL 1756.2 mm | 上一轮已收敛，本轮未再移动 |
+| 铺铜 | **4** | GND × 4 层（Top/Inner1/Inner2/Bottom），`preserveSilos=false` 重建后已填充 |
+| 走线/过孔 | **1508 线 / 154 过孔** | 4 层整板重布（Freerouting 2.5.0，GND 参与布线），层分布 Top 1145 / Inner1 174 / Inner2 157 / Bottom 32 |
+| **PCB DRC** | **未清零 ✗：63 项**（Connection 62：SMD 60 / Via 2；**Clearance 0 ✓**；Netlist 1） | 2 层 110 → **4 层 63（-43%）** |
 | **ERC（原理图）** | **致命 0 ✓ / 错误 0 ✓ / 警告 6 / 信息 0**（EDA 只回聚合计数） | 警告为 DNP 预留件与未用引脚悬空，属设计意图内 |
 | 放行门禁 | **未通过：10 项阻塞（全部取证/流程类）** | 布局类 105 项阻塞已消除 |
 
@@ -26,34 +27,34 @@
 | 文件 | 大小 | 说明 |
 |---|---|---|
 | `BOM_CircuitPilot-bom-DRAFT-NOT-FOR-ORDER.csv` | 9,146 B | U3/U15 DNP 剔除 |
-| `CPL_CircuitPilot-cpl-DRAFT-NOT-FOR-ORDER.csv` | 70,830 B | 180 器件，按**新布局**导出 |
-| `GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip` | 234,336 B | 2 层 Gerber（9 图层） |
-| `manifest.json` | 7,696 B | 产物清单 + sha256 + 门禁指纹 + humanSignoffRequired=true |
-| `RELEASE-NOTES-DRAFT-NOT-FOR-ORDER.md` | — | 本批草稿的完整说明与风险披露 |
+| `CPL_CircuitPilot-cpl-DRAFT-NOT-FOR-ORDER.csv` | 70,830 B | 180 器件（布局未变） |
+| `GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip` | 325,878 B | **4 层 Gerber**（Top/Bottom/Inner1.G1/Inner2.G2 + PTH 钻孔） |
+| `manifest.json` | 7,774 B | 产物清单 + sha256 + 门禁指纹 + humanSignoffRequired=true |
+| `RELEASE-NOTES-DRAFT-NOT-FOR-ORDER.md` | — | 4 层草稿的完整说明与风险披露 |
 
-历史批次：`release/2026-10-16/`（旧布局/旧布线）、`release/2026-10-19/`（重排前布局），勿与新批次混用。
+历史批次：`release/2026-10-20-2l/`（同日 2 层尝试，已存档、被 4 层取代）、`release/2026-10-19/`、`release/2026-10-16/`。
 
 ## 三、阻塞项（放行前必须关闭）
 
-1. **PCB DRC 未清零（110 项）**：
-   - **Clearance 0 项 ✓**（上一轮 6 项已消除）。
-   - Connection 109 项：
-     - GND 未连焊盘 **33 个**（铺铜碎片岛 + 0.4 mm 间距焊盘把缝合走廊堵死；热焊盘已用焊盘内过孔）。
-     - GND 缝合残桩 16 线 / 2 孔（尝试残留）。
-     - 信号 55 项 / 21 网：集中在 U9（CODEC QFN）与 U10（ADC QFN）之间——
-       U9 底排/U10 顶排焊盘净空仅 **0.235 mm**，而 5 mil 线需 **0.427 mm**，
-       两排焊盘互相封死出线口，2 层 0.15 mm 规则下**物理不可布线**。
+1. **PCB DRC 未清零（63 项）**：
+   - **Clearance 0 项 ✓**（4 层重布后保持 0）。
+   - Connection 62 项：
+     - **GND 未连焊盘仅 2 个**（`U8_23`、`C12_2`）——内层地平面 + 4 层铺铜把 2 层时的 33 个 GND 孤岛降到 2 个。
+     - **信号未连焊盘 58 个 / 20 网**：集中在 U9（CODEC QFN）、U10（ADC QFN）等 **0.4 mm 间距 QFN** 周边，
+       净空不足、不做 via-in-pad 无法出线（ADC_3V3 7、CODEC_3V3 6、IO38_I2S_MCK 5、OUTN 4、IO13_I2S_WS 4 ……）。
+       这是**焊盘间距的物理约束**，不是路由算法失败：4 层解决的是 GND 平面与走线通道，不改变出线口宽度。
+     - 2 个过孔类未连（缝合/层间转换残留）。
    - Netlist 1 项：Import Changes 聚合项，需人工判定。
-2. **GND 缝合**：铺铜岛不跨岛连通；已实现受约束缝合（精确 DRC 等价几何校验），75 → 33 个未连。
-3. **未结工程输入**：摄像头 FPC 24P 引脚定义、舵机 3 脚顺序、WS2812 级联顺序、SW1/SW2/SW3 角色、2 层 USB 90 Ω 决策。
-4. **DFM / 物料**：未做嘉立创在线 DFM 复核；BOM 缺货料号下单前刷新；物料身份需逐行确认。
-5. **人工签核**：未执行（保留）。
+2. **未结工程输入**：摄像头 FPC 24P 引脚定义、舵机 3 脚顺序、WS2812 级联顺序、SW1/SW2/SW3 角色、**4 层 USB 90 Ω 需板厂叠层数据**。
+3. **DFM / 物料**：未做嘉立创在线 DFM 复核；BOM 缺货料号下单前刷新；物料身份需逐行确认。
+4. **人工签核**：未执行（保留）。
 
 ## 四、关键决策与偏差（记录在案）
 
-- **间距矩阵 0.15 mm**（全铜类），线宽 5 mil，过孔 24/12 mil —— 显式决策，0.15 mm ≥ JLC 2 层 0.127 mm 能力，不静默放宽。
+- **间距矩阵 0.15 mm**（全铜类），线宽 5 mil，过孔 24/12 mil 通孔 —— 显式决策；4 层板厂能力优于该值，本轮未放宽。
+- **4 层升级**：按用户要求「CircuitPilot 至少具备 4 层板设计能力」执行，全程走 CircuitPilot 自身能力
+  （新增叠层产品接口 + 批准门禁 + 读回校验 + 证据落盘）；2 层版本存档于 `release/2026-10-20-2l/`。
 - **U3 / U15**：DNP 预留（决策 D6），不接线、不贴装、不进 BOM/CPL。
 - **Q16**：决策 D7 方案一（修封装、保留原 BOM 料号）。
 - **网表同步（§67）**：PCB 器件 uniqueId 已对齐，“从原理图导入变更”显示无变更；**禁止执行 Apply**（历史事故会毁焊盘）。
 - **A9 SPACE-02 courtyard 规则**：本板 180 器件“本体+0.5 mm”面积占可用面积 99.5%，规则不可行；作为公开偏差记录，需人工签核。
-- **2 层 DRC 清零可行性**：存在物理不可布线焊盘对；建议评估 **4 层板**（用户已允许作为“有文档的提案”，需批准后方可改版）。

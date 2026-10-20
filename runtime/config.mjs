@@ -19,11 +19,16 @@ export const ALLOWED_ORIGINS = new Set([
 export const CLI_CANDIDATES = {
   codex: [
     path.join(os.homedir(), '.npm-global/bin/codex'),
+    // codex 官方安装器的默认落点（实测 0.161.0 装在这里）。缺这条时，用户明明装了 CLI
+    // 也会被判成未在受支持路径中找到，白卡在 PROVIDER_UNAUTHENTICATED。
+    path.join(os.homedir(), '.local/bin/codex'),
+    path.join(os.homedir(), '.codex/packages/standalone/current/bin/codex'),
     '/opt/homebrew/bin/codex',
     '/usr/local/bin/codex',
   ],
   claude: [
     path.join(os.homedir(), '.npm-global/bin/claude'),
+    path.join(os.homedir(), '.local/bin/claude'),
     '/opt/homebrew/bin/claude',
     '/usr/local/bin/claude',
   ],
@@ -50,6 +55,9 @@ export const KEYCHAIN_SERVICES = {
   xai_api: 'com.circuitpilot.provider.xai',
   groq_api: 'com.circuitpilot.provider.groq',
   mistral_api: 'com.circuitpilot.provider.mistral',
+  ark_api: 'com.circuitpilot.provider.ark',
+  qianfan_api: 'com.circuitpilot.provider.qianfan',
+  custom_api: 'com.circuitpilot.provider.custom',
 };
 
 export const KEYCHAIN_ACCOUNT = 'api-key';

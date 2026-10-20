@@ -210,3 +210,48 @@ USB（90Ω 差分，外层微带）+ SPI 时钟（内层 L2）的四层高速板
   进程内真实执行路径 + HTTP 层真实全流程（编译→批准→执行）+ 忠实假桥
 - 盲埋孔真机确认（见残余 1、2）
 - 高级工程报告的“器件在哪一面”模型（见残余 5）
+
+## 6. 真机验证：把一块真实 2 层板升级为 4 层并完成 4 层设计（2026-10-20）
+
+前面 §2 的多层能力此前只有**离线证据**（假桥 + 语义/执行计划模型）。本节记录第一次在**真实嘉立创EDA工程**
+上把 4 层能力跑通：工程「智能衣橱助手」PCB1 `2844799d86eeed27`，60×40 mm，原 2 层。
+
+### 6.1 产品接口补齐（本轮新增，之前只能调桥内部命令）
+
+| 接口 | 行为 |
+| --- | --- |
+| `GET /api/eda/pcb/layers` | 读铜层数 + 完整层表（`copperCount`、`layers[{id,name,type,layerStatus}]`）；读失败 `409 PCB_LAYER_COUNT_READ_FAILED` |
+| `POST /api/eda/pcb/layers` | body `{copperLayers, approvalIds, save=true}`：层数校验（2,4,…,32 偶数，`isEdaCopperLayerCount`）→ **消费 write 批准**（无批准 409 `AUTOMATION_APPROVAL_REQUIRED`）→ 读 before → `pcb.layers.setCount`（必须返回 true，否则 409 `PCB_LAYER_COUNT_SET_FAILED`）→ 读回校验（层数相等 + `copperLayerIds(n)` 每层存在且 type=SIGNAL，否则 409 `PCB_LAYER_COUNT_VERIFY_FAILED`，带 before/after/expectedLayerIds）→ 保存（`SAVE_FAILED`）→ 落 `pcb-layer-stack` 证据 |
+
+- 证据类型 `pcb-layer-stack` 已登记进 `EVIDENCE_KINDS`（`runtime/evidence-store.mjs`），真机执行后
+  落盘 `artifacts/evidence/pcb-layer-stack/*.json`。
+- 回归测试：`runtime/__tests__/pcb-layers-http.test.mjs`（5 用例：GET 读层 / 无批准拒绝且不写板 /
+  批准后 2→4 层校验 setCount 参数与 save / 非法层数 400 / setCount 返回 true 但层数不变 → 409 VERIFY_FAILED）。
+
+### 6.2 真机执行结果
+
+1. `POST /api/eda/pcb/layers {copperLayers:4}`（消费 write 批准）：
+   `before.copperCount=2` → `after.copperCount=4`，`changed:true`，`verification:{expectedLayerIds:[1,15,16,2],matched:true}`，`saved:true`；
+   幂等复跑 `4→4` 同样 `matched:true`。内层 `Inner1/Inner2`（id 15/16）由 `layerStatus:0` 变为 `1`。
+2. 4 层 GND 铺铜：从 2 块扩到 **4 块**（`pcb.pour.create`，layer 1/15/16/2，solid、`preserveSilos=false`），
+   `rebuildCopperRegion()` 全部 true，铺铜填充对象数从 311 增至 393。
+3. 4 层整板重布（从无铜态导出 DSN，DSN 自动带 Top/Inner1/Inner2/Bottom 四个铜层；SES 导入后 EDA 正确
+   落到 layer 15/16）——两次方案对比：
+
+| 方案 | GND | 走线 / 过孔 | 层分布 | DRC |
+| --- | --- | --- | --- | --- |
+| A | 不参与布线（靠铺铜+缝合） | 1108 / 138 | Top 785 / Inner1 165 / Inner2 129 / Bottom 29 | 89（Clearance **1**） |
+| **B（采用）** | **参与布线** | **1508 / 154** | **Top 1145 / Inner1 174 / Inner2 157 / Bottom 32** | **63（Clearance 0）** |
+
+4. 4 层 Gerber 导出含 `Gerber_InnerLayer1.G1` / `Gerber_InnerLayer2.G2`，BOM/CPL 不变（布局未动）。
+
+### 6.3 结论与边界
+
+- **CircuitPilot 现已具备可交付的 ≥4 层设计能力**：叠层变更（产品接口 + 批准 + 读回校验 + 证据）→
+  多层铺铜 → 内层布线（SES 导入层映射正确）→ 4 层 DRC → 4 层 Gerber 制造草稿，全链路在真实工程上跑通，
+  不再只是离线假桥测试。
+- **4 层收益**：GND 未连焊盘 33 → **2**；总 DRC 110 → **63（-43%）**；Clearance 保持 0。
+- **4 层解决不了的部分**：0.4 mm 间距 QFN（U9/U10）的焊盘出线是**焊盘几何约束**，2/4 层同样无解，
+  除非允许 via-in-pad 或更细的板厂规则；本板剩余 58 个信号焊盘属于这一类。
+- **仍未验证/未实现**：盲埋孔（`viaType` 编码未真机核实、无规则项创建命令）、4 层叠层的阻抗反解需要
+  板厂叠层参数（铜厚/介质/εr）输入，本轮按 5 mil 保守线宽，未做阻抗控制。

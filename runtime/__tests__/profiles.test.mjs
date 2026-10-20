@@ -136,9 +136,11 @@ test('四层计划能编译出完整操作序列，且官方 DRC 仍在最后', 
   assert.ok(operations.some((operation) => operation.type === 'pcb.pour.create'));
   assert.ok(operations.some((operation) => operation.type === 'pcb.save'));
   // 板框必须仍然画在板框层（11），而不是某个铜层。
+  // 板框：单条 pcb.outline.create 落在板框层 11（Line/Arc 画不出来，实测只接受 SIGNAL 铜层）。
   const outline = operations.filter((operation) => operation.stage === 'outline');
-  assert.equal(outline.length, 4);
-  assert.ok(outline.every((operation) => operation.args.layer === 11));
+  assert.equal(outline.length, 1);
+  assert.equal(outline[0].type, 'pcb.outline.create');
+  assert.equal(outline[0].args.layer, 11);
 });
 
 test('差分网络缺少叠层来源时，编译期质量检查必须报 IMPEDANCE_STACKUP_REQUIRED', () => {

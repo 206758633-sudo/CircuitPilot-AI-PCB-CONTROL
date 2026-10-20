@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process';
 import { findExecutable } from './process.mjs';
 
-const DEFAULT_TIMEOUT_MS = 120_000;
+// AI 规划属长任务（首次冷启动 + 大上下文）：120s 硬上限会稳定误杀（真机连续 CODEX_TIMEOUT）。
+// 默认仍 120s，但允许用环境变量放宽，避免把「AI 想得久」误报成失败。
+const DEFAULT_TIMEOUT_MS = Number(process.env.CIRCUITPILOT_CODEX_TIMEOUT_MS) > 0 ? Number(process.env.CIRCUITPILOT_CODEX_TIMEOUT_MS) : 120_000;
 
 function protocolError(message, code = 'CODEX_PROTOCOL_ERROR') {
   return Object.assign(new Error(message), { code, status: 502 });

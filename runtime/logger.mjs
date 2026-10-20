@@ -1,15 +1,13 @@
-const SECRET_KEYS = /authorization|api[-_]?key|token|secret|password|credential/i;
-const SECRET_VALUE = /(?:sk-[A-Za-z0-9_-]{12,}|Bearer\s+[A-Za-z0-9._-]{8,}|x-api-key\s*[:=]\s*\S+)/gi;
+import { redactSecrets as redactLogValue } from './log-redaction.mjs';
+
 const events = [];
 
-export function redact(value, depth = 0) {
-  if (depth > 6) return '[DEPTH_LIMIT]';
-  if (typeof value === 'string') return value.replace(SECRET_VALUE, '[REDACTED]');
-  if (Array.isArray(value)) return value.map((item) => redact(item, depth + 1));
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, SECRET_KEYS.test(key) ? '[REDACTED]' : redact(item, depth + 1)]));
-  }
-  return value;
+/**
+ * C8：日志统一走 `log-redaction`（敏感键整值替换、自由文本擦 Bearer/JWT/sk-/邮箱/本机路径、
+ * 循环引用与超深/超长安全降级）。保留 `redact` 导出是为既有调用方/测试兼容。
+ */
+export function redact(value, _depth = 0) {
+  return redactLogValue(value);
 }
 
 function write(level, module, message, data) {

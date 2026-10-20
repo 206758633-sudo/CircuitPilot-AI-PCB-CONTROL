@@ -106,3 +106,77 @@ test('EDA evidence uses only fixed read commands and degrades on failure', async
   assert.equal(fallback.status, 'unavailable');
   assert.match(fallback.reason, /bridge down/);
 });
+
+const apiKeychain = (key = 'sk-vendor') => ({ async read() { return key; }, async configured() { return Boolean(key); } });
+const chatJson = JSON.stringify({ reply: '需要确认输入电压。', questions: ['输入电压范围？'], requirementSuggestions: [], bomDraft: null });
+
+test('第三方平台 Provider：用 API Key 走 OpenAI 兼容通道，不再要求 Codex 登录', async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { calls.push({ url, headers: init.headers, body: JSON.parse(init.body) }); return { ok: true, status: 200, json: async () => ({ model: 'deepseek-chat', choices: [{ message: { content: chatJson } }] }) }; };
+  try {
+    const client = { async createThread() { throw new Error('Codex 不应被调用'); }, close() {} };
+    const manager = new ChatManager({ keychain: apiKeychain(), bridge: unavailableBridge, client, providerStatus: readyProviders });
+    const result = await manager.send('session-api', { message: '检查需求', provider: 'deepseek_api', model: 'deepseek-chat', context: { project: { id: 'p1', name: '控制板' } } });
+    assert.equal(result.reply, '需要确认输入电压。');
+    assert.equal(result.threadActive, false);
+    assert.equal(result.provider, 'deepseek_api');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'https://api.deepseek.com/v1/chat/completions');
+    assert.equal(calls[0].headers.authorization, 'Bearer sk-vendor');
+    assert.equal(calls[0].body.model, 'deepseek-chat');
+    // 图片附件对 DeepSeek 系模型明确拒绝，而不是静默丢弃。
+    await assert.rejects(() => manager.send('session-api-2', { message: '看图', provider: 'deepseek_api', context: {}, attachments: [{ kind: 'image', name: 'a.png', mime: 'image/png', dataBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' }] }), { code: 'PROVIDER_IMAGE_UNSUPPORTED' });
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('第三方平台 Provider：状态只检查钥匙串，没有 Key 时明确拒绝', async () => {
+  const manager = new ChatManager({ keychain: apiKeychain(''), bridge: unavailableBridge, providerStatus: readyProviders });
+  const status = await manager.status('ark_api');
+  assert.equal(status.ready, false);
+  assert.equal(status.provider.kind, 'api');
+  await assert.rejects(() => manager.send('session-no-key', { message: 'hi', provider: 'ark_api', context: {} }), { code: 'PROVIDER_CREDENTIAL_MISSING' });
+  assert.equal((await manager.status('deepseek_api')).ready, false);
+});
+
+test('第三方平台 Provider：生产计划也走同一 API 通道并保留阻断结构校验', async () => {
+  const originalFetch = globalThis.fetch;
+  let captured = null;
+  globalThis.fetch = async (url, init) => {
+    captured = JSON.parse(init.body);
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify({ status: 'blocked', explanation: '需要PCB实时证据', blockingInformation: [{ code: 'PCB_CONTEXT_REQUIRED', question: '请打开PCB文档', reason: '布局微调需要真实坐标' }], plan: null }) } }] }) };
+  };
+  try {
+    const manager = new ChatManager({ keychain: apiKeychain(), bridge: unavailableBridge, providerStatus: readyProviders });
+    const result = await manager.productionPlan({ instruction: '把USB-C向右移动2mm', provider: 'siliconflow_api', model: 'deepseek-ai/DeepSeek-V3', context: { project: { id: 'p1', name: '控制板' } } });
+    assert.equal(result.status, 'blocked');
+    assert.equal(captured.model, 'deepseek-ai/DeepSeek-V3');
+    assert.match(captured.messages[0].content, /JSON Schema/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('第三方平台 Provider：候选计划先用同一后端生成检索关键词，再向只读器件库取证', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push(body);
+    const isSelection = /选型助手/.test(body.messages[0].content);
+    const content = isSelection
+      ? JSON.stringify({ queries: [{ block: 'mcu', query: 'STM32G0' }] })
+      : JSON.stringify({ title: '候选计划', blocks: {}, nets: [], placements: [], operations: [], assumptions: ['证据不足'] });
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content } }] }) };
+  };
+  const searched = [];
+  const bridge = { async discover() { return null; }, async execute(id, args) { searched.push([id, args]); return { result: { devices: [{ name: 'STM32G0', lcscId: 'C12345' }] } }; } };
+  try {
+    const client = { async createThread() { throw new Error('Codex 不应被调用'); }, close() {} };
+    const manager = new ChatManager({ keychain: apiKeychain(), bridge, client, providerStatus: readyProviders });
+    const result = await manager.plan({ requirement: '做一个STM32控制板', provider: 'deepseek_api', model: 'deepseek-reasoner', context: { requirement: '做一个STM32控制板' } });
+    assert.equal(result.title, '候选计划');
+    assert.equal(calls.length, 2);
+    assert.match(calls[0].messages[0].content, /选型助手/);
+    assert.match(calls[1].messages[0].content, /原理图计划生成器/);
+    assert.deepEqual(searched, [['library.device.search', { query: 'STM32G0', mode: 'keyword', limit: 3, page: 1 }]]);
+  } finally { globalThis.fetch = originalFetch; }
+});

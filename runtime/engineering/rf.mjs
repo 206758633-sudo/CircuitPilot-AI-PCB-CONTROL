@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { cpwgImpedance, finding } from './stackup.mjs';
+import { verifySimulationEvidence } from '../simulation.mjs';
 
 export function analyzeRf(input = {}) {
   const findings = []; const frequencyGHz = Number(input.frequencyGHz);
@@ -13,7 +14,19 @@ export function analyzeRf(input = {}) {
   const fenceLengthMm = Number(input.viaFence?.lengthMm || 0); const pitchMm = Number(input.viaFence?.pitchMm || 0);
   const viaCount = fenceLengthMm > 0 && pitchMm > 0 ? Math.floor(fenceLengthMm / pitchMm) + 1 : 0;
   if (!pitchMm || (maxFencePitchMm && pitchMm > maxFencePitchMm)) findings.push(finding('RF_VIA_FENCE_PITCH', '接地过孔围栏间距超过导波波长/20或未提供', 'viaFence'));
-  if (!input.simulationEvidence?.hash) findings.push(finding('RF_SIMULATION_REQUIRED', '缺少外部电磁仿真结果哈希', 'simulationEvidence'));
+  // 这一行原来是 `if (!input.simulationEvidence?.hash)`：只要填个字符串就能过闸，
+  // 于是 fixtures.mjs 里那个 `sha256:fixture-openems-result` 就成了"仿真证据"。
+  // 现在证据必须能被 verifySimulationEvidence 校验（来源、求解器、网表与产物哈希三方绑定）；
+  // 样板数据只有在显式 `demo:true` 时降级成警告，否则一律阻断。
+  if (!input.simulationEvidence) {
+    findings.push(finding('RF_SIMULATION_REQUIRED', '缺少外部电磁仿真证据（需要真实求解器产出的证据）', 'simulationEvidence'));
+  } else {
+    const verdict = verifySimulationEvidence(input.simulationEvidence, { netlistText: input.simulationNetlistText, allowFixture: input.demo === true });
+    if (!verdict.ok && !verdict.findings.length) findings.push(finding('RF_SIMULATION_REQUIRED', '缺少可用的外部仿真证据', 'simulationEvidence'));
+    for (const item of verdict.findings) {
+      findings.push(finding(item.severity === 'blocking' ? 'RF_SIMULATION_EVIDENCE_REJECTED' : 'RF_SIMULATION_DEMO_EVIDENCE', item.message, item.field || 'simulationEvidence', item.severity));
+    }
+  }
   return { passed: findings.length === 0, findings, metrics: { line, wavelengthMm, maxFencePitchMm, viaCount }, provenance: { analyticalModel: line?.model, externalSimulationRequired: true } };
 }
 

@@ -9,19 +9,48 @@ import { findExecutable, runProcess, startObserved } from './process.mjs';
 export const PROVIDERS = {
   codex_account: { id: 'codex_account', label: 'Codex账号', kind: 'cli', cli: 'codex' },
   claude_account: { id: 'claude_account', label: 'Claude Code（个人本机）', kind: 'cli', cli: 'claude', personalOnly: true },
-  openai_api: { id: 'openai_api', label: 'OpenAI API', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.openai.com/v1/models', keyUrl: 'https://platform.openai.com/api-keys' },
+  openai_api: { id: 'openai_api', label: 'OpenAI API', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.openai.com/v1/models', chatBaseUrl: 'https://api.openai.com/v1', keyUrl: 'https://platform.openai.com/api-keys' },
   anthropic_api: { id: 'anthropic_api', label: 'Anthropic API', kind: 'api', auth: 'x-api-key', modelsUrl: 'https://api.anthropic.com/v1/models', headers: { 'anthropic-version': '2023-06-01' }, keyUrl: 'https://console.anthropic.com/settings/keys' },
-  deepseek_api: { id: 'deepseek_api', label: 'DeepSeek 开放平台', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.deepseek.com/v1/models', keyUrl: 'https://platform.deepseek.com/api_keys' },
-  moonshot_api: { id: 'moonshot_api', label: 'Moonshot / Kimi', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.moonshot.cn/v1/models', keyUrl: 'https://platform.moonshot.cn/console/api-keys' },
-  zhipu_api: { id: 'zhipu_api', label: '智谱 AI（GLM）', kind: 'api', auth: 'bearer', modelsUrl: 'https://open.bigmodel.cn/api/paas/v4/models', keyUrl: 'https://open.bigmodel.cn/usercenter/apikeys' },
-  dashscope_api: { id: 'dashscope_api', label: '阿里云百炼（通义千问）', kind: 'api', auth: 'bearer', modelsUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/models', keyUrl: 'https://bailian.console.aliyun.com/' },
-  siliconflow_api: { id: 'siliconflow_api', label: '硅基流动 SiliconFlow', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.siliconflow.cn/v1/models', keyUrl: 'https://cloud.siliconflow.cn/account/ak' },
-  openrouter_api: { id: 'openrouter_api', label: 'OpenRouter', kind: 'api', auth: 'bearer', modelsUrl: 'https://openrouter.ai/api/v1/models', keyUrl: 'https://openrouter.ai/keys' },
-  gemini_api: { id: 'gemini_api', label: 'Google Gemini', kind: 'api', auth: 'x-goog-api-key', modelsUrl: 'https://generativelanguage.googleapis.com/v1beta/models', keyUrl: 'https://aistudio.google.com/apikey' },
-  xai_api: { id: 'xai_api', label: 'xAI Grok', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.x.ai/v1/models', keyUrl: 'https://console.x.ai/' },
-  groq_api: { id: 'groq_api', label: 'Groq', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.groq.com/openai/v1/models', keyUrl: 'https://console.groq.com/keys' },
-  mistral_api: { id: 'mistral_api', label: 'Mistral AI', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.mistral.ai/v1/models', keyUrl: 'https://console.mistral.ai/api-keys' },
+  deepseek_api: { id: 'deepseek_api', label: 'DeepSeek 开放平台', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.deepseek.com/v1/models', chatBaseUrl: 'https://api.deepseek.com/v1', keyUrl: 'https://platform.deepseek.com/api_keys', chatModel: 'deepseek-chat' },
+  moonshot_api: { id: 'moonshot_api', label: 'Moonshot / Kimi', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.moonshot.cn/v1/models', chatBaseUrl: 'https://api.moonshot.cn/v1', keyUrl: 'https://platform.moonshot.cn/console/api-keys' },
+  zhipu_api: { id: 'zhipu_api', label: '智谱 AI（GLM）', kind: 'api', auth: 'bearer', modelsUrl: 'https://open.bigmodel.cn/api/paas/v4/models', chatBaseUrl: 'https://open.bigmodel.cn/api/paas/v4', keyUrl: 'https://open.bigmodel.cn/usercenter/apikeys' },
+  dashscope_api: { id: 'dashscope_api', label: '阿里云百炼（通义千问）', kind: 'api', auth: 'bearer', modelsUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/models', chatBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', keyUrl: 'https://bailian.console.aliyun.com/', chatModel: 'deepseek-v3' },
+  siliconflow_api: { id: 'siliconflow_api', label: '硅基流动 SiliconFlow', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.siliconflow.cn/v1/models', chatBaseUrl: 'https://api.siliconflow.cn/v1', keyUrl: 'https://cloud.siliconflow.cn/account/ak', chatModel: 'deepseek-ai/DeepSeek-V3' },
+  openrouter_api: { id: 'openrouter_api', label: 'OpenRouter', kind: 'api', auth: 'bearer', modelsUrl: 'https://openrouter.ai/api/v1/models', chatBaseUrl: 'https://openrouter.ai/api/v1', keyUrl: 'https://openrouter.ai/keys', chatModel: 'deepseek/deepseek-chat' },
+  gemini_api: { id: 'gemini_api', label: 'Google Gemini', kind: 'api', auth: 'x-goog-api-key', modelsUrl: 'https://generativelanguage.googleapis.com/v1beta/models', chatBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', keyUrl: 'https://aistudio.google.com/apikey' },
+  xai_api: { id: 'xai_api', label: 'xAI Grok', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.x.ai/v1/models', chatBaseUrl: 'https://api.x.ai/v1', keyUrl: 'https://console.x.ai/' },
+  groq_api: { id: 'groq_api', label: 'Groq', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.groq.com/openai/v1/models', chatBaseUrl: 'https://api.groq.com/openai/v1', keyUrl: 'https://console.groq.com/keys' },
+  mistral_api: { id: 'mistral_api', label: 'Mistral AI', kind: 'api', auth: 'bearer', modelsUrl: 'https://api.mistral.ai/v1/models', chatBaseUrl: 'https://api.mistral.ai/v1', keyUrl: 'https://console.mistral.ai/api-keys' },
+  ark_api: { id: 'ark_api', label: '火山方舟（DeepSeek）', kind: 'api', auth: 'bearer', modelsUrl: 'https://ark.cn-beijing.volces.com/api/v3/models', chatBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3', keyUrl: 'https://console.volcengine.com/ark', chatModel: 'deepseek-v3-250324' },
+  qianfan_api: { id: 'qianfan_api', label: '百度智能云千帆（DeepSeek）', kind: 'api', auth: 'bearer', modelsUrl: 'https://qianfan.baidubce.com/v2/models', chatBaseUrl: 'https://qianfan.baidubce.com/v2', keyUrl: 'https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application', chatModel: 'deepseek-v3' },
+  // 自定义 API：URL 由用户在设置里填写（请求级覆盖），没有固定 endpoint，也没有平台控制台。
+  custom_api: { id: 'custom_api', label: '自定义 API（OpenAI 兼容）', kind: 'api', auth: 'bearer', custom: true },
 };
+
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
+
+/**
+ * 解析并校验“第三方供应商平台”的 OpenAI 兼容 Base URL。
+ * 允许用户把 DeepSeek 模型指向任意厂商网关（火山方舟、千帆、企业自建代理等），
+ * 但只接受 HTTPS，或本机回环地址上的 HTTP（本地网关/代理）；不允许 URL 内嵌凭据。
+ */
+export function normalizeBaseUrl(raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  let url;
+  try { url = new URL(String(raw).trim()); } catch { throw Object.assign(new Error('Base URL 不是合法地址'), { code: 'PROVIDER_BASE_URL_INVALID' }); }
+  const loopback = LOOPBACK_HOSTS.has(url.hostname);
+  if (url.username || url.password) throw Object.assign(new Error('Base URL 不能内嵌用户名或密码'), { code: 'PROVIDER_BASE_URL_INVALID' });
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) throw Object.assign(new Error('第三方平台 Base URL 必须是 HTTPS（本机回环地址可用 HTTP）'), { code: 'PROVIDER_BASE_URL_INVALID' });
+  return url.toString().replace(/\/+$/, '');
+}
+
+/** 实际使用的 OpenAI 兼容根地址：请求里的覆盖值优先，否则用声明表默认值。 */
+export function resolveChatBaseUrl(provider, override) {
+  const base = normalizeBaseUrl(override) || provider?.chatBaseUrl || null;
+  if (base) return base;
+  if (provider?.custom) throw Object.assign(new Error('请先在系统设置填写自定义 API 的 URL（例如 https://api.deepseek.com/v1）'), { code: 'PROVIDER_BASE_URL_REQUIRED' });
+  throw Object.assign(new Error('该Provider不支持API对话或未配置Base URL'), { code: 'PROVIDER_CHAT_UNSUPPORTED' });
+}
 
 /** 声明顺序即 /api/providers 的返回顺序：官方账号在前，然后是各第三方平台。 */
 export const PROVIDER_IDS = Object.keys(PROVIDERS);
@@ -65,7 +94,7 @@ export async function cliStatus(id) {
 export async function apiStatus(id, keychain) {
   const provider = PROVIDERS[id];
   const configured = await keychain.configured(id);
-  return { id, label: provider.label, kind: provider.kind, configured, ready: configured, ...(provider.keyUrl ? { keyUrl: provider.keyUrl } : {}) };
+  return { id, label: provider.label, kind: provider.kind, configured, ready: configured, ...(provider.keyUrl ? { keyUrl: provider.keyUrl } : {}), ...(provider.custom ? { custom: true } : {}) };
 }
 
 /**
@@ -139,10 +168,15 @@ async function requestModels(url, headers) {
   }
 }
 
-export async function testProvider(id, keychain) {
+export async function testProvider(id, keychain, options = {}) {
   const provider = PROVIDERS[id];
   if (!provider) throw Object.assign(new Error('未知Provider'), { code: 'PROVIDER_UNKNOWN' });
   if (provider.kind === 'cli') return cliStatus(id);
   const key = await keychain.read(id);
-  return requestModels(provider.modelsUrl, authHeaders(provider, key));
+  // 允许用户用自己的第三方供应商网关做连接测试；模型列表地址 = Base URL + /models。
+  const base = normalizeBaseUrl(options.baseUrl);
+  const modelsUrl = base ? `${base}/models` : provider.modelsUrl;
+  if (!modelsUrl && provider.custom) throw Object.assign(new Error('请先填写自定义 API 的 URL，再测试连接'), { code: 'PROVIDER_BASE_URL_REQUIRED' });
+  if (!modelsUrl) throw Object.assign(new Error('该Provider未声明模型列表地址'), { code: 'PROVIDER_MODELS_UNSUPPORTED' });
+  return requestModels(modelsUrl, authHeaders(provider, key));
 }

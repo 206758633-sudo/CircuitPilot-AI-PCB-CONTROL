@@ -150,12 +150,15 @@ test('12 层板端到端执行：内层走线下发，DRC 晚于全部写入', a
       if (id === 'project.current') return { result: { uuid: 'P1' } };
       if (id === 'document.current') return { result: { uuid: 'D1', documentType: 3 } };
       if (id === 'pcb.layers.read') return { result: documentLayers };
-      if (/^pcb\.(nets|components|lines|vias|pours|regions|texts)\.read$/.test(id)) return { result: [] };
+      if (/^pcb\.(nets|components|lines|vias|pours|regions|texts|outline)\.read$/.test(id)) return { result: [] };
       if (id === 'pcb.rules.read') return { result: {} };
       if (id === 'pcb.source.read') return { result: source };
       if (id === 'document.source.restore') { source = args.source; return { result: true }; }
       if (id === 'pcb.save') return { result: true };
-      if (id === 'pcb.drc') return { result: [] };
+      // DRC 走 EDA 渲染进程后台任务：start 只回 jobId，poll 回结果信封。
+      // 改造前这里是单次阻塞调用，真实板子上永远装不进一次 HTTP 预算。
+      if (id === 'pcb.drc.job.start') return { result: { jobId: args.jobId, accepted: true, state: 'running' } };
+      if (id === 'pcb.job.poll') return { result: { jobId: args.jobId, state: 'done', result: { kind: 'array', count: 0, items: [], truncated: false } } };
       source = '{"board":"mutated"}';
       return { result: { primitiveId: `${id}-1` } };
     },
@@ -173,7 +176,10 @@ test('12 层板端到端执行：内层走线下发，DRC 晚于全部写入', a
   assert.ok(commands.some((command) => command.id === 'pcb.line.create' && command.args.net === 'DDR_DQ0' && command.args.layer === 17));
   // 受控执行不变：DRC 晚于全部改板写入，之后不得再有写命令。
   const ids = commands.map((command) => command.id);
-  const drcIndex = ids.indexOf('pcb.drc');
+  // 第 16 轮起，"发布级官方 DRC"之外还会先跑一次**改前基线 DRC**（用来判定本次改动有没有让板子变差）。
+  // 这里要守住的不变量没有变：**发布级那一份** DRC 必须唯一、且晚于全部改板写入、之后不得再有写入。
+  // 用 lastIndexOf 取发布级 DRC，并显式核对"写入之后只有一次 DRC"。
+  const drcIndex = ids.lastIndexOf('pcb.drc.job.start');
   for (const mutation of ['pcb.line.create', 'pcb.pour.create', 'pcb.via.create', 'pcb.component.modify']) {
     assert.ok(ids.lastIndexOf(mutation) < drcIndex, `官方 DRC 必须晚于 ${mutation}`);
   }

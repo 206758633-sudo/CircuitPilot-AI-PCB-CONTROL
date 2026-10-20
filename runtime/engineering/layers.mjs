@@ -199,7 +199,11 @@ export function validateLayerReferences(board, operations = []) {
     const layer = operation?.args?.layer;
     if (layer === undefined || layer === null) continue;
     if (!Number.isInteger(layer)) { violations.push({ index, layer, reason: 'LAYER_ID_NOT_INTEGER' }); continue; }
-    if (layer === LAYER_IDS.BOARD_OUTLINE && operation?.type === 'pcb.line.create') continue;
+    // 板框画在非铜的板框层上，是唯一的层号例外。但例外只能开给真正能画板框的通道：
+    // pcb.outline.create（Polyline + 坐标开头的多边形编码）。旧的 pcb.line.create + layer 11
+    // 已被真机实测证明**必然失败**（Line/Arc 只接受 SIGNAL 铜层，且报错会误导成"参数不正确"），
+    // 所以不再放行——让它落到下面的非铜层违规里，在编译期就说清楚，而不是等执行时失败。
+    if (layer === LAYER_IDS.BOARD_OUTLINE && operation?.type === 'pcb.outline.create') continue;
     if (!allowed.has(layer)) {
       // 把最常见的误解单独标出来：用叠层序号当层号，实际落到了丝印/阻焊等非铜层。
       const role = layerRole(layer);

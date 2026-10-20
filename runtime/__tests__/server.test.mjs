@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import test from 'node:test';
@@ -12,6 +15,9 @@ const fakeKeychain = {
 };
 
 // 令牌引导只在受信任的浏览器来源上发生（开发端口或 Tauri WebView）。
+// 运行时文件锁/状态文件落在状态目录：测试隔离，避免并行测试互相干扰。
+process.env.CIRCUITPILOT_STATE_DIR = process.env.CIRCUITPILOT_STATE_DIR || mkdtempSync(join(tmpdir(), 'cp-server-state-'));
+
 const TRUSTED_ORIGIN = 'http://127.0.0.1:4177';
 async function bootstrapToken(base) {
   const health = await (await fetch(`${base}/api/health`, { headers: { origin: TRUSTED_ORIGIN } })).json();

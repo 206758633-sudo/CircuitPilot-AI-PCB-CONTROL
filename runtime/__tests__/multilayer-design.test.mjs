@@ -110,12 +110,15 @@ test('四层高速板走通全流程：编译 -> 执行计划 -> 落板，线宽
       commands.push({ id, args });
       if (id === 'project.current') return { result: { uuid: 'P1' } };
       if (id === 'document.current') return { result: { uuid: 'D1', documentType: 3 } };
-      if (/^pcb\.(layers|nets|components|lines|vias|pours|regions|texts)\.read$/.test(id)) return { result: [] };
+      if (/^pcb\.(layers|nets|components|lines|vias|pours|regions|texts|outline)\.read$/.test(id)) return { result: [] };
       if (id === 'pcb.rules.read') return { result: {} };
       if (id === 'pcb.source.read') return { result: source };
       if (id === 'document.source.restore') { source = args.source; return { result: true }; }
       if (id === 'pcb.save') return { result: true };
-      if (id === 'pcb.drc') return { result: [] };
+      // DRC 走 EDA 渲染进程后台任务：start 只回 jobId，poll 回结果信封。
+      // 改造前这里是单次阻塞调用，真实板子上永远装不进一次 HTTP 预算。
+      if (id === 'pcb.drc.job.start') return { result: { jobId: args.jobId, accepted: true, state: 'running' } };
+      if (id === 'pcb.job.poll') return { result: { jobId: args.jobId, state: 'done', result: { kind: 'array', count: 0, items: [], truncated: false } } };
       source = '{"board":"mutated"}';
       return { result: { primitiveId: `${id}-1` } };
     },
@@ -136,8 +139,13 @@ test('四层高速板走通全流程：编译 -> 执行计划 -> 落板，线宽
 
   // 6) 受控执行未被削弱：官方 DRC 晚于所有改板写入，之后不得再有任何改板命令。
   const ids = commands.map((command) => command.id);
-  const drcIndex = ids.indexOf('pcb.drc');
+  // 第 16 轮起，"发布级官方 DRC"之外还会先跑一次**改前基线 DRC**（用来判定本次改动有没有让板子变差）。
+  // 这里要守住的不变量没有变：**发布级那一份** DRC 必须唯一、且晚于全部改板写入、之后不得再有写入。
+  // 用 lastIndexOf 取发布级 DRC，并显式核对"写入之后只有一次 DRC"。
+  const drcIndex = ids.lastIndexOf('pcb.drc.job.start');
   assert.ok(drcIndex > 0);
+  const lastGeometryIndex = Math.max(...['pcb.line.create', 'pcb.pour.create', 'pcb.via.create', 'pcb.component.modify', 'pcb.importChanges'].map((id) => ids.lastIndexOf(id)));
+  assert.equal(ids.slice(lastGeometryIndex + 1).filter((id) => id === 'pcb.drc.job.start').length, 1, '改板写入之后只允许有一次发布级官方 DRC');
   for (const mutation of ['pcb.line.create', 'pcb.pour.create', 'pcb.via.create', 'pcb.component.modify']) {
     assert.ok(ids.lastIndexOf(mutation) < drcIndex, `官方 DRC 必须晚于 ${mutation}`);
   }

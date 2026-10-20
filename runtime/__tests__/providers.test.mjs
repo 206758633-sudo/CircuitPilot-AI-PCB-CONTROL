@@ -3,7 +3,9 @@ import test from 'node:test';
 import { API_PROVIDER_IDS, PROVIDERS, PROVIDER_IDS, authHeaders, modelIds, openProviderConsole, providerStatuses, startProviderLogin, testProvider } from '../providers.mjs';
 
 /** 除官方两家外，本轮新增的第三方平台必须都在这张表里，避免“前端能选、后端不认”。 */
-const THIRD_PARTY_IDS = ['deepseek_api', 'moonshot_api', 'zhipu_api', 'dashscope_api', 'siliconflow_api', 'openrouter_api', 'gemini_api', 'xai_api', 'groq_api', 'mistral_api'];
+const THIRD_PARTY_IDS = ['deepseek_api', 'moonshot_api', 'zhipu_api', 'dashscope_api', 'siliconflow_api', 'openrouter_api', 'gemini_api', 'xai_api', 'groq_api', 'mistral_api', 'ark_api', 'qianfan_api', 'custom_api'];
+/** 自定义 API 没有固定 endpoint/控制台，URL 与模型都由用户提供。 */
+const CUSTOM_IDS = ['custom_api'];
 
 test('provider status exposes summaries while Keychain remains abstracted', async () => {
   const requested = [];
@@ -27,7 +29,7 @@ test('third-party platforms are declared as API providers with HTTPS endpoints',
     const provider = PROVIDERS[id];
     assert.ok(provider, `${id} 必须在 PROVIDERS 中声明`);
     assert.equal(provider.kind, 'api', `${id} 必须是 api 型`);
-    assert.match(provider.modelsUrl, /^https:\/\//, `${id} 的模型地址必须是 HTTPS，避免明文传输 Key`);
+    if (!CUSTOM_IDS.includes(id)) assert.match(provider.modelsUrl, /^https:\/\//, `${id} 的模型地址必须是 HTTPS，避免明文传输 Key`);
   }
 });
 
@@ -95,10 +97,26 @@ test('平台控制台只能打开声明表里的地址，且拒绝账号型 Prov
 });
 
 test('API 平台都声明了 HTTPS 控制台地址，并随状态一起下发给前端', async () => {
-  for (const id of THIRD_PARTY_IDS) assert.match(PROVIDERS[id].keyUrl, /^https:\/\//, `${id} 缺少 HTTPS 控制台地址`);
+  for (const id of THIRD_PARTY_IDS.filter((item) => !CUSTOM_IDS.includes(item))) assert.match(PROVIDERS[id].keyUrl, /^https:\/\//, `${id} 缺少 HTTPS 控制台地址`);
   const statuses = await providerStatuses({ async configured() { return false; } });
-  for (const status of statuses.filter((item) => item.kind === 'api')) assert.match(status.keyUrl, /^https:\/\//, `${status.id} 的状态里没有 keyUrl`);
+  for (const status of statuses.filter((item) => item.kind === 'api' && !CUSTOM_IDS.includes(item.id))) assert.match(status.keyUrl, /^https:\/\//, `${status.id} 的状态里没有 keyUrl`);
   assert.equal(statuses.find((item) => item.id === 'codex_account').keyUrl, undefined);
+  // 自定义 API 必须把 custom 标记下发给前端，让设置页知道“URL 由用户填写”。
+  assert.equal(statuses.find((item) => item.id === 'custom_api').custom, true);
+});
+
+test('自定义 API 必须由用户提供 URL，且测试连接只请求该 URL 的 /models', async () => {
+  await assert.rejects(() => testProvider('custom_api', { async read() { return 'k'; } }), { code: 'PROVIDER_BASE_URL_REQUIRED' });
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { calls.push({ url, headers: init.headers }); return { ok: true, status: 200, json: async () => ({ data: [{ id: 'deepseek-chat' }] }) }; };
+  try {
+    const result = await testProvider('custom_api', { async read() { return 'k-custom'; } }, { baseUrl: 'https://my-gateway.example.com/v1' });
+    assert.deepEqual(result.models, ['deepseek-chat']);
+    assert.equal(calls[0].url, 'https://my-gateway.example.com/v1/models');
+    assert.equal(calls[0].headers.authorization, 'Bearer k-custom');
+  } finally { globalThis.fetch = originalFetch; }
+  await assert.rejects(() => testProvider('custom_api', { async read() { return 'k'; } }, { baseUrl: 'http://evil.example.com' }), { code: 'PROVIDER_BASE_URL_INVALID' });
 });
 
 test('unknown provider cannot trigger a network request', async () => {

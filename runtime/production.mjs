@@ -3,15 +3,18 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { digest } from './design.mjs';
-import { countCopperLayers, isCopperLayerId, isPlanCopperLayerCount, planCopperRoles, resolveLayerReference } from './engineering/layers.mjs';
+import { LAYER_IDS, countCopperLayers, isCopperLayerId, isPlanCopperLayerCount, planCopperRoles, resolveLayerReference } from './engineering/layers.mjs';
 import { validateStackup } from './engineering/stackup.mjs';
 
-export const PRODUCTION_SCHEMA_VERSION = 1;
+export const PRODUCTION_SCHEMA_VERSION = 2; // 本轮：board 增加 outlineBoundsMm/frame，编译产物增加 frame（坐标系收口）
 
 /** 包围盒两两比较是 O(n²)，这里给器件数量设上限，避免语义计划把校验拖成 CPU 炸弹。 */
 const MAX_COMPONENTS = 1_000;
 /** 已登记的语义/编译计划数量上限，防止长期运行的Runtime无界增长。 */
 const MAX_STORED_PLANS = 200;
+// H4：终审记录也必须有上限。长时间运行/反复签核不能让内存与落盘文件无限增长；
+// 淘汰只影响"最近 200 次之外"的旧记录，签核结论本身已在证据文件与批准账本里留痕。
+const MAX_STORED_REVIEWS = 200;
 
 /**
  * 与层数无关的保守工艺下界。
@@ -79,12 +82,51 @@ function normalizePoint(input = {}) {
   return { xMm: Number(input.xMm), yMm: Number(input.yMm) };
 }
 
+/**
+ * 板框回读归一化（来自真机 `pcb.outline.read` 的 boundsMm）。
+ *
+ * 为什么必须有它：真实板的板框在文件坐标系里是 X∈[-0.127,60.127]、Y∈[-40.127,0.127]，
+ * 而语义计划习惯用"从板框左下角起、Y 向上"的正坐标。两套坐标系**都能通过**原来的
+ * `0..widthMm/0..heightMm` 检查——于是布局、干涉、边距校验全部静默失效。
+ * 现在把回读值纳入计划，坐标系就必须显式声明并与回读绑定（见 validateSemanticPlan）。
+ */
+function normalizeBounds(input) {
+  if (!input || typeof input !== 'object') return null;
+  const values = [input.minXMm, input.minYMm, input.maxXMm, input.maxYMm].map((value) => Number(value));
+  if (!values.every((value) => Number.isFinite(value))) return null;
+  const [minXMm, minYMm, maxXMm, maxYMm] = values;
+  if (maxXMm <= minXMm || maxYMm <= minYMm) return null;
+  return { minXMm, minYMm, maxXMm, maxYMm, widthMm: maxXMm - minXMm, heightMm: maxYMm - minYMm };
+}
+
+/**
+ * 计划坐标 → EDA 绝对坐标。
+ * yAxis='up'：计划 Y 从板框下边缘向上增长（设计习惯），换算时翻转；
+ * yAxis='down'：与 EDA 文件同向，直接平移。
+ * 没有声明坐标系时**不做任何猜测**——原样返回，并由校验阶段阻断。
+ */
+export function planPointToAbsolute(point, frame, board) {
+  if (!frame) return { xMm: Number(point.xMm), yMm: Number(point.yMm) };
+  const originXMm = Number(frame.originXMm ?? 0);
+  const originYMm = Number(frame.originYMm ?? 0);
+  const heightMm = Number(board?.heightMm ?? 0);
+  const yMm = frame.yAxis === 'up' ? originYMm + (heightMm - Number(point.yMm)) : originYMm + Number(point.yMm);
+  return { xMm: originXMm + Number(point.xMm), yMm };
+}
+
 export function normalizeSemanticPlan(input = {}) {
   const boardInput = input.board || {};
   const board = {
     widthMm: Number(boardInput.widthMm), heightMm: Number(boardInput.heightMm),
     layers: Number(boardInput.layers), thicknessMm: Number(boardInput.thicknessMm),
     copperOz: Number(boardInput.copperOz), mountingHoles: Number(boardInput.mountingHoles ?? 0),
+    // 板框回读 + 计划自述坐标系：两者一起进计划哈希，杜绝"改坐标系不改哈希"。
+    outlineBoundsMm: normalizeBounds(boardInput.outlineBoundsMm),
+    frame: boardInput.frame ? {
+      yAxis: boardInput.frame.yAxis === 'up' ? 'up' : 'down',
+      originXMm: Number(boardInput.frame.originXMm ?? 0),
+      originYMm: Number(boardInput.frame.originYMm ?? 0),
+    } : null,
   };
   const components = array(input.components).map((item) => ({
     ref: text(item.ref), primitiveId: text(item.primitiveId), role: text(item.role) || 'general',
@@ -133,6 +175,18 @@ export function validateSemanticPlan(plan) {
   const issues = [];
   const board = plan.board || {};
   if (!positive(board.widthMm) || !positive(board.heightMm)) issues.push(issue('BOARD_DIMENSIONS_REQUIRED', '必须提供有限且大于零的板框尺寸', 'board'));
+  if (board.outlineBoundsMm && !board.frame) {
+    issues.push(issue('PLAN_FRAME_REQUIRED', '计划携带真实板框回读，但未声明坐标系(board.frame)：无法证明计划坐标与真实板坐标是同一套；带风险写入等于让布局/干涉/边距校验全部失效', 'board.frame'));
+  }
+  if (board.outlineBoundsMm && board.frame) {
+    const toleranceMm = 0.5;
+    if (Math.abs(board.frame.originXMm - board.outlineBoundsMm.minXMm) > toleranceMm || Math.abs(board.frame.originYMm - board.outlineBoundsMm.minYMm) > toleranceMm) {
+      issues.push(issue('PLAN_FRAME_MISMATCH_WITH_READBACK', `计划坐标系原点(${board.frame.originXMm}, ${board.frame.originYMm})与板框回读角点(${board.outlineBoundsMm.minXMm.toFixed(3)}, ${board.outlineBoundsMm.minYMm.toFixed(3)})不一致`, 'board.frame'));
+    }
+    if (Math.abs(board.widthMm - board.outlineBoundsMm.widthMm) > toleranceMm || Math.abs(board.heightMm - board.outlineBoundsMm.heightMm) > toleranceMm) {
+      issues.push(issue('BOARD_SIZE_MISMATCH_WITH_READBACK', `计划板框 ${board.widthMm}×${board.heightMm}mm 与回读 ${board.outlineBoundsMm.widthMm.toFixed(3)}×${board.outlineBoundsMm.heightMm.toFixed(3)}mm 不一致`, 'board'));
+    }
+  }
   if (!isPlanCopperLayerCount(board.layers)) issues.push(issue('BOARD_LAYER_UNSUPPORTED', '层数必须为 2,4,6,…,32 中的偶数（官方 setTheNumberOfCopperLayers 范围）', 'board.layers'));
   if (!positive(board.thicknessMm) || !positive(board.copperOz)) issues.push(issue('STACKUP_REQUIRED', '必须确认板厚和铜厚', 'board'));
   const profile = RULE_PROFILES[plan.constraints?.profileId];
@@ -149,7 +203,16 @@ export function validateSemanticPlan(plan) {
     refs.add(component.ref);
     if (!component.primitiveId || !component.footprint) issues.push(issue('COMPONENT_IDENTITY_REQUIRED', `${component.ref || index} 缺少EDA对象或封装身份`, `components.${index}`));
     if (!component.placement || !finite(component.placement.xMm) || !finite(component.placement.yMm)) issues.push(issue('PLACEMENT_REQUIRED', `${component.ref || index} 缺少确定坐标`, `components.${index}.placement`));
-    if (component.placement && (component.placement.xMm < 0 || component.placement.yMm < 0 || component.placement.xMm > board.widthMm || component.placement.yMm > board.heightMm)) issues.push(issue('PLACEMENT_OUTSIDE_BOARD', `${component.ref || index} 坐标位于板框外`, `components.${index}.placement`));
+    if (component.placement && !board.outlineBoundsMm && (component.placement.xMm < 0 || component.placement.yMm < 0 || component.placement.xMm > board.widthMm || component.placement.yMm > board.heightMm)) issues.push(issue('PLACEMENT_OUTSIDE_BOARD', `${component.ref || index} 坐标位于板框外`, `components.${index}.placement`));
+    // 有板框回读 + 已声明坐标系时，按**绝对坐标**判是否真的在板内：
+    // 这是"计划坐标系 vs 真实板坐标系"的唯一硬判据（未声明坐标系由板级 PLAN_FRAME_REQUIRED 阻断）。
+    if (component.placement && board.outlineBoundsMm && board.frame) {
+      const absolute = planPointToAbsolute(component.placement, board.frame, board);
+      const bounds = board.outlineBoundsMm;
+      const toleranceMm = 0.5;
+      const outside = absolute.xMm < bounds.minXMm - toleranceMm || absolute.xMm > bounds.maxXMm + toleranceMm || absolute.yMm < bounds.minYMm - toleranceMm || absolute.yMm > bounds.maxYMm + toleranceMm;
+      if (outside) issues.push(issue('PLACEMENT_OUTSIDE_ACTUAL_OUTLINE', `${component.ref || index} 按绝对坐标(${absolute.xMm.toFixed(3)}, ${absolute.yMm.toFixed(3)})落在真实板框 X[${bounds.minXMm.toFixed(3)},${bounds.maxXMm.toFixed(3)}] Y[${bounds.minYMm.toFixed(3)},${bounds.maxYMm.toFixed(3)}] 之外`, `components.${index}.placement`));
+    }
   }
   for (const [index, net] of array(plan.nets).entries()) {
     if (!net.name || net.endpoints.length < 2) issues.push(issue('NET_ENDPOINTS_REQUIRED', `网络${net.name || index}至少需要两个端点`, `nets.${index}`));
@@ -182,8 +245,14 @@ export function compileSemanticPlan(input = {}) {
   const profile = { ...RULE_PROFILES[normalized.plan.constraints.profileId], ...normalized.plan.constraints };
   const operations = [];
   const [width, height] = [normalized.plan.board.widthMm, normalized.plan.board.heightMm];
-  for (const [startX,startY,endX,endY] of [[0,0,width,0],[width,0,width,height],[width,height,0,height],[0,height,0,0]]) operations.push({ type: 'pcb.line.create', stage: 'outline', args: { net: '', layer: 11, startX, startY, endX, endY, lineWidth: 0.2, primitiveLock: true } });
-  for (const component of [...normalized.plan.components].sort((a,b) => a.ref.localeCompare(b.ref))) operations.push({ type: 'pcb.component.modify', stage: 'placement', ref: component.ref, args: { primitiveId: component.primitiveId, property: { x: component.placement.xMm, y: component.placement.yMm, rotation: component.placement.rotation, layer: component.side === 'bottom' ? 2 : 1, primitiveLock: component.placement.locked } } });
+  // 计划坐标系（若有）→ EDA 绝对坐标；没有声明就原样使用（校验阶段已阻断"带回读却不声明"的情况）。
+  const frame = normalized.plan.board.frame;
+  const toAbsolute = (point) => planPointToAbsolute(point, frame, normalized.plan.board);
+  // 板框：单条 pcb.outline.create（Polyline + 坐标开头的多边形编码）。
+  // 改造前这里是 4 条 pcb.line.create + layer 11 —— 真机实测 Line 只接受 SIGNAL 铜层，
+  // 这 4 条操作在 EDA 里必然全部失败，而且报错会误导成"参数不正确"。
+  operations.push({ type: 'pcb.outline.create', stage: 'outline', args: { layer: LAYER_IDS.BOARD_OUTLINE, originXMm: frame ? frame.originXMm : 0, originYMm: frame ? frame.originYMm : 0, widthMm: width, heightMm: height } });
+  for (const component of [...normalized.plan.components].sort((a,b) => a.ref.localeCompare(b.ref))) operations.push({ type: 'pcb.component.modify', stage: 'placement', ref: component.ref, args: { primitiveId: component.primitiveId, property: { ...(() => { const placed = toAbsolute(component.placement); return { x: placed.xMm, y: placed.yMm }; })(), rotation: component.placement.rotation, layer: component.side === 'bottom' ? 2 : 1, primitiveLock: component.placement.locked } } });
   // 目标布线层：显式声明优先（已在校验阶段解析为合法铜层编号）；
   // 未声明时，若该网络的焊盘全在底面就布到底层，否则布到顶层 —— 与两层板行为一致。
   const componentByRef = new Map(normalized.plan.components.map((component) => [component.ref, component]));
@@ -236,17 +305,19 @@ export function compileSemanticPlan(input = {}) {
   for (const plane of normalized.plan.constraints.planes) planeByLayer.set(plane.layerId, { net: plane.net, layer: plane.layerId, role: 'explicit-plane' });
   const topPour = planeByLayer.get(1) ?? { net: 'GND', layer: 1, role: 'top-ground-pour' };
   const pours = [topPour, ...[...planeByLayer.values()].filter((pour) => pour.layer !== 1).sort((a, b) => a.layer - b.layer)];
-  for (const pour of pours) operations.push({ type: 'pcb.pour.create', stage: 'copper', args: { net: pour.net, layer: pour.layer, clearance: profile.minClearanceMm, outline: [[0,0],[width,0],[width,height],[0,height]], removeIslands: true, thermalReliefSpokes: profile.thermalReliefSpokes } });
+  // 铺铜与缝合孔同样按坐标系换算：否则会出现"器件在真实板内、铺铜却画在板外"的错位。
+  const corner = (xMm, yMm) => { const absolute = toAbsolute({ xMm, yMm }); return [absolute.xMm, absolute.yMm]; };
+  for (const pour of pours) operations.push({ type: 'pcb.pour.create', stage: 'copper', args: { net: pour.net, layer: pour.layer, clearance: profile.minClearanceMm, outline: [corner(0, 0), corner(width, 0), corner(width, height), corner(0, height)], removeIslands: true, thermalReliefSpokes: profile.thermalReliefSpokes } });
 
   // 地平面缝合孔：把顶层地铺铜与内层地平面连起来，避免平面悬空。
   if (normalized.plan.board.layers > 2 && profile.groundStitching !== false && pours.some((pour) => pour.net === 'GND' && pour.layer !== 1)) {
-    for (const [xMm, yMm] of [[1, 1], [width - 1, 1], [width - 1, height - 1], [1, height - 1]]) pushVia('GND', xMm, yMm, 'ground-plane-stitching');
+    for (const [xMm, yMm] of [[1, 1], [width - 1, 1], [width - 1, height - 1], [1, height - 1]]) { const absolute = toAbsolute({ xMm, yMm }); pushVia('GND', absolute.xMm, absolute.yMm, 'ground-plane-stitching'); }
   }
   for (const via of vias) operations.push({ type: 'pcb.via.create', stage: 'routing', args: { net: via.net, x: via.xMm, y: via.yMm, holeDiameter: profile.minViaDrillMm, diameter: profile.minViaDiameterMm } });
 
   operations.push({ type: 'pcb.save', stage: 'save', args: {} }, { type: 'pcb.drc', stage: 'validation', args: {} });
   const quality = evaluateCompiledPlan(normalized.plan, profile, routes, operations);
-  const compiledPlan = { apiVersion: 1, kind: 'pcb-production-plan', semanticPlanHash: normalized.planHash, title: normalized.plan.title, board: normalized.plan.board, constraints: { profileId: profile.id, minClearanceMm: profile.minClearanceMm, minCopperToEdgeMm: profile.minCopperToEdgeMm }, ...(normalized.plan.constraints.stackup ? { stackup: normalized.plan.constraints.stackup } : {}), operations };
+  const compiledPlan = { apiVersion: 1, kind: 'pcb-production-plan', semanticPlanHash: normalized.planHash, title: normalized.plan.title, board: normalized.plan.board, frame, constraints: { profileId: profile.id, minClearanceMm: profile.minClearanceMm, minCopperToEdgeMm: profile.minCopperToEdgeMm }, ...(normalized.plan.constraints.stackup ? { stackup: normalized.plan.constraints.stackup } : {}), operations };
   return { ...normalized, compiled: compiledPlan, compiledPlanHash: digest(compiledPlan), quality };
 }
 
@@ -294,7 +365,13 @@ function artifactContentChecks(files, root) {
   const findings = [];
   const choose = (kind) => files.find((file) => file.kind === kind && /utf8/i.test(file.name)) || files.find((file) => file.kind === kind);
   const bom = choose('bom'); const cpl = choose('cpl'); const gerber = choose('gerber');
-  let bomRefs = new Set(); let cplRefs = new Set();
+  // 文件名本身也是证据：重复扩展名会让按后缀分流的工具认不出来；自述"草稿/不可下单"
+  // 的件混在成品目录里，是"把草稿当生产件交出去"的典型入口。
+  for (const file of files) {
+    if (/(\.\w{2,5})\1$/i.test(file.name)) findings.push(issue('ARTIFACT_NAME_DEGENERATE', `文件名出现重复扩展名（${file.name}），下游按扩展名分流的工具可能识别失败`, file.name));
+    if (/draft|not[-_ ]?for[-_ ]?order|草稿|不可投产/i.test(file.name)) findings.push(issue('ARTIFACT_DRAFT_MARKER', `${file.name} 自述为草稿/不可下单，不能作为生产放行件`, file.name));
+  }
+  let bomRefs = new Set(); let cplRefs = new Set(); let stepEvidence = null;
   if (bom) {
     const parsed = parseDelimited(path.join(root, bom.name));
     for (const required of ['Quantity','Designator','Footprint','Manufacturer Part','Supplier Part']) if (!parsed.headers.includes(required)) findings.push(issue('BOM_FIELD_MISSING', `BOM缺少字段${required}`, bom.name));
@@ -311,6 +388,28 @@ function artifactContentChecks(files, root) {
     }
   }
   for (const ref of cplRefs) if (!bomRefs.has(ref)) findings.push(issue('CPL_REF_NOT_IN_BOM', `${ref}存在于CPL但不在BOM`, 'reference-designators'));
+  // STEP 内容校验：原来只按扩展名判"存在即通过"，于是一个空文件或**光板**（不含器件模型）
+  // 也能拿到"3D文件✓"。这里改成：必须是有效 STEP、必须有实体、必须有装配引用、且 BOM 位号
+  // 必须都能在装配里找到——否则 3D 与 BOM 不是同一版。
+  const step = files.find((file) => file.kind === 'step');
+  if (step) {
+    let text = '';
+    try { text = fs.readFileSync(path.join(root, step.name), 'utf8'); }
+    catch (error) { findings.push(issue('STEP_UNREADABLE', `STEP无法读取: ${error.message}`, step.name)); }
+    if (text) {
+      // 用 "= PRODUCT(" 精确计数：PRODUCT_DEFINITION/PRODUCT_CONTEXT 等实体名不能算进来。
+      const products = (text.match(/=\s*PRODUCT\s*\(/g) || []).length;
+      const usages = (text.match(/NEXT_ASSEMBLY_USAGE_OCCURRENCE/g) || []).length;
+      const solids = (text.match(/MANIFOLD_SOLID_BREP/g) || []).length;
+      const escaped = (ref) => ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const missingRefs = [...bomRefs].filter((ref) => !new RegExp(`${escaped(ref)}~`).test(text));
+      if (!/ISO-10303-21/.test(text)) findings.push(issue('STEP_NOT_STEP', 'STEP文件缺少 ISO-10303-21 文件头', step.name));
+      if (!solids) findings.push(issue('STEP_NO_SOLID', 'STEP里没有实体几何（MANIFOLD_SOLID_BREP=0）', step.name));
+      if (!usages) findings.push(issue('STEP_NO_ASSEMBLY', 'STEP里没有装配引用（NEXT_ASSEMBLY_USAGE_OCCURRENCE=0）→ 这是光板，不含任何器件模型', step.name));
+      if (usages && missingRefs.length) findings.push(issue('STEP_DESIGNATOR_MISSING', `BOM位号在STEP装配里找不到：${missingRefs.join(',')} → 3D与BOM不是同一版`, step.name));
+      stepEvidence = { products, assemblyUsages: usages, solids, bomRefCount: bomRefs.size, matchedRefCount: bomRefs.size - missingRefs.length, missingRefs };
+    }
+  }
   if (gerber && /\.zip$/i.test(gerber.name)) {
     try {
       const entries = execFileSync('/usr/bin/unzip', ['-Z1', path.join(root, gerber.name)], { encoding: 'utf8', timeout: 5000 }).split(/\r?\n/).filter(Boolean);
@@ -318,7 +417,7 @@ function artifactContentChecks(files, root) {
       for (const pattern of required) if (!entries.some((entry) => pattern.test(entry))) findings.push(issue('GERBER_LAYER_MISSING', `Gerber压缩包缺少${pattern}对应文件`, gerber.name));
     } catch (error) { findings.push(issue('GERBER_ARCHIVE_UNREADABLE', `无法展开Gerber压缩包目录: ${error.message}`, gerber.name)); }
   }
-  return { findings, bomRefCount: bomRefs.size, cplRefCount: cplRefs.size };
+  return { findings, bomRefCount: bomRefs.size, cplRefCount: cplRefs.size, step: stepEvidence };
 }
 
 export function inspectProductionArtifacts(root, binding = {}) {
@@ -330,11 +429,11 @@ export function inspectProductionArtifacts(root, binding = {}) {
     { id: 'cpl', passed: kinds.has('cpl'), message: 'CPL坐标文件' },
     { id: 'gerber', passed: kinds.has('gerber'), message: 'Gerber压缩包或图层文件' },
     { id: 'drill', passed: kinds.has('drill') || kinds.has('gerber'), message: '钻孔文件（压缩Gerber需人工展开复核）', manualReview: !kinds.has('drill') },
-    { id: 'step', passed: kinds.has('step'), message: 'STEP三维文件' },
+    { id: 'step', passed: kinds.has('step') && Boolean(content.step) && content.step.assemblyUsages > 0, message: 'STEP三维文件（须含器件装配，光板不算）' },
   ];
   // manifestHash 必须只由“内容”决定：如果把 generatedAt（或任何时间戳）算进去，
   // 哈希每次巡检都会变，人工终审就永远无法绑定到一批确定的物料上。
-  const manifestCore = { schemaVersion: 1, kind: 'pcba-production-manifest', projectId: text(binding.projectId), projectName: text(binding.projectName), documentId: text(binding.documentId), sourceDigest: text(binding.sourceDigest), semanticPlanHash: text(binding.semanticPlanHash), compiledPlanHash: text(binding.compiledPlanHash), executionId: text(binding.executionId), files, checks, contentValidation: { passed: content.findings.length === 0, findings: content.findings, bomRefCount: content.bomRefCount, cplRefCount: content.cplRefCount }, procurement: { status: 'manual-review', reason: '未连接官方实时库存、价格和可贴装证据' }, dfm: { status: 'manual-review', portalUrl: 'https://www.jlc-dfm.com', uploadFiles: files.filter((file) => ['gerber','bom','cpl'].includes(file.kind)).map((file) => file.name), reason: '在线DFM需要登录态、上传和用户确认；本地检查不能冒充在线DFM' }, order: { status: 'disabled', reason: '系统永久禁止自动下单和支付' } };
+  const manifestCore = { schemaVersion: 1, kind: 'pcba-production-manifest', projectId: text(binding.projectId), projectName: text(binding.projectName), documentId: text(binding.documentId), sourceDigest: text(binding.sourceDigest), semanticPlanHash: text(binding.semanticPlanHash), compiledPlanHash: text(binding.compiledPlanHash), executionId: text(binding.executionId), files, checks, contentValidation: { passed: content.findings.length === 0, findings: content.findings, bomRefCount: content.bomRefCount, cplRefCount: content.cplRefCount, step: content.step }, procurement: { status: 'manual-review', reason: '未连接官方实时库存、价格和可贴装证据' }, dfm: { status: 'manual-review', portalUrl: 'https://www.jlc-dfm.com', uploadFiles: files.filter((file) => ['gerber','bom','cpl'].includes(file.kind)).map((file) => file.name), reason: '在线DFM需要登录态、上传和用户确认；本地检查不能冒充在线DFM' }, order: { status: 'disabled', reason: '系统永久禁止自动下单和支付' } };
   const completeBinding = ['projectId','documentId','sourceDigest','semanticPlanHash','compiledPlanHash','executionId'].every((key) => Boolean(manifestCore[key]));
   return { manifest: { ...manifestCore, generatedAt: new Date().toISOString(), manifestHash: digest(manifestCore) }, readyForHumanReview: checks.every((check) => check.passed) && content.findings.length === 0 && completeBinding, productionReleased: false, blockers: [...checks.filter((check) => !check.passed).map((check) => check.message), ...content.findings.map((item) => item.message), ...(!completeBinding ? ['缺少设计版本、执行或文档绑定'] : []), '等待人工终审', '等待嘉立创在线DFM'] };
 }
@@ -350,10 +449,28 @@ export function classifyArtifact(name) {
 }
 
 export class ProductionManager {
-  constructor({ artifactsRoot, pcb = null, maxStoredPlans = MAX_STORED_PLANS }) { this.artifactsRoot = artifactsRoot; this.pcb = pcb; this.maxStoredPlans = maxStoredPlans; this.plans = new Map(); this.reviews = new Map(); }
-  prune() { while (this.plans.size > this.maxStoredPlans) this.plans.delete(this.plans.keys().next().value); }
-  normalize(plan) { const result = normalizeSemanticPlan(plan); this.plans.set(result.planHash, result); this.prune(); return result; }
-  compile(plan) { const result = compileSemanticPlan(plan); this.plans.set(result.planHash, result); this.prune(); return result; }
+  constructor({ artifactsRoot, pcb = null, maxStoredPlans = MAX_STORED_PLANS, maxStoredReviews = MAX_STORED_REVIEWS, store = null }) {
+    this.artifactsRoot = artifactsRoot;
+    this.pcb = pcb;
+    this.maxStoredPlans = maxStoredPlans;
+    this.maxStoredReviews = maxStoredReviews;
+    this.store = store;
+    this.plans = new Map();
+    this.reviews = new Map();
+    // 持久化：重启后"已登记的计划/已签的终审"必须还在，否则人工签核等于白做。
+    if (store) {
+      const loaded = store.load();
+      for (const [key, value] of loaded.data?.plans || []) this.plans.set(key, value);
+      for (const [key, value] of loaded.data?.reviews || []) this.reviews.set(key, value);
+    }
+  }
+  prune() {
+    while (this.plans.size > this.maxStoredPlans) this.plans.delete(this.plans.keys().next().value);
+    while (this.reviews.size > this.maxStoredReviews) this.reviews.delete(this.reviews.keys().next().value);
+  }
+  persist() { if (this.store) this.store.save({ plans: [...this.plans.entries()], reviews: [...this.reviews.entries()] }); }
+  normalize(plan) { const result = normalizeSemanticPlan(plan); this.plans.set(result.planHash, result); this.prune(); this.persist(); return result; }
+  compile(plan) { const result = compileSemanticPlan(plan); this.plans.set(result.planHash, result); this.prune(); this.persist(); return result; }
   artifacts(binding) { return inspectProductionArtifacts(this.artifactsRoot, binding); }
   /**
    * 人工终审必须由服务端登记，并绑定到具体的语义计划、编译计划、PCB执行记录和物料清单哈希。
@@ -370,13 +487,15 @@ export class ProductionManager {
     const record = { schemaVersion: 1, kind: 'pcba-final-review', semanticPlanHash: entry.planHash, compiledPlanHash: recomputed.compiledPlanHash, pcbExecutionId: execution.id, manifestHash: text(manifestHash), reviewer: text(reviewer) || 'human', reviewedAt: new Date().toISOString() };
     record.reviewHash = digest(record);
     this.reviews.set(record.reviewHash, record);
+    this.prune();
+    this.persist();
     return record;
   }
   /**
    * 门禁结论全部在服务端重算。入参只允许是“引用”（哈希/ID），不接受任何“已通过”的判定，
    * 否则客户端只要 POST { officialDrc:{passed:true}, finalReviewApproved:true } 就能自我放行。
    */
-  readiness({ semanticPlanHash, compiledPlanHash, pcbExecutionId, reviewHash, binding = {} } = {}) {
+  readiness({ semanticPlanHash, compiledPlanHash, pcbExecutionId, reviewHash, binding = {} } = {}, { dfm = null, signoff = null } = {}) {
     const entry = this.plans.get(text(semanticPlanHash));
     if (!entry) throw Object.assign(new Error('语义计划未在本Runtime会话中登记，请先校验或编译'), { code: 'PRODUCTION_PLAN_UNKNOWN', status: 404 });
     const recomputed = compileSemanticPlan(entry.plan);
@@ -386,14 +505,30 @@ export class ProductionManager {
     const review = this.reviews.get(text(reviewHash)) || null;
     const compiledMatches = Boolean(recomputed.compiled) && recomputed.compiledPlanHash === text(compiledPlanHash);
     const reviewMatches = Boolean(review) && review.semanticPlanHash === entry.planHash && review.compiledPlanHash === recomputed.compiledPlanHash && review.pcbExecutionId === (execution?.id || '') && review.manifestHash === manifestHash;
+    // 在线 DFM 只能人工回填；但"人工回填过"必须能让门禁通过，否则这条链永远放行不了。
+    // 绑定校验：DFM 证据必须绑定到**这一份**语义计划，不能拿别的计划的通过结论来充数。
+    const dfmPlanHash = dfm?.fingerprint?.planHash ?? null;
+    const dfmBound = Boolean(dfm) && dfm?.payload?.passed === true && dfmPlanHash === entry.planHash;
+    const signoffPlanHash = signoff?.fingerprint?.planHash ?? null;
+    // 签核要同时绑定**计划**与**物料清单**：只对上一个维度都可能把别批次/别版本签核复用过来。
+    const signoffBound = Boolean(signoff) && signoff?.payload?.passed === true && Array.isArray(signoff?.payload?.roles) && signoff.payload.roles.length > 0 && (signoffPlanHash === null || signoffPlanHash === entry.planHash) && signoff?.payload?.manifestHash === manifestHash;
+    // 人工终审可以用两条路满足：本次会话登记的 reviewHash（旧路径），或落盘的签核证据（重启后仍有效）。
+    const finalReviewPassed = reviewMatches || signoffBound;
     const gates = [
       { id: 'semantic-plan', passed: recomputed.ready, source: 'local-validator' },
       { id: 'compiled-quality', passed: compiledMatches && Boolean(recomputed.quality?.passed), source: 'local-validator' },
       { id: 'official-pcb-drc', passed: execution?.drc?.passed === true, source: 'EasyEDA' },
       { id: 'artifacts', passed: artifacts.readyForHumanReview === true, source: 'artifact-validator' },
-      { id: 'online-dfm', passed: false, source: '嘉立创在线DFM', reason: '需要登录态、上传和用户确认，本地检查不能冒充在线DFM' },
-      { id: 'human-final-review', passed: reviewMatches, source: 'user' },
+      { id: 'online-dfm', passed: dfmBound, source: '嘉立创在线DFM', reason: dfmBound ? null : (dfm ? 'DFM 证据未绑定到本计划或结论不通过' : '需要登录态、上传和用户确认，本地检查不能冒充在线DFM') },
+      { id: 'human-final-review', passed: finalReviewPassed, source: signoffBound ? 'persisted-signoff' : 'user', reason: finalReviewPassed ? null : (signoff ? '签核证据未绑定到本计划/本物料清单' : '尚无人签核') },
     ];
-    return { ready: gates.every((gate) => gate.passed), gates, orderEnabled: false, referenced: { semanticPlanHash: entry.planHash, compiledPlanHash: recomputed.compiledPlanHash, pcbExecutionId: execution?.id || null, manifestHash, reviewHash: review?.reviewHash || null }, reason: gates.every((gate) => gate.passed) ? '生产资料已通过全部门禁，但自动下单仍永久禁用' : '仍有生产门禁未通过' };
+    return {
+      ready: gates.every((gate) => gate.passed),
+      gates,
+      orderEnabled: false,
+      manualEvidence: { dfm: dfm ? { digest: dfm.digest, savedAt: dfm.savedAt, passed: dfm?.payload?.passed === true, boundToPlan: dfmPlanHash === entry.planHash } : null, signoff: signoff ? { digest: signoff.digest, savedAt: signoff.savedAt, passed: signoff?.payload?.passed === true, roles: signoff?.payload?.roles?.length ?? 0, boundToPlan: signoffPlanHash === null || signoffPlanHash === entry.planHash, boundToManifest: signoff?.payload?.manifestHash === manifestHash } : null },
+      referenced: { semanticPlanHash: entry.planHash, compiledPlanHash: recomputed.compiledPlanHash, pcbExecutionId: execution?.id || null, manifestHash, reviewHash: review?.reviewHash || null, dfmHash: dfm?.digest ?? null, signoffHash: signoff?.digest ?? null },
+      reason: gates.every((gate) => gate.passed) ? '生产资料已通过全部门禁，但自动下单仍永久禁用' : '仍有生产门禁未通过',
+    };
   }
 }
