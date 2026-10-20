@@ -1,7 +1,7 @@
 {
   "kind": "production-export-manifest",
   "schemaVersion": 1,
-  "generatedAt": "2026-10-20T06:34:00.891Z",
+  "generatedAt": "2026-10-20T06:54:14.105Z",
   "outDir": "/Users/[REDACTED_USER]/Desktop/AI- PCBA/release/2026-10-20",
   "outputClass": "draft",
   "decisionTicket": "84799e96cf97856b11a6787e1af30287",
@@ -32,8 +32,8 @@
       "kind": "gerber",
       "name": "GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip",
       "path": "GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip",
-      "bytes": 325878,
-      "sha256": "7c62999bb3457c1fbdafcefaede1812c83922bcecdbaff13076d8beb0f9639eb",
+      "bytes": 330691,
+      "sha256": "395142010e624ac0a6b10090c9ddc21e12c761b910c38bf1dea8ab76d319fa89",
       "chunks": 2,
       "retriesUsed": 0,
       "edaName": "CircuitPilot-Gerber"
@@ -53,7 +53,7 @@
     "evidence": {
       "gerber": {
         "path": "/Users/[REDACTED_USER]/Desktop/AI- PCBA/release/2026-10-20/GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip",
-        "bytes": 325878,
+        "bytes": 330691,
         "draft": true,
         "copperLayerCount": 4,
         "innerLayers": [

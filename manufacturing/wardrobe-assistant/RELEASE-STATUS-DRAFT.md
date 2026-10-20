@@ -1,6 +1,6 @@
 # 智能衣橱助手 · 制造放行状态记录（4 层板 / DRAFT / 禁止下单）
 
-- 记录时间：2026-10-20 14:35（Asia/Shanghai）
+- 记录时间：2026-10-20 14:56（Asia/Shanghai）
 - 嘉立创EDA工程：智能衣橱助手 `5e1059beff734847ba4b38b557e8ed59`；PCB1 `2844799d86eeed27`；原理图 p1 `8db59ac7bbc9510b`
 - 板卡：60 mm × 40 mm，**4 层**，1.6 mm，1 oz
 - **放行状态：DRAFT-NOT-FOR-ORDER**（`humanSignoffRequired=true` / `orderEnabled=false`，未签核，禁止下单）
@@ -14,8 +14,8 @@
 | 焊盘 | 602 | 有网 430 |
 | 布局 | 180/180 落位、0 blocking、HPWL 1756.2 mm | 上一轮已收敛，本轮未再移动 |
 | 铺铜 | **4** | GND × 4 层（Top/Inner1/Inner2/Bottom），`preserveSilos=false` 重建后已填充 |
-| 走线/过孔 | **1508 线 / 154 过孔** | 4 层整板重布（Freerouting 2.5.0，GND 参与布线），层分布 Top 1145 / Inner1 174 / Inner2 157 / Bottom 32 |
-| **PCB DRC** | **未清零 ✗：63 项**（Connection 62：SMD 60 / Via 2；**Clearance 0 ✓**；Netlist 1） | 2 层 110 → **4 层 63（-43%）** |
+| 走线/过孔 | **1634 线 / 159 过孔** | 4 层整板重布（Freerouting 2.5.0，GND 参与布线）+ 3 轮 4 层 A* 残余补线，层分布 Top 1271 / Inner1 174 / Inner2 157 / Bottom 32 |
+| **PCB DRC** | **未清零 ✗：57 项**（Connection 56：SMD 51 / Track 4 / Via 1；**Clearance 0 ✓**；Netlist 1） | 2 层 110 → **4 层 57（-48%）** |
 | **ERC（原理图）** | **致命 0 ✓ / 错误 0 ✓ / 警告 6 / 信息 0**（EDA 只回聚合计数） | 警告为 DNP 预留件与未用引脚悬空，属设计意图内 |
 | 放行门禁 | **未通过：10 项阻塞（全部取证/流程类）** | 布局类 105 项阻塞已消除 |
 
@@ -28,7 +28,7 @@
 |---|---|---|
 | `BOM_CircuitPilot-bom-DRAFT-NOT-FOR-ORDER.csv` | 9,146 B | U3/U15 DNP 剔除 |
 | `CPL_CircuitPilot-cpl-DRAFT-NOT-FOR-ORDER.csv` | 70,830 B | 180 器件（布局未变） |
-| `GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip` | 325,878 B | **4 层 Gerber**（Top/Bottom/Inner1.G1/Inner2.G2 + PTH 钻孔） |
+| `GERBER_CircuitPilot-gerber-DRAFT-NOT-FOR-ORDER.zip` | 330,691 B | **4 层 Gerber**（Top/Bottom/Inner1.G1/Inner2.G2 + PTH 钻孔） |
 | `manifest.json` | 7,774 B | 产物清单 + sha256 + 门禁指纹 + humanSignoffRequired=true |
 | `RELEASE-NOTES-DRAFT-NOT-FOR-ORDER.md` | — | 4 层草稿的完整说明与风险披露 |
 
@@ -36,14 +36,14 @@
 
 ## 三、阻塞项（放行前必须关闭）
 
-1. **PCB DRC 未清零（63 项）**：
+1. **PCB DRC 未清零（57 项）**：
    - **Clearance 0 项 ✓**（4 层重布后保持 0）。
-   - Connection 62 项：
+   - Connection 56 项：
      - **GND 未连焊盘仅 2 个**（`U8_23`、`C12_2`）——内层地平面 + 4 层铺铜把 2 层时的 33 个 GND 孤岛降到 2 个。
-     - **信号未连焊盘 58 个 / 20 网**：集中在 U9（CODEC QFN）、U10（ADC QFN）等 **0.4 mm 间距 QFN** 周边，
-       净空不足、不做 via-in-pad 无法出线（ADC_3V3 7、CODEC_3V3 6、IO38_I2S_MCK 5、OUTN 4、IO13_I2S_WS 4 ……）。
+     - **信号未连焊盘 51 个 / 15 网**：集中在 U9（CODEC QFN）、U10（ADC QFN）等 **0.4 mm 间距 QFN** 周边，
+       净空不足、不做 via-in-pad 无法出线（ADC_3V3 5、CODEC_3V3 5、USB_D- 3、OUTN 3、IO38_I2S_MCK 3 ……）。
        这是**焊盘间距的物理约束**，不是路由算法失败：4 层解决的是 GND 平面与走线通道，不改变出线口宽度。
-     - 2 个过孔类未连（缝合/层间转换残留）。
+     - 另有 4 段孤立 Track、1 个孤立过孔（残余补线/重布留下的碎片，不构成短路、Clearance 仍 0）。
    - Netlist 1 项：Import Changes 聚合项，需人工判定。
 2. **未结工程输入**：摄像头 FPC 24P 引脚定义、舵机 3 脚顺序、WS2812 级联顺序、SW1/SW2/SW3 角色、**4 层 USB 90 Ω 需板厂叠层数据**。
 3. **DFM / 物料**：未做嘉立创在线 DFM 复核；BOM 缺货料号下单前刷新；物料身份需逐行确认。
