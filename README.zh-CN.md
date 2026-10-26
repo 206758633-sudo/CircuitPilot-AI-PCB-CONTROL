@@ -47,6 +47,8 @@ flowchart LR
 详见 [架构说明](docs/architecture/overview.md) 与
 [安全模型](docs/architecture/security-model.md)。
 
+**操作指导说明书：** [Markdown](docs/guides/user-manual.zh-CN.md) · [PDF](docs/guides/CircuitPilot-操作指导说明书-v0.2.0.pdf)
+
 ## 快速开始
 
 要求：macOS 12+、Node.js 22+、npm；桌面壳还需要 Rust 与 Xcode 命令行工具。

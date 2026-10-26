@@ -5,6 +5,7 @@ Start here:
 | Section | What it covers |
 |---|---|
 | [getting-started/installation.md](getting-started/installation.md) | Install prerequisites, run the web console, build the macOS app |
+| [guides/user-manual.zh-CN.md](guides/user-manual.zh-CN.md) | **中文操作指导说明书**（安装/本地部署/嘉立创EDA/桥接/MCP 边界/故障排查）；PDF 同目录 |
 | [getting-started/development.md](getting-started/development.md) | Dev loop, tests, repository layout |
 | [getting-started/configuration.md](getting-started/configuration.md) | Providers, keychain, runtime environment variables |
 | [getting-started/eda-setup.md](getting-started/eda-setup.md) | Connect 嘉立创EDA / EasyEDA through the CDP bridge |

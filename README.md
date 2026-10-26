@@ -51,6 +51,8 @@ flowchart LR
 See [docs/architecture/overview.md](docs/architecture/overview.md) and
 [security model](docs/architecture/security-model.md).
 
+**User manual (简体中文):** [操作指导说明书](docs/guides/user-manual.zh-CN.md) · [PDF](docs/guides/CircuitPilot-操作指导说明书-v0.2.0.pdf)
+
 ## Quick start
 
 Requirements: macOS 12+, Node.js 22+, npm. For the desktop shell: Rust and
