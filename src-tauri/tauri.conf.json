@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CircuitPilot",
+  "version": "0.2.0",
+  "identifier": "com.circuitpilot.desktop",
+  "build": {
+    "beforeDevCommand": "node scripts/stage-runtime-sidecar.mjs && npm run dev:full",
+    "devUrl": "http://127.0.0.1:4177",
+    "beforeBuildCommand": "npm run build && node scripts/stage-runtime-sidecar.mjs",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:4178 http://127.0.0.1:49620 http://127.0.0.1:49621 http://127.0.0.1:49622 http://127.0.0.1:49623 http://127.0.0.1:49624 http://127.0.0.1:49625 http://127.0.0.1:49626 http://127.0.0.1:49627 http://127.0.0.1:49628 http://127.0.0.1:49629; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "dmg",
+      "app"
+    ],
+    "externalBin": [
+      "binaries/node"
+    ],
+    "resources": {
+      "../runtime": "runtime"
+    },
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "hardenedRuntime": true,
+      "entitlements": "entitlements.plist"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "CircuitPilot main window with no shell or filesystem permissions",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

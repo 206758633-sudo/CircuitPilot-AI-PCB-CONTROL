@@ -1,0 +1,78 @@
+{
+  "name": "circuitpilot",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:runtime": "node runtime/server.mjs",
+    "dev:full": "node scripts/dev-full.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc -b --pretty false",
+    "test": "npm run typecheck && vitest run && npm run test:runtime",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:runtime": "node scripts/coverage-gate.mjs",
+    "test:runtime": "node --test --test-timeout=120000 \"runtime/**/*.test.mjs\"",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "acceptance": "node scripts/acceptance.mjs",
+    "test:e2e:ui": "playwright test --ui",
+    "ci": "npm run typecheck && vitest run && npm run test:runtime && npm run build",
+    "sidecar:stage": "node scripts/stage-runtime-sidecar.mjs",
+    "desktop:check": "node scripts/check-desktop-toolchain.mjs",
+    "desktop:release-check": "node scripts/check-macos-release.mjs",
+    "desktop:dev": "npm run desktop:check && tauri dev",
+    "desktop:app": "npm run desktop:check && tauri build --bundles app",
+    "desktop:build": "npm run desktop:check && tauri build",
+    "desktop:release": "npm run desktop:release-check && tauri build --bundles app,dmg",
+    "test:e2e:live": "node scripts/e2e-live.mjs",
+    "automation:run": "node scripts/automation-run.mjs",
+    "archive:live-evidence": "node scripts/archive-live-evidence.mjs",
+    "drill:backup": "node scripts/backup-restore-drill.mjs",
+    "drill:longrun": "node scripts/long-run-memory.mjs",
+    "drill:faults": "node scripts/fault-drill.mjs",
+    "report:live-chain": "node scripts/live-chain-report.mjs",
+    "test:package": "node scripts/package-smoke.mjs",
+    "check:footprint-integrity": "node scripts/footprint-integrity-preflight.mjs",
+    "check:net-connectivity": "node scripts/net-connectivity-preflight.mjs",
+    "check:schematic-connectivity": "node scripts/schematic-connectivity-preflight.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/ibm-plex-sans": "^5.2.6",
+    "@fontsource/ibm-plex-mono": "^5.2.6",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "@tauri-apps/cli": "^2.8.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@types/node": "^22.10.7",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^5.0.3",
+    "jsdom": "^26.0.0",
+    "typescript": "~5.6.3",
+    "vite": "^6.1.0",
+    "vitest": "^5.0.3"
+  },
+  "overrides": {
+    "source-map-js": "^1.2.2"
+  },
+  "description": "CircuitPilot — local-first AI PCBA control console for macOS (React + Tauri + Node runtime)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL.git"
+  },
+  "homepage": "https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL",
+  "bugs": {
+    "url": "https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

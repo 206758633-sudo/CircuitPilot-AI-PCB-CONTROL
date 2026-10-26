@@ -1,0 +1,58 @@
+# KiCad 自定义 DRC 片段 —— 对应内置的布局规则包
+#
+# 用法：KiCad 8/9 → PCB Editor → Board Setup → Design Rules → Custom Rules，把下面内容粘进去
+#      （或直接追加到工程目录下的 *.kicad_dru 文件，重启 PCB 编辑器后生效）。
+#
+# 重要说明（先读再粘）：
+# 1) 本文件只放「KiCad 原生支持、语法确定」的约束。courtyard 相交、丝印压焊盘、天线禁布区、
+#    插拔空间这几类，KiCad 没有等价的单条自定义规则，必须靠：
+#      · Board Setup → Violations 里把 "Courtyard overlap" / "Silkscreen overlap" 设为 Error；
+#      · 天线区用 Keepout 区（禁铜/禁过孔/禁元件）+ 3D 干涉检查；
+#      · 连接器插拔空间与线缆禁布区用机械层 Keepout + 人工 3D 复核（对应 CONN-03/07/14）。
+# 2) 数值来自内置示例规则包；改规则时请同步更新规则包与这里。
+# 3) 若你的 KiCad 版本对某条 constraint 报语法错误，删掉该条即可——其余条目独立生效。
+# 4) 嘉立创等板厂能力值（JLC 前缀）未经在线核对，下单前以工程确认单为准。
+
+(version 1)
+
+# ---- MECH-06 铜到板边 >= 0.30 mm（含焊盘、走线、铺铜） ----
+(rule "MECH-06 copper to board edge >= 0.30mm"
+    (constraint edge_clearance (min 0.30mm)))
+
+# ---- MECH-05 / SPACE: 元件本体到板边 >= 0.50 mm ----
+# KiCad 的自定义规则按器件/网络分类，没有「footprint body to edge」这一项，
+# 这里用 edge_clearance 的 0.5 mm 变体兜住封装焊盘外沿，本体由 3D 干涉检查兜底。
+(rule "MECH-05 footprint pads to board edge >= 0.50mm"
+    (constraint edge_clearance (min 0.50mm))
+    (condition "A.Type == 'Pad'"))
+
+# ---- DFM-01 最小线宽 0.15 mm（推荐；板厂能力下限 0.10，见 DFM-01） ----
+(rule "DFM-01 min track width 0.15mm"
+    (constraint track_width (min 0.15mm)))
+
+# ---- DFM-01 最小线距 0.15 mm ----
+(rule "DFM-01 min clearance 0.15mm"
+    (constraint clearance (min 0.15mm)))
+
+# ---- DFM-02 过孔：孔径 >= 0.30 mm、外径 >= 0.60 mm（环宽 >= 0.15 mm） ----
+(rule "DFM-02 via hole >= 0.30mm"
+    (constraint hole_size (min 0.30mm))
+    (condition "A.Type == 'Via'"))
+(rule "DFM-02 via diameter >= 0.60mm"
+    (constraint via_diameter (min 0.60mm))
+    (condition "A.Type == 'Via'"))
+
+# ---- DFM-02 环宽 >= 0.13 mm ----
+(rule "DFM-02 annular ring >= 0.13mm"
+    (constraint annular_width (min 0.13mm)))
+
+# ---- DFM-09 USB 2.0 差分 90 ohm（按叠层反解，下列为起点值，需用板厂叠层计算书复算） ----
+(rule "DFM-09 USB2.0 differential gap"
+    (constraint diff_pair_gap (opt 0.20mm))
+    (constraint diff_pair_uncoupled (max 5mm))
+    (condition "A.hasNetclass('USB_DIFF')"))
+
+# ---- PWR-05 大电流网络最小线宽（VBUS 3A -> 1.65 mm 外层；按网表调整网络名） ----
+(rule "PWR-05 VBUS min width 1.65mm"
+    (constraint track_width (min 1.65mm))
+    (condition "A.hasNetclass('PWR_3A')"))

@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+src-tauri/target/
+src-tauri/binaries/
+*.tsbuildinfo
+
+# Test / coverage outputs
+coverage/
+playwright-report/
+test-results/
+
+# Local runtime state, evidence, and machine-generated artifacts
+artifacts/*
+!artifacts/.gitkeep
+deliverables/
+release/
+manufacturing/
+测试板文件/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.mobileprovision
+
+# Local tooling state
+.work/
+.claude/
+.codex/
+.auto-coding/
+.vite/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.log

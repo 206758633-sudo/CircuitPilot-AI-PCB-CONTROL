@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 1,
+  "kind": "fab-capability-profiles",
+  "source": {
+    "repo": "Cimos/kicad-druid",
+    "url": "https://github.com/Cimos/kicad-druid",
+    "file": "capabilities/JLCPCB.toml + capabilities/PCBWay.toml -> COMPARISON.md (generated)",
+    "license": "MIT",
+    "note": "Values track jlcpcb.com/capabilities/pcb-capabilities and pcbway.com/capabilities.html; verify before production."
+  },
+  "extractedAt": "2026-10-23",
+  "units": "mm unless noted",
+  "fixedLimits": {
+    "Drill hole — max": {
+      "JLCPCB": "6.3mm",
+      "PCBWay": "6.3mm",
+      "Generic": "6.3mm"
+    },
+    "Via annular ring — min": {
+      "JLCPCB": "0.05mm",
+      "PCBWay": "0.15mm",
+      "Generic": "0.15mm"
+    },
+    "PTH hole — min": {
+      "JLCPCB": "0.15mm",
+      "PCBWay": "0.2mm",
+      "Generic": "0.2mm"
+    },
+    "PTH hole — max": {
+      "JLCPCB": "6.3mm",
+      "PCBWay": "6.35mm",
+      "Generic": "6.3mm"
+    },
+    "NPTH hole — min": {
+      "JLCPCB": "0.5mm",
+      "PCBWay": "0.5mm",
+      "Generic": "0.5mm"
+    },
+    "Castellated hole — min": {
+      "JLCPCB": "0.5mm",
+      "PCBWay": "0.6mm",
+      "Generic": "0.6mm"
+    },
+    "PTH annular ring — min": {
+      "JLCPCB": "0.15mm",
+      "PCBWay": "0.15mm",
+      "Generic": "0.15mm"
+    },
+    "NPTH annular ring — min": {
+      "JLCPCB": "0.45mm",
+      "PCBWay": "0.25mm",
+      "Generic": "0.45mm"
+    },
+    "Plated slot width — min": {
+      "JLCPCB": "0.35mm",
+      "PCBWay": "0.5mm",
+      "Generic": "0.5mm"
+    },
+    "Non-plated slot width — min": {
+      "JLCPCB": "1.0mm",
+      "PCBWay": "0.8mm",
+      "Generic": "1.0mm"
+    },
+    "Small-via extra-cost hole threshold": {
+      "JLCPCB": "0.3mm",
+      "PCBWay": "—",
+      "Generic": "0.3mm"
+    },
+    "Small-via diameter to avoid extra cost": {
+      "JLCPCB": "0.45mm",
+      "PCBWay": "—",
+      "Generic": "0.45mm"
+    },
+    "Via hole-to-hole, different nets": {
+      "JLCPCB": "0.2mm",
+      "PCBWay": "0.5mm",
+      "Generic": "0.5mm"
+    },
+    "Via hole-to-pad hole, different nets": {
+      "JLCPCB": "0.45mm",
+      "PCBWay": "0.5mm",
+      "Generic": "0.5mm"
+    },
+    "Via hole-to-hole, same net": {
+      "JLCPCB": "—",
+      "PCBWay": "0.254mm",
+      "Generic": "0.254mm"
+    },
+    "Pad-to-pad (no hole), different nets": {
+      "JLCPCB": "0.15mm",
+      "PCBWay": "0.127mm",
+      "Generic": "0.15mm"
+    },
+    "Pad hole-to-hole (with hole), different nets": {
+      "JLCPCB": "0.45mm",
+      "PCBWay": "0.5mm",
+      "Generic": "0.5mm"
+    },
+    "Via hole to trace": {
+      "JLCPCB": "0.2mm",
+      "PCBWay": "0.254mm",
+      "Generic": "0.254mm"
+    },
+    "PTH hole to trace": {
+      "JLCPCB": "0.28mm",
+      "PCBWay": "0.33mm",
+      "Generic": "0.33mm"
+    },
+    "PTH hole to trace (inner layer)": {
+      "JLCPCB": "0.3mm",
+      "PCBWay": "—",
+      "Generic": "0.3mm"
+    },
+    "NPTH hole to trace": {
+      "JLCPCB": "0.2mm",
+      "PCBWay": "0.254mm",
+      "Generic": "0.254mm"
+    },
+    "NPTH to copper (non-track)": {
+      "JLCPCB": "0.2mm",
+      "PCBWay": "0.20mm",
+      "Generic": "0.2mm"
+    },
+    "Pad to trace": {
+      "JLCPCB": "0.2mm",
+      "PCBWay": "0.2mm",
+      "Generic": "0.2mm"
+    },
+    "SMD pad size — min": {
+      "JLCPCB": "0.125mm",
+      "PCBWay": "—",
+      "Generic": "0.125mm"
+    },
+    "BGA to trace": {
+      "JLCPCB": "0.1mm",
+      "PCBWay": "—",
+      "Generic": "0.1mm"
+    },
+    "Same-net trace spacing (disabled workaround)": {
+      "JLCPCB": "0.25mm",
+      "PCBWay": "—",
+      "Generic": "0.25mm"
+    },
+    "Silk line width — min": {
+      "JLCPCB": "0.15mm",
+      "PCBWay": "0.15mm",
+      "Generic": "0.15mm"
+    },
+    "Silk text height — min": {
+      "JLCPCB": "1mm",
+      "PCBWay": "0.8mm",
+      "Generic": "1mm"
+    },
+    "Pad to silkscreen": {
+      "JLCPCB": "0.15mm",
+      "PCBWay": "0.15mm",
+      "Generic": "0.15mm"
+    },
+    "Trace to board edge (routed)": {
+      "JLCPCB": "0.2mm",
+      "PCBWay": "0.3mm",
+      "Generic": "0.3mm"
+    }
+  },
+  "variants": {
+    "JLCPCB": {
+      "2L-1oz": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.15mm",
+        "traceWidthOuter": "0.1mm",
+        "traceSpacingOuter": "0.1mm",
+        "traceWidthInner": "—",
+        "traceSpacingInner": "—"
+      },
+      "4L-1oz (default)": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.15mm",
+        "traceWidthOuter": "0.09mm",
+        "traceSpacingOuter": "0.09mm",
+        "traceWidthInner": "0.09mm",
+        "traceSpacingInner": "0.09mm"
+      },
+      "4L-2oz": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.15mm",
+        "traceWidthOuter": "0.15mm",
+        "traceSpacingOuter": "0.15mm",
+        "traceWidthInner": "0.15mm",
+        "traceSpacingInner": "0.15mm"
+      },
+      "6L-1oz": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.15mm",
+        "traceWidthOuter": "0.09mm",
+        "traceSpacingOuter": "0.09mm",
+        "traceWidthInner": "0.09mm",
+        "traceSpacingInner": "0.09mm"
+      }
+    },
+    "PCBWay": {
+      "2L-1oz": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.3mm",
+        "traceWidthOuter": "0.127mm",
+        "traceSpacingOuter": "0.127mm",
+        "traceWidthInner": "—",
+        "traceSpacingInner": "—"
+      },
+      "4L-1oz (default)": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.2mm",
+        "traceWidthOuter": "0.09mm",
+        "traceSpacingOuter": "0.09mm",
+        "traceWidthInner": "0.1mm",
+        "traceSpacingInner": "0.1mm"
+      },
+      "4L-2oz": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.2mm",
+        "traceWidthOuter": "0.1524mm",
+        "traceSpacingOuter": "0.1778mm",
+        "traceWidthInner": "0.1524mm",
+        "traceSpacingInner": "0.1778mm"
+      },
+      "6L-1oz": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.2mm",
+        "traceWidthOuter": "0.09mm",
+        "traceSpacingOuter": "0.09mm",
+        "traceWidthInner": "0.1mm",
+        "traceSpacingInner": "0.1mm"
+      }
+    },
+    "Generic": {
+      "2L-1oz": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.3mm",
+        "traceWidthOuter": "0.127mm",
+        "traceSpacingOuter": "0.127mm",
+        "traceWidthInner": "—",
+        "traceSpacingInner": "—"
+      },
+      "4L-1oz (default)": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.2mm",
+        "traceWidthOuter": "0.09mm",
+        "traceSpacingOuter": "0.09mm",
+        "traceWidthInner": "0.1mm",
+        "traceSpacingInner": "0.1mm"
+      },
+      "4L-2oz": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.2mm",
+        "traceWidthOuter": "0.1524mm",
+        "traceSpacingOuter": "0.1778mm",
+        "traceWidthInner": "0.1524mm",
+        "traceSpacingInner": "0.1778mm"
+      },
+      "6L-1oz": {
+        "drillHoleMin": "0.15mm",
+        "viaHoleMin": "0.2mm",
+        "traceWidthOuter": "0.09mm",
+        "traceSpacingOuter": "0.09mm",
+        "traceWidthInner": "0.1mm",
+        "traceSpacingInner": "0.1mm"
+      }
+    }
+  },
+  "impedanceNetClasses": {
+    "50R": {
+      "JLCPCB": "0.2mm / n/a",
+      "PCBWay": "0.2mm / n/a",
+      "Generic": "0.2mm / n/a"
+    },
+    "60R_Diff": {
+      "JLCPCB": "0.3mm / 0.15mm",
+      "PCBWay": "0.3mm / 0.15mm",
+      "Generic": "0.3mm / 0.15mm"
+    },
+    "90R_Diff": {
+      "JLCPCB": "0.2mm / 0.13mm",
+      "PCBWay": "0.2mm / 0.13mm",
+      "Generic": "0.2mm / 0.13mm"
+    },
+    "100R_Diff": {
+      "JLCPCB": "0.2mm / 0.2mm",
+      "PCBWay": "0.2mm / 0.2mm",
+      "Generic": "0.2mm / 0.2mm"
+    },
+    "120R_Diff": {
+      "JLCPCB": "0.15mm / 0.2mm",
+      "PCBWay": "0.15mm / 0.2mm",
+      "Generic": "0.15mm / 0.2mm"
+    }
+  },
+  "processNotes": {
+    "Avoids JLCPCB 4-wire Kelvin test": {
+      "JLCPCB": "yes",
+      "PCBWay": "no",
+      "Generic": "yes"
+    },
+    "Avoids small-via extra cost": {
+      "JLCPCB": "yes",
+      "PCBWay": "no",
+      "Generic": "yes"
+    },
+    "Blind/buried vias allowed": {
+      "JLCPCB": "no",
+      "PCBWay": "yes",
+      "Generic": "no"
+    },
+    "Enforces plated-slot length/width ratio": {
+      "JLCPCB": "yes",
+      "PCBWay": "no",
+      "Generic": "yes"
+    },
+    "Ships a BGA fan-out rule": {
+      "JLCPCB": "yes",
+      "PCBWay": "no",
+      "Generic": "yes"
+    },
+    "Ships implied catch-all clearances": {
+      "JLCPCB": "yes",
+      "PCBWay": "no",
+      "Generic": "yes"
+    },
+    "Uses one trace limit for all copper layers": {
+      "JLCPCB": "yes",
+      "PCBWay": "no",
+      "Generic": "no"
+    },
+    "Documents disabled same-net spacing workaround": {
+      "JLCPCB": "yes",
+      "PCBWay": "no",
+      "Generic": "yes"
+    },
+    "Ships a minimum SMD pad size rule": {
+      "JLCPCB": "yes",
+      "PCBWay": "no",
+      "Generic": "yes"
+    }
+  },
+  "rulePack": {
+    "id": "fab-capability-profiles",
+    "schemaVersion": 1,
+    "rules": "见 runtime/engineering/fab-rules.mjs 的 FAB_RULES（编号 FAB-01..FAB-16）",
+    "license": "MIT (values: Cimos/kicad-druid); see source"
+  }
+}

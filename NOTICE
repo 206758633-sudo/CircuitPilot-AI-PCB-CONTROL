@@ -1,0 +1,12 @@
+CircuitPilot — AI PCBA Control
+Copyright 2026 example-user
+
+This product includes software developed by third parties. See
+THIRD_PARTY_LICENSES.md and the dependency lock files (package-lock.json,
+src-tauri/Cargo.lock) for details.
+
+CircuitPilot is an independent project. It is not affiliated with, endorsed
+by, or sponsored by 嘉立创EDA / LCEDA, EasyEDA, OpenAI, Anthropic, or any
+other vendor whose product names appear in this repository. Vendor names and
+trademarks belong to their respective owners and are used only to describe
+interoperability targets.

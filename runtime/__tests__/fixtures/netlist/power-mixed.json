@@ -1,0 +1,6 @@
+{
+  "name": "电源混网：意图 +3V3 的引脚实际接到 GND",
+  "intent": [ { "net": "+3V3", "endpoints": [ { "ref": "U1", "pin": "1" }, { "ref": "R1", "pin": "1" } ] }, { "net": "GND", "endpoints": [ { "ref": "U1", "pin": "2" }, { "ref": "R1", "pin": "2" } ] } ],
+  "actual": { "components": { "a": { "props": { "Designator": "U1" }, "pinInfoMap": { "1": { "net": "GND" }, "2": { "net": "GND" } } }, "b": { "props": { "Designator": "R1" }, "pinInfoMap": { "1": { "net": "+3V3" }, "2": { "net": "GND" } } } } },
+  "expect": { "verdict": "blocked", "codes": ["NETLIST_POWER_MIXED"] }
+}

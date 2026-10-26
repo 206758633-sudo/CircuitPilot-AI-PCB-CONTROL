@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1560, height: 980 } });
+const errors = [];
+page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
+await page.goto('http://127.0.0.1:4177/', { waitUntil: 'networkidle', timeout: 60000 }).catch((e) => errors.push('goto:' + e.message));
+await page.waitForTimeout(2500);
+console.log('title:', await page.title());
+const navTexts = await page.locator('nav a, nav button, aside a, aside button').allInnerTexts().catch(() => []);
+console.log('nav:', JSON.stringify(navTexts.slice(0, 24)));
+const hasSelect = await page.locator('select[aria-label="历史会话"]').count();
+console.log('history select count:', hasSelect);
+await page.screenshot({ path: '/tmp/ui_home.png', fullPage: false });
+await browser.close();
+console.log('errors:', JSON.stringify(errors));

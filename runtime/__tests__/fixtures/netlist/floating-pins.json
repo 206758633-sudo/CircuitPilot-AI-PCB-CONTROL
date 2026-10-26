@@ -1,0 +1,6 @@
+{
+  "name": "悬空引脚：意图要求连接，实际 net 为空",
+  "intent": [ { "net": "LED_DIN", "endpoints": [ { "ref": "U1", "pin": "3" }, { "ref": "D1", "pin": "4" } ] } ],
+  "actual": { "components": { "a": { "props": { "Designator": "U1" }, "pinInfoMap": { "3": { "net": "" } } }, "b": { "props": { "Designator": "D1" }, "pinInfoMap": { "4": { "net": "LED_DIN" } } } } },
+  "expect": { "verdict": "blocked", "codes": ["NETLIST_PIN_FLOATING"] }
+}

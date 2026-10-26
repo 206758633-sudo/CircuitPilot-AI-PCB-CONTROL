@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: Build macOS app and publish draft release
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and tests
+        run: npm run typecheck && npx vitest run && npm run test:runtime
+
+      - name: Build macOS app and upload draft release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "CircuitPilot ${{ github.ref_name }}"
+          releaseBody: |
+            Automated macOS build from ${{ github.sha }}.
+
+            This build is unsigned unless the repository is configured with
+            Apple Developer ID signing/notarization secrets. See docs/getting-started/macos-signing.md.
+          releaseDraft: true
+          prerelease: false
+          args: --bundles app,dmg

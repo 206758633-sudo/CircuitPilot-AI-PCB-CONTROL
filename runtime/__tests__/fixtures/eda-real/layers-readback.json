@@ -1,0 +1,2345 @@
+{
+ "source": "真机 EDA 3.2.186 pcb.layers.read（2026-10-20 取证 artifacts/evidence/pcb-layer-stack）",
+ "layers": [
+  {
+   "id": 1,
+   "name": "Top Layer",
+   "type": "SIGNAL",
+   "color": "#ff0000",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 2,
+   "name": "Bottom Layer",
+   "type": "SIGNAL",
+   "color": "#0000ff",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 3,
+   "name": "Top Silkscreen Layer",
+   "type": "SILKSCREEN",
+   "color": "#ffcc00",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 4,
+   "name": "Bottom Silkscreen Layer",
+   "type": "SILKSCREEN",
+   "color": "#66cc33",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 5,
+   "name": "Top Solder Mask Layer",
+   "type": "SOLDER_MASK",
+   "color": "#800080",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 30
+  },
+  {
+   "id": 6,
+   "name": "Bottom Solder Mask Layer",
+   "type": "SOLDER_MASK",
+   "color": "#aa00ff",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 30
+  },
+  {
+   "id": 7,
+   "name": "Top Paste Mask Layer",
+   "type": "PASTE_MASK",
+   "color": "#808080",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 8,
+   "name": "Bottom Paste Mask Layer",
+   "type": "PASTE_MASK",
+   "color": "#800000",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 9,
+   "name": "Top Assembly Layer",
+   "type": "ASSEMBLY",
+   "color": "#33cc99",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 10,
+   "name": "Bottom Assembly Layer",
+   "type": "ASSEMBLY",
+   "color": "#5555ff",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 11,
+   "name": "Board Outline Layer",
+   "type": "OTHER",
+   "color": "#ff00ff",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 12,
+   "name": "Multi-Layer",
+   "type": "OTHER",
+   "color": "#c0c0c0",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 13,
+   "name": "Document Layer",
+   "type": "OTHER",
+   "color": "#ffffff",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 14,
+   "name": "Mechanical Layer",
+   "type": "OTHER",
+   "color": "#f022f0",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 15,
+   "name": "Inner1",
+   "type": "SIGNAL",
+   "color": "#999966",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 16,
+   "name": "Inner2",
+   "type": "SIGNAL",
+   "color": "#008000",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 17,
+   "name": "Inner3",
+   "type": "SIGNAL",
+   "color": "#00ff00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 18,
+   "name": "Inner4",
+   "type": "SIGNAL",
+   "color": "#bc8e00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 19,
+   "name": "Inner5",
+   "type": "SIGNAL",
+   "color": "#70dbfa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 20,
+   "name": "Inner6",
+   "type": "SIGNAL",
+   "color": "#00cc66",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 21,
+   "name": "Inner7",
+   "type": "SIGNAL",
+   "color": "#9966ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 22,
+   "name": "Inner8",
+   "type": "SIGNAL",
+   "color": "#800080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 23,
+   "name": "Inner9",
+   "type": "SIGNAL",
+   "color": "#008080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 24,
+   "name": "Inner10",
+   "type": "SIGNAL",
+   "color": "#15935f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 25,
+   "name": "Inner11",
+   "type": "SIGNAL",
+   "color": "#000080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 26,
+   "name": "Inner12",
+   "type": "SIGNAL",
+   "color": "#00b400",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 27,
+   "name": "Inner13",
+   "type": "SIGNAL",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 28,
+   "name": "Inner14",
+   "type": "SIGNAL",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 29,
+   "name": "Inner15",
+   "type": "SIGNAL",
+   "color": "#ffffaa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 30,
+   "name": "Inner16",
+   "type": "SIGNAL",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 31,
+   "name": "Inner17",
+   "type": "SIGNAL",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 32,
+   "name": "Inner18",
+   "type": "SIGNAL",
+   "color": "#3535ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 33,
+   "name": "Inner19",
+   "type": "SIGNAL",
+   "color": "#8000bc",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 34,
+   "name": "Inner20",
+   "type": "SIGNAL",
+   "color": "#43ae5f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 35,
+   "name": "Inner21",
+   "type": "SIGNAL",
+   "color": "#c3ecce",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 36,
+   "name": "Inner22",
+   "type": "SIGNAL",
+   "color": "#728978",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 37,
+   "name": "Inner23",
+   "type": "SIGNAL",
+   "color": "#39503f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 38,
+   "name": "Inner24",
+   "type": "SIGNAL",
+   "color": "#0c715d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 39,
+   "name": "Inner25",
+   "type": "SIGNAL",
+   "color": "#5a8a80",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 40,
+   "name": "Inner26",
+   "type": "SIGNAL",
+   "color": "#2b937e",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 41,
+   "name": "Inner27",
+   "type": "SIGNAL",
+   "color": "#23999d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 42,
+   "name": "Inner28",
+   "type": "SIGNAL",
+   "color": "#45b4e3",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 43,
+   "name": "Inner29",
+   "type": "SIGNAL",
+   "color": "#215da1",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 44,
+   "name": "Inner30",
+   "type": "SIGNAL",
+   "color": "#4564d7",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 45,
+   "name": "Inner31",
+   "type": "SIGNAL",
+   "color": "#6969e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 46,
+   "name": "Inner32",
+   "type": "SIGNAL",
+   "color": "#9069e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 47,
+   "name": "Hole Layer",
+   "type": "OTHER",
+   "color": "#222222",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 48,
+   "name": "Component Shape Layer",
+   "type": "OTHER",
+   "color": "#00cccc",
+   "locked": false,
+   "layerStatus": 2,
+   "transparency": 0
+  },
+  {
+   "id": 49,
+   "name": "Component Marking Layer",
+   "type": "OTHER",
+   "color": "#66ffcc",
+   "locked": false,
+   "layerStatus": 2,
+   "transparency": 0
+  },
+  {
+   "id": 50,
+   "name": "Pin Soldering Layer",
+   "type": "OTHER",
+   "color": "#cc9999",
+   "locked": false,
+   "layerStatus": 2,
+   "transparency": 0
+  },
+  {
+   "id": 51,
+   "name": "Pin Floating Layer",
+   "type": "OTHER",
+   "color": "#ff99ff",
+   "locked": false,
+   "layerStatus": 2,
+   "transparency": 0
+  },
+  {
+   "id": 52,
+   "name": "Component Model Layer",
+   "type": "OTHER",
+   "color": "#ffffff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 53,
+   "name": "3D Shell Outline Layer",
+   "type": "OTHER",
+   "color": "#66ff99",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 54,
+   "name": "3D Shell Top Layer",
+   "type": "OTHER",
+   "color": "#ffccff",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 55,
+   "name": "3D Shell Bottom Layer",
+   "type": "OTHER",
+   "color": "#0066cc",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 56,
+   "name": "Drill Drawing Layer",
+   "type": "OTHER",
+   "color": "#008080",
+   "locked": false,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 57,
+   "name": "Ratline Layer",
+   "type": "OTHER",
+   "color": "#6464ff",
+   "locked": true,
+   "layerStatus": 1,
+   "transparency": 0
+  },
+  {
+   "id": 58,
+   "name": "Top Stiffener Layer",
+   "type": "OTHER",
+   "color": "#eee666",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 59,
+   "name": "Bottom Stiffener Layer",
+   "type": "OTHER",
+   "color": "#ccff00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 71,
+   "name": "Custom1",
+   "type": "CUSTOM",
+   "color": "#9069e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 72,
+   "name": "Custom2",
+   "type": "CUSTOM",
+   "color": "#6969e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 73,
+   "name": "Custom3",
+   "type": "CUSTOM",
+   "color": "#4564d7",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 74,
+   "name": "Custom4",
+   "type": "CUSTOM",
+   "color": "#215da1",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 75,
+   "name": "Custom5",
+   "type": "CUSTOM",
+   "color": "#45b4e3",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 76,
+   "name": "Custom6",
+   "type": "CUSTOM",
+   "color": "#23999d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 77,
+   "name": "Custom7",
+   "type": "CUSTOM",
+   "color": "#2b937e",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 78,
+   "name": "Custom8",
+   "type": "CUSTOM",
+   "color": "#5a8a80",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 79,
+   "name": "Custom9",
+   "type": "CUSTOM",
+   "color": "#0c715d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 80,
+   "name": "Custom10",
+   "type": "CUSTOM",
+   "color": "#39503f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 81,
+   "name": "Custom11",
+   "type": "CUSTOM",
+   "color": "#728978",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 82,
+   "name": "Custom12",
+   "type": "CUSTOM",
+   "color": "#c3ecce",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 83,
+   "name": "Custom13",
+   "type": "CUSTOM",
+   "color": "#43ae5f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 84,
+   "name": "Custom14",
+   "type": "CUSTOM",
+   "color": "#8000bc",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 85,
+   "name": "Custom15",
+   "type": "CUSTOM",
+   "color": "#3535ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 86,
+   "name": "Custom16",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 87,
+   "name": "Custom17",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 88,
+   "name": "Custom18",
+   "type": "CUSTOM",
+   "color": "#ffffaa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 89,
+   "name": "Custom19",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 90,
+   "name": "Custom20",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 91,
+   "name": "Custom21",
+   "type": "CUSTOM",
+   "color": "#00b400",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 92,
+   "name": "Custom22",
+   "type": "CUSTOM",
+   "color": "#000080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 93,
+   "name": "Custom23",
+   "type": "CUSTOM",
+   "color": "#15935f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 94,
+   "name": "Custom24",
+   "type": "CUSTOM",
+   "color": "#008080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 95,
+   "name": "Custom25",
+   "type": "CUSTOM",
+   "color": "#800080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 96,
+   "name": "Custom26",
+   "type": "CUSTOM",
+   "color": "#9966ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 97,
+   "name": "Custom27",
+   "type": "CUSTOM",
+   "color": "#00cc66",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 98,
+   "name": "Custom28",
+   "type": "CUSTOM",
+   "color": "#70dbfa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 99,
+   "name": "Custom29",
+   "type": "CUSTOM",
+   "color": "#bc8e00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 100,
+   "name": "Custom30",
+   "type": "CUSTOM",
+   "color": "#00ff00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 101,
+   "name": "Custom31",
+   "type": "CUSTOM",
+   "color": "#008000",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 102,
+   "name": "Custom32",
+   "type": "CUSTOM",
+   "color": "#999966",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 103,
+   "name": "Custom33",
+   "type": "CUSTOM",
+   "color": "#9069e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 104,
+   "name": "Custom34",
+   "type": "CUSTOM",
+   "color": "#6969e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 105,
+   "name": "Custom35",
+   "type": "CUSTOM",
+   "color": "#4564d7",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 106,
+   "name": "Custom36",
+   "type": "CUSTOM",
+   "color": "#215da1",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 107,
+   "name": "Custom37",
+   "type": "CUSTOM",
+   "color": "#45b4e3",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 108,
+   "name": "Custom38",
+   "type": "CUSTOM",
+   "color": "#23999d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 109,
+   "name": "Custom39",
+   "type": "CUSTOM",
+   "color": "#2b937e",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 110,
+   "name": "Custom40",
+   "type": "CUSTOM",
+   "color": "#5a8a80",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 111,
+   "name": "Custom41",
+   "type": "CUSTOM",
+   "color": "#0c715d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 112,
+   "name": "Custom42",
+   "type": "CUSTOM",
+   "color": "#39503f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 113,
+   "name": "Custom43",
+   "type": "CUSTOM",
+   "color": "#728978",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 114,
+   "name": "Custom44",
+   "type": "CUSTOM",
+   "color": "#c3ecce",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 115,
+   "name": "Custom45",
+   "type": "CUSTOM",
+   "color": "#43ae5f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 116,
+   "name": "Custom46",
+   "type": "CUSTOM",
+   "color": "#8000bc",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 117,
+   "name": "Custom47",
+   "type": "CUSTOM",
+   "color": "#3535ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 118,
+   "name": "Custom48",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 119,
+   "name": "Custom49",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 120,
+   "name": "Custom50",
+   "type": "CUSTOM",
+   "color": "#ffffaa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 121,
+   "name": "Custom51",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 122,
+   "name": "Custom52",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 123,
+   "name": "Custom53",
+   "type": "CUSTOM",
+   "color": "#00b400",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 124,
+   "name": "Custom54",
+   "type": "CUSTOM",
+   "color": "#000080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 125,
+   "name": "Custom55",
+   "type": "CUSTOM",
+   "color": "#15935f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 126,
+   "name": "Custom56",
+   "type": "CUSTOM",
+   "color": "#008080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 127,
+   "name": "Custom57",
+   "type": "CUSTOM",
+   "color": "#800080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 128,
+   "name": "Custom58",
+   "type": "CUSTOM",
+   "color": "#9966ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 129,
+   "name": "Custom59",
+   "type": "CUSTOM",
+   "color": "#00cc66",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 130,
+   "name": "Custom60",
+   "type": "CUSTOM",
+   "color": "#70dbfa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 131,
+   "name": "Custom61",
+   "type": "CUSTOM",
+   "color": "#bc8e00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 132,
+   "name": "Custom62",
+   "type": "CUSTOM",
+   "color": "#00ff00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 133,
+   "name": "Custom63",
+   "type": "CUSTOM",
+   "color": "#008000",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 134,
+   "name": "Custom64",
+   "type": "CUSTOM",
+   "color": "#999966",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 135,
+   "name": "Custom65",
+   "type": "CUSTOM",
+   "color": "#9069e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 136,
+   "name": "Custom66",
+   "type": "CUSTOM",
+   "color": "#6969e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 137,
+   "name": "Custom67",
+   "type": "CUSTOM",
+   "color": "#4564d7",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 138,
+   "name": "Custom68",
+   "type": "CUSTOM",
+   "color": "#215da1",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 139,
+   "name": "Custom69",
+   "type": "CUSTOM",
+   "color": "#45b4e3",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 140,
+   "name": "Custom70",
+   "type": "CUSTOM",
+   "color": "#23999d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 141,
+   "name": "Custom71",
+   "type": "CUSTOM",
+   "color": "#2b937e",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 142,
+   "name": "Custom72",
+   "type": "CUSTOM",
+   "color": "#5a8a80",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 143,
+   "name": "Custom73",
+   "type": "CUSTOM",
+   "color": "#0c715d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 144,
+   "name": "Custom74",
+   "type": "CUSTOM",
+   "color": "#39503f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 145,
+   "name": "Custom75",
+   "type": "CUSTOM",
+   "color": "#728978",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 146,
+   "name": "Custom76",
+   "type": "CUSTOM",
+   "color": "#c3ecce",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 147,
+   "name": "Custom77",
+   "type": "CUSTOM",
+   "color": "#43ae5f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 148,
+   "name": "Custom78",
+   "type": "CUSTOM",
+   "color": "#8000bc",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 149,
+   "name": "Custom79",
+   "type": "CUSTOM",
+   "color": "#3535ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 150,
+   "name": "Custom80",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 151,
+   "name": "Custom81",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 152,
+   "name": "Custom82",
+   "type": "CUSTOM",
+   "color": "#ffffaa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 153,
+   "name": "Custom83",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 154,
+   "name": "Custom84",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 155,
+   "name": "Custom85",
+   "type": "CUSTOM",
+   "color": "#00b400",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 156,
+   "name": "Custom86",
+   "type": "CUSTOM",
+   "color": "#000080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 157,
+   "name": "Custom87",
+   "type": "CUSTOM",
+   "color": "#15935f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 158,
+   "name": "Custom88",
+   "type": "CUSTOM",
+   "color": "#008080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 159,
+   "name": "Custom89",
+   "type": "CUSTOM",
+   "color": "#800080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 160,
+   "name": "Custom90",
+   "type": "CUSTOM",
+   "color": "#9966ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 161,
+   "name": "Custom91",
+   "type": "CUSTOM",
+   "color": "#00cc66",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 162,
+   "name": "Custom92",
+   "type": "CUSTOM",
+   "color": "#70dbfa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 163,
+   "name": "Custom93",
+   "type": "CUSTOM",
+   "color": "#bc8e00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 164,
+   "name": "Custom94",
+   "type": "CUSTOM",
+   "color": "#00ff00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 165,
+   "name": "Custom95",
+   "type": "CUSTOM",
+   "color": "#008000",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 166,
+   "name": "Custom96",
+   "type": "CUSTOM",
+   "color": "#999966",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 167,
+   "name": "Custom97",
+   "type": "CUSTOM",
+   "color": "#9069e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 168,
+   "name": "Custom98",
+   "type": "CUSTOM",
+   "color": "#6969e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 169,
+   "name": "Custom99",
+   "type": "CUSTOM",
+   "color": "#4564d7",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 170,
+   "name": "Custom100",
+   "type": "CUSTOM",
+   "color": "#215da1",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 171,
+   "name": "Custom101",
+   "type": "CUSTOM",
+   "color": "#45b4e3",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 172,
+   "name": "Custom102",
+   "type": "CUSTOM",
+   "color": "#23999d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 173,
+   "name": "Custom103",
+   "type": "CUSTOM",
+   "color": "#2b937e",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 174,
+   "name": "Custom104",
+   "type": "CUSTOM",
+   "color": "#5a8a80",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 175,
+   "name": "Custom105",
+   "type": "CUSTOM",
+   "color": "#0c715d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 176,
+   "name": "Custom106",
+   "type": "CUSTOM",
+   "color": "#39503f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 177,
+   "name": "Custom107",
+   "type": "CUSTOM",
+   "color": "#728978",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 178,
+   "name": "Custom108",
+   "type": "CUSTOM",
+   "color": "#c3ecce",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 179,
+   "name": "Custom109",
+   "type": "CUSTOM",
+   "color": "#43ae5f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 180,
+   "name": "Custom110",
+   "type": "CUSTOM",
+   "color": "#8000bc",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 181,
+   "name": "Custom111",
+   "type": "CUSTOM",
+   "color": "#3535ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 182,
+   "name": "Custom112",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 183,
+   "name": "Custom113",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 184,
+   "name": "Custom114",
+   "type": "CUSTOM",
+   "color": "#ffffaa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 185,
+   "name": "Custom115",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 186,
+   "name": "Custom116",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 187,
+   "name": "Custom117",
+   "type": "CUSTOM",
+   "color": "#00b400",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 188,
+   "name": "Custom118",
+   "type": "CUSTOM",
+   "color": "#000080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 189,
+   "name": "Custom119",
+   "type": "CUSTOM",
+   "color": "#15935f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 190,
+   "name": "Custom120",
+   "type": "CUSTOM",
+   "color": "#008080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 191,
+   "name": "Custom121",
+   "type": "CUSTOM",
+   "color": "#800080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 192,
+   "name": "Custom122",
+   "type": "CUSTOM",
+   "color": "#9966ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 193,
+   "name": "Custom123",
+   "type": "CUSTOM",
+   "color": "#00cc66",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 194,
+   "name": "Custom124",
+   "type": "CUSTOM",
+   "color": "#70dbfa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 195,
+   "name": "Custom125",
+   "type": "CUSTOM",
+   "color": "#bc8e00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 196,
+   "name": "Custom126",
+   "type": "CUSTOM",
+   "color": "#00ff00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 197,
+   "name": "Custom127",
+   "type": "CUSTOM",
+   "color": "#008000",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 198,
+   "name": "Custom128",
+   "type": "CUSTOM",
+   "color": "#999966",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 199,
+   "name": "Custom129",
+   "type": "CUSTOM",
+   "color": "#9069e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 200,
+   "name": "Custom130",
+   "type": "CUSTOM",
+   "color": "#6969e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 201,
+   "name": "Custom131",
+   "type": "CUSTOM",
+   "color": "#4564d7",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 202,
+   "name": "Custom132",
+   "type": "CUSTOM",
+   "color": "#215da1",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 203,
+   "name": "Custom133",
+   "type": "CUSTOM",
+   "color": "#45b4e3",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 204,
+   "name": "Custom134",
+   "type": "CUSTOM",
+   "color": "#23999d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 205,
+   "name": "Custom135",
+   "type": "CUSTOM",
+   "color": "#2b937e",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 206,
+   "name": "Custom136",
+   "type": "CUSTOM",
+   "color": "#5a8a80",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 207,
+   "name": "Custom137",
+   "type": "CUSTOM",
+   "color": "#0c715d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 208,
+   "name": "Custom138",
+   "type": "CUSTOM",
+   "color": "#39503f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 209,
+   "name": "Custom139",
+   "type": "CUSTOM",
+   "color": "#728978",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 210,
+   "name": "Custom140",
+   "type": "CUSTOM",
+   "color": "#c3ecce",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 211,
+   "name": "Custom141",
+   "type": "CUSTOM",
+   "color": "#43ae5f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 212,
+   "name": "Custom142",
+   "type": "CUSTOM",
+   "color": "#8000bc",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 213,
+   "name": "Custom143",
+   "type": "CUSTOM",
+   "color": "#3535ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 214,
+   "name": "Custom144",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 215,
+   "name": "Custom145",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 216,
+   "name": "Custom146",
+   "type": "CUSTOM",
+   "color": "#ffffaa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 217,
+   "name": "Custom147",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 218,
+   "name": "Custom148",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 219,
+   "name": "Custom149",
+   "type": "CUSTOM",
+   "color": "#00b400",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 220,
+   "name": "Custom150",
+   "type": "CUSTOM",
+   "color": "#000080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 221,
+   "name": "Custom151",
+   "type": "CUSTOM",
+   "color": "#15935f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 222,
+   "name": "Custom152",
+   "type": "CUSTOM",
+   "color": "#008080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 223,
+   "name": "Custom153",
+   "type": "CUSTOM",
+   "color": "#800080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 224,
+   "name": "Custom154",
+   "type": "CUSTOM",
+   "color": "#9966ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 225,
+   "name": "Custom155",
+   "type": "CUSTOM",
+   "color": "#00cc66",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 226,
+   "name": "Custom156",
+   "type": "CUSTOM",
+   "color": "#70dbfa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 227,
+   "name": "Custom157",
+   "type": "CUSTOM",
+   "color": "#bc8e00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 228,
+   "name": "Custom158",
+   "type": "CUSTOM",
+   "color": "#00ff00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 229,
+   "name": "Custom159",
+   "type": "CUSTOM",
+   "color": "#008000",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 230,
+   "name": "Custom160",
+   "type": "CUSTOM",
+   "color": "#999966",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 231,
+   "name": "Custom161",
+   "type": "CUSTOM",
+   "color": "#9069e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 232,
+   "name": "Custom162",
+   "type": "CUSTOM",
+   "color": "#6969e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 233,
+   "name": "Custom163",
+   "type": "CUSTOM",
+   "color": "#4564d7",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 234,
+   "name": "Custom164",
+   "type": "CUSTOM",
+   "color": "#215da1",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 235,
+   "name": "Custom165",
+   "type": "CUSTOM",
+   "color": "#45b4e3",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 236,
+   "name": "Custom166",
+   "type": "CUSTOM",
+   "color": "#23999d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 237,
+   "name": "Custom167",
+   "type": "CUSTOM",
+   "color": "#2b937e",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 238,
+   "name": "Custom168",
+   "type": "CUSTOM",
+   "color": "#5a8a80",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 239,
+   "name": "Custom169",
+   "type": "CUSTOM",
+   "color": "#0c715d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 240,
+   "name": "Custom170",
+   "type": "CUSTOM",
+   "color": "#39503f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 241,
+   "name": "Custom171",
+   "type": "CUSTOM",
+   "color": "#728978",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 242,
+   "name": "Custom172",
+   "type": "CUSTOM",
+   "color": "#c3ecce",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 243,
+   "name": "Custom173",
+   "type": "CUSTOM",
+   "color": "#43ae5f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 244,
+   "name": "Custom174",
+   "type": "CUSTOM",
+   "color": "#8000bc",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 245,
+   "name": "Custom175",
+   "type": "CUSTOM",
+   "color": "#3535ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 246,
+   "name": "Custom176",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 247,
+   "name": "Custom177",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 248,
+   "name": "Custom178",
+   "type": "CUSTOM",
+   "color": "#ffffaa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 249,
+   "name": "Custom179",
+   "type": "CUSTOM",
+   "color": "#99842f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 250,
+   "name": "Custom180",
+   "type": "CUSTOM",
+   "color": "#2e4756",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 251,
+   "name": "Custom181",
+   "type": "CUSTOM",
+   "color": "#00b400",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 252,
+   "name": "Custom182",
+   "type": "CUSTOM",
+   "color": "#000080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 253,
+   "name": "Custom183",
+   "type": "CUSTOM",
+   "color": "#15935f",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 254,
+   "name": "Custom184",
+   "type": "CUSTOM",
+   "color": "#008080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 255,
+   "name": "Custom185",
+   "type": "CUSTOM",
+   "color": "#800080",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 256,
+   "name": "Custom186",
+   "type": "CUSTOM",
+   "color": "#9966ff",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 257,
+   "name": "Custom187",
+   "type": "CUSTOM",
+   "color": "#00cc66",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 258,
+   "name": "Custom188",
+   "type": "CUSTOM",
+   "color": "#70dbfa",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 259,
+   "name": "Custom189",
+   "type": "CUSTOM",
+   "color": "#bc8e00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 260,
+   "name": "Custom190",
+   "type": "CUSTOM",
+   "color": "#00ff00",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 261,
+   "name": "Custom191",
+   "type": "CUSTOM",
+   "color": "#008000",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 262,
+   "name": "Custom192",
+   "type": "CUSTOM",
+   "color": "#999966",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 263,
+   "name": "Custom193",
+   "type": "CUSTOM",
+   "color": "#9069e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 264,
+   "name": "Custom194",
+   "type": "CUSTOM",
+   "color": "#6969e9",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 265,
+   "name": "Custom195",
+   "type": "CUSTOM",
+   "color": "#4564d7",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 266,
+   "name": "Custom196",
+   "type": "CUSTOM",
+   "color": "#215da1",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 267,
+   "name": "Custom197",
+   "type": "CUSTOM",
+   "color": "#45b4e3",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 268,
+   "name": "Custom198",
+   "type": "CUSTOM",
+   "color": "#23999d",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 269,
+   "name": "Custom199",
+   "type": "CUSTOM",
+   "color": "#2b937e",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 270,
+   "name": "Custom200",
+   "type": "CUSTOM",
+   "color": "#5a8a80",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  },
+  {
+   "id": 361,
+   "name": "Dielectric1",
+   "type": "OTHER",
+   "color": "#000000",
+   "locked": false,
+   "layerStatus": 0,
+   "transparency": 0
+  }
+ ]
+}
