@@ -5,23 +5,35 @@
 [![CI](https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL/actions/workflows/ci.yml/badge.svg)](https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-CircuitPilot is a **local-first, human-in-the-loop desktop console for
-AI-assisted PCBA work on macOS**. It connects a React control console, a
-Tauri/Rust shell, and a local Node Runtime to a locally installed EDA editor
-(嘉立创EDA / EasyEDA). It is intentionally conservative: every hardware write
-requires an explicit plan, human approval, read-back, and vendor ERC/DRC;
-missing evidence blocks a release instead of producing a fake pass.
+CircuitPilot is a **local-first, human-in-the-loop AI PCBA console for macOS**.
+It lets **DeepSeek V4.1 Flash** — a lightweight, low-cost model — take part in
+real PCBA work, not just chat: the model understands requirements, proposes a
+plan, and drives a locally installed 嘉立创EDA / EasyEDA editor through
+CircuitPilot's controlled toolchain. Every hardware write still requires an
+explicit plan, human approval, read-back, and vendor ERC/DRC; missing evidence
+blocks a release instead of producing a fake pass.
+
+> **DeepSeek V4.1 Flash is enough to start.** The model decides *what* to do;
+> CircuitPilot's local Runtime proves *what actually happened* — exact target
+> identity, approved plan hashes, controlled edits, read-back, evidence, and
+> fail-closed release gates.
 
 > **Status:** experimental. Not production-ready for safety-critical,
 > medical, automotive, or mission-critical hardware. It is not a substitute
 > for an engineer's review, DFM sign-off, or your fabricator's checks.
 
-## Why
+## Why DeepSeek V4.1 Flash
 
-Most "AI PCB" demos stop at generating text. CircuitPilot focuses on the hard
-parts: exact target identity, approved plan hashes, controlled writes,
-read-back, evidence capture, and a fail-closed release gate. When the software
-cannot prove something, it says **unknown/blocked** — never "passed".
+Most "AI PCB" demos stop at generating text. The hard part is not prose — it is
+making every write provable. CircuitPilot moves tool execution, validation,
+rollback, and evidence into the local Runtime, so design capability is not
+locked to the most expensive model.
+
+That is why **DeepSeek V4.1 Flash (`deepseek-v4.1-flash`)** can be sufficient
+for a real workflow: it handles requirement understanding, planning, and tool
+selection, while the Runtime enforces target identity, approvals, read-back,
+and ERC/DRC. When the software cannot prove something, it says
+**unknown/blocked** — never "passed".
 
 ## Features
 
@@ -30,8 +42,9 @@ cannot prove something, it says **unknown/blocked** — never "passed".
 - AI requirement chat with structured design facts and reviewable plans.
 - Controlled EDA execution through the vendor editor's debugging interface.
 - DRC/ERC evidence capture, pin/net audits, and release-gate reporting.
-- Provider support: Codex CLI, Claude Code, OpenAI/Anthropic APIs, and
-  custom OpenAI/Anthropic-compatible endpoints. Keys live in macOS Keychain.
+- **Lightweight-model friendly:** DeepSeek V4.1 Flash (`deepseek-v4.1-flash`)
+  and other OpenAI-compatible endpoints work alongside Codex CLI, Claude Code,
+  and OpenAI/Anthropic APIs. Keys live in macOS Keychain.
 - Bilingual UI (Simplified Chinese / English) with a dense "Clear Bench"
   engineering design system.
 - Demo mode for UI walkthroughs; demo data is always labelled.
@@ -77,6 +90,11 @@ One-time setup before the first PCB edit:
 4. Open the target project in EDA, then in CircuitPilot **EDA 执行** click
    **启动EDA** and **重连**. The local bridge daemon starts automatically with
    the app; you do not need to run `node bridge-server.mjs`.
+
+For **DeepSeek V4.1 Flash**, choose **DeepSeek 开放平台** (or a custom
+OpenAI-compatible provider), enter your API key, and set the model to
+`deepseek-v4.1-flash` (use the exact ID shown in your DeepSeek console if it
+differs). The provider's model list can also be overridden by typing the ID.
 
 **What still requires the user:** a Mac (Apple Silicon), the EDA app/account,
 the official EDA extension, an AI provider key/CLI, and the Gatekeeper override

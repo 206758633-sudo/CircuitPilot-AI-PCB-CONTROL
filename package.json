@@ -63,7 +63,7 @@
   "overrides": {
     "source-map-js": "^1.2.2"
   },
-  "description": "CircuitPilot — local-first AI PCBA control console for macOS (React + Tauri + Node runtime)",
+  "description": "CircuitPilot — local-first AI PCBA console for macOS; DeepSeek V4.1 Flash can drive 嘉立创EDA/EasyEDA through controlled, read-back-verified edits",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

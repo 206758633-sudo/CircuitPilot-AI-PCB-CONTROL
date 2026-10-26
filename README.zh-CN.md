@@ -5,20 +5,28 @@
 [![CI](https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL/actions/workflows/ci.yml/badge.svg)](https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-CircuitPilot 是面向 macOS 的**本地优先、人在环** AI PCBA 控制台。它把
-React 控制台、Tauri/Rust 桌面壳与本机 Node Runtime 连接到你本机已登录的
-EDA 编辑器（嘉立创EDA / EasyEDA）。设计上刻意保守：每次硬件写入都需要
-明确计划、人工批准、回读与厂商 ERC/DRC；证据不足时发布会保持阻断，
-而不是伪造"通过"。
+CircuitPilot 是面向 macOS 的**本地优先、人在环 AI PCBA 控制台**。它让
+**DeepSeek V4.1 Flash** 这类轻量、低成本模型也能真正参与 PCBA 设计，而不只是
+聊天：模型理解需求、提出方案，并通过 CircuitPilot 的受控工具链驱动本机已登录的
+嘉立创EDA / EasyEDA。每次硬件写入仍需明确计划、人工批准、回读与厂商 ERC/DRC；
+证据不足时保持阻断，而不是伪造"通过"。
+
+> **DeepSeek V4.1 Flash 就够开始。** 模型决定“做什么”，CircuitPilot 的本地
+> Runtime 证明“实际发生了什么”：精确目标身份、计划哈希审批、受控写入、回读、
+> 证据留存与 fail-closed 放行门禁。
 
 > **状态：实验性项目。** 不适用于安全关键、医疗、汽车或任务关键硬件；
 > 不能替代工程师评审、DFM 签核或板厂检查。
 
-## 为什么做这个
+## 为什么是 DeepSeek V4.1 Flash
 
-多数 "AI PCB" 演示停在生成文本。CircuitPilot 关注更难的部分：精确目标身份、
-计划哈希审批、受控写入、回读、证据留存与 fail-closed 放行门禁。软件无法证明
-的事情，只会显示 **unknown/blocked**，不会显示 pass。
+多数 "AI PCB" 演示停在生成文本。真正的难点不是文案，而是“每次写入都可证明”。
+CircuitPilot 把工具执行、校验、回滚和证据放进本地 Runtime，因此设计能力不必
+押在最贵的模型上。
+
+这就是为什么 **DeepSeek V4.1 Flash（`deepseek-v4.1-flash`）** 可以支撑真实
+工作流：它负责需求理解、方案规划与工具选择；Runtime 负责目标身份、审批、回读
+和 ERC/DRC。软件无法证明的事情，只会显示 **unknown/blocked**，不会显示 pass。
 
 ## 能力
 
@@ -27,8 +35,9 @@ EDA 编辑器（嘉立创EDA / EasyEDA）。设计上刻意保守：每次硬件
 - AI 需求对话，产出结构化设计事实与可审阅计划。
 - 通过 EDA 调试接口执行受控原理图/PCB 操作。
 - DRC/ERC 证据采集、引脚/网络审计、放行门禁报告。
-- Provider：Codex CLI、Claude Code、OpenAI/Anthropic API，以及自定义
-  OpenAI/Anthropic 兼容端点；Key 保存在 macOS 钥匙串。
+- **对轻量模型友好：** DeepSeek V4.1 Flash（`deepseek-v4.1-flash`）及任意
+  OpenAI 兼容端点可用；同时支持 Codex CLI、Claude Code、OpenAI/Anthropic API；
+  Key 保存在 macOS 钥匙串。
 - 中英双语界面与"Clear Bench"工程化设计系统。
 - Demo 模式用于界面走查，模拟数据始终显式标注。
 
@@ -71,6 +80,10 @@ xattr -dr com.apple.quarantine /Applications/CircuitPilot.app
 4. 在 EDA 打开目标工程，然后在 CircuitPilot 的 **EDA 执行** 页点
    **“启动EDA”** → **“重连”**。本地桥接进程会随应用自动启动，不需要手动
    运行 `node bridge-server.mjs`。
+
+**DeepSeek V4.1 Flash 配置：** Provider 选择 **DeepSeek 开放平台**（或自定义
+OpenAI 兼容供应商），填入 API Key，模型填 `deepseek-v4.1-flash`；如果 DeepSeek
+控制台显示的模型 ID 不同，以控制台为准。模型列表也支持直接输入覆盖。
 
 **仍然需要用户自己准备：** Apple Silicon Mac、EDA 应用/账号、官方 EDA
 扩展、AI Provider Key/CLI，以及上面的 Gatekeeper 手动放行。缺这些时只有
