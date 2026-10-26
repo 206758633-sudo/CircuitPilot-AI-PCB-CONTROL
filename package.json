@@ -36,7 +36,8 @@
     "test:package": "node scripts/package-smoke.mjs",
     "check:footprint-integrity": "node scripts/footprint-integrity-preflight.mjs",
     "check:net-connectivity": "node scripts/net-connectivity-preflight.mjs",
-    "check:schematic-connectivity": "node scripts/schematic-connectivity-preflight.mjs"
+    "check:schematic-connectivity": "node scripts/schematic-connectivity-preflight.mjs",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.6",
