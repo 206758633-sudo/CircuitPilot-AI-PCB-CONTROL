@@ -157,6 +157,10 @@ function execute(command, args, { cwd, timeoutMs, input } = {}) {
     // 用 'exit' 结算（进程真的没了），再留一点点时间收尾输出；只等 'close' 会被孙进程拖住。
     child.on('exit', (code, signal) => { setTimeout(() => settle({ code, signal }), 50); });
     child.on('close', (code, signal) => settle({ code, signal }));
+    // 求解器（或测试桩）可能不读 stdin 就退出，此时写入会异步触发 EPIPE。
+    // 不监听 'error' 会变成 Node 的 uncaughtException，让整条测试进程崩掉；
+    // 这不是"求解器结果"，而是"输入管道提前关闭"，交给 exit/close 结算即可。
+    child.stdin?.on('error', () => { /* EPIPE：子进程已退出，不读输入 */ });
     try { child.stdin.end(input === undefined ? '' : input); } catch { /* 求解器可能不读 stdin */ }
   });
 }
