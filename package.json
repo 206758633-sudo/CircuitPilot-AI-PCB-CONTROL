@@ -41,7 +41,7 @@
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.6",
     "@fontsource/ibm-plex-mono": "^5.2.6",
-    "lucide-react": "^0.468.0",
+    "lucide-react": "^1.61.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
