@@ -56,6 +56,7 @@ export function EdaPage() {
   const aiProviderId = state.settings.provider === 'demo' ? 'codex_account' : state.settings.provider;
   const aiProviderBaseUrl = state.settings.baseUrl || undefined;
   const [checking, setChecking] = useState(false);
+  const [launchingEda, setLaunchingEda] = useState(false);
   const [runningCommand, setRunningCommand] = useState<string | null>(null);
   const [commandQuery, setCommandQuery] = useState('');
   const [permissionFilter, setPermissionFilter] = useState('all');
@@ -266,6 +267,28 @@ export function EdaPage() {
       notify(ok ? 'EDA设计执行完成' : 'EDA设计执行已停止', ok ? '写入、保存、回读和官方PCB DRC均已完成。' : `${value.state} · ${value.error?.message || ''}`, ok ? 'success' : 'danger');
     } catch (error) { fail('EDA执行请求失败', error); }
     finally { setConversationBusy(false); setPcbBusy(null); }
+  };
+
+  const launchEda = async () => {
+    if (!state.runtime.reachable) {
+      notify('Runtime 未连接', '桌面版会内置 Runtime；开发版请先运行 npm run dev:full。', 'warning');
+      return;
+    }
+    setLaunchingEda(true);
+    try {
+      const response = await runtimeClient.launchEda();
+      const execution = response.execution || {};
+      const pageCount = Array.isArray(execution.pages) ? execution.pages.length : null;
+      const detail = execution.alreadyRunning
+        ? `检测到嘉立创EDA已以调试模式运行（端口 ${execution.cdpPort ?? state.eda.port}）。`
+        : `调试端口 ${execution.cdpPort ?? state.eda.port} 已就绪${pageCount === null ? '' : `，发现 ${pageCount} 个页面`}。`;
+      notify('嘉立创EDA 已启动', `${detail} 首次使用请确认 EDA 已安装并启用「API Gateway」扩展，然后点“重连/运行全量检查”。`, 'success');
+      addAudit('eda', '启动嘉立创EDA调试模式', JSON.stringify(execution), 'success');
+    } catch (error) {
+      const detail = error instanceof RuntimeApiError ? `[${error.code}] ${error.message}` : error instanceof Error ? error.message : '未知错误';
+      addAudit('eda', '启动嘉立创EDA调试模式失败', detail, 'error');
+      notify('启动嘉立创EDA失败', detail, 'danger');
+    } finally { setLaunchingEda(false); }
   };
 
   const runDiagnostics = async () => {
@@ -539,7 +562,7 @@ export function EdaPage() {
 
   return <>
     <section className="eda-copilot" aria-label="AI PCB设计工作台">
-      <header className="eda-copilot__header"><div><span className="eyebrow">CONVERSATION-DRIVEN PCB DESIGN</span><h2>AI 直接协助当前项目设计</h2><p>当前项目：<strong>{activeProject?.name || '未选择'}</strong>。先绑定本项目的嘉立创EDA Board，再按“网络表→原理图→PCB”执行。</p></div><div className="toolbar toolbar--wrap"><Button variant="primary" icon={<Layers3 size={15} />} loading={creatingWorkspace} onClick={() => setCreateWorkspaceOpen(true)}>新建EDA文件</Button><Button icon={<Cable size={15} />} loading={creatingWorkspace} onClick={bindCurrentEasyEdaWorkspace}>绑定当前EDA设计</Button><Button icon={<RefreshCw size={15} />} loading={pcbBusy === 'context'} onClick={readPcbContext}>读取当前PCB</Button><Button icon={<ExternalLink size={15} />} onClick={focusEasyEda}>在嘉立创EDA中查看</Button></div></header>
+      <header className="eda-copilot__header"><div><span className="eyebrow">CONVERSATION-DRIVEN PCB DESIGN</span><h2>AI 直接协助当前项目设计</h2><p>当前项目：<strong>{activeProject?.name || '未选择'}</strong>。先绑定本项目的嘉立创EDA Board，再按“网络表→原理图→PCB”执行。</p></div><div className="toolbar toolbar--wrap"><Button icon={<MonitorCog size={15} />} loading={launchingEda} onClick={launchEda} title="以调试端口启动本机嘉立创EDA；不会修改工程"><span data-testid="eda-launch">启动EDA</span></Button><Button variant="primary" icon={<Layers3 size={15} />} loading={creatingWorkspace} onClick={() => setCreateWorkspaceOpen(true)}>新建EDA文件</Button><Button icon={<Cable size={15} />} loading={creatingWorkspace} onClick={bindCurrentEasyEdaWorkspace}>绑定当前EDA设计</Button><Button icon={<RefreshCw size={15} />} loading={pcbBusy === 'context'} onClick={readPcbContext}>读取当前PCB</Button><Button icon={<ExternalLink size={15} />} onClick={focusEasyEda}>在嘉立创EDA中查看</Button></div></header>
       <div className="eda-copilot__grid">
         <div className="eda-preview">
           <div className="eda-preview__bar"><span><Layers3 size={15} /> PCB 同步预览</span><Badge tone={pcbContext?.complete ? 'success' : pcbContext ? 'warning' : 'neutral'}>{pcbContext?.complete ? '上次读取证据' : pcbContext ? '读取不完整' : '待同步'}</Badge></div>
@@ -560,7 +583,7 @@ export function EdaPage() {
     {advancedOpen && <>
     <div className="stats-grid stats-grid--4"><Stat label="桥接状态" value={state.eda.connected ? '已连接' : '未连接'} hint={`127.0.0.1:${state.eda.port}`} tone={state.eda.connected ? 'success' : 'danger'} /><Stat label="活动窗口" value={state.eda.windowCount} hint={state.eda.activeWindowId || '未选择'} /><Stat label="命令记录" value={state.eda.commandLogs.length} hint={realSession ? '真实Runtime会话' : 'Demo会话'} /><Stat label="真实写权限" value={canWrite ? '审批后开放' : '默认拒绝'} hint="仅允许固定命令、一次性批准与可验证恢复" tone="warning" /></div>
     <div className="split-layout split-layout--eda">
-      <Panel eyebrow="LOCAL BRIDGE" title="连接与环境" meta={state.runtime.reachable ? '真实扫描 127.0.0.1:49620-49629' : 'Runtime离线 · 显式Demo降级'} actions={<><Button icon={<RefreshCw size={15} />} onClick={runDiagnostics}>重连</Button>{state.eda.connected && <Button variant="danger" icon={<Unplug size={15} />} onClick={() => setDisconnectOpen(true)}>断开</Button>}</>}>
+      <Panel eyebrow="LOCAL BRIDGE" title="连接与环境" meta={state.runtime.reachable ? '真实扫描 127.0.0.1:49620-49629' : 'Runtime离线 · 显式Demo降级'} actions={<><Button icon={<MonitorCog size={15} />} loading={launchingEda} onClick={launchEda}>启动EDA</Button><Button icon={<RefreshCw size={15} />} onClick={runDiagnostics}>重连</Button>{state.eda.connected && <Button variant="danger" icon={<Unplug size={15} />} onClick={() => setDisconnectOpen(true)}>断开</Button>}</>}>
         <div className="connection-hero"><div className={`bridge-orbit ${state.eda.connected ? 'is-connected' : ''}`}><Cable size={28} /></div><div><Badge tone={state.eda.connected ? 'success' : 'danger'}>{state.eda.connected ? realSession ? 'CONNECTED · REAL READ ONLY' : 'CONNECTED · DEMO' : 'DISCONNECTED'}</Badge><h3>EasyEDA Bridge</h3><code>http://127.0.0.1:{state.eda.port}</code></div></div>
         <div className="diagnostic-list">{state.eda.diagnostics.map((item) => <div className={`diagnostic diagnostic--${item.status}`} key={item.id}>{item.status === 'pass' ? <CheckCircle2 size={17} /> : item.status === 'fail' ? <XCircle size={17} /> : item.status === 'checking' ? <RefreshCw className="spin" size={17} /> : <CircleStop size={17} />}<span><strong>{item.name}</strong><small>{item.detail}</small></span><Badge tone={item.status === 'pass' ? 'success' : item.status === 'fail' ? 'danger' : 'neutral'}>{item.status === 'pass' ? '通过' : item.status === 'fail' ? '失败' : '待检查'}</Badge></div>)}</div>
         <Button variant="primary" loading={checking} icon={<MonitorCog size={16} />} onClick={runDiagnostics}>运行全量检查</Button>

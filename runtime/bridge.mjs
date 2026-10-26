@@ -999,9 +999,17 @@ function mergeJobLists(stored, fromEda) {
 }
 
 export class BridgeClient {
-  constructor({ ports = BRIDGE_PORTS, fetcher = fetchJson, jobStore = null, logger = console } = {}) {
+  constructor({ ports = BRIDGE_PORTS, fetcher = fetchJson, jobStore = null, logger = console, token = process.env.CIRCUITPILOT_BRIDGE_TOKEN || '' } = {}) {
     this.ports = ports;
-    this.fetcher = fetcher;
+    // 本地桥只绑定 127.0.0.1，但同用户进程仍可直连；运行时分发的一次性 token
+    // 必须带在 /execute 请求头里，避免任意本机进程绕过 CircuitPilot 的审批直接驱动 EDA。
+    this.token = token;
+    this.fetcher = token
+      ? (url, options = {}, timeoutMs) => fetcher(url, {
+        ...options,
+        headers: { ...(options.headers || {}), 'x-circuitpilot-bridge-token': token },
+      }, timeoutMs)
+      : fetcher;
     this.logger = logger;
     this.port = null;
     this.selectedWindowId = null;

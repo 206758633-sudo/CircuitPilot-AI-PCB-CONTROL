@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 Semantic Versioning.
 
+## [0.2.1] — 2026-10-26
+
+### Added
+
+- **One-click EDA launch**: the EDA 执行 page can start 嘉立创EDA Professional
+  with the required CDP debug port (`9222`) instead of asking users to run a
+  terminal command.
+- The local Runtime now **auto-starts the EDA bridge daemon** on
+  `127.0.0.1:49620–49629`, with a per-launch token and clean shutdown.
+- Vendored the minimal `ws` server used by the bridge and added its MIT notice.
+
+### Changed
+
+- EDA setup documentation now states the required official
+  **`run-api-gateway` (API Gateway)** extension and its external-interaction
+  permission; the bridge daemon itself no longer needs to be started manually.
+- Chinese operation manual updated for the one-click launch and automatic
+  bridge, and regenerated as v0.2.1.
+- Bridge port base can be overridden with `CIRCUITPILOT_BRIDGE_PORT` (used for
+  isolated tests).
+
+### Security
+
+- The bridge still binds loopback only; the token is passed to the bridge child
+  via environment and sent on every bridge request. Do not expose the port.
+
 ## [0.2.0] — 2026-10-26
 
 ### Added

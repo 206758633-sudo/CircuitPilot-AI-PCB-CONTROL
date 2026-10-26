@@ -9,6 +9,7 @@ the authoritative list is `package-lock.json` and `src-tauri/Cargo.lock`.
 | Component | License | Notes |
 |---|---|---|
 | Node.js | MIT | The packaged app embeds an official Node.js binary as a Tauri sidecar; its license text must be shipped with binary distributions. |
+| ws | MIT | Vendored WebSocket server used by the local EDA bridge (`runtime/vendor/ws`); license included in that directory. |
 | React / React DOM | MIT | Frontend UI. |
 | Vite | MIT | Development server and bundler. |
 | TypeScript | Apache-2.0 | Type checking and build tooling. |

@@ -10,6 +10,22 @@ import { createRuntimeServer } from '../server.mjs';
 const INJECTION_MARKER = '__CIRCUITPILOT_INJECTION_MARKER__';
 const HOSTILE = `0,0,true,true);globalThis.${INJECTION_MARKER}=1;//`;
 
+test('BridgeClient 在每次桥请求上携带本机一次性 token', async () => {
+  const calls = [];
+  const client = new BridgeClient({
+    ports: [49620],
+    token: 'bridge-test-token',
+    fetcher: async (url, options = {}) => {
+      calls.push({ url, options });
+      return { service: 'easyeda-bridge', status: 'ok' };
+    },
+  });
+  const found = await client.discover();
+  assert.equal(found.port, 49620);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].options.headers['x-circuitpilot-bridge-token'], 'bridge-test-token');
+});
+
 test('every argument interpolated into EDA source is type-checked', () => {
   const component = { libraryUuid: 'lib', uuid: 'dev' };
   const cases = [

@@ -4,12 +4,12 @@ subtitle: "安装 · 本地部署 · 嘉立创EDA · 桥接 · MCP 边界 · 基
 author: "CircuitPilot 项目"
 date: "2026-10-26"
 lang: zh-CN
-version: "v0.2.0"
+version: "v0.2.1"
 ---
 
 # CircuitPilot 操作指导说明书
 
-**适用版本：** CircuitPilot v0.2.0（macOS）  
+**适用版本：** CircuitPilot v0.2.1（macOS）  
 **文档日期：** 2026-10-26  
 **适用范围：** 桌面安装包用户、源码本地部署用户、需要连接嘉立创EDA专业版的用户
 
@@ -38,7 +38,7 @@ version: "v0.2.0"
 如果你已经拿到 macOS 安装包，按下面顺序做：
 
 1. 打开 GitHub Releases：<https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL/releases>
-2. 下载 `CircuitPilot_0.2.0_aarch64.dmg`（Apple Silicon）或对应架构的安装包。
+2. 下载 `CircuitPilot_0.2.1_aarch64.dmg`（Apple Silicon）或对应架构的安装包。
 3. 对照同页 `SHA256SUMS.txt` 校验下载文件（见 2.1.2）。
 4. 打开 DMG，把 `CircuitPilot.app` 拖进 `/Applications`。
 5. 首次启动：在 Finder 的"应用程序"里 **右键 → 打开**（安装包未做 Apple 公证）。
@@ -71,7 +71,7 @@ version: "v0.2.0"
 
 ```bash
 cd ~/Downloads
-shasum -a 256 CircuitPilot_0.2.0_aarch64.dmg
+shasum -a 256 CircuitPilot_0.2.1_aarch64.dmg
 ```
 
 3. 把输出与 `SHA256SUMS.txt` 中对应行对比。**不一致就不要安装**，重新下载。
@@ -216,7 +216,7 @@ npx tauri build --bundles app,dmg
 | `CIRCUITPILOT_STATE_DIR` | 应用数据目录/`artifacts/state` | 状态目录 |
 | `CIRCUITPILOT_EVIDENCE_DIR` | `<state>/evidence` | 证据目录 |
 | `CIRCUITPILOT_EDA_CDP_PORT` | `9222` | 嘉立创EDA CDP 端口 |
-| `CIRCUITPILOT_BRIDGE_PORT` | `49620` | EasyEDA bridge 端口 |
+| `CIRCUITPILOT_BRIDGE_PORT` | `49620` | 自动桥接进程的基础端口（探测 10 个） |
 | `CIRCUITPILOT_RUNTIME_PORT` | `4178` | 本地 Runtime 端口 |
 | `CIRCUITPILOT_GATE_DRY_RUN` | 未设置 | 强制门禁 dry-run |
 
@@ -331,15 +331,27 @@ CircuitPilot 的"桥接"不是 MCP，而是：
 CircuitPilot 桌面应用
   ├─ 本地 Runtime（127.0.0.1:4178，带启动令牌）
   │    ├─ 嘉立创EDA 桥：Chrome DevTools Protocol（CDP，默认 127.0.0.1:9222）
-  │    └─ EasyEDA 桥（可选）：WebSocket 桥，默认端口 49620 起
+  │    └─ API Gateway 桥：CircuitPilot 自动启动，默认端口 49620 起
   └─ React 控制台（只通过 Runtime 发请求）
 ```
 
 - **CDP 桥**：CircuitPilot 像调试器一样连接 EDA 的 Chromium 内核，执行受控的读取/点击/输入/API 调用。
-- **EasyEDA 桥**：给 EasyEDA 用的可选桥接服务，需要额外的 EasyEDA 扩展/桥接端；本仓库不包含该外部组件。
+- **API Gateway 桥（端口 49620–49629）**：CircuitPilot 启动时会自动拉起本地桥接守护进程；EDA 内需要安装并启用官方扩展 **`run-api-gateway`（API Gateway）**，并在扩展设置里打开“外部交互权限”。没有这个扩展时，EDA 会显示未连接。
+- 桥接守护进程由 CircuitPilot 自动启动，不需要用户手动运行 `node bridge-server.mjs`。
 - 两者都只在本机回环地址工作，不经过 CircuitPilot 的云服务。
 
 ### 5.2 启动带调试端口的嘉立创EDA（macOS）
+
+**方式 0（推荐，CircuitPilot 内一键启动）：**
+
+1. 打开 CircuitPilot → **EDA 执行**。
+2. 点击顶部的 **“启动EDA”** 按钮。
+3. 应用会用调试端口 9222 启动本机嘉立创EDA；如果 EDA 已在调试模式运行，会直接提示已就绪。
+4. 回到“连接与环境”点 **“重连 / 运行全量检查”**。
+
+> 这个按钮只启动 EDA，不会修改工程；仍然需要你在 EDA 里打开目标工程，并确认已安装 `run-api-gateway` 扩展。
+
+**方式 A/B（终端，备用）：**
 
 **先完全退出 EDA**（`Cmd+Q`，确认 Dock 中没有运行实例），再执行：
 
@@ -379,6 +391,16 @@ curl -s http://127.0.0.1:9222/json/list | head
 lsof -nP -iTCP:9222 -sTCP:LISTEN
 ```
 
+### 5.3.1 安装 API Gateway 扩展（新用户必做一次）
+
+1. 在嘉立创EDA专业版中打开 **扩展 / 扩展广场**。
+2. 搜索并安装官方扩展 **`run-api-gateway`**（显示名通常为“API Gateway”）。
+3. 在扩展设置中开启 **外部交互权限 / External Interaction Permission**。
+4. 重新加载/重启 EDA，让扩展自动连接本地桥接服务（端口 49620–49629）。
+5. CircuitPilot 的“连接与环境”里应能看到 `EasyEDA Bridge` 通过。
+
+> 如果扩展广场里找不到，请确认 EDA 版本与官方扩展市场可用；CircuitPilot 不分发这个官方扩展，也不会绕过 EDA 的权限设置。
+
 ### 5.4 在 CircuitPilot 中确认连接
 
 1. 打开 CircuitPilot。
@@ -416,15 +438,13 @@ lsof -nP -iTCP:9222 -sTCP:LISTEN
 5. 失败时使用快照/回滚；不要用"再点一次"掩盖半写入。
 6. 把结果写入证据；失败也是一条证据。
 
-### 5.7 EasyEDA 桥（可选）
+### 5.7 桥接常见问题
 
-只有在你确实使用 EasyEDA（而非嘉立创EDA专业版）时才需要：
-
-- 默认从端口 `49620` 开始探测，最多 `49629`；
-- 需要外部 EasyEDA 扩展/桥接服务，本仓库不包含；
-- 健康检查要求服务返回 `service: "easyeda-bridge"`；
-- 不要把 EasyEDA bridge 端口和嘉立创EDA CDP 端口混用；
-- 如果只用嘉立创EDA专业版，**可以完全忽略本节**。
+- 显示 `BRIDGE_NOT_FOUND`：CircuitPilot 自动启动的桥进程没起来，或 49620–49629 被占用；先完全退出 EDA 和 CircuitPilot，再重开应用。
+- 显示 `edaConnected: false`：桥在，但 EDA 没有连接；检查 `run-api-gateway` 是否安装、是否启用“外部交互权限”、是否重启过 EDA。
+- 显示多个窗口：在高级控制的窗口选择器里人工选定目标，不要同时操作多个工程。
+- 端口被占用：用 `lsof -nP -iTCP:49620-49629 -sTCP:LISTEN` 查看；关闭旧桥/旧 EDA 实例后再试。
+- 不要把桥端口暴露到局域网或公网；桥只应监听 `127.0.0.1`。
 
 ---
 
@@ -432,7 +452,7 @@ lsof -nP -iTCP:9222 -sTCP:LISTEN
 
 ### 6.1 结论
 
-**CircuitPilot v0.2.0 当前没有 MCP Server，也没有 MCP Client，不读取 `mcp.json`。**  
+**CircuitPilot v0.2.1 当前没有 MCP Server，也没有 MCP Client，不读取 `mcp.json`。**  
 因此：
 
 - 不需要在 Claude Desktop、Cursor、Claude Code 等客户端里添加一个"CircuitPilot MCP"。
@@ -564,10 +584,12 @@ lsof -nP -iTCP:9222 -sTCP:LISTEN
 
 1. EDA 是否带 `--remote-debugging-port=9222` 启动？
 2. `curl -s http://127.0.0.1:9222/json/version` 是否有返回？
-3. 是否有旧的 EDA 进程/多个实例？
-4. CircuitPilot 端口设置是否一致？
-5. `/tmp/lceda-run.log` 是否有 Electron 错误？
-6. 重启 EDA 后再点"刷新本机状态"。
+3. EDA 是否安装了官方 **`run-api-gateway`** 扩展，并开启“外部交互权限”？
+4. CircuitPilot 是否自动启动了桥接进程：`curl -s http://127.0.0.1:49620/health` 是否返回 `easyeda-bridge`？
+5. 是否有旧的 EDA 进程/多个实例？
+6. CircuitPilot 端口设置是否一致？
+7. `/tmp/lceda-run.log` 是否有 Electron 错误？
+8. 重启 EDA 后再点“刷新本机状态”。
 
 ### 9.4 Provider 测试失败
 
@@ -614,7 +636,7 @@ lsof -nP -iTCP:9222 -sTCP:LISTEN
 | 4177 | Vite 控制台（开发） | 开发 |
 | 4178 | 本地 Runtime | 是 |
 | 9222 | 嘉立创EDA CDP | 是 |
-| 49620–49629 | EasyEDA bridge（可选） | 探测 |
+| 49620–49629 | 本地 API Gateway 桥（自动启动） | 探测 |
 
 ### 10.2 目录
 
@@ -648,7 +670,7 @@ npx tauri build --bundles app,dmg
 curl -s http://127.0.0.1:9222/json/version
 
 # 校验下载包
-shasum -a 256 CircuitPilot_0.2.0_aarch64.dmg
+shasum -a 256 CircuitPilot_0.2.1_aarch64.dmg
 ```
 
 ### 10.4 重要环境变量
@@ -716,7 +738,7 @@ shasum -a 256 CircuitPilot_0.2.0_aarch64.dmg
 
 ## 附录 C：版本与支持
 
-- 版本：v0.2.0
+- 版本：v0.2.1
 - 仓库：<https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL>
 - 问题反馈：GitHub Issues
 - 安全漏洞：GitHub Security Advisories（不要开公开 issue）

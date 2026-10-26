@@ -1,10 +1,11 @@
 import crypto from 'node:crypto';
 import http from 'node:http';
+import { spawn } from 'node:child_process';
 import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, extname, join, relative, resolve as resolvePath, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { ALLOWED_ORIGINS, BODY_LIMIT, EDA_APP_CANDIDATES, RUNTIME_HOST, RUNTIME_PORT } from './config.mjs';
+import { basename, dirname, extname, join, relative, resolve as resolvePath, sep } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { ALLOWED_ORIGINS, BODY_LIMIT, BRIDGE_PORTS, EDA_APP_CANDIDATES, RUNTIME_HOST, RUNTIME_PORT } from './config.mjs';
 import { BridgeClient } from './bridge.mjs';
 import { EdaGuiClient } from './eda-gui.mjs';
 import { createApprovalStore, fingerprintOf } from './automation/approvals.mjs';
@@ -366,23 +367,62 @@ const JOB_JOURNAL_PATH = process.env.CIRCUITPILOT_JOB_JOURNAL || join(homedir(),
  * 运行时自己重启 → 从 journal 恢复，在途收口、已完成连结果一起保留。
  * 任何时候都不会把"结果不可知"说成"完成"，更不会说成"0 项"。
  */
-function createDurableBridgeClient() {
+function createDurableBridgeClient(token = process.env.CIRCUITPILOT_BRIDGE_TOKEN || '') {
   try {
     const journal = createFileJournal(JOB_JOURNAL_PATH);
     const { store, interrupted } = EdaJobStore.recover({ journal });
     if (interrupted.length) console.warn(`[circuitpilot] 运行时重启：${interrupted.length} 个在途 EDA 任务已如实标记为 interrupted（不伪装成完成）`);
-    return new BridgeClient({ jobStore: store });
+    return new BridgeClient({ jobStore: store, token });
   } catch (error) {
     console.warn('[circuitpilot] 任务 journal 不可用，退回进程内状态:', error?.message);
-    return new BridgeClient();
+    return new BridgeClient({ token });
   }
+}
+
+/** 本机是否已经有桥进程（包括用户手动启动的旧实例）。 */
+async function anyBridgeRunning() {
+  for (const port of BRIDGE_PORTS) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(250) });
+      if (!response.ok) continue;
+      const health = await response.json();
+      if (health?.service === 'easyeda-bridge') return true;
+    } catch { /* 端口无服务 */ }
+  }
+  return false;
+}
+
+/**
+ * 随应用启动桥接守护进程。普通用户不需要再手动执行 `node bridge-server.mjs`。
+ * token 只通过环境变量传给子进程，既不出现在 argv，也不写盘；桥只绑定 127.0.0.1。
+ */
+function spawnBridgeServer(token) {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'bridge-server.mjs');
+  if (!existsSync(script)) {
+    console.warn('[circuitpilot] 桥接守护进程缺失（bridge-server.mjs），EDA 连接将不可用');
+    return null;
+  }
+  const child = spawn(process.execPath, [script], {
+    env: {
+      ...process.env,
+      CIRCUITPILOT_BRIDGE_TOKEN: token,
+      CIRCUITPILOT_RUNTIME_PID: String(process.pid),
+    },
+    stdio: ['ignore', 'ignore', 'inherit'],
+  });
+  child.once('error', (error) => console.warn('[circuitpilot] 桥接守护进程启动失败:', error?.message));
+  child.once('exit', (code, signal) => {
+    if (code !== 0 && signal !== 'SIGTERM') console.warn(`[circuitpilot] 桥接守护进程退出 code=${code} signal=${signal}`);
+  });
+  return child;
 }
 
 function isLoopbackHost(hostHeader) {
   return /^(127\.0\.0\.1|localhost|\[::1\]|tauri\.localhost)(:\d+)?$/i.test(String(hostHeader || ''));
 }
 
-export function createRuntimeServer({ keychain = new MacKeychain(), bridge = createDurableBridgeClient(), diagnostics = systemDiagnostics, chat = null, design = null, pcb = null, production = null, evidence = null, gui = null, simulationRun = runSimulationDefault, alternativeSearch = null, runtimeToken = process.env.CIRCUITPILOT_RUNTIME_TOKEN } = {}) {
+export function createRuntimeServer({ keychain = new MacKeychain(), bridge = null, bridgeToken = process.env.CIRCUITPILOT_BRIDGE_TOKEN || '', diagnostics = systemDiagnostics, chat = null, design = null, pcb = null, production = null, evidence = null, gui = null, simulationRun = runSimulationDefault, alternativeSearch = null, runtimeToken = process.env.CIRCUITPILOT_RUNTIME_TOKEN } = {}) {
+  if (!bridge) bridge = createDurableBridgeClient(bridgeToken);
   const injectedToken = typeof runtimeToken === 'string' && runtimeToken.length >= 16;
   // Tauri 壳层通过环境变量注入令牌时，令牌完全不经由 HTTP 分发，因此彻底关闭
   // HTTP 令牌发放：此时本机任何进程（哪怕伪造 Origin）都无法再通过 /api/health 领到令牌，
@@ -3864,13 +3904,19 @@ export async function resolveStartupToken({ env = process.env, readStdin = readT
   return { ok: true, runtimeToken: undefined, source: 'none' };
 }
 
-export function startRuntime({ port = RUNTIME_PORT, runtimeToken } = {}) {
-  const { server } = createRuntimeServer({ runtimeToken });
+export async function startRuntime({ port = RUNTIME_PORT, runtimeToken } = {}) {
+  // 已有桥进程（例如开发者手动启动）时不要另起一个抢端口；此时沿用现有实例，
+  // 并让客户端不带 token（兼容旧实例）。全新安装则自动启动带 token 的桥。
+  const existingBridge = await anyBridgeRunning();
+  const bridgeToken = existingBridge ? '' : crypto.randomBytes(32).toString('hex');
+  const bridgeProcess = existingBridge ? null : spawnBridgeServer(bridgeToken);
+  const { server } = createRuntimeServer({ runtimeToken, bridgeToken });
   // 端口被占用时不要假装启动成功：细节已由上面的 error 监听器记录，这里只负责非零退出。
   server.once('error', () => process.exit(1));
-  server.listen(port, RUNTIME_HOST, () => logger.info('Runtime', 'CircuitPilot Runtime started', { host: RUNTIME_HOST, port }));
+  server.listen(port, RUNTIME_HOST, () => logger.info('Runtime', 'CircuitPilot Runtime started', { host: RUNTIME_HOST, port, bridgeAutoStart: Boolean(bridgeProcess) }));
   const shutdown = (signal) => {
     logger.warn('Runtime', 'CircuitPilot Runtime stopping', { signal });
+    try { bridgeProcess?.kill('SIGTERM'); } catch { /* 已退出 */ }
     server.close(() => process.exit(0));
   };
   process.once('SIGINT', () => shutdown('SIGINT'));
@@ -3888,7 +3934,7 @@ async function main() {
   // 只记录令牌“来源”，绝不记录令牌本身：这是可观测证据，用来核实发布版到底走的哪条通道
   // （stdin=壳层管道，env=开发/测试，none=随机令牌+受信 Origin 引导）。
   logger.info('Runtime', 'Session token source resolved', { source: resolved.source });
-  return startRuntime({ runtimeToken: resolved.runtimeToken });
+  return await startRuntime({ runtimeToken: resolved.runtimeToken });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

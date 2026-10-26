@@ -22,7 +22,7 @@ Keys are written to Keychain, never to the repository or plaintext state.
 | `CIRCUITPILOT_EVIDENCE_DIR` | `<state>/evidence` | Evidence files |
 | `CIRCUITPILOT_GATE_DRY_RUN` | unset | Force gate dry-run |
 | `CIRCUITPILOT_EDA_CDP_PORT` | `9222` | EDA remote-debugging port |
-| `CIRCUITPILOT_BRIDGE_PORT` | `49620` | EasyEDA bridge port |
+| `CIRCUITPILOT_BRIDGE_PORT` | `49620` | Base port for the auto-started local EDA bridge (probes 10 ports) |
 | `VITE_RUNTIME_URL` | `http://127.0.0.1:4178` | Frontend runtime URL |
 
 Advanced variables (timeouts, retention, evidence paths) are documented in

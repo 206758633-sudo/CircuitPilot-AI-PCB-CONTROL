@@ -51,7 +51,7 @@ flowchart LR
 See [docs/architecture/overview.md](docs/architecture/overview.md) and
 [security model](docs/architecture/security-model.md).
 
-**User manual (简体中文):** [操作指导说明书](docs/guides/user-manual.zh-CN.md) · [PDF](docs/guides/CircuitPilot-User-Manual-v0.2.0.zh-CN.pdf)
+**User manual (简体中文):** [操作指导说明书](docs/guides/user-manual.zh-CN.md) · [PDF](docs/guides/CircuitPilot-User-Manual-v0.2.1.zh-CN.pdf)
 
 ## Quick start
 

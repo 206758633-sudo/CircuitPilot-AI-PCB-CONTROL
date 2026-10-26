@@ -1,6 +1,6 @@
 [package]
 name = "circuitpilot"
-version = "0.2.0"
+version = "0.2.1"
 description = "CircuitPilot local AI PCB control desktop shell"
 authors = ["CircuitPilot"]
 edition = "2021"

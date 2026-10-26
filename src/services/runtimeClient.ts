@@ -670,6 +670,19 @@ export const runtimeClient = {
   /**
    * 自动化内核（Phase 0）：列出已登记配方。只读配方不需要批准；写入配方会显式标注 requiredApprovals。
    */
+  /**
+   * 启动本机嘉立创EDA（调试端口）。这是本地动作，不写工程。
+   * 新用户不再需要自己在终端敲 --remote-debugging-port=9222。
+   */
+  async launchEda(params: { waitMs?: number } = {}) {
+    return request<{ ok: boolean; execution: { alreadyRunning?: boolean; launched?: boolean; pid?: number; cdpPort?: number; waitedMs?: number; pages?: unknown[] } }>(
+      '/api/eda/gui/execute',
+      { method: 'POST', body: JSON.stringify({ action: 'launch', params }) },
+      true,
+      90_000,
+    );
+  },
+
   /** E9：GUI 兜底能力只读探测（findTexts，不点击；可指定 viewport 验证两种尺寸）。 */
   async guiCapabilityProbe(body: { viewport?: { width: number; height: number }; captureScreenshot?: boolean; texts?: string[] } = {}, options: { signal?: AbortSignal } = {}) {
     return request<{ ok: boolean; viewport: { width: number; height: number } | null; requestedViewport: { width: number; height: number } | null; catalogVersion: number; availableCount: number; blockedCount: number; missingTexts: string[]; capabilities: Array<{ id: string; label: string; group: string; write: boolean; blocked: boolean; reason: string | null; recipeIds: string[]; wired: boolean; available: boolean; complete: boolean; missingTexts: string[] }>; screenshot: { ok?: boolean; kind?: string; path?: string; sha256?: string; error?: string; cdpError?: string; fallbackError?: string } | null }>('/api/eda/gui/capabilities/probe', { method: 'POST', body: JSON.stringify(body) }, true, 120_000, options.signal);

@@ -5,7 +5,8 @@ export const RUNTIME_HOST = '127.0.0.1';
 export const RUNTIME_PORT = Number.parseInt(process.env.CIRCUITPILOT_RUNTIME_PORT || '4178', 10);
 export const BODY_LIMIT = 10 * 1024 * 1024;
 export const PROCESS_TIMEOUT_MS = 8_000;
-export const BRIDGE_PORTS = Array.from({ length: 10 }, (_, index) => 49620 + index);
+const BRIDGE_PORT_BASE = Number.parseInt(process.env.CIRCUITPILOT_BRIDGE_PORT || '49620', 10);
+export const BRIDGE_PORTS = Array.from({ length: 10 }, (_, index) => BRIDGE_PORT_BASE + index);
 export const ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:4177',
   'http://localhost:4177',
