@@ -53,6 +53,36 @@ See [docs/architecture/overview.md](docs/architecture/overview.md) and
 
 **User manual (简体中文):** [操作指导说明书](docs/guides/user-manual.zh-CN.md) · [PDF](docs/guides/CircuitPilot-User-Manual-v0.2.1.zh-CN.pdf)
 
+## Install the macOS app (end users)
+
+Download the latest **Apple Silicon** DMG from
+[GitHub Releases](https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL/releases/latest).
+
+The build is currently **ad-hoc signed, not notarized**. Gatekeeper will warn;
+right-click → **Open**, or run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/CircuitPilot.app
+```
+
+One-time setup before the first PCB edit:
+
+1. Install and sign in to **嘉立创EDA Professional**.
+2. In EDA's extension marketplace, install the official
+   **`run-api-gateway` (API Gateway)** extension and enable
+   **External Interaction Permission**. CircuitPilot does not redistribute this
+   official extension.
+3. Open CircuitPilot → **Settings / EDA**, choose your AI provider and add your
+   own API key or CLI. The Demo works without a key; real design work needs one.
+4. Open the target project in EDA, then in CircuitPilot **EDA 执行** click
+   **启动EDA** and **重连**. The local bridge daemon starts automatically with
+   the app; you do not need to run `node bridge-server.mjs`.
+
+**What still requires the user:** a Mac (Apple Silicon), the EDA app/account,
+the official EDA extension, an AI provider key/CLI, and the Gatekeeper override
+above. Without those, only the labelled Demo is usable. See the
+[manual](docs/guides/user-manual.zh-CN.md) for details.
+
 ## Quick start
 
 Requirements: macOS 12+, Node.js 22+, npm. For the desktop shell: Rust and

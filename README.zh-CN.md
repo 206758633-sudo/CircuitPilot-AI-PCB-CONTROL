@@ -49,6 +49,33 @@ flowchart LR
 
 **操作指导说明书：** [Markdown](docs/guides/user-manual.zh-CN.md) · [PDF](docs/guides/CircuitPilot-User-Manual-v0.2.1.zh-CN.pdf)
 
+## 下载安装 macOS 应用（普通用户）
+
+从 [GitHub Releases](https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL/releases/latest)
+下载最新的 **Apple Silicon** DMG。
+
+当前构建是 **ad-hoc 签名、未做 Apple 公证**，Gatekeeper 会提示；请右键 →
+**打开**，或执行：
+
+```bash
+xattr -dr com.apple.quarantine /Applications/CircuitPilot.app
+```
+
+第一次真正设计 PCB 前，需要完成一次性的本地准备：
+
+1. 安装并登录 **嘉立创EDA专业版**。
+2. 在 EDA 扩展广场安装官方 **`run-api-gateway`（API Gateway）**，并开启
+   **外部交互权限**。这个官方扩展不由 CircuitPilot 分发。
+3. 打开 CircuitPilot → **设置 / EDA**，选择 AI Provider，填入你自己的
+   API Key 或 CLI。没有 Key 时只能用带标记的 Demo；真实设计需要 Provider。
+4. 在 EDA 打开目标工程，然后在 CircuitPilot 的 **EDA 执行** 页点
+   **“启动EDA”** → **“重连”**。本地桥接进程会随应用自动启动，不需要手动
+   运行 `node bridge-server.mjs`。
+
+**仍然需要用户自己准备：** Apple Silicon Mac、EDA 应用/账号、官方 EDA
+扩展、AI Provider Key/CLI，以及上面的 Gatekeeper 手动放行。缺这些时只有
+明确标注的 Demo 可用，不能控制真实 EDA。详见[操作指导说明书](docs/guides/user-manual.zh-CN.md)。
+
 ## 快速开始
 
 要求：macOS 12+、Node.js 22+、npm；桌面壳还需要 Rust 与 Xcode 命令行工具。
