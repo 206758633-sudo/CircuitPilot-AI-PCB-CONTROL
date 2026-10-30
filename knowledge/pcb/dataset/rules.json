@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "generatedAt": "2026-10-28T12:25:25.164Z",
+  "generatedAt": "2026-10-30T07:27:05.363Z",
   "domain": "pcb-design-rules",
   "notes": "数值为工程参考值与常见工艺能力。2026-10-23 起新增公开资料研究条目（ESP32/TI/RPi/JLCPCB/PCBWay/Sierra/IPC），每条带 sources 指向 sources.json；落地前必须按 IPC-2221/IPC-2152 原文、datasheet 与目标板厂当前能力表复核。",
   "entries": [
@@ -5391,6 +5391,208 @@
           "重叠",
           "ERC"
         ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "嘉立创EDA专业版投板前门禁：DRC 通过只是必要条件",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-GATE-001",
+        "category": "评审/门禁",
+        "severity": "warning",
+        "statement": "投板前必须依次完成工程/库身份核对、原理图 ERC、PCB DRC、输出文件版本核对、下单参数复核；DRC 为 0 错误 0 警告只是允许进入下单页的必要条件，不是设计正确或可制造的充分条件。",
+        "limits": [
+          "DRC 必须覆盖当前 PCB 全部图元；删改图元/覆铜后先重建、保存、重开再复跑",
+          "所有 DRC 错误/警告必须逐条标记为已修、有依据豁免或待复核，不允许整体忽略",
+          "DRC 不能替代器件选型、电源轨、极性、封装身份、3D 干涉、BOM/坐标一致性检查",
+          "豁免项必须有理由、影响范围、批准人和复核日期"
+        ],
+        "rationale": "DRC 只检查规则库能表达的几何/连接问题；器件选错、电源轨缺失、BOM 与坐标不一致、封装引脚映射错误都可能不在 DRC 中暴露。把 DRC 绿灯当成设计完成会制造虚假安全感。",
+        "check": "固定顺序：保存→重建覆铜→关闭重开→执行 DRC→逐条处理→导出报告；再按 BOM/坐标/装配图三方核对；任一豁免项无依据则保持阻断。",
+        "appliesTo": [
+          "schematic",
+          "pcb",
+          "manufacturing",
+          "release"
+        ],
+        "tags": [
+          "嘉立创EDA专业版",
+          "DRC",
+          "投板门禁",
+          "BOM",
+          "生产文件",
+          "下单前检查"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-SERIES",
+          "SRC-LCEDA-PRO-ORDER"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "生产文件七件套与同版本输出",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-OUTPUT-002",
+        "category": "制造文件",
+        "severity": "error",
+        "statement": "投板/SMT 输出包至少包含工程源文件、Gerber、钻孔、BOM、坐标文件、装配图、叠层/工艺单七类，且所有文件必须来自同一版本、同一块 PCB。",
+        "limits": [
+          "工程源文件：.epro/.eprj、原理图 PDF、网表",
+          "Gerber：铜层、阻焊、丝印、板框、内层",
+          "钻孔：PTH/NPTH 与孔径表",
+          "BOM：位号、MPN、封装、数量、DNP",
+          "坐标：位号、X/Y、旋转角、面别",
+          "装配图：顶/底、极性/1 脚",
+          "其他：叠层/阻抗/工艺单/EQ/DXF"
+        ],
+        "rationale": "Gerber 只解决板子怎么制造，BOM 解决贴什么料，坐标解决贴在哪里，装配图解决怎么装；缺任何一类都会导致工厂追问、默认取值或贴错。官方文档将工程源文件、Gerber、BOM、坐标文件、装配文件、DXF 和其他文件列为工程最终可输出文件。",
+        "check": "建立固定目录（Gerber/Drill/BOM/PickPlace/Assembly/Stackup/Docs），所有文件用同一版本号/日期；导出后逐项打开检查，不只确认文件存在；旧版本归档不覆盖。",
+        "appliesTo": [
+          "pcb",
+          "manufacturing",
+          "smt",
+          "release"
+        ],
+        "tags": [
+          "Gerber",
+          "BOM",
+          "坐标文件",
+          "装配图",
+          "生产文件",
+          "版本管理"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-OUTPUT",
+          "SRC-BILI-LCEDA-OUTPUT"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "原理图标题栏、模块分区与未连接标识",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-SCH-003",
+        "category": "原理图/规范",
+        "severity": "warning",
+        "statement": "原理图必须填写标题栏（工程/图页/作者/审阅/页数/日期/版本/物料编码），按功能模块画框标注，去耦电容画在芯片电源脚旁，未使用引脚放置非连接标识符。",
+        "limits": [
+          "标题栏至少包含工程名、图页名、版本号、日期、绘制/审阅人",
+          "功能模块必须有矩形框和文字标注，模块边界可对应 PCB 分区",
+          "每个芯片电源脚附近的去耦电容应在原理图上同样靠近放置",
+          "未使用引脚必须有 NC/非连接标识，不能悬空",
+          "大图应拆图页或层次图块，顶层框图能看清模块间连接"
+        ],
+        "rationale": "原理图是评审、调试、ECO 和交接的共同语言；标题栏缺版本会导致改版不可追溯，模块边界不清会导致 PCB 分区错误，未连接标识缺失会让 ERC/评审无法区分“故意不接”和“漏接”。",
+        "check": "按标题栏完整、模块边界清楚、去耦在芯片旁、未用脚有 NC、图页版本可追溯五项人工走查；再跑 ERC，但 ERC 通过不能替代可读性评审。",
+        "appliesTo": [
+          "schematic",
+          "review"
+        ],
+        "tags": [
+          "原理图规范",
+          "标题栏",
+          "模块划分",
+          "去耦电容",
+          "非连接标识",
+          "版本管理"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-SCHEMATIC",
+          "SRC-BILI-LCEDA-COURSE"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "符号/封装/3D/料号身份一致性",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-LIB-004",
+        "category": "原理图/库",
+        "severity": "error",
+        "statement": "器件进入 BOM 前必须确认符号引脚号、封装焊盘号、datasheet 引脚号三者一致，封装尺寸/极性/1 脚方向正确，3D 方向和高度与实物一致，位号/值/MPN/供应商料号不冲突。",
+        "limits": [
+          "符号引脚号 = 封装焊盘号 = datasheet 引脚号",
+          "焊盘尺寸/间距/极性/1 脚方向必须按 datasheet 或 IPC-7351 核对",
+          "有结构干涉要求时必须核对 3D 方向/高度",
+          "位号、值、MPN、LCSC/供应商料号必须同源且不冲突",
+          "库修改/复制必须留版本或变更记录"
+        ],
+        "rationale": "符号/封装错是典型的“原理图看起来对、板子一定错”，DRC 不一定发现。课程演示建库只能提供操作顺序，器件身份必须以 datasheet 和供应商资料为准。",
+        "check": "逐脚对照 datasheet；封装 1:1 打印或用卡尺核对；3D 与结构图叠合；BOM/原理图/PCB 三方核对位号、MPN、封装和极性。",
+        "appliesTo": [
+          "schematic",
+          "library",
+          "bom",
+          "pcb"
+        ],
+        "tags": [
+          "符号库",
+          "封装库",
+          "3D模型",
+          "引脚映射",
+          "BOM",
+          "器件身份"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-SERIES",
+          "SRC-BILI-LCEDA-COURSE"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "布局优先级：结构/接口/功率/安规/防护在前，主控统筹在后",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-LAYOUT-005",
+        "category": "布局/方法论",
+        "severity": "warning",
+        "statement": "有结构/外壳/接口/安规/功率约束的板，布局顺序应为：结构定位→接口对齐→功率链路→安规隔离区→接口防护→主控统筹→高速/模拟/低速分区→阻容器件细化；不得默认先把主控放板中心。",
+        "limits": [
+          "结构定位：板框、安装孔、限高、连接器开口、按键/LED/天线区先固定",
+          "功率链路：电源入口→保护/滤波→变换器→负载，尽量短、直、粗、闭环",
+          "安规隔离：高压/低压、一次/二次、隔离带在放主控前划出",
+          "接口防护：TVS/ESD/保险丝/共模电感靠连接器",
+          "主控位置由接口/高速/晶振/调试口共同决定，不以板中心为默认",
+          "阻容器件最后细化，但去耦仍必须靠近 IC 电源脚"
+        ],
+        "rationale": "先放主控会把结构、接口、功率、安规和防护全部挤到次优位置；后续布线无法补救接口方向、功率路径和隔离带错误。布局是约束求解，不是先到先得。",
+        "check": "按布局评审清单逐项检查：结构图对照、接口朝外/插拔空间、功率路径最窄处、隔离间距、防护器件到接口距离、主控到高速接口/晶振距离、courtyard/3D 干涉。",
+        "appliesTo": [
+          "pcb",
+          "layout",
+          "power",
+          "interface",
+          "safety"
+        ],
+        "tags": [
+          "布局顺序",
+          "结构定位",
+          "接口对齐",
+          "功率链路",
+          "安规隔离",
+          "接口防护",
+          "主控布局"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-LAYOUT",
+          "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
       }
     }
   ]

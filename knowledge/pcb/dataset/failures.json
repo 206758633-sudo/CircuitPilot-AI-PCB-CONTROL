@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "generatedAt": "2026-10-28T12:25:25.164Z",
+  "generatedAt": "2026-10-30T07:27:05.363Z",
   "domain": "pcb-failure-modes",
   "notes": "失败模式知识用于设计评审/DFM/调试时快速定位；2026-10-23 新增来自 Espressif/TI 官方应用报告的真实故障模式，具体判定以 EDA/实测/失效分析为准。",
   "entries": [
@@ -3115,6 +3115,120 @@
           "板框",
           "门禁"
         ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "未跑 DRC/未核对下单参数就投板，导致退单或实物不符",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-LCEDA-ORDER-UNCHECKED",
+        "code": "LCEDA-ORDER-UNCHECKED",
+        "category": "制造/DFM",
+        "severity": "error",
+        "symptom": "下单后被板厂退回/EQ，或收到实物发现层数、板厚、铜厚、表面处理、拼版、SMT 面别与设计/工艺单不一致。",
+        "rootCause": "只把 DRC 当弹窗点过；未读完整报告；下单页参数沿用旧值或被手工改动；未把设计参数/工艺单/下单页三方核对；用优惠券/加急替代检查。",
+        "detection": "下单页截图与设计文件/工艺单三方对照；板厂 EQ/确认函；首件与订单参数核对；DRC 报告逐条复核。",
+        "prevention": [
+          "投板前执行并逐条处理 DRC，保存报告",
+          "DRC 0/0 后仍检查器件选型/电源轨/极性/封装/3D/BOM",
+          "设计参数—工艺单—下单页三列并排核对并截图留档",
+          "批量订单选择确认生产稿",
+          "参数不一致时停止，不用优惠/加急换时间"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md"
+        ],
+        "tags": [
+          "下单",
+          "DRC",
+          "工艺参数",
+          "退单",
+          "EQ",
+          "嘉立创EDA专业版"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-ORDER",
+          "SRC-BILI-LCEDA-SERIES"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "BOM、坐标文件与装配图不一致，导致贴错料/贴反/漏贴",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-LCEDA-BOM-CPL-MISMATCH",
+        "code": "LCEDA-BOM-CPL-MISMATCH",
+        "category": "装配/DFM",
+        "severity": "error",
+        "symptom": "SMT 首件发现位号错位、极性件贴反、同一位置贴错料，或手工焊接按装配图装反。",
+        "rootCause": "BOM 和坐标来自不同版本 PCB；位号/封装/旋转角/面别未核对；DNP/替代料只在 BOM 标记；装配图底层未镜像；封装 0° 定义与贴片厂约定不一致。",
+        "detection": "BOM/坐标/装配图位号集合差集；关键器件坐标在 Gerber 上量位置；首件 AOI/目检；贴片厂程序回读。",
+        "prevention": [
+          "BOM、坐标、装配图从同一版 PCB/原理图导出",
+          "位号集合差集必须为空",
+          "DNP/替代料在 BOM 和坐标同步标记",
+          "双面贴装分面、底层镜像/旋转规则与贴片厂确认",
+          "连接器/二极管/钽电容/LED/IC 的 1 脚逐项目检"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md"
+        ],
+        "tags": [
+          "BOM",
+          "坐标文件",
+          "装配图",
+          "SMT",
+          "贴反",
+          "漏贴"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-OUTPUT",
+          "SRC-BILI-LCEDA-COURSE"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "先放主控再围一圈：接口/功率/防护被挤到次优位置，导致布局返工",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-LCEDA-LAYOUT-CENTER-MCU",
+        "code": "LCEDA-LAYOUT-CENTER-MCU",
+        "category": "布局/方法论",
+        "severity": "warning",
+        "symptom": "布线阶段发现连接器方向被主控挡住、功率路径绕远、TVS/保险丝放不进接口区、隔离带被穿越，只能整体重摆或改板。",
+        "rootCause": "把“主控在板中心”当成默认起点；没有先固定结构/接口/功率/安规约束；外设和阻容围绕主控堆叠，压缩了接口和防护空间。",
+        "detection": "布局评审按结构→接口→功率→安规→防护→主控顺序走查；1:1 打印/3D 检查接口插拔和装配；功率路径/隔离带目检；布线前 courtyard DRC。",
+        "prevention": [
+          "先画板框/安装孔/限高和接口开口",
+          "先放连接器、功率入口/保护/变换器、隔离带",
+          "TVS/ESD/保险丝/共模靠接口",
+          "主控位置由高速接口/晶振/调试口/散热共同决定",
+          "布线前完成布局评审清单并留证据"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md"
+        ],
+        "tags": [
+          "布局返工",
+          "主控居中",
+          "接口方向",
+          "功率路径",
+          "安规隔离",
+          "防护器件"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-LAYOUT",
+          "SRC-BILI-LCEDA-SERIES"
+        ],
+        "evidenceLevel": "C"
       }
     }
   ]

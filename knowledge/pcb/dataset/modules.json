@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "generatedAt": "2026-10-28T12:25:25.164Z",
+  "generatedAt": "2026-10-30T07:27:05.363Z",
   "domain": "pcb-schematic-modules",
   "notes": "模块知识=可复用的电路/板级设计模式；参数为典型值，落地需按器件 datasheet 与设计目标复核。",
   "entries": [
@@ -3795,6 +3795,160 @@
           "分区图",
           "人工复核"
         ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "嘉立创EDA专业版从工程到投板的七阶段闭环",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-LCEDA-WORKFLOW",
+        "category": "流程/质量",
+        "purpose": "把嘉立创EDA专业版的操作顺序组织成可检查的工程闭环，避免“只会在编辑器里连线”而漏掉库身份、DRC、输出和下单检查。",
+        "whenToUse": "新板从需求到投板、旧板改版、学生/新手第一次完整做板，或需要把 B 站课程学习转成工程交付物时。",
+        "designPoints": [
+          "阶段 1：工程/库身份——工程、图页、符号、封装、3D、版本号",
+          "阶段 2：原理图——标题栏、模块分区、网络命名、未连接标记、ERC",
+          "阶段 3：PCB 布局——板框/固定件先定，接口朝外，电源流向，去耦靠近，courtyard/3D 检查",
+          "阶段 4：布线——电源/地先走，高速/差分按叠层和回流要求，普通信号最后，铺铜后重建再 DRC",
+          "阶段 5：检查——DRC 逐条归属，丝印/极性/3D/DFM/DFA 人工检查",
+          "阶段 6：输出——工程源文件、Gerber、钻孔、BOM、坐标、装配图、工艺单",
+          "阶段 7：下单/归档——参数与工艺单复核，EQ 记录，版本归档"
+        ],
+        "keyParameters": [
+          "每阶段必须有可复核放行物，不能只靠聊天记录",
+          "所有输出文件使用同一版本号/日期",
+          "DRC 0 错误 0 警告只是进入下单页的必要条件",
+          "任何身份/参数/版本不一致时停止，不靠“再点一次”掩盖"
+        ],
+        "schematic": "先填标题栏和版本号，按功能模块画框；去耦跟芯片；未用脚放 NC；出 ERC 报告。",
+        "layout": "先固定板框/安装孔/连接器/按键/LED/天线区；再放电源和保护；再放 IC/去耦；最后小阻容和测试点；每区检查 courtyard 和 3D。",
+        "pitfalls": [
+          "直接照抄视频电路当量产方案",
+          "只跑 DRC 不核对 BOM/坐标/装配图",
+          "封装引脚号与 datasheet 不一致",
+          "输出包缺钻孔/坐标/装配图",
+          "下单参数与设计/工艺单不一致",
+          "把活动优惠/加急当成跳过检查的理由"
+        ],
+        "tags": [
+          "嘉立创EDA专业版",
+          "工程闭环",
+          "原理图",
+          "PCB布局",
+          "布线",
+          "DRC",
+          "生产文件",
+          "投板"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-SERIES",
+          "SRC-BILI-LCEDA-COURSE",
+          "SRC-LCEDA-PRO-ORDER"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "工程输出包与版本矩阵",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-LCEDA-OUTPUT-PACK",
+        "category": "制造文件",
+        "purpose": "用固定目录和版本矩阵管理投板/SMT 输出，确保工厂拿到的每一份文件都来自同一版设计。",
+        "whenToUse": "首次投板、改版、SMT 贴片、手工焊接、返修或向板厂发 EQ 时。",
+        "designPoints": [
+          "目录：01_Gerber、02_Drill、03_BOM、04_PickPlace、05_Assembly、06_Stackup、07_Docs",
+          "每个目录内文件名包含项目名+版本号+日期",
+          "BOM 位号集合 = 坐标位号集合 = 装配图位号集合",
+          "DNP/不贴/替代料在 BOM 和坐标中同步标记",
+          "双面贴装分面清楚，底层镜像/旋转规则与贴片厂约定",
+          "旧版本只归档不覆盖，保留导出时间和操作人"
+        ],
+        "keyParameters": [
+          "输出包至少 7 类文件",
+          "同一版本号贯穿源文件/PCB/Gerber/BOM/坐标/装配图",
+          "BOM/坐标/装配图位号集合差集必须为空",
+          "首件/极性件/连接器必须人工核对"
+        ],
+        "schematic": "原理图侧提供 BOM、PDF、网表；版本号与 PCB/输出包一致。",
+        "layout": "PCB 侧提供 Gerber、钻孔、坐标、装配图、叠层/阻抗/工艺单；双面贴装标注面别。",
+        "pitfalls": [
+          "只发 Gerber 不发 BOM/坐标",
+          "BOM 与坐标位号不一致",
+          "装配图底层未镜像",
+          "坐标旋转角与封装 0° 定义不一致",
+          "输出包混入旧版本文件"
+        ],
+        "tags": [
+          "输出包",
+          "Gerber",
+          "BOM",
+          "坐标文件",
+          "装配图",
+          "版本矩阵"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-OUTPUT",
+          "SRC-BILI-LCEDA-OUTPUT"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "约束优先的 PCB 布局顺序（结构与功率先行）",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-LCEDA-LAYOUT-PRIORITY",
+        "category": "布局/方法论",
+        "purpose": "把布局从“先摆主控再围一圈”改成“先固定不可动约束，再让主控统筹”的可检查流程，减少布线后返工。",
+        "whenToUse": "有外壳/结构件、连接器较多、含开关电源/高压/隔离/接口防护，或主控周围高速/模拟/低速混合的板。",
+        "designPoints": [
+          "第 1 步：结构定位——板框、安装孔、限高、接口开口、按键/LED/天线区",
+          "第 2 步：接口对齐——连接器朝外，线缆/插拔/装配空间满足",
+          "第 3 步：功率链路——入口保护、滤波、变换器、负载按功率流向短直粗闭环",
+          "第 4 步：安规隔离——高压/低压、一次/二次、隔离带提前划分",
+          "第 5 步：接口防护——TVS/ESD/保险丝/共模靠连接器",
+          "第 6 步：主控统筹——按高速接口、晶振、调试口、散热确定位置",
+          "第 7 步：外设分区——高速/模拟/低速/大电流分开",
+          "第 8 步：阻容细化——去耦靠电源脚，匹配/测试点最后补"
+        ],
+        "keyParameters": [
+          "布局顺序不是“主控居中”，而是约束优先",
+          "功率路径最窄处按电流/温升计算，不靠目测",
+          "隔离间距/爬电按安规要求，先划区再放器件",
+          "接口防护器件到连接器的距离越短越好",
+          "courtyard/3D/结构图检查必须在布线前完成"
+        ],
+        "schematic": "原理图阶段先标清电源入口、接口、隔离边界和功能模块，布局才能按模块落位。",
+        "layout": "先固定结构和接口，再做功率/安规/防护，最后主控/外设/阻容；每区完成即做 courtyard/3D 检查。",
+        "pitfalls": [
+          "先放主控导致连接器方向被挤歪",
+          "功率器件放远、路径绕长、环路面积大",
+          "TVS/保险丝放板内，浪涌先打坏后级",
+          "隔离带被接口/走线穿越",
+          "去耦电容为了整齐放到远离电源脚",
+          "等布完线才发现结构/接口装不上"
+        ],
+        "tags": [
+          "布局顺序",
+          "约束优先",
+          "结构",
+          "功率链路",
+          "安规隔离",
+          "接口防护",
+          "主控"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-LAYOUT",
+          "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
       }
     }
   ]

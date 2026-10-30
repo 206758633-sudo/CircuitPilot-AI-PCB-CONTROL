@@ -78,6 +78,13 @@ const GOLDEN = [
   { query: 'ERC 告警 豁免 台账 未归属', expect: /ERC|豁免|台账|告警/i },
   { query: '板边 V-CUT 0.5mm 3–5mm 冲突 口径', expect: /板边|V-CUT|0\.5|3.?5|口径|冲突/i },
   { query: '评审 放行 证据 签字 门禁', expect: /评审|放行|证据|签字|门禁/i },
+  // K8 B站课程/嘉立创EDA专业版工程闭环（docs/knowledge/pcb/23 + 新增 rule/module/failure）
+  { query: '嘉立创EDA专业版 工程闭环 投板 生产文件', expect: /嘉立创EDA|工程闭环|投板|生产文件/i },
+  { query: 'B站 嘉立创EDA 入门教程 学习路径', expect: /B站|Bilibili|教程|学习路径|嘉立创EDA/i },
+  { query: 'BOM 坐标 装配图 不一致 SMT 贴反', expect: /BOM|坐标|装配图|SMT|贴反/i },
+  { query: 'PCB布局 先结构 接口 功率 防护 主控', expect: /布局|结构|接口|功率|防护|主控/i },
+  { query: '主控放中间 布局 返工 接口方向', expect: /主控|布局|返工|接口/i },
+  { query: '功率链路 短 直 粗 闭环 布局', expect: /功率|短|直|粗|闭环|布局/i },
 ];
 
 // 负向查询：知识库不应“硬答”领域外问题；前 3 条最高分必须低于阈值。

@@ -1,8 +1,8 @@
 {
-  "version": "1.1.0",
-  "generatedAt": "2026-10-23T11:30:00.000Z",
+  "version": "1.2.0",
+  "generatedAt": "2026-10-30T07:25:00.000Z",
   "domain": "pcb-research-sources",
-  "notes": "公开资料研究来源登记。sha256 是 2026-10-23 抓取快照的哈希；HTML 页面会随发布更新，重新抓取后应更新哈希、fetchedAt 与 reviewBy。reviewBy 是强制复核期限（当前 2027-04-23），到期未复核由 scripts/check-knowledge-sources.mjs 报 SOURCE_REVIEW_OVERDUE。所有条目只作工程参考，量产/安规必须按标准原文、数据手册和板厂 EQ 复核。",
+  "notes": "公开资料研究来源登记。snapshotSha256 是各来源在 fetchedAt 时刻抓取快照的 SHA-256；HTML/API 页面会随发布更新，重新抓取后应更新哈希、fetchedAt 与 reviewBy。reviewBy 是强制复核期限（现有条目 2027-04-23，2026-10-30 新增条目 2027-04-30），到期未复核由 scripts/check-knowledge-sources.mjs 报 SOURCE_REVIEW_OVERDUE。所有条目只作工程参考，量产/安规必须按标准原文、数据手册和板厂 EQ 复核。",
   "sources": [
     {
       "id": "SRC-ESP32-HW",
@@ -289,6 +289,173 @@
       ],
       "caveat": "连接器/线缆规范；PCB 布局与 ESD 仍以 PHY 厂商指南和 USB-IF 测试规范为准。",
       "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-BILI-LCEDA-SERIES",
+      "publisher": "嘉立创EDA（Bilibili 官方账号）",
+      "title": "嘉立创EDA专业版入门教程（1）软件安装（18集系列）",
+      "url": "https://www.bilibili.com/video/BV1ys4y1C7NP",
+      "type": "video-tutorial",
+      "evidenceLevel": "C",
+      "revision": "官方18集系列，2023-06 发布；2026-10-30 核对标题/简介/分P",
+      "fetchedAt": "2026-10-30T07:25:00.000Z",
+      "snapshotSha256": "c08ff0874c7730a50b5cf5a22cc74df9ed64dee68d1470904197ad7506891ccb",
+      "topics": [
+        "嘉立创EDA专业版",
+        "软件安装",
+        "工程管理",
+        "原理图",
+        "PCB布局",
+        "PCB布线",
+        "PCB打板"
+      ],
+      "caveat": "B站教学视频仅作操作流程与学习路径参考（C级）；未获取逐字稿/未逐帧核对。具体菜单、参数和工艺数值以当前EDA版本、官方文档和板厂能力表为准。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-BILI-LCEDA-COURSE",
+      "publisher": "Expert电子实验室（Bilibili）",
+      "title": "零基础入门PCB设计——嘉立创EDA专业版全程保姆级教学（中文字幕）",
+      "url": "https://www.bilibili.com/video/BV1At421h7Ui",
+      "type": "video-tutorial",
+      "evidenceLevel": "C",
+      "revision": "2024-02 发布；2026-10-30 核对简介/分P章节（约440分钟）",
+      "fetchedAt": "2026-10-30T07:25:00.000Z",
+      "snapshotSha256": "bb6aa7226938f9a31a0ef72a0d1ca545b405be9c3d5eb55f43a0151a9fa350d4",
+      "topics": [
+        "PCB基础",
+        "元件符号与封装",
+        "原理图设计",
+        "布局",
+        "布线",
+        "DRC",
+        "生产文件导出",
+        "USB拓展坞案例"
+      ],
+      "caveat": "课程分P和简介可核对，但本笔记未取得字幕文本；学习时以视频画面与讲师说明为准，数值/标准类结论必须回到官方文档或标准原文。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-BILI-LCEDA-OUTPUT",
+      "publisher": "嘉立创EDA（Bilibili 官方账号）",
+      "title": "PCB生产文件导出 | 嘉立创EDA专业版入门教程(35)",
+      "url": "https://www.bilibili.com/video/BV1UT42167q2",
+      "type": "video-tutorial",
+      "evidenceLevel": "C",
+      "revision": "2024-07 发布；2026-10-30 核对标题/时长",
+      "fetchedAt": "2026-10-30T07:25:00.000Z",
+      "snapshotSha256": "2e0ab6b3ea35238ddf5fe6c023b28078f5cb41eb4badee3a70ba06e79e68de36",
+      "topics": [
+        "Gerber",
+        "BOM",
+        "坐标文件",
+        "生产文件导出"
+      ],
+      "caveat": "视频只用于确认官方教程覆盖了生产文件导出；字段和导出路径以官方文档/当前版本为准。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-LCEDA-PRO-OUTPUT",
+      "publisher": "嘉立创EDA",
+      "title": "工程最终可输出文件（专业版教育与开源文档中心）",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/project-output-files.html",
+      "type": "official-vendor-documentation",
+      "evidenceLevel": "B",
+      "revision": "页面快照 2026-10-30",
+      "fetchedAt": "2026-10-30T07:25:00.000Z",
+      "snapshotSha256": "562882e0d3f29a198091f8d88712f56f44e3f1b0de390c904dbcc8042a8d68b7",
+      "topics": [
+        "工程源文件",
+        "Gerber",
+        "BOM",
+        "坐标文件",
+        "装配图",
+        "DXF",
+        "输出文件包"
+      ],
+      "caveat": "官方文档说明导出路径与文件类型；具体字段/命名/版本管理仍需按项目和板厂要求核对，不等同于标准原文。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-LCEDA-PRO-SCHEMATIC",
+      "publisher": "嘉立创EDA",
+      "title": "原理图设计规范（专业版教育与开源文档中心）",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/schematic-guidance.html",
+      "type": "official-vendor-documentation",
+      "evidenceLevel": "B",
+      "revision": "页面快照 2026-10-30",
+      "fetchedAt": "2026-10-30T07:25:00.000Z",
+      "snapshotSha256": "81ec0bcd1fb7658a8046a59f961c15a6075bf9458680a131799aa385d5fa6c9f",
+      "topics": [
+        "原理图标题栏",
+        "模块划分",
+        "去耦电容",
+        "非连接标识符",
+        "图页"
+      ],
+      "caveat": "官方规范页面只给通用要求；电气正确性仍以器件 datasheet、ERC/DRC 和人工评审为准。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-LCEDA-PRO-ORDER",
+      "publisher": "嘉立创EDA",
+      "title": "免费PCB打样教程：下单前检查与下单参数（专业版文档中心）",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-production/free-pcb.html",
+      "type": "official-vendor-documentation",
+      "evidenceLevel": "B",
+      "revision": "页面快照 2026-10-30",
+      "fetchedAt": "2026-10-30T07:25:00.000Z",
+      "snapshotSha256": "73b2b28d92cc19a32ac37efc1f48aba4f27eb29a395b52b389209359d0097cd2",
+      "topics": [
+        "下单前DRC",
+        "PCB下单参数",
+        "免费打样",
+        "工艺一致性"
+      ],
+      "caveat": "页面描述的是嘉立创EDA下单流程与活动规则，价格/优惠/交期会变；工程判断只看DRC与工艺一致性，不把活动当设计规则。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-BILI-LCEDA-LAYOUT",
+      "publisher": "芯团网（Bilibili）",
+      "title": "PCB布局别一上来放主控，面试这样答更像工程师",
+      "url": "https://www.bilibili.com/video/BV1nAjd6iEUF",
+      "type": "video-tutorial",
+      "evidenceLevel": "C",
+      "revision": "2026 发布；2026-10-30 核对标题/简介/时长",
+      "fetchedAt": "2026-10-30T07:30:00.000Z",
+      "snapshotSha256": "797a8aac21fe2625ed269b177d8ea21f2a1da3c67e1a7963b4ecd7c3d85faf6f",
+      "topics": [
+        "PCB布局顺序",
+        "结构定位",
+        "接口对齐",
+        "功率链路",
+        "安规隔离",
+        "接口防护",
+        "主控统筹",
+        "高速/模拟/低速分区"
+      ],
+      "caveat": "视频简介明确列出布局优先级，但本笔记未取得逐字稿/未逐帧核对；该顺序是工程启发式（C级），有结构/安规/散热约束时必须由项目和评审确认。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-BILI-LCEDA-OFFICIAL-LAYOUT",
+      "publisher": "嘉立创EDA（Bilibili 官方账号）",
+      "title": "PCB设计02-PCB布局",
+      "url": "https://www.bilibili.com/video/BV1Wb4y1p7cf",
+      "type": "video-tutorial",
+      "evidenceLevel": "C",
+      "revision": "2022-03 发布；2026-10-30 核对标题/分P（31分钟）",
+      "fetchedAt": "2026-10-30T07:30:00.000Z",
+      "snapshotSha256": "e8005c49902b2861d74479d69fba3c1add04e4121096d8d5930ce9da5e7edf04",
+      "topics": [
+        "PCB布局",
+        "结构/接口",
+        "器件摆放",
+        "布局检查"
+      ],
+      "caveat": "官方教程只用于确认布局教学覆盖范围；菜单/规则/数值以当前EDA版本和官方文档为准，未取得字幕。",
+      "reviewBy": "2027-04-30"
     }
   ]
 }
