@@ -57,7 +57,7 @@
 |---:|---|---|
 | 1 | README 旧统计只写 442 条，没有 1,037 个知识点的口径 | 更新 README：70 篇 / 69 内容 / 1,037 KP / 442 条 / 26 来源；新增总索引入口 |
 | 2 | 3 个泛化 KP 标题完全重复：`失败模式与可量测判据（本章门禁）` | 分别改为“电感/磁珠/保险丝”“传感器/执行器”“接口保护”的失败模式标题，保留 ID 不变 |
-| 3 | 4 个失效结构化引用 | `PCB-RULE-EMC`→`PCB-RULE-SAFE-EMC-001`；`PCB-RULE-TEST-POINT-001`→`PCB-RULE-TESTPOINT-001`；`PCB-FAIL-FOOTPRINT-MISMATCH`→`PCB-FAIL-FOOTPRINT`；`PCB-FAIL-SOLDER-BRIDGE`→`PCB-FAIL-BRIDGE`；`PCB-FAIL-DOC-VERSION-DRIFT`→`SCH-FAIL-VERSION-DRIFT` |
+| 3 | 5 个失效结构化引用 | `PCB-RULE-EMC`→`PCB-RULE-SAFE-EMC-001`；`PCB-RULE-TEST-POINT-001`→`PCB-RULE-TESTPOINT-001`；`PCB-FAIL-FOOTPRINT-MISMATCH`→`PCB-FAIL-FOOTPRINT`；`PCB-FAIL-SOLDER-BRIDGE`→`PCB-FAIL-BRIDGE`；`PCB-FAIL-DOC-VERSION-DRIFT`→`SCH-FAIL-VERSION-DRIFT` |
 | 4 | 索引会随文档变化而过期 | 新增生成器与 `--check`，并纳入 `knowledge-dataset` 测试：索引过期即失败 |
 | 5 | 文档目录里没有“总入口” | 生成 `KNOWLEDGE-INDEX.md`：领域导航 + 跨域主题导航 + 文档目录 + 全部 KP 标题 + 无编号文档说明 |
 | 6 | 总索引含全部 KP 标题，若进入 RAG 会把“导航”当成“知识命中” | 在 RAG 语料加载器跳过 `KNOWLEDGE-INDEX.md`（reason `NAVIGATION_INDEX`），保留真实文档与条目检索 |
