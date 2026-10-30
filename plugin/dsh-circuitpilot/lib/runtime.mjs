@@ -11,16 +11,23 @@
  */
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { resolve, join } from 'node:path';
+import { resolve, join, win32 } from 'node:path';
 
 export const DEFAULT_RUNTIME_URL = 'http://127.0.0.1:4178';
 export const AGENT_TOKEN_HEADER = 'x-circuitpilot-agent-token';
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 export const DEFAULT_MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 
-/** Runtime 默认生成的 agent token 文件（macOS 桌面应用）。 */
-export function defaultAgentTokenFile() {
-  return join(homedir(), 'Library', 'Application Support', 'CircuitPilot', 'agent-token.json');
+/** Runtime 默认生成的 agent token 文件；按平台与 Runtime 的 appDataDir 保持一致。 */
+export function defaultAgentTokenFile({ platform = process.platform, env = process.env, home = homedir() } = {}) {
+  if (platform === 'darwin') return join(home, 'Library', 'Application Support', 'CircuitPilot', 'agent-token.json');
+  if (platform === 'win32') {
+    const winJoin = win32.join;
+    const base = typeof env?.APPDATA === 'string' && env.APPDATA.trim() ? env.APPDATA.trim() : winJoin(home, 'AppData', 'Roaming');
+    return winJoin(base, 'CircuitPilot', 'agent-token.json');
+  }
+  const base = typeof env?.XDG_STATE_HOME === 'string' && env.XDG_STATE_HOME.trim() ? env.XDG_STATE_HOME.trim() : join(home, '.local', 'state');
+  return join(base, 'circuitpilot', 'agent-token.json');
 }
 
 /** 显式配置 > 环境变量 > 默认路径。 */

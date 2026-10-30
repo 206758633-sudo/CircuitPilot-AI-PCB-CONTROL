@@ -230,7 +230,7 @@ job 超时/取消、DRC 轮询、导出确认，以及包元数据/skill frontma
   未接入时 `cp_approve` 会返回可执行的 `AGENT_ROUTE_FORBIDDEN` 提示。
 - JobManager 是插件进程内存实现：DSH 重启后 job 列表丢失，真实执行记录以 Runtime 的
   execution/evidence 为准；插件不会假装可恢复。
-- 本 MVP 不含 MCP server / 截图附件 / approval deep link；这些是后续任务（`agent/mcp-server.mjs` 等）。
+- 插件包本身不含 MCP server；MCP 入口在 `agent/mcp-server.mjs`（源码 `main`，实验性，旧 release 可能没有），需单独配置。截图附件 / approval deep link 仍未完成。
 - PCB 写能力受嘉立创EDA公开 API 限制，Runtime 侧 fail-closed；工具不会承诺一定写成功。
 
 ## 8. 目录结构

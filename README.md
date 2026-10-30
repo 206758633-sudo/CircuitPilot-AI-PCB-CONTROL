@@ -4,6 +4,8 @@ CircuitPilot 是面向个人硬件工程师的本地优先 AI PCBA 控制台；m
 
 > 平台状态：macOS 已验证；Windows/Ubuntu 的 UI/Runtime 可构建，但 EDA 落板链路尚未真机验收，不能宣称与 macOS 同等 AI 设计能力。详见 [`docs/agent/cross-platform-support.md`](docs/agent/cross-platform-support.md)。
 
+> 让 AI 自动安装并配好 DSH 插件、skill、MCP 和嘉立创EDA：见 **[`INSTALL_AI.md`](INSTALL_AI.md)**（含 macOS/Windows/Ubuntu 分支、检查点和安全卡点）。
+
 当前安全边界：Runtime 已实现受控原理图写入框架，但默认仍关闭。只有精确器件身份和连接计划完整、已读取真实目标、计划哈希经人工批准、源码快照成功时才允许执行；随后必须保存、按 primitive ID 回读并通过嘉立创EDA官方原理图 DRC（ERC 等效），失败会用源码快照恢复。首次现场执行仍必须使用用户确认的专用空白测试工程。
 
 ## 一键开发启动

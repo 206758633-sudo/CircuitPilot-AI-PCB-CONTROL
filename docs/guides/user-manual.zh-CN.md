@@ -450,14 +450,11 @@ lsof -nP -iTCP:9222 -sTCP:LISTEN
 
 ## 6. MCP 设置说明（重要边界）
 
-### 6.1 结论
+### 6.1 版本说明
 
-**CircuitPilot v0.2.1 当前没有 MCP Server，也没有 MCP Client，不读取 `mcp.json`。**  
-因此：
-
-- 不需要在 Claude Desktop、Cursor、Claude Code 等客户端里添加一个"CircuitPilot MCP"。
-- 仓库和安装包中都没有可配置的 MCP 服务地址/命令。
-- 网上如果出现"CircuitPilot MCP 配置"，不是本仓库提供的，请勿直接照抄。
+- **v0.2.1 旧 release 不含 MCP Server**；旧手册的“没有 MCP”结论只适用于该 release。
+- **当前源码 `main` 已加入** `agent/mcp-server.mjs`（stdio，可选 Streamable HTTP），并配套 `plugin/dsh-circuitpilot` 原生插件和 `circuitpilot` skill；是否可用以源码目录和插件运行状态为准。
+- 若只想用 DSH 原生工具，优先安装插件，不需要 MCP；完整安装步骤见 [`INSTALL_AI.md`](../../INSTALL_AI.md)。
 
 ### 6.2 CircuitPilot 的"桥接"与 MCP 的区别
 
@@ -467,7 +464,7 @@ lsof -nP -iTCP:9222 -sTCP:LISTEN
 | 面向 | CircuitPilot Runtime ↔ EDA 编辑器 | AI 客户端 ↔ 工具/数据源 |
 | 默认端口 | 9222（CDP）、49620+（EasyEDA 可选）、4178（Runtime） | 由各 MCP 客户端配置 |
 | 认证 | 每次启动注入令牌 + 回环限制 | 由 MCP 客户端/服务端约定 |
-| 当前状态 | 已实现 | **未实现** |
+| 当前状态 | 已实现 | 源码 `main` 已实现（实验）；旧 v0.2.1 未实现 |
 
 ### 6.3 那你应该怎么让 AI 参与设计？
 
@@ -483,15 +480,13 @@ lsof -nP -iTCP:9222 -sTCP:LISTEN
 
 ### 6.4 如果你要的是"外部 AI 客户端通过 MCP 控制 CircuitPilot"
 
-当前版本不支持。实现它需要额外开发，至少包括：
+当前源码 `main` 已有实验性 MCP Server（`agent/mcp-server.mjs`），但它仍受 Runtime 的启动令牌、审批账本和写门禁约束，不会绕过 `全局暂停写入`：
 
-- 新增 MCP Server（stdio 或本地 HTTP）；
-- 复用 Runtime 的启动令牌与审批账本；
-- 只读工具白名单、写入工具强制人工确认；
-- 审计日志与证据绑定；
-- 防止 MCP 客户端绕过 `全局暂停写入`。
+- 需要配置 agent token 文件路径（见 `INSTALL_AI.md`）；
+- 写入工具仍需计划哈希 + 用户明确批准；
+- MCP 只是传输层，不是新的放行通道。
 
-在这些完成前，**不要**用第三方 MCP 工具直接操作 EDA；那会绕过 CircuitPilot 的审批/回读/证据机制。
+**不要**用第三方"EDA MCP Server"直接操作 EDA；那与 CircuitPilot 的审批/回读/证据机制是两条链路。
 
 ### 6.5 第三方 EDA MCP
 
@@ -710,7 +705,7 @@ shasum -a 256 CircuitPilot_0.2.1_aarch64.dmg
 ### 11.4 文档验收
 
 - [ ] 已阅读本说明书第 6 章（MCP 边界）
-- [ ] 知道当前版本没有 MCP，不要配置假 MCP
+- [ ] 知道旧 v0.2.1 release 没有 MCP；当前源码 main 的 MCP 为实验性，未安装时不要配置假 MCP
 - [ ] 知道桥接是 CDP/本地 HTTP，不是 MCP
 
 ---
@@ -725,7 +720,7 @@ shasum -a 256 CircuitPilot_0.2.1_aarch64.dmg
 | 计划哈希 | 对执行计划的摘要，用于人工审批绑定 |
 | 回读 | 写入后重新读取实际对象，确认结果 |
 | 放行门禁 | 对证据做 fail-closed 判定的策略层 |
-| MCP | Model Context Protocol；当前版本未实现 |
+| MCP | Model Context Protocol；源码 main 已实现实验性 server，旧 v0.2.1 未实现 |
 
 ## 附录 B：相关文档
 

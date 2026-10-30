@@ -39,6 +39,21 @@ test('resolveAgentTokenFile：显式路径 > 环境变量 > 默认路径', async
   }
 });
 
+test('defaultAgentTokenFile：Windows/Linux 不落到 macOS Library 路径', () => {
+  assert.equal(
+    defaultAgentTokenFile({ platform: 'win32', env: { APPDATA: 'C:\\Users\\t\\AppData\\Roaming' }, home: 'C:\\Users\\t' }),
+    'C:\\Users\\t\\AppData\\Roaming\\CircuitPilot\\agent-token.json',
+  );
+  assert.equal(
+    defaultAgentTokenFile({ platform: 'linux', env: {}, home: '/home/t' }),
+    '/home/t/.local/state/circuitpilot/agent-token.json',
+  );
+  assert.equal(
+    defaultAgentTokenFile({ platform: 'linux', env: { XDG_STATE_HOME: '/var/state' }, home: '/home/t' }),
+    '/var/state/circuitpilot/agent-token.json',
+  );
+});
+
 test('token 文件缺失：AGENT_TOKEN_MISSING，错误含路径但不含 token', async () => {
   const client = new RuntimeClient({ baseUrl: 'http://127.0.0.1:1', tokenFile: '/tmp/cp-definitely-missing-token.json', timeoutMs: 100 });
   const env = await client.request('GET', '/api/health');

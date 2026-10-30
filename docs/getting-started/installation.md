@@ -2,13 +2,18 @@
 
 ## Requirements
 
-- macOS 12 or newer (the desktop build is macOS-first; Linux/Windows are not
-  currently supported targets).
+- macOS 12+ is the validated target. Windows/Linux builds are **experimental**:
+  code-level portability exists, but the real EDA write/readback/DRC chain has
+  **not** been accepted on those systems yet.
 - Node.js 22+ and npm.
-- For the desktop shell: Rust toolchain (`rustc`, `cargo`) and Xcode command
-  line tools.
-- Optional: a locally installed 嘉立创EDA Professional or EasyEDA instance for
+- For the desktop shell: Rust toolchain (`rustc`, `cargo`) plus platform build
+  tools (Xcode CLT on macOS, Visual Studio C++ Build Tools/WebView2 on Windows,
+  WebKitGTK/GTK development packages on Ubuntu).
+- Optional: a locally installed 嘉立创EDA Professional (or EasyEDA) instance for
   real hardware actions.
+
+> For the full AI-executable installation, DSH plugin/skill/MCP setup and EDA
+> extension steps, read [`INSTALL_AI.md`](../../INSTALL_AI.md).
 
 ## Run the web console (fastest)
 

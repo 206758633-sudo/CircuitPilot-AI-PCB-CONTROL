@@ -72,7 +72,7 @@ export const TOOL_ROUTES = Object.freeze({
 
 const RUNTIME_DOWN_ACTIONS = [
   '启动 CircuitPilot 应用并确认 Runtime 在配置的 runtimeUrl 上运行（默认 http://127.0.0.1:4178）',
-  '确认 agent token 文件存在（默认 ~/Library/Application Support/CircuitPilot/agent-token.json，可用 CIRCUITPILOT_AGENT_TOKEN_FILE 覆盖）',
+  '确认 agent token 文件存在（默认按平台落在 CircuitPilot 用户数据目录，可用 CIRCUITPILOT_AGENT_TOKEN_FILE 覆盖）',
 ];
 
 const APPROVE_MODE_HINT = [
