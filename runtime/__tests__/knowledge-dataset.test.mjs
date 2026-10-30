@@ -8,6 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { loadDataset, validateDataset, DATASET_DIR } from '../../scripts/seed-knowledge-pcb.mjs';
@@ -34,7 +35,7 @@ const contentDocs = () => {
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
       if (statSync(full).isDirectory()) walk(full);
-      else if (name.endsWith('.md') && name !== 'README.md' && name !== 'conflict-register.md' && name !== 'requirements.md') {
+      else if (name.endsWith('.md') && !['README.md', 'conflict-register.md', 'requirements.md', 'KNOWLEDGE-INDEX.md'].includes(name)) {
         found.push(relative(ROOT, full));
       }
     }
@@ -111,6 +112,11 @@ test('冲突登记：引用的规则必须存在，且每条规则只归入一�
       within.add(id);
     }
   }
+});
+
+test('总索引：KNOWLEDGE-INDEX.md 与文档/条目同步', () => {
+  const result = spawnSync(process.execPath, ['scripts/build-knowledge-index.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
+  assert.equal(result.status, 0, `知识总索引过期，请运行 npm run knowledge:index\n${result.stderr || result.stdout}`);
 });
 
 test('料号核验：已核验必须给 LCSC，待核验不得标 true', () => {

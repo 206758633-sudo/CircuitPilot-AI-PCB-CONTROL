@@ -270,7 +270,7 @@
   - 传感器：编码器线屏蔽/双绞，必要时加共模电感；模拟传感器远离电机线。
   - 软件/驱动：合适的 PWM 频率与斜率控制（部分驱动器可调）也能降低 EMI。
 - **怎么查**：EMI 预扫（30MHz~1GHz）对比加/不加滤波；近场探头找噪声源；电机运行时测传感器/通信误码；不通过 → 加滤波/改布线/改驱动斜率。
-- **依据**：电机 datasheet 的 EMC 建议；`PCB-RULE-EMC` 相关规则与 `docs/knowledge/pcb/05-emc-esd-thermal.md`；`PCB-RULE-PLACE-DCDC-001` 的功率回路布局原则。
+- **依据**：电机 datasheet 的 EMC 建议；`PCB-RULE-SAFE-EMC-001` 相关规则与 `docs/knowledge/pcb/05-emc-esd-thermal.md`；`PCB-RULE-PLACE-DCDC-001` 的功率回路布局原则。
 
 ### KP-SCH-181 执行器故障检测：开路、短路与堵转
 

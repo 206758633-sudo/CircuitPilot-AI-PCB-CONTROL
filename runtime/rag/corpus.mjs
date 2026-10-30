@@ -54,6 +54,11 @@ export function markdownDocumentsInDirs({ dirs = [], maxFiles = 200, maxBytesPer
       if (truncated) return;
       if (!item.name || String(item.name).startsWith('.')) continue;
       const full = resolve(dir, item.name);
+      // 知识点总索引是导航文件，不是知识正文；若进入 RAG，会把每个 KP 标题重复成“命中”，污染 Hit@1 评估。
+      if (item.name === 'KNOWLEDGE-INDEX.md') {
+        skipped.push({ path: full, reason: 'NAVIGATION_INDEX' });
+        continue;
+      }
       const isDir = typeof item.isDirectory === 'function' ? item.isDirectory() : !/\.[a-z0-9]+$/i.test(item.name);
       if (isDir) { walk(full); continue; }
       if (!/\.md$/i.test(item.name)) continue;

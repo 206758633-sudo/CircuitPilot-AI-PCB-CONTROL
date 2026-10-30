@@ -7,6 +7,10 @@
 - 两者通过 `knowledge/pcb/dataset/*.json` 里的 `provenance.url` 与 `refs` 互相链接，`scripts/seed-knowledge-pcb.mjs` 负责灌库，`scripts/verify-rag.mjs` 负责验证检索质量。
 
 > 知识分层原则：候选（candidate）≠ 可用（approved）。本目录内容与脚本灌入条目一律按 `reference` 可信等级、`candidate` 审核状态入库；只有人工审核通过后，才允许被编排层作为门禁引用。**AI 不得自证知识正确。**
+>
+> **快速导航：** [知识点总索引（KNOWLEDGE-INDEX）](./KNOWLEDGE-INDEX.md) · [案例库](./cases/README.md) · [冲突登记](./conflict-register.md) · [本次全面整理审计](../implementation/knowledge-consolidation-2026-10-30.md)
+
+> 总索引把 **1,037 个 `KP-*` 知识点**按“领域 → 文档 → 文档内顺序”展开；每个文档同时标注结构化条目数。它是知识库的入口，不是替代原文。
 
 ## 目录结构
 
@@ -20,9 +24,9 @@
 | [`requirements/`](./requirements/) | 产品需求/验收档案（原被误分类为 `module` 的 38 条需求，已迁出） | 产品验收，不进入设计门禁 |
 | [`legacy/`](./legacy/) | 历史条目迁移/退役记录与运行态重建命令 | 治理/迁移 |
 
-> 现状（2026-10-30，B站课程/官方文档学习批次后）：内容文档 **69 篇**；结构化知识 **442 条**（rule 173 · module 93（含 case 17）· part 57 · failure 102）。本轮新增 3 篇文档 + 20 条候选条目（嘉立创EDA专业版工程闭环、输出包、原理图规范、库身份、布局优先级、预布线/电源优先、布线十条原则、下单/BOM失败模式），来源为 **B站教学视频（C级）与嘉立创EDA官方文档（B级）**，已按 `reference` + `candidate` 入库、`approved` 仍为 0；须人工审核后才可被门禁引用。来源登记见 [`sources.json`](../../knowledge/pcb/dataset/sources.json)。
+> 现状（2026-10-30，全面整理后）：Markdown 文档 **70 篇**（设计内容 **69 篇** + 需求档案 1 篇）；知识点 **1,037 个**（PCB 369 / SCH 286 / CMP 211 / CASE 171）；结构化知识 **442 条**（rule 173 · module 93（含 5 条案例模块）+ case 17 · part 57 · failure 102）；来源登记 **26 条**；本地 `artifacts/knowledge` 中 **442 条全部为 candidate，approved 仍为 0**。所有新知识均为 `reference` + `candidate`，须人工审核后才可被门禁引用。来源登记见 [`sources.json`](../../knowledge/pcb/dataset/sources.json)。
 
-> 冲突口径与优先级见 [`conflict-register.md`](./conflict-register.md)；机器可读分类见 [`taxonomy.json`](../../knowledge/pcb/dataset/taxonomy.json)、冲突登记见 [`conflicts.json`](../../knowledge/pcb/dataset/conflicts.json)；全面审计见 [`docs/implementation/knowledge-audit-k6-2026-10-22.md`](../implementation/knowledge-audit-k6-2026-10-22.md)，K7 治理落地见 [`docs/implementation/knowledge-k7-governance-2026-10-22.md`](../implementation/knowledge-k7-governance-2026-10-22.md)。
+> 冲突口径与优先级见 [`conflict-register.md`](./conflict-register.md)；机器可读分类见 [`taxonomy.json`](../../knowledge/pcb/dataset/taxonomy.json)、冲突登记见 [`conflicts.json`](../../knowledge/pcb/dataset/conflicts.json)；全面审计见 [`docs/implementation/knowledge-audit-k6-2026-10-22.md`](../implementation/knowledge-audit-k6-2026-10-22.md)，K7 治理落地见 [`docs/implementation/knowledge-k7-governance-2026-10-22.md`](../implementation/knowledge-k7-governance-2026-10-22.md)；本次全面整理与审计见 [`docs/implementation/knowledge-consolidation-2026-10-30.md`](../implementation/knowledge-consolidation-2026-10-30.md)。
 
 结构化数据源在 [`knowledge/pcb/dataset/`](../../knowledge/pcb/dataset/)：
 
@@ -34,7 +38,7 @@
 | `failures.json` | `failure` | 典型失败模式（症状 → 根因 → 发现方法 → 预防） |
 | `cases.json` | `module` | 参考设计案例（`moduleId = PCB-CASE-*`，含设计原理/规则依据/可迁移经验/可信度声明） |
 | `sources.json` | 来源登记 | 公开资料研究的 URL/发布者/版本/抓取时间/快照 SHA-256/证据等级/**reviewBy 复核期限**，供条目 `sources` 字段引用；`npm run check:knowledge-sources` 校验 |
-| `taxonomy.json` | 映射 | 122 个 category → 8 个领域（schematic/pcb/components/manufacturing/reliability/rf/reference/requirements） |
+| `taxonomy.json` | 映射 | 216 个 category → 8 个领域（schematic/pcb/components/manufacturing/reliability/rf/reference/requirements） |
 | `conflicts.json` | 冲突登记 | 9 组冲突规则的 scope/裁决/状态，不修改历史 payload |
 
 ## 文档写法约定
@@ -43,6 +47,7 @@
 
 1. **一句话结论**：文档开头先给可执行结论，不铺垫。
 2. **知识点编号**：每个知识点用 `### KP-<域>-<三位编号> 标题` 开头（域：`PCB` / `SCH` / `CMP`）；案例文档用 `### KP-CASE-<案例短名>-<两位编号>`，案例短名与收录规则见 [`cases/README.md`](./cases/README.md)。
+   - 例外：`checklists/`、`requirements/` 和部分“能力边界/研究笔记/API 专题”不强制编号；它们按清单或章节组织，并在总索引第 6 节单列。**不要为了凑编号伪造知识点。**
 3. 每个知识点必须回答四个问题：
    - **判据**：什么条件下成立（数值、单位、适用工艺）。
    - **为什么**：物理/工艺/成本原因。
@@ -58,6 +63,8 @@
 # 0) 校验数据集（fragment 先合并，再灌库）
 node scripts/merge-knowledge-dataset.mjs --check   # 只读：报告 accepted/duplicates/problems
 node scripts/merge-knowledge-dataset.mjs           # 合并 fragments/*.json 到四类核心 JSON 并归档
+node scripts/build-knowledge-index.mjs --check     # 只读：检查总索引是否落后于文档/条目
+node scripts/build-knowledge-index.mjs             # 重新生成 docs/knowledge/KNOWLEDGE-INDEX.md
 node scripts/seed-knowledge-pcb.mjs --check        # schema/doc/entityKey 自检
 
 # 1) 灌入候选条目（默认写 artifacts/knowledge，幂等，可重复执行）

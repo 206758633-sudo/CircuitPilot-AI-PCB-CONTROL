@@ -54,7 +54,9 @@
     "knowledge:pack:verify": "node scripts/knowledge-pack.mjs verify",
     "desktop:build:windows": "npm run desktop:check && tauri build --bundles msi,nsis",
     "desktop:build:linux": "npm run desktop:check && tauri build --bundles deb,appimage",
-    "desktop:build:macos": "npm run desktop:check && tauri build --bundles app,dmg"
+    "desktop:build:macos": "npm run desktop:check && tauri build --bundles app,dmg",
+    "knowledge:index": "node scripts/build-knowledge-index.mjs",
+    "knowledge:index:check": "node scripts/build-knowledge-index.mjs --check"
   },
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.6",
