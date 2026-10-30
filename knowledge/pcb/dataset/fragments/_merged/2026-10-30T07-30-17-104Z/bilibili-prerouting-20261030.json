@@ -1,0 +1,175 @@
+{
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "预布线：关键网络先锁定，普通信号后布",
+      "doc": "docs/knowledge/pcb/24-prerouting-and-power-first.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PREROUTE-001",
+        "category": "布线/流程",
+        "severity": "warning",
+        "statement": "布局冻结后、普通信号布线前，必须先预布并锁定关键网络（电源/地回流、时钟、高速/差分、RF、敏感模拟、反馈/复位、Fanout），并为普通信号预留通道/禁布区；预布不是自动布线，也不是把所有网络先拉通。",
+        "limits": [
+          "预布对象至少覆盖电源/地、时钟/反馈/复位、高速/差分、RF/模拟、Fanout 五类",
+          "先定层/参考平面和网络 class，再预布；参考平面不连续或通道未规划时不得开布",
+          "预布完成后要做回流、跨分割、阻抗/等长、载流、DRC、可制造性评审",
+          "普通信号必须预留通道，不得为了连通穿越关键网络或切碎参考平面",
+          "预布锁定后，关键网络修改必须重新评审并更新输出/证据"
+        ],
+        "rationale": "关键网络决定回流、阻抗、时序和 EMC；普通信号先布会占掉关键通道，后期只能绕线、跨分割、加过孔。预布把“不可返工的部分”先固定，避免全局返工。",
+        "check": "按预布七步（冻结布局→建 class→规划层/参考面→Fanout→预布关键网络→预留普通通道→评审锁定）逐项打勾；检查电源/地环路、时钟/反馈路径、高速换层回流、RF/模拟隔离、DRC 和板厂能力。",
+        "appliesTo": [
+          "pcb",
+          "routing",
+          "power",
+          "high-speed",
+          "rf"
+        ],
+        "tags": [
+          "预布线",
+          "关键网络",
+          "回流",
+          "参考平面",
+          "Fanout",
+          "布线流程"
+        ],
+        "sources": [
+          "SRC-BILI-PCB-ROUTING-5",
+          "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电源/地回流优先于普通信号布线",
+      "doc": "docs/knowledge/pcb/24-prerouting-and-power-first.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-POWER-FIRST-002",
+        "category": "电源/布局",
+        "severity": "warning",
+        "statement": "预布线阶段必须先确认电源树、载流路径、电源/地平面和功率环路，再布时钟/高速/普通信号；后续任何信号不得切断电源/地回流或把平面切成孤岛。",
+        "limits": [
+          "先确认输入保护→滤波→变换器→负载的电压/电流/上电顺序",
+          "大电流路径用铜皮/平面/过孔阵列，最窄处满足载流/压降",
+          "功率环路（输入电容→开关→电感→输出电容→地）面积最小",
+          "反馈/使能/补偿走线远离 SW 节点和电感磁场",
+          "普通信号不得造成地平面孤岛或关键回流路径断裂"
+        ],
+        "rationale": "电源和地是所有信号的回流基础；电源路径被后布信号切断会造成压降、噪声、回流绕行和 EMC 问题。电源优先是回流/载流约束，不是审美顺序。",
+        "check": "电源树与原理图一致；最窄载流处/过孔数量；输入输出环路面积；反馈是否避开 SW/电感；地平面连通性；换层回流地孔。",
+        "appliesTo": [
+          "pcb",
+          "power",
+          "routing",
+          "grounding"
+        ],
+        "tags": [
+          "电源优先",
+          "电源树",
+          "功率环路",
+          "载流",
+          "回流",
+          "地平面"
+        ],
+        "sources": [
+          "SRC-BILI-PCB-ROUTING-5",
+          "SRC-BILI-LCEDA-COURSE"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "预布线七步流程（关键网络先锁定）",
+      "doc": "docs/knowledge/pcb/24-prerouting-and-power-first.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-PREROUTE-WORKFLOW",
+        "category": "布线/流程",
+        "purpose": "在布局冻结后、普通信号布线前，用固定流程预布关键网络并预留通道，降低后期绕线、跨分割和返工。",
+        "whenToUse": "多层板、含开关电源/高速接口/差分/RF/敏感模拟的板，或布线密度高、后期改线成本大的板；简单低速板可用轻量版。",
+        "designPoints": [
+          "第 1 步：冻结布局/分区，确认板框/接口/大件/去耦/晶振/RF 区不再大改",
+          "第 2 步：建网络 class 和设计规则（电源/地/时钟/高速/差分/模拟/RF/普通）",
+          "第 3 步：规划层和参考平面，关键信号有连续参考面",
+          "第 4 步：BGA/QFN/连接器 Fanout，预留逃逸通道和过孔区",
+          "第 5 步：按电源/地→时钟/反馈→高速/差分→RF/模拟顺序预布关键网络",
+          "第 6 步：为普通信号预留通道/禁布区，试拉最密区域验证可布性",
+          "第 7 步：预布评审（回流/跨分割/阻抗/等长/载流/DRC/可制造）后锁定"
+        ],
+        "keyParameters": [
+          "预布覆盖关键网络五类，不是所有网络",
+          "参考平面连续性优先于走线美观",
+          "关键网络锁定后修改必须重新评审",
+          "普通信号通道按最坏情况预留",
+          "预布后 DRC 全绿不等于回流/阻抗正确，仍需人工检查"
+        ],
+        "schematic": "原理图先明确电源树、接口类型、时钟/复位/反馈网络和敏感模拟区，预布才有约束来源。",
+        "layout": "布局冻结后先 Fanout，再按电源/地→时钟/反馈→高速/差分→RF/模拟预布；关键网络间留普通信号通道；预布评审后锁定。",
+        "pitfalls": [
+          "把预布当成自动布线，所有网络先拉一遍",
+          "布局没冻结就预布，边布边改布局",
+          "先布普通信号，关键网络后期绕线/跨分割",
+          "Fanout 堵死，普通信号无路可走",
+          "预布占满全板，没给普通信号留通道",
+          "预布后只看 DRC，不查回流/阻抗/载流"
+        ],
+        "tags": [
+          "预布线",
+          "布线流程",
+          "电源优先",
+          "Fanout",
+          "参考平面",
+          "通道规划"
+        ],
+        "sources": [
+          "SRC-BILI-PCB-ROUTING-5",
+          "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "关键网络未预布：普通信号先占通道，后期绕线/跨分割/返工",
+      "doc": "docs/knowledge/pcb/24-prerouting-and-power-first.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PREROUTE-MISSING",
+        "code": "PREROUTE-MISSING",
+        "category": "布线/流程",
+        "severity": "warning",
+        "symptom": "普通信号布完后发现电源/地回流被切断、时钟/反馈被绕远、高速/差分跨分割或换层无回流孔；为了连通只能删线重布，严重时回退布局。",
+        "rootCause": "没有预布关键网络；先布普通信号占掉通道/参考平面；Fanout 未规划；布局未冻结就开布；预布后没有评审锁定。",
+        "detection": "预布清单检查；关键网络是否锁定；普通信号是否穿越关键通道/参考平面；回流孔/跨分割检查；DRC 之外的 SI/PI 人工评审。",
+        "prevention": [
+          "布局冻结后再预布",
+          "先建网络 class/层/参考平面，再预布关键网络",
+          "先 Fanout 并预留普通信号通道",
+          "预布评审通过后锁定关键网络",
+          "普通信号开布前试拉最密区域验证通道"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/24-prerouting-and-power-first.md",
+          "docs/knowledge/pcb/03-placement-routing.md"
+        ],
+        "tags": [
+          "预布线",
+          "返工",
+          "跨分割",
+          "回流",
+          "通道占用",
+          "布线顺序"
+        ],
+        "sources": [
+          "SRC-BILI-PCB-ROUTING-5",
+          "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    }
+  ]
+}

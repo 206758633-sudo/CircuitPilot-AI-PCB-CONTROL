@@ -1,0 +1,138 @@
+{
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "布局优先级：结构/接口/功率/安规/防护在前，主控统筹在后",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-LAYOUT-005",
+        "category": "布局/方法论",
+        "severity": "warning",
+        "statement": "有结构/外壳/接口/安规/功率约束的板，布局顺序应为：结构定位→接口对齐→功率链路→安规隔离区→接口防护→主控统筹→高速/模拟/低速分区→阻容器件细化；不得默认先把主控放板中心。",
+        "limits": [
+          "结构定位：板框、安装孔、限高、连接器开口、按键/LED/天线区先固定",
+          "功率链路：电源入口→保护/滤波→变换器→负载，尽量短、直、粗、闭环",
+          "安规隔离：高压/低压、一次/二次、隔离带在放主控前划出",
+          "接口防护：TVS/ESD/保险丝/共模电感靠连接器",
+          "主控位置由接口/高速/晶振/调试口共同决定，不以板中心为默认",
+          "阻容器件最后细化，但去耦仍必须靠近 IC 电源脚"
+        ],
+        "rationale": "先放主控会把结构、接口、功率、安规和防护全部挤到次优位置；后续布线无法补救接口方向、功率路径和隔离带错误。布局是约束求解，不是先到先得。",
+        "check": "按布局评审清单逐项检查：结构图对照、接口朝外/插拔空间、功率路径最窄处、隔离间距、防护器件到接口距离、主控到高速接口/晶振距离、courtyard/3D 干涉。",
+        "appliesTo": [
+          "pcb",
+          "layout",
+          "power",
+          "interface",
+          "safety"
+        ],
+        "tags": [
+          "布局顺序",
+          "结构定位",
+          "接口对齐",
+          "功率链路",
+          "安规隔离",
+          "接口防护",
+          "主控布局"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-LAYOUT",
+          "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "约束优先的 PCB 布局顺序（结构与功率先行）",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-LCEDA-LAYOUT-PRIORITY",
+        "category": "布局/方法论",
+        "purpose": "把布局从“先摆主控再围一圈”改成“先固定不可动约束，再让主控统筹”的可检查流程，减少布线后返工。",
+        "whenToUse": "有外壳/结构件、连接器较多、含开关电源/高压/隔离/接口防护，或主控周围高速/模拟/低速混合的板。",
+        "designPoints": [
+          "第 1 步：结构定位——板框、安装孔、限高、接口开口、按键/LED/天线区",
+          "第 2 步：接口对齐——连接器朝外，线缆/插拔/装配空间满足",
+          "第 3 步：功率链路——入口保护、滤波、变换器、负载按功率流向短直粗闭环",
+          "第 4 步：安规隔离——高压/低压、一次/二次、隔离带提前划分",
+          "第 5 步：接口防护——TVS/ESD/保险丝/共模靠连接器",
+          "第 6 步：主控统筹——按高速接口、晶振、调试口、散热确定位置",
+          "第 7 步：外设分区——高速/模拟/低速/大电流分开",
+          "第 8 步：阻容细化——去耦靠电源脚，匹配/测试点最后补"
+        ],
+        "keyParameters": [
+          "布局顺序不是“主控居中”，而是约束优先",
+          "功率路径最窄处按电流/温升计算，不靠目测",
+          "隔离间距/爬电按安规要求，先划区再放器件",
+          "接口防护器件到连接器的距离越短越好",
+          "courtyard/3D/结构图检查必须在布线前完成"
+        ],
+        "schematic": "原理图阶段先标清电源入口、接口、隔离边界和功能模块，布局才能按模块落位。",
+        "layout": "先固定结构和接口，再做功率/安规/防护，最后主控/外设/阻容；每区完成即做 courtyard/3D 检查。",
+        "pitfalls": [
+          "先放主控导致连接器方向被挤歪",
+          "功率器件放远、路径绕长、环路面积大",
+          "TVS/保险丝放板内，浪涌先打坏后级",
+          "隔离带被接口/走线穿越",
+          "去耦电容为了整齐放到远离电源脚",
+          "等布完线才发现结构/接口装不上"
+        ],
+        "tags": [
+          "布局顺序",
+          "约束优先",
+          "结构",
+          "功率链路",
+          "安规隔离",
+          "接口防护",
+          "主控"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-LAYOUT",
+          "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "先放主控再围一圈：接口/功率/防护被挤到次优位置，导致布局返工",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-LCEDA-LAYOUT-CENTER-MCU",
+        "code": "LCEDA-LAYOUT-CENTER-MCU",
+        "category": "布局/方法论",
+        "severity": "warning",
+        "symptom": "布线阶段发现连接器方向被主控挡住、功率路径绕远、TVS/保险丝放不进接口区、隔离带被穿越，只能整体重摆或改板。",
+        "rootCause": "把“主控在板中心”当成默认起点；没有先固定结构/接口/功率/安规约束；外设和阻容围绕主控堆叠，压缩了接口和防护空间。",
+        "detection": "布局评审按结构→接口→功率→安规→防护→主控顺序走查；1:1 打印/3D 检查接口插拔和装配；功率路径/隔离带目检；布线前 courtyard DRC。",
+        "prevention": [
+          "先画板框/安装孔/限高和接口开口",
+          "先放连接器、功率入口/保护/变换器、隔离带",
+          "TVS/ESD/保险丝/共模靠接口",
+          "主控位置由高速接口/晶振/调试口/散热共同决定",
+          "布线前完成布局评审清单并留证据"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md"
+        ],
+        "tags": [
+          "布局返工",
+          "主控居中",
+          "接口方向",
+          "功率路径",
+          "安规隔离",
+          "防护器件"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-LAYOUT",
+          "SRC-BILI-LCEDA-SERIES"
+        ],
+        "evidenceLevel": "C"
+      }
+    }
+  ]
+}

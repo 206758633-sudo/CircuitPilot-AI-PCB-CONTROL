@@ -1,0 +1,340 @@
+{
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "嘉立创EDA专业版投板前门禁：DRC 通过只是必要条件",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-GATE-001",
+        "category": "评审/门禁",
+        "severity": "warning",
+        "statement": "投板前必须依次完成工程/库身份核对、原理图 ERC、PCB DRC、输出文件版本核对、下单参数复核；DRC 为 0 错误 0 警告只是允许进入下单页的必要条件，不是设计正确或可制造的充分条件。",
+        "limits": [
+          "DRC 必须覆盖当前 PCB 全部图元；删改图元/覆铜后先重建、保存、重开再复跑",
+          "所有 DRC 错误/警告必须逐条标记为已修、有依据豁免或待复核，不允许整体忽略",
+          "DRC 不能替代器件选型、电源轨、极性、封装身份、3D 干涉、BOM/坐标一致性检查",
+          "豁免项必须有理由、影响范围、批准人和复核日期"
+        ],
+        "rationale": "DRC 只检查规则库能表达的几何/连接问题；器件选错、电源轨缺失、BOM 与坐标不一致、封装引脚映射错误都可能不在 DRC 中暴露。把 DRC 绿灯当成设计完成会制造虚假安全感。",
+        "check": "固定顺序：保存→重建覆铜→关闭重开→执行 DRC→逐条处理→导出报告；再按 BOM/坐标/装配图三方核对；任一豁免项无依据则保持阻断。",
+        "appliesTo": [
+          "schematic",
+          "pcb",
+          "manufacturing",
+          "release"
+        ],
+        "tags": [
+          "嘉立创EDA专业版",
+          "DRC",
+          "投板门禁",
+          "BOM",
+          "生产文件",
+          "下单前检查"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-SERIES",
+          "SRC-LCEDA-PRO-ORDER"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "生产文件七件套与同版本输出",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-OUTPUT-002",
+        "category": "制造文件",
+        "severity": "error",
+        "statement": "投板/SMT 输出包至少包含工程源文件、Gerber、钻孔、BOM、坐标文件、装配图、叠层/工艺单七类，且所有文件必须来自同一版本、同一块 PCB。",
+        "limits": [
+          "工程源文件：.epro/.eprj、原理图 PDF、网表",
+          "Gerber：铜层、阻焊、丝印、板框、内层",
+          "钻孔：PTH/NPTH 与孔径表",
+          "BOM：位号、MPN、封装、数量、DNP",
+          "坐标：位号、X/Y、旋转角、面别",
+          "装配图：顶/底、极性/1 脚",
+          "其他：叠层/阻抗/工艺单/EQ/DXF"
+        ],
+        "rationale": "Gerber 只解决板子怎么制造，BOM 解决贴什么料，坐标解决贴在哪里，装配图解决怎么装；缺任何一类都会导致工厂追问、默认取值或贴错。官方文档将工程源文件、Gerber、BOM、坐标文件、装配文件、DXF 和其他文件列为工程最终可输出文件。",
+        "check": "建立固定目录（Gerber/Drill/BOM/PickPlace/Assembly/Stackup/Docs），所有文件用同一版本号/日期；导出后逐项打开检查，不只确认文件存在；旧版本归档不覆盖。",
+        "appliesTo": [
+          "pcb",
+          "manufacturing",
+          "smt",
+          "release"
+        ],
+        "tags": [
+          "Gerber",
+          "BOM",
+          "坐标文件",
+          "装配图",
+          "生产文件",
+          "版本管理"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-OUTPUT",
+          "SRC-BILI-LCEDA-OUTPUT"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "原理图标题栏、模块分区与未连接标识",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-SCH-003",
+        "category": "原理图/规范",
+        "severity": "warning",
+        "statement": "原理图必须填写标题栏（工程/图页/作者/审阅/页数/日期/版本/物料编码），按功能模块画框标注，去耦电容画在芯片电源脚旁，未使用引脚放置非连接标识符。",
+        "limits": [
+          "标题栏至少包含工程名、图页名、版本号、日期、绘制/审阅人",
+          "功能模块必须有矩形框和文字标注，模块边界可对应 PCB 分区",
+          "每个芯片电源脚附近的去耦电容应在原理图上同样靠近放置",
+          "未使用引脚必须有 NC/非连接标识，不能悬空",
+          "大图应拆图页或层次图块，顶层框图能看清模块间连接"
+        ],
+        "rationale": "原理图是评审、调试、ECO 和交接的共同语言；标题栏缺版本会导致改版不可追溯，模块边界不清会导致 PCB 分区错误，未连接标识缺失会让 ERC/评审无法区分“故意不接”和“漏接”。",
+        "check": "按标题栏完整、模块边界清楚、去耦在芯片旁、未用脚有 NC、图页版本可追溯五项人工走查；再跑 ERC，但 ERC 通过不能替代可读性评审。",
+        "appliesTo": [
+          "schematic",
+          "review"
+        ],
+        "tags": [
+          "原理图规范",
+          "标题栏",
+          "模块划分",
+          "去耦电容",
+          "非连接标识",
+          "版本管理"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-SCHEMATIC",
+          "SRC-BILI-LCEDA-COURSE"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "符号/封装/3D/料号身份一致性",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LCEDA-LIB-004",
+        "category": "原理图/库",
+        "severity": "error",
+        "statement": "器件进入 BOM 前必须确认符号引脚号、封装焊盘号、datasheet 引脚号三者一致，封装尺寸/极性/1 脚方向正确，3D 方向和高度与实物一致，位号/值/MPN/供应商料号不冲突。",
+        "limits": [
+          "符号引脚号 = 封装焊盘号 = datasheet 引脚号",
+          "焊盘尺寸/间距/极性/1 脚方向必须按 datasheet 或 IPC-7351 核对",
+          "有结构干涉要求时必须核对 3D 方向/高度",
+          "位号、值、MPN、LCSC/供应商料号必须同源且不冲突",
+          "库修改/复制必须留版本或变更记录"
+        ],
+        "rationale": "符号/封装错是典型的“原理图看起来对、板子一定错”，DRC 不一定发现。课程演示建库只能提供操作顺序，器件身份必须以 datasheet 和供应商资料为准。",
+        "check": "逐脚对照 datasheet；封装 1:1 打印或用卡尺核对；3D 与结构图叠合；BOM/原理图/PCB 三方核对位号、MPN、封装和极性。",
+        "appliesTo": [
+          "schematic",
+          "library",
+          "bom",
+          "pcb"
+        ],
+        "tags": [
+          "符号库",
+          "封装库",
+          "3D模型",
+          "引脚映射",
+          "BOM",
+          "器件身份"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-SERIES",
+          "SRC-BILI-LCEDA-COURSE"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "嘉立创EDA专业版从工程到投板的七阶段闭环",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-LCEDA-WORKFLOW",
+        "category": "流程/质量",
+        "purpose": "把嘉立创EDA专业版的操作顺序组织成可检查的工程闭环，避免“只会在编辑器里连线”而漏掉库身份、DRC、输出和下单检查。",
+        "whenToUse": "新板从需求到投板、旧板改版、学生/新手第一次完整做板，或需要把 B 站课程学习转成工程交付物时。",
+        "designPoints": [
+          "阶段 1：工程/库身份——工程、图页、符号、封装、3D、版本号",
+          "阶段 2：原理图——标题栏、模块分区、网络命名、未连接标记、ERC",
+          "阶段 3：PCB 布局——板框/固定件先定，接口朝外，电源流向，去耦靠近，courtyard/3D 检查",
+          "阶段 4：布线——电源/地先走，高速/差分按叠层和回流要求，普通信号最后，铺铜后重建再 DRC",
+          "阶段 5：检查——DRC 逐条归属，丝印/极性/3D/DFM/DFA 人工检查",
+          "阶段 6：输出——工程源文件、Gerber、钻孔、BOM、坐标、装配图、工艺单",
+          "阶段 7：下单/归档——参数与工艺单复核，EQ 记录，版本归档"
+        ],
+        "keyParameters": [
+          "每阶段必须有可复核放行物，不能只靠聊天记录",
+          "所有输出文件使用同一版本号/日期",
+          "DRC 0 错误 0 警告只是进入下单页的必要条件",
+          "任何身份/参数/版本不一致时停止，不靠“再点一次”掩盖"
+        ],
+        "schematic": "先填标题栏和版本号，按功能模块画框；去耦跟芯片；未用脚放 NC；出 ERC 报告。",
+        "layout": "先固定板框/安装孔/连接器/按键/LED/天线区；再放电源和保护；再放 IC/去耦；最后小阻容和测试点；每区检查 courtyard 和 3D。",
+        "pitfalls": [
+          "直接照抄视频电路当量产方案",
+          "只跑 DRC 不核对 BOM/坐标/装配图",
+          "封装引脚号与 datasheet 不一致",
+          "输出包缺钻孔/坐标/装配图",
+          "下单参数与设计/工艺单不一致",
+          "把活动优惠/加急当成跳过检查的理由"
+        ],
+        "tags": [
+          "嘉立创EDA专业版",
+          "工程闭环",
+          "原理图",
+          "PCB布局",
+          "布线",
+          "DRC",
+          "生产文件",
+          "投板"
+        ],
+        "sources": [
+          "SRC-BILI-LCEDA-SERIES",
+          "SRC-BILI-LCEDA-COURSE",
+          "SRC-LCEDA-PRO-ORDER"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "工程输出包与版本矩阵",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-LCEDA-OUTPUT-PACK",
+        "category": "制造文件",
+        "purpose": "用固定目录和版本矩阵管理投板/SMT 输出，确保工厂拿到的每一份文件都来自同一版设计。",
+        "whenToUse": "首次投板、改版、SMT 贴片、手工焊接、返修或向板厂发 EQ 时。",
+        "designPoints": [
+          "目录：01_Gerber、02_Drill、03_BOM、04_PickPlace、05_Assembly、06_Stackup、07_Docs",
+          "每个目录内文件名包含项目名+版本号+日期",
+          "BOM 位号集合 = 坐标位号集合 = 装配图位号集合",
+          "DNP/不贴/替代料在 BOM 和坐标中同步标记",
+          "双面贴装分面清楚，底层镜像/旋转规则与贴片厂约定",
+          "旧版本只归档不覆盖，保留导出时间和操作人"
+        ],
+        "keyParameters": [
+          "输出包至少 7 类文件",
+          "同一版本号贯穿源文件/PCB/Gerber/BOM/坐标/装配图",
+          "BOM/坐标/装配图位号集合差集必须为空",
+          "首件/极性件/连接器必须人工核对"
+        ],
+        "schematic": "原理图侧提供 BOM、PDF、网表；版本号与 PCB/输出包一致。",
+        "layout": "PCB 侧提供 Gerber、钻孔、坐标、装配图、叠层/阻抗/工艺单；双面贴装标注面别。",
+        "pitfalls": [
+          "只发 Gerber 不发 BOM/坐标",
+          "BOM 与坐标位号不一致",
+          "装配图底层未镜像",
+          "坐标旋转角与封装 0° 定义不一致",
+          "输出包混入旧版本文件"
+        ],
+        "tags": [
+          "输出包",
+          "Gerber",
+          "BOM",
+          "坐标文件",
+          "装配图",
+          "版本矩阵"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-OUTPUT",
+          "SRC-BILI-LCEDA-OUTPUT"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "未跑 DRC/未核对下单参数就投板，导致退单或实物不符",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-LCEDA-ORDER-UNCHECKED",
+        "code": "LCEDA-ORDER-UNCHECKED",
+        "category": "制造/DFM",
+        "severity": "error",
+        "symptom": "下单后被板厂退回/EQ，或收到实物发现层数、板厚、铜厚、表面处理、拼版、SMT 面别与设计/工艺单不一致。",
+        "rootCause": "只把 DRC 当弹窗点过；未读完整报告；下单页参数沿用旧值或被手工改动；未把设计参数/工艺单/下单页三方核对；用优惠券/加急替代检查。",
+        "detection": "下单页截图与设计文件/工艺单三方对照；板厂 EQ/确认函；首件与订单参数核对；DRC 报告逐条复核。",
+        "prevention": [
+          "投板前执行并逐条处理 DRC，保存报告",
+          "DRC 0/0 后仍检查器件选型/电源轨/极性/封装/3D/BOM",
+          "设计参数—工艺单—下单页三列并排核对并截图留档",
+          "批量订单选择确认生产稿",
+          "参数不一致时停止，不用优惠/加急换时间"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md"
+        ],
+        "tags": [
+          "下单",
+          "DRC",
+          "工艺参数",
+          "退单",
+          "EQ",
+          "嘉立创EDA专业版"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-ORDER",
+          "SRC-BILI-LCEDA-SERIES"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "BOM、坐标文件与装配图不一致，导致贴错料/贴反/漏贴",
+      "doc": "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-LCEDA-BOM-CPL-MISMATCH",
+        "code": "LCEDA-BOM-CPL-MISMATCH",
+        "category": "装配/DFM",
+        "severity": "error",
+        "symptom": "SMT 首件发现位号错位、极性件贴反、同一位置贴错料，或手工焊接按装配图装反。",
+        "rootCause": "BOM 和坐标来自不同版本 PCB；位号/封装/旋转角/面别未核对；DNP/替代料只在 BOM 标记；装配图底层未镜像；封装 0° 定义与贴片厂约定不一致。",
+        "detection": "BOM/坐标/装配图位号集合差集；关键器件坐标在 Gerber 上量位置；首件 AOI/目检；贴片厂程序回读。",
+        "prevention": [
+          "BOM、坐标、装配图从同一版 PCB/原理图导出",
+          "位号集合差集必须为空",
+          "DNP/替代料在 BOM 和坐标同步标记",
+          "双面贴装分面、底层镜像/旋转规则与贴片厂确认",
+          "连接器/二极管/钽电容/LED/IC 的 1 脚逐项目检"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/23-lceda-project-workflow-and-bilibili-course.md"
+        ],
+        "tags": [
+          "BOM",
+          "坐标文件",
+          "装配图",
+          "SMT",
+          "贴反",
+          "漏贴"
+        ],
+        "sources": [
+          "SRC-LCEDA-PRO-OUTPUT",
+          "SRC-BILI-LCEDA-COURSE"
+        ],
+        "evidenceLevel": "B/C"
+      }
+    }
+  ]
+}
