@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { COMMANDS } from '../bridge.mjs';
 import { ApprovalStore } from '../design.mjs';
+import { mmToMil } from '../engineering/eda-primitives.mjs';
 import { solveDifferentialWidth, solveMicrostripWidth } from '../engineering/impedance.mjs';
 import { differentialFromSingleEnded } from '../engineering/stackup.mjs';
 import { normalizePcbPlan, PcbManager } from '../pcb.mjs';
@@ -132,7 +133,7 @@ test('四层高速板走通全流程：编译 -> 执行计划 -> 落板，线宽
 
   const lineCommands = commands.filter((command) => command.id === 'pcb.line.create');
   assert.ok(lineCommands.some((command) => command.args.layer === 15 && command.args.net === 'SPI_CLK'), '内层走线必须真正下发');
-  assert.ok(lineCommands.filter((command) => command.args.net === 'USB_DP').every((command) => command.args.lineWidth === expectedWidth), '下发的差分线宽必须等于反解值');
+  assert.ok(lineCommands.filter((command) => command.args.net === 'USB_DP').every((command) => command.args.lineWidth === Number(mmToMil(expectedWidth).toFixed(6))), '下发的差分线宽必须等于反解值换算成 EDA 原生 mil');
   const viaCount = commands.filter((command) => command.id === 'pcb.via.create').length;
   // SPI_CLK 两个顶层焊盘转到内层 L2 = 2 个过渡孔；四角地缝合 = 4 个。
   assert.equal(viaCount, 6, `过孔数量应为 6（2 个层间转换 + 4 个缝合）: ${JSON.stringify(commands.filter((c) => c.id === 'pcb.via.create').map((c) => c.args))}`);

@@ -11,6 +11,7 @@ OpenSpec：`add-advanced-pcb-engineering-engines`
 4. 通用工程能力：确定性约束布局、碰撞门禁、参考标号丝印候选、SHA-256 不可变报告及操作清单。
 5. 嘉立创EDA 边界：只编译白名单内的 `pcb.component.modify`、`pcb.line.create`、`pcb.outline.create`、`pcb.via.create`、`pcb.pour.create`、`pcb.importChanges`、`pcb.save`、`pcb.drc` 操作；分析不会自动执行，仍走现有快照、绑定审批、回读、官方 DRC 和失败回滚流程。**板框必须用 `pcb.outline.create`**（`PCB_PrimitivePolyline.create` + 坐标开头的 `[x0,y0,"L",…]` 多边形编码）；实测 `PCB_PrimitiveLine/Arc` 只接受 SIGNAL 铜层，写板框层必然失败且报错会误导为“参数不正确”（见 `runtime/engineering/eda-primitives.mjs`）。
 6. 产品界面：验证中心提供三套可点击黄金样板，并展示报告哈希、工程发现、待审批操作数和生产边界。
+7. 单位契约：本模块产出的操作几何统一为 **mm**（布局、routeGeometry、placedVias 都按 mm 输入）；真正下发 EDA 前，`PcbManager.runOperation` 统一把 mm 换算为嘉立创EDA PCB 原生 **mil**。`pcb.outline.create` 例外：桥接层接收 `widthMm/heightMm` 并自行换算（其 `lineWidth` 仍是 mil，需转换）；`complexPolygon` 已是原生 mil，不重复换算。官方 `SYS_Unit` 类型注释明确“PCB 数据单位跨度等效为 mil”，真机 COMPONENT `x=393.7008` 即 10mm。
 
 ## 黄金样板
 

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { ApprovalStore, attachPlanLineage, digest, documentSourceDigest } from './design.mjs';
 import { LAYER_IDS, countCopperLayers, isPlanCopperLayerCount, validateLayerReferences } from './engineering/layers.mjs';
 import { validateStackup } from './engineering/stackup.mjs';
-import { BOARD_OUTLINE_HELP } from './engineering/eda-primitives.mjs';
+import { BOARD_OUTLINE_HELP, mmToMil } from './engineering/eda-primitives.mjs';
 import { waitForEdaJob } from './engineering/eda-jobs.mjs';
 
 export const PCB_API_VERSION = 1;
@@ -38,6 +38,54 @@ const mutatingOperationTypes = new Set(['pcb.importChanges','pcb.line.create','p
  */
 const SYNC_ONLY_OPERATION_TYPES = new Set(['pcb.importChanges','pcb.component.modify','pcb.save','pcb.drc']);
 const finite = (value) => typeof value === 'number' && Number.isFinite(value);
+
+/**
+ * 高层 PCB 计划统一使用 mm，而嘉立创EDA 的 PCB 数据单位是 mil
+ * （官方 `SYS_Unit` 类型注释：“PCB 数据单位跨度等效为 mil”；真机 COMPONENT
+ * x=393.7008 也正是 10mm）。计划哈希、批准令牌和 UI 编辑器都必须绑定 mm，
+ * 只在真正下发 EDA 前做一次换算，否则“板框 45mm、走线 0.2”会被 EDA 当成
+ * 45mil/0.2mil，整块板缩小 25.4 倍而 DRC 仍可能通过。
+ *
+ * 注意：`pcb.outline.create` 的 `widthMm/heightMm` 本来就由桥内部换算，不能再转；
+ * 但它的 `lineWidth` 是 EDA 原生 mil，需要转换。`complexPolygon` 是已经按
+ * EDA 原生 mil 构造的对象，不转换。`pcb.pour.create.lineWidth` 是覆铜边框线宽，
+ * 真机既有覆铜读回为 `0.2`（mm），与坐标/走线/过孔的 mil 不同，不能跟着换算。
+ */
+export const PCB_PLAN_GEOMETRY_UNIT = 'mm';
+const planMmToMil = (value) => Number(mmToMil(value).toFixed(6));
+
+/** 把一份 mm 单位的高层 PCB 操作转换为桥接层需要的 EDA 原生单位（mil）。 */
+export function toEdaOperationArgs(operation = {}) {
+  const args = operation.args && typeof operation.args === 'object' ? operation.args : {};
+  const convert = (source, keys) => {
+    const copy = { ...source };
+    for (const key of keys) if (finite(copy[key])) copy[key] = planMmToMil(copy[key]);
+    return copy;
+  };
+  switch (operation.type) {
+    case 'pcb.component.modify': {
+      if (!args.property || typeof args.property !== 'object') return args;
+      const property = convert(args.property, ['x', 'y']);
+      return { ...args, property };
+    }
+    case 'pcb.line.create':
+      return convert(args, ['startX', 'startY', 'endX', 'endY', 'lineWidth']);
+    case 'pcb.via.create':
+      return convert(args, ['x', 'y', 'holeDiameter', 'diameter']);
+    case 'pcb.outline.create':
+      return convert(args, ['lineWidth']);
+    case 'pcb.pour.create': {
+      const copy = { ...args };
+      if (Array.isArray(args.outline)) {
+        copy.outline = args.outline.map((point) => Array.isArray(point) ? point.map((value, index) => index < 2 && finite(value) ? planMmToMil(value) : value) : point);
+      }
+      // lineWidth 是 mm（真机既有覆铜读回 0.2），保持原值；只有轮廓坐标需要转 mil。
+      return copy;
+    }
+    default:
+      return args;
+  }
+}
 const MAX_OPERATIONS = 2_000;
 const BATCH_SIZE = 50;
 const OPERATION_TIMEOUT_MS = 30_000;
@@ -653,7 +701,10 @@ export class PcbManager {
    * 但只重派一次，且重派也要重新过健康门——不搞无限重试。
    */
   async runOperation(operation, event = null) {
-    if (operation.type !== 'pcb.drc' || this.drcMode === 'blocking') return withTimeout(this.bridge.execute(operation.type, operation.args || {}, { allowWrite: true }), this.operationTimeoutMs, 'PCB_OPERATION_TIMEOUT');
+    if (operation.type !== 'pcb.drc' || this.drcMode === 'blocking') {
+      const args = toEdaOperationArgs(operation);
+      return withTimeout(this.bridge.execute(operation.type, args, { allowWrite: true }), this.operationTimeoutMs, 'PCB_OPERATION_TIMEOUT');
+    }
     await this.assertRendererHealthy();
     const attempt = async (round) => {
       const jobId = crypto.randomUUID();

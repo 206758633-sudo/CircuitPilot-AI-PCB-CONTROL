@@ -57,7 +57,7 @@ node /tmp/restore.mjs /tmp/pcb_src_exact.txt   # setDocumentSource(原样字符�
 
 ## 2. 阶段 B：布局（落网完成后）
 
-1. `pcb_PrimitiveComponent.modify(id, {x, y})` 按功能分区摆位（毫米坐标，桥接自动转 mil ✓）
+1. `pcb_PrimitiveComponent.modify(id, {x, y})` 按功能分区摆位（计划统一用毫米坐标；`PcbManager` 在执行边界转 EDA 原生 mil ✓）
 2. 分区规则：电源区（左）/ MCU 区（中）/ 音频区 / 摄像头 FPC 区 / RGB 串 / 舵机座（右边缘）
 3. 验收：DRC 间距类错误数下降 ✓、无器件重叠 ✓
 
