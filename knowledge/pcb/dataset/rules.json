@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "generatedAt": "2026-10-30T07:27:05.363Z",
+  "generatedAt": "2026-10-30T07:30:17.099Z",
   "domain": "pcb-design-rules",
   "notes": "数值为工程参考值与常见工艺能力。2026-10-23 起新增公开资料研究条目（ESP32/TI/RPi/JLCPCB/PCBWay/Sierra/IPC），每条带 sources 指向 sources.json；落地前必须按 IPC-2221/IPC-2152 原文、datasheet 与目标板厂当前能力表复核。",
   "entries": [
@@ -5591,6 +5591,87 @@
         "sources": [
           "SRC-BILI-LCEDA-LAYOUT",
           "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "预布线：关键网络先锁定，普通信号后布",
+      "doc": "docs/knowledge/pcb/24-prerouting-and-power-first.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PREROUTE-001",
+        "category": "布线/流程",
+        "severity": "warning",
+        "statement": "布局冻结后、普通信号布线前，必须先预布并锁定关键网络（电源/地回流、时钟、高速/差分、RF、敏感模拟、反馈/复位、Fanout），并为普通信号预留通道/禁布区；预布不是自动布线，也不是把所有网络先拉通。",
+        "limits": [
+          "预布对象至少覆盖电源/地、时钟/反馈/复位、高速/差分、RF/模拟、Fanout 五类",
+          "先定层/参考平面和网络 class，再预布；参考平面不连续或通道未规划时不得开布",
+          "预布完成后要做回流、跨分割、阻抗/等长、载流、DRC、可制造性评审",
+          "普通信号必须预留通道，不得为了连通穿越关键网络或切碎参考平面",
+          "预布锁定后，关键网络修改必须重新评审并更新输出/证据"
+        ],
+        "rationale": "关键网络决定回流、阻抗、时序和 EMC；普通信号先布会占掉关键通道，后期只能绕线、跨分割、加过孔。预布把“不可返工的部分”先固定，避免全局返工。",
+        "check": "按预布七步（冻结布局→建 class→规划层/参考面→Fanout→预布关键网络→预留普通通道→评审锁定）逐项打勾；检查电源/地环路、时钟/反馈路径、高速换层回流、RF/模拟隔离、DRC 和板厂能力。",
+        "appliesTo": [
+          "pcb",
+          "routing",
+          "power",
+          "high-speed",
+          "rf"
+        ],
+        "tags": [
+          "预布线",
+          "关键网络",
+          "回流",
+          "参考平面",
+          "Fanout",
+          "布线流程"
+        ],
+        "sources": [
+          "SRC-BILI-PCB-ROUTING-5",
+          "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电源/地回流优先于普通信号布线",
+      "doc": "docs/knowledge/pcb/24-prerouting-and-power-first.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-POWER-FIRST-002",
+        "category": "电源/布局",
+        "severity": "warning",
+        "statement": "预布线阶段必须先确认电源树、载流路径、电源/地平面和功率环路，再布时钟/高速/普通信号；后续任何信号不得切断电源/地回流或把平面切成孤岛。",
+        "limits": [
+          "先确认输入保护→滤波→变换器→负载的电压/电流/上电顺序",
+          "大电流路径用铜皮/平面/过孔阵列，最窄处满足载流/压降",
+          "功率环路（输入电容→开关→电感→输出电容→地）面积最小",
+          "反馈/使能/补偿走线远离 SW 节点和电感磁场",
+          "普通信号不得造成地平面孤岛或关键回流路径断裂"
+        ],
+        "rationale": "电源和地是所有信号的回流基础；电源路径被后布信号切断会造成压降、噪声、回流绕行和 EMC 问题。电源优先是回流/载流约束，不是审美顺序。",
+        "check": "电源树与原理图一致；最窄载流处/过孔数量；输入输出环路面积；反馈是否避开 SW/电感；地平面连通性；换层回流地孔。",
+        "appliesTo": [
+          "pcb",
+          "power",
+          "routing",
+          "grounding"
+        ],
+        "tags": [
+          "电源优先",
+          "电源树",
+          "功率环路",
+          "载流",
+          "回流",
+          "地平面"
+        ],
+        "sources": [
+          "SRC-BILI-PCB-ROUTING-5",
+          "SRC-BILI-LCEDA-COURSE"
         ],
         "evidenceLevel": "C"
       }

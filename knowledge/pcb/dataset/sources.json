@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "generatedAt": "2026-10-30T07:25:00.000Z",
+  "generatedAt": "2026-10-30T07:32:00.000Z",
   "domain": "pcb-research-sources",
   "notes": "公开资料研究来源登记。snapshotSha256 是各来源在 fetchedAt 时刻抓取快照的 SHA-256；HTML/API 页面会随发布更新，重新抓取后应更新哈希、fetchedAt 与 reviewBy。reviewBy 是强制复核期限（现有条目 2027-04-23，2026-10-30 新增条目 2027-04-30），到期未复核由 scripts/check-knowledge-sources.mjs 报 SOURCE_REVIEW_OVERDUE。所有条目只作工程参考，量产/安规必须按标准原文、数据手册和板厂 EQ 复核。",
   "sources": [
@@ -455,6 +455,31 @@
         "布局检查"
       ],
       "caveat": "官方教程只用于确认布局教学覆盖范围；菜单/规则/数值以当前EDA版本和官方文档为准，未取得字幕。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-BILI-PCB-ROUTING-5",
+      "publisher": "PCB吉迷哥（Bilibili）",
+      "title": "PCB布线水平进阶五要素（含 07-预布线设计思路）",
+      "url": "https://www.bilibili.com/video/BV1r34y1q7ZD",
+      "type": "video-tutorial",
+      "evidenceLevel": "C",
+      "revision": "2022-01 发布；2026-10-30 核对标题/简介/10 个分P（P7 预布线设计思路约35分钟）",
+      "fetchedAt": "2026-10-30T07:32:00.000Z",
+      "snapshotSha256": "88a66fc258be837367bfab19b8f1c6196ba16f20e5b7435681e8164afcfd7a27",
+      "topics": [
+        "布线五要素",
+        "电路分区规划",
+        "电源优先",
+        "模块化设计",
+        "Fanout",
+        "走线层选择",
+        "预布线设计思路",
+        "PMU电源系统",
+        "单点/多点接地",
+        "传输线"
+      ],
+      "caveat": "仅核对视频标题、简介和分P目录（含 P7 预布线设计思路），未取得逐字稿/未逐帧核对。预布线顺序是 C 级工程启发式；线宽/间距/阻抗/等长数值必须回到现有规则条目、叠层计算、datasheet 和板厂能力。",
       "reviewBy": "2027-04-30"
     }
   ]

@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "generatedAt": "2026-10-30T07:27:05.363Z",
+  "generatedAt": "2026-10-30T07:30:17.100Z",
   "domain": "pcb-failure-modes",
   "notes": "失败模式知识用于设计评审/DFM/调试时快速定位；2026-10-23 新增来自 Espressif/TI 官方应用报告的真实故障模式，具体判定以 EDA/实测/失效分析为准。",
   "entries": [
@@ -3227,6 +3227,45 @@
         "sources": [
           "SRC-BILI-LCEDA-LAYOUT",
           "SRC-BILI-LCEDA-SERIES"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "关键网络未预布：普通信号先占通道，后期绕线/跨分割/返工",
+      "doc": "docs/knowledge/pcb/24-prerouting-and-power-first.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PREROUTE-MISSING",
+        "code": "PREROUTE-MISSING",
+        "category": "布线/流程",
+        "severity": "warning",
+        "symptom": "普通信号布完后发现电源/地回流被切断、时钟/反馈被绕远、高速/差分跨分割或换层无回流孔；为了连通只能删线重布，严重时回退布局。",
+        "rootCause": "没有预布关键网络；先布普通信号占掉通道/参考平面；Fanout 未规划；布局未冻结就开布；预布后没有评审锁定。",
+        "detection": "预布清单检查；关键网络是否锁定；普通信号是否穿越关键通道/参考平面；回流孔/跨分割检查；DRC 之外的 SI/PI 人工评审。",
+        "prevention": [
+          "布局冻结后再预布",
+          "先建网络 class/层/参考平面，再预布关键网络",
+          "先 Fanout 并预留普通信号通道",
+          "预布评审通过后锁定关键网络",
+          "普通信号开布前试拉最密区域验证通道"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/24-prerouting-and-power-first.md",
+          "docs/knowledge/pcb/03-placement-routing.md"
+        ],
+        "tags": [
+          "预布线",
+          "返工",
+          "跨分割",
+          "回流",
+          "通道占用",
+          "布线顺序"
+        ],
+        "sources": [
+          "SRC-BILI-PCB-ROUTING-5",
+          "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
         ],
         "evidenceLevel": "C"
       }
