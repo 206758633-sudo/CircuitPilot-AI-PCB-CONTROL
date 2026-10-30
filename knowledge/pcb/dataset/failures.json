@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "generatedAt": "2026-10-30T07:30:17.100Z",
+  "generatedAt": "2026-10-30T07:33:47.745Z",
   "domain": "pcb-failure-modes",
   "notes": "失败模式知识用于设计评审/DFM/调试时快速定位；2026-10-23 新增来自 Espressif/TI 官方应用报告的真实故障模式，具体判定以 EDA/实测/失效分析为准。",
   "entries": [
@@ -3266,6 +3266,45 @@
         "sources": [
           "SRC-BILI-PCB-ROUTING-5",
           "SRC-BILI-LCEDA-OFFICIAL-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "直角/锐角与 3W 不足：阻抗不连续、串扰和蚀刻问题",
+      "doc": "docs/knowledge/pcb/25-ten-routing-principles.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-ROUTE-ACUTE-ANGLE",
+        "code": "ROUTE-ACUTE-ANGLE",
+        "category": "布线/流程",
+        "severity": "warning",
+        "symptom": "高速/时钟线在拐点出现阻抗不连续、反射/眼图裕量下降；平行线串扰超标；锐角处蚀刻残留/过蚀或应力集中。",
+        "rootCause": "大量 90°/锐角拐弯；平行线间距小于 3W 且未做仿真；蛇形/泪滴/差分处理不当；只按“连通”不看阻抗/串扰。",
+        "detection": "目检拐角角度；TDR/阻抗测试；串扰仿真/实测；眼图；板厂蚀刻/DFM 检查。",
+        "prevention": [
+          "拐弯优先 45°/圆弧",
+          "平行线按 3W/5W/协议设规则",
+          "高速/差分做阻抗/等长/回流设计",
+          "蛇形控制间距，避免自耦合",
+          "DRC 后做 SI/EMC 人工评审"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/25-ten-routing-principles.md",
+          "docs/knowledge/pcb/03-placement-routing.md"
+        ],
+        "tags": [
+          "直角走线",
+          "锐角",
+          "阻抗不连续",
+          "串扰",
+          "3W",
+          "蚀刻"
+        ],
+        "sources": [
+          "SRC-BILI-PCB-10-RULES",
+          "SRC-CSDN-PCB-10-RULES"
         ],
         "evidenceLevel": "C"
       }

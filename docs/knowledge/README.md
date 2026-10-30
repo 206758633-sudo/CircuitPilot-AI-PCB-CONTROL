@@ -12,7 +12,7 @@
 
 | 目录 | 内容 | 覆盖的设计阶段 |
 |---|---|---|
-| [`pcb/`](./pcb/) | 叠层/阻抗、布局布线、电源完整性、EMC/ESD/热、DFM 与制造文件、设计规则数值表、**6 层以上多层/HDI/高速总线**（07 篇）、**元器件布局依据与市场规则**（08 篇）、**可靠性/降额/环境试验**（09 篇）、**可测试性与产测**（10 篇）、**安规与认证**（11 篇）、**柔性/刚挠**（12 篇）、**封装/装配/返修**（13 篇）、**高速协议**（14 篇）、**公开资料/真实参考设计研究**（[20 篇研究笔记](./pcb/20-researched-layout-constraints.md)）、**AI 辅助布局功能分区与可读原理图**（[22 篇](./pcb/22-ai-assisted-layout-and-readable-schematic.md)）、**嘉立创EDA专业版工程闭环与 B 站课程学习笔记**（[23 篇](./pcb/23-lceda-project-workflow-and-bilibili-course.md)）、**预布线与“电源优先”**（[24 篇](./pcb/24-prerouting-and-power-first.md)） | PCB Layout → 制造 → 量产 |
+| [`pcb/`](./pcb/) | 叠层/阻抗、布局布线、电源完整性、EMC/ESD/热、DFM 与制造文件、设计规则数值表、**6 层以上多层/HDI/高速总线**（07 篇）、**元器件布局依据与市场规则**（08 篇）、**可靠性/降额/环境试验**（09 篇）、**可测试性与产测**（10 篇）、**安规与认证**（11 篇）、**柔性/刚挠**（12 篇）、**封装/装配/返修**（13 篇）、**高速协议**（14 篇）、**公开资料/真实参考设计研究**（[20 篇研究笔记](./pcb/20-researched-layout-constraints.md)）、**AI 辅助布局功能分区与可读原理图**（[22 篇](./pcb/22-ai-assisted-layout-and-readable-schematic.md)）、**嘉立创EDA专业版工程闭环与 B 站课程学习笔记**（[23 篇](./pcb/23-lceda-project-workflow-and-bilibili-course.md)）、**预布线与“电源优先”**（[24 篇](./pcb/24-prerouting-and-power-first.md)）、**PCB 布线十条原则**（[25 篇](./pcb/25-ten-routing-principles.md)） | PCB Layout → 制造 → 量产 |
 | [`schematic/`](./schematic/) | 原理图规范、电源架构、MCU 最小系统、总线接口、保护电路、ERC 审查清单、**模拟信号链**（08 篇）、**传感器/执行器**（09 篇）、**电池与 BMS**（10 篇）、**RF/天线**（11 篇）、**先进电源拓扑**（12 篇）、**文件与 ECO**（13 篇） | 需求 → 原理图 → 评审 |
 | [`components/`](./components/) | 无源器件、二极管/TVS、三极管/MOSFET、电源 IC、MCU/无线/连接器、晶振、常用料号速查与封装核验、**电感/磁珠/保险丝**（08 篇）、**传感器/执行器**（09 篇）、**接口保护**（10 篇）、**供应链**（11 篇）、**元件库管理**（12 篇） | 选型 → BOM → 封装 → 量产维持 |
 | [`checklists/`](./checklists/) | 原理图评审、Layout 评审、选型评审三张可勾选清单 | 评审门禁 |
@@ -20,7 +20,7 @@
 | [`requirements/`](./requirements/) | 产品需求/验收档案（原被误分类为 `module` 的 38 条需求，已迁出） | 产品验收，不进入设计门禁 |
 | [`legacy/`](./legacy/) | 历史条目迁移/退役记录与运行态重建命令 | 治理/迁移 |
 
-> 现状（2026-10-30，B站课程/官方文档学习批次后）：内容文档 **68 篇**；结构化知识 **437 条**（rule 170 · module 92（含 case 17）· part 57 · failure 101）。本轮新增 2 篇文档 + 15 条候选条目（嘉立创EDA专业版工程闭环、输出包、原理图规范、库身份、布局优先级、预布线/电源优先、下单/BOM失败模式），来源为 **B站教学视频（C级）与嘉立创EDA官方文档（B级）**，已按 `reference` + `candidate` 入库、`approved` 仍为 0；须人工审核后才可被门禁引用。来源登记见 [`sources.json`](../../knowledge/pcb/dataset/sources.json)。
+> 现状（2026-10-30，B站课程/官方文档学习批次后）：内容文档 **69 篇**；结构化知识 **442 条**（rule 173 · module 93（含 case 17）· part 57 · failure 102）。本轮新增 3 篇文档 + 20 条候选条目（嘉立创EDA专业版工程闭环、输出包、原理图规范、库身份、布局优先级、预布线/电源优先、布线十条原则、下单/BOM失败模式），来源为 **B站教学视频（C级）与嘉立创EDA官方文档（B级）**，已按 `reference` + `candidate` 入库、`approved` 仍为 0；须人工审核后才可被门禁引用。来源登记见 [`sources.json`](../../knowledge/pcb/dataset/sources.json)。
 
 > 冲突口径与优先级见 [`conflict-register.md`](./conflict-register.md)；机器可读分类见 [`taxonomy.json`](../../knowledge/pcb/dataset/taxonomy.json)、冲突登记见 [`conflicts.json`](../../knowledge/pcb/dataset/conflicts.json)；全面审计见 [`docs/implementation/knowledge-audit-k6-2026-10-22.md`](../implementation/knowledge-audit-k6-2026-10-22.md)，K7 治理落地见 [`docs/implementation/knowledge-k7-governance-2026-10-22.md`](../implementation/knowledge-k7-governance-2026-10-22.md)。
 

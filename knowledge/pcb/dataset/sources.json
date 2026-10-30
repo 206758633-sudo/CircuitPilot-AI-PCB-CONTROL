@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "generatedAt": "2026-10-30T07:32:00.000Z",
+  "generatedAt": "2026-10-30T07:36:00.000Z",
   "domain": "pcb-research-sources",
   "notes": "公开资料研究来源登记。snapshotSha256 是各来源在 fetchedAt 时刻抓取快照的 SHA-256；HTML/API 页面会随发布更新，重新抓取后应更新哈希、fetchedAt 与 reviewBy。reviewBy 是强制复核期限（现有条目 2027-04-23，2026-10-30 新增条目 2027-04-30），到期未复核由 scripts/check-knowledge-sources.mjs 报 SOURCE_REVIEW_OVERDUE。所有条目只作工程参考，量产/安规必须按标准原文、数据手册和板厂 EQ 复核。",
   "sources": [
@@ -480,6 +480,55 @@
         "传输线"
       ],
       "caveat": "仅核对视频标题、简介和分P目录（含 P7 预布线设计思路），未取得逐字稿/未逐帧核对。预布线顺序是 C 级工程启发式；线宽/间距/阻抗/等长数值必须回到现有规则条目、叠层计算、datasheet 和板厂能力。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-BILI-PCB-10-RULES",
+      "publisher": "熬夜画板子的熊猫（Bilibili）",
+      "title": "硬件设计基础之PCB设计中的10条重要布线原则",
+      "url": "https://www.bilibili.com/video/BV1J14y1X7rm",
+      "type": "video-tutorial",
+      "evidenceLevel": "C",
+      "revision": "2023-07 发布；2026-10-30 核对标题/简介/时长（22:08）",
+      "fetchedAt": "2026-10-30T07:36:00.000Z",
+      "snapshotSha256": "dd3b554f5c750fe43a5bb40d06b9cff6420cb85f776661cd70a3c1dcbd5ce5cc",
+      "topics": [
+        "PCB布线原则",
+        "连线精简",
+        "直角/锐角",
+        "差分走线",
+        "蛇形走线",
+        "3W原则",
+        "20H原则",
+        "铜箔载流",
+        "过孔载流"
+      ],
+      "caveat": "只核对标题、简介和时长，未取得字幕/未逐帧核对；视频标题给出10条原则的数量，具体口述内容未转录。原则按C级教学参考使用，数值/工艺必须回到标准、叠层计算、datasheet和实测。",
+      "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-CSDN-PCB-10-RULES",
+      "publisher": "CSDN / qq_52251819",
+      "title": "PCB设计10条重要布线原则（学习笔记）",
+      "url": "https://blog.csdn.net/qq_52251819/article/details/135510367",
+      "type": "technical-blog",
+      "evidenceLevel": "C",
+      "revision": "2024-01 发布；2026-10-30 抓取公开页面（部分章节需关注后阅读）",
+      "fetchedAt": "2026-10-30T07:36:00.000Z",
+      "snapshotSha256": "b20247c580326613dd0b66a81fc02b6dd4ffdaef9684caea2d95534ac55a1466",
+      "topics": [
+        "连线精简",
+        "避免直角线",
+        "差分走线",
+        "蛇形走线",
+        "圆滑走线",
+        "数字/模拟分开",
+        "3W原则",
+        "20H原则",
+        "铜箔承载电流",
+        "过孔承载电流"
+      ],
+      "caveat": "同题学习笔记公开可见部分给出10条标题和部分解释，蛇形/20H/载流等章节正文被站点折叠/需关注；本笔记不把那部分缺失内容当作已核实原文。博客为C级二手资料，数值以IPC/叠层计算/板厂能力为准。",
       "reviewBy": "2027-04-30"
     }
   ]

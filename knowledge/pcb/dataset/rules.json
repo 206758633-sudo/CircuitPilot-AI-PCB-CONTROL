@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "generatedAt": "2026-10-30T07:30:17.099Z",
+  "generatedAt": "2026-10-30T07:33:47.744Z",
   "domain": "pcb-design-rules",
   "notes": "数值为工程参考值与常见工艺能力。2026-10-23 起新增公开资料研究条目（ESP32/TI/RPi/JLCPCB/PCBWay/Sierra/IPC），每条带 sources 指向 sources.json；落地前必须按 IPC-2221/IPC-2152 原文、datasheet 与目标板厂当前能力表复核。",
   "entries": [
@@ -5672,6 +5672,132 @@
         "sources": [
           "SRC-BILI-PCB-ROUTING-5",
           "SRC-BILI-LCEDA-COURSE"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "PCB 布线十条原则：自检清单",
+      "doc": "docs/knowledge/pcb/25-ten-routing-principles.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ROUTE-10-001",
+        "category": "布线/流程",
+        "severity": "warning",
+        "statement": "布线完成/评审时至少逐条检查：连线精简、避免直角/锐角、差分走线、蛇形走线、圆滑/泪滴、数字/模拟分开、3W、20H、铜箔载流、过孔载流；十条是自检入口，不是互相独立的绝对硬指标。",
+        "limits": [
+          "连线精简不得破坏 3W/差分/阻抗/回流/载流约束",
+          "直角/锐角优先改 45°/圆弧；高速线按阻抗设计决定",
+          "差分对等宽/等距/同层/参考平面连续/换层回流孔",
+          "蛇形只用于等长/时序补偿，相邻段间距按规则/仿真",
+          "泪滴用于焊盘入口/应力处，高速阻抗线需评估",
+          "数字/模拟分区、地按芯片/datasheet 处理，不随意跨分割",
+          "3W/20H 是经验起点，按协议/叠层/场求解/实测加严或调整",
+          "铜箔/过孔载流按 IPC-2152、温升、压降、板厂能力计算，不靠口诀"
+        ],
+        "rationale": "十条原则覆盖了布线最常见的阻抗、串扰、回流、载流和可制造问题；但每一条都有适用边界，单独套用会与其它约束冲突。把它们作为检查清单，而不是替代设计规则/计算。",
+        "check": "逐条打勾并留证据：关键网络长度/换层/跨分割；拐角角度；差分阻抗/等长/回流孔；蛇形间距；泪滴位置；数模分区/地；3W/20H 计算依据；铜箔/过孔载流计算/实测。",
+        "appliesTo": [
+          "pcb",
+          "routing",
+          "si",
+          "pi",
+          "emc"
+        ],
+        "tags": [
+          "布线十条",
+          "3W",
+          "20H",
+          "差分",
+          "蛇形",
+          "直角",
+          "载流"
+        ],
+        "sources": [
+          "SRC-BILI-PCB-10-RULES",
+          "SRC-CSDN-PCB-10-RULES"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "3W/20H 是串扰/EMC 经验起点，必须说明定义与适用条件",
+      "doc": "docs/knowledge/pcb/25-ten-routing-principles.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-3W-20H-002",
+        "category": "布线/间距",
+        "severity": "warning",
+        "statement": "使用 3W/20H 时必须写明定义和适用条件：3W 指平行走线中心距（或边距，需注明）≥3×线宽；20H 指电源平面相对地平面边缘回缩约 20×介质厚度 H。二者是经验起点，不能替代场求解、协议要求或 EMC 实测。",
+        "limits": [
+          "3W 必须注明中心距还是边距，避免引用歧义",
+          "3W 默认用于普通平行线；高速/长并行/高阻节点按协议/仿真加严（常见 5W+）",
+          "20H 必须基于实际叠层的 H 计算，不是固定 20 mil",
+          "20H 回缩不得破坏连接器/器件/过孔供电",
+          "关键板用近场/远场/眼图/串扰实测验证"
+        ],
+        "rationale": "3W/20H 是常用的经验规则，但串扰取决于并行长度、介质厚度、参考平面、上升时间；20H 效果取决于叠层和板边场分布。把经验值当绝对标准会误导设计或造成过度约束。",
+        "check": "查规则定义（中心/边距）；并行长度/间距；叠层 H 与电源平面回缩；场求解/实测报告；是否与阻抗/载流/供电冲突。",
+        "appliesTo": [
+          "pcb",
+          "routing",
+          "si",
+          "emc",
+          "stackup"
+        ],
+        "tags": [
+          "3W原则",
+          "20H原则",
+          "串扰",
+          "电源平面",
+          "叠层",
+          "EMC"
+        ],
+        "sources": [
+          "SRC-CSDN-PCB-10-RULES",
+          "SRC-BILI-PCB-10-RULES"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "铜箔/过孔载流按 IPC-2152、温升、压降计算，不靠口诀",
+      "doc": "docs/knowledge/pcb/25-ten-routing-principles.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CURRENT-003",
+        "category": "布线/载流",
+        "severity": "error",
+        "statement": "铜箔和过孔载流必须按电流、铜厚/镀层、层位、允许温升、长度/压降、散热条件和板厂能力计算（参考 IPC-2152 或权威工具），关键路径用满载温升/压降实测；禁止用“1A 1mm/1 孔 1A”口诀代替计算。",
+        "limits": [
+          "铜箔：注明铜厚、层位、允许温升、最窄宽度、长度/压降",
+          "过孔：注明孔径、镀层、板厚/孔长、孔数、温升",
+          "大电流换层用多孔并联/铜皮，孔沿电流方向分布",
+          "连接器每个电源脚单独接铜皮，不经过细焊盘瓶颈",
+          "关键路径实测满载温升/压降，热像仪/热电偶留证"
+        ],
+        "rationale": "载流能力不是单一常数；温升、铜厚、层位、散热和孔长都会改变结果。用口诀选宽度/孔数会在真实工况下过热、压降超标甚至开路。",
+        "check": "电流预算；最窄铜宽/铜厚；过孔数量/孔径/镀层；温升/压降计算书；满载实测；板厂 DFM 确认。",
+        "appliesTo": [
+          "pcb",
+          "power",
+          "routing",
+          "manufacturing"
+        ],
+        "tags": [
+          "铜箔载流",
+          "过孔载流",
+          "IPC-2152",
+          "温升",
+          "压降",
+          "大电流"
+        ],
+        "sources": [
+          "SRC-CSDN-PCB-10-RULES",
+          "SRC-BILI-PCB-10-RULES"
         ],
         "evidenceLevel": "C"
       }
