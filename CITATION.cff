@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: CircuitPilot — AI PCBA Control
+message: If you use CircuitPilot in research or derivative work, please cite this repository.
+type: software
+authors:
+  - family-names: jescochen
+    given-names: ""
+repository-code: https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL
+url: https://github.com/206758633-sudo/CircuitPilot-AI-PCB-CONTROL
+license: Apache-2.0
+version: 0.2.0
+date-released: 2026-10-26

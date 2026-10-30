@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a reproducible problem
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include API keys, customer boards, evidence bundles, or personal paths.
+        Security issues: use GitHub Security Advisories instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Also include what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: v0.2.0 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: macOS version, Node version, EDA editor version
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs (redacted)
+      description: Remove paths, tokens, board names, and customer data.
+      render: shell
