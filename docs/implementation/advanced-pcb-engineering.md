@@ -9,7 +9,7 @@ OpenSpec：`add-advanced-pcb-engineering-engines`
 2. 多层与 HDI：4/6/8 铜层叠层证据、盲埋孔/微孔与顺序压合能力、最短层切换、叠孔限制、回流缝合计划和 BGA 逃逸容量分析。
 3. 2.4 GHz RF：CPWG 解析估算、导波波长、天线禁布区证据、接地过孔围栏和不可执行的 openEMS 仿真交接清单。
 4. 通用工程能力：确定性约束布局、碰撞门禁、参考标号丝印候选、SHA-256 不可变报告及操作清单。
-5. 嘉立创EDA 边界：仅编译现有白名单 `pcb.component.modify`、`pcb.line.create`、`pcb.via.create` 操作；分析不会自动执行，仍走现有快照、绑定审批、回读、官方 DRC 和失败回滚流程。
+5. 嘉立创EDA 边界：只编译白名单内的 `pcb.component.modify`、`pcb.line.create`、`pcb.outline.create`、`pcb.via.create`、`pcb.pour.create`、`pcb.importChanges`、`pcb.save`、`pcb.drc` 操作；分析不会自动执行，仍走现有快照、绑定审批、回读、官方 DRC 和失败回滚流程。**板框必须用 `pcb.outline.create`**（`PCB_PrimitivePolyline.create` + 坐标开头的 `[x0,y0,"L",…]` 多边形编码）；实测 `PCB_PrimitiveLine/Arc` 只接受 SIGNAL 铜层，写板框层必然失败且报错会误导为“参数不正确”（见 `runtime/engineering/eda-primitives.mjs`）。
 6. 产品界面：验证中心提供三套可点击黄金样板，并展示报告哈希、工程发现、待审批操作数和生产边界。
 
 ## 黄金样板

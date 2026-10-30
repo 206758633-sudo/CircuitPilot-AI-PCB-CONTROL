@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,6 +14,7 @@ process.env.CIRCUITPILOT_DRC_EXEMPTIONS = join(tmpdir(), `cp-drc-exemptions-isol
 // 同理隔离"上次用过的工程"记忆文件：否则测试会读/写这台机器真实用过的工程。
 process.env.CIRCUITPILOT_PROJECT_MEMO = join(tmpdir(), `cp-project-memo-isolated-${process.pid}.json`);
 process.env.CIRCUITPILOT_EVIDENCE_DIR = mkdtempSync(join(tmpdir(), `cp-multilayer-evidence-${process.pid}-`));
+process.env.CIRCUITPILOT_AUTOMATION_DIR = mkdtempSync(join(tmpdir(), `cp-multilayer-automation-${process.pid}-`));
 
 /**
  * 走通“全流程”的最强离线证据：不直接调库函数，而是通过**真实运行时 HTTP 服务**
@@ -93,10 +95,10 @@ function createRecordingBridge() {
   };
 }
 
-async function startServer(bridge) {
-  const { server } = createRuntimeServer({ keychain: fakeKeychain, bridge });
+async function startServer(bridge, options = {}) {
+  const { server, sessionToken } = createRuntimeServer({ keychain: fakeKeychain, bridge, ...options });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-  return { server, base: `http://127.0.0.1:${server.address().port}` };
+  return { server, base: `http://127.0.0.1:${server.address().port}`, token: sessionToken };
 }
 
 test('真实 HTTP 服务上走通 12 层板全流程：编译 -> 批准 -> 受控执行', async (context) => {
@@ -257,6 +259,7 @@ test('POST /api/eda/release/gate：证据齐全可放行；缺证据一律阻断
  */
 test('POST /api/eda/pcb/placement/plan：路由自己打开文档、先发现桥、返回方案与复核', async () => {
   const calls = [];
+  let drcMode = 'empty';
   const bridge = {
     port: 49620,
     selectedWindowId: 'W1',
@@ -265,6 +268,10 @@ test('POST /api/eda/pcb/placement/plan：路由自己打开文档、先发现桥
     async execute(id, args = {}) {
       calls.push({ id, args });
       if (id === 'pcb.open') return { result: { opened: true, tabId: 'T1' } };
+      if (id === 'pcb.drc') {
+        if (drcMode === 'throw') throw Object.assign(new Error('DRC_ENGINE_BUSY'), { code: 'EDA_DRC_FAILED' });
+        return { result: { items: [], count: 0 } };
+      }
       if (id === 'pcb.placement.read') {
         return {
           result: {
@@ -289,10 +296,31 @@ test('POST /api/eda/pcb/placement/plan：路由自己打开文档、先发现桥
     assert.equal(body.componentCount, 2);
     assert.equal(body.outline.closed, true);
     assert.equal(body.plan.placements.length, 2);
+    assert.equal(body.drcAuto.requested, false, '默认不得自动跑 DRC');
     assert.ok(body.verification, '方案必须带独立复核');
     assert.ok(body.currentVerification, '现状也要复核，否则无法说明"改前就有问题"');
     assert.ok(calls.some((call) => call.id === 'pcb.open' && call.args.documentUuid === 'PCB1'), '给了 pcbUuid 就必须由路由自己打开文档');
     assert.ok(calls.some((call) => call.id === 'pcb.placement.read'));
+
+    // 设计意图：非法声明必须在读板/实机之前 400，不能悄悄忽略
+    const badIntent = await fetch(`${base}/api/eda/pcb/placement/plan`, { method: 'POST', headers, body: JSON.stringify({ pcbUuid: 'PCB1', designIntent: { components: { U1: { side: 'middle' } } } }) });
+    assert.equal(badIntent.status, 400);
+    // P2 补充事实进入同一份 layoutAudit；FAIL 必须出现在阻断列表
+    const supplement = await (await fetch(`${base}/api/eda/pcb/placement/plan`, { method: 'POST', headers, body: JSON.stringify({ pcbUuid: 'PCB1', designIntent: { thermal: { components: [{ ref: 'U1', powerW: 2, copperAreaMm2: 50 }] } } }) })).json();
+    assert.equal(supplement.layoutAudit.supplements.summary.FAIL, 1);
+    assert.ok(supplement.layoutAudit.blocking.some((item) => item.ruleId === 'SUP-TH-01'));
+
+    // 自动 DRC：显式 autoDrc=true 才跑；成功时报告进入同一份门禁，失败时 GATE-02 保持 REVIEW
+    const autoDrc = await (await fetch(`${base}/api/eda/pcb/placement/plan`, { method: 'POST', headers, body: JSON.stringify({ pcbUuid: 'PCB1', autoDrc: true }) })).json();
+    assert.equal(autoDrc.drcAuto.requested, true);
+    assert.equal(autoDrc.drcAuto.used, true);
+    assert.equal(autoDrc.drcAuto.error, null);
+    assert.equal(autoDrc.layoutAudit.gates['GATE-02'], 'PASS');
+    drcMode = 'throw';
+    const failedDrc = await (await fetch(`${base}/api/eda/pcb/placement/plan`, { method: 'POST', headers, body: JSON.stringify({ pcbUuid: 'PCB1', autoDrc: true }) })).json();
+    assert.equal(failedDrc.drcAuto.used, false);
+    assert.match(failedDrc.drcAuto.error, /DRC_ENGINE_BUSY/);
+    assert.equal(failedDrc.layoutAudit.gates['GATE-02'], 'REVIEW');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -1038,12 +1066,16 @@ test('POST /api/eda/library/devices/search：桥返回 {result:[...]} 信封 + �
   const bridge = createRecordingBridge();
   const execute = bridge.execute.bind(bridge);
   bridge.execute = async (id, args = {}) => (id === 'library.device.search' ? { result: [device] } : execute(id, args));
-  const { server, base } = await startServer(bridge);
+  // 注入本实例的会话令牌，而不是依赖 /api/health 发放的 sessionProof：
+  // 后者在高并发/端口复用场景下曾偶发返回非本实例令牌，导致 401 假失败（见 2026-10-20 第 65 轮检查）。
+  const runtimeToken = randomBytes(24).toString('base64url');
+  const { server, base, token } = await startServer(bridge, { runtimeToken });
   try {
     const health = await (await fetch(`${base}/api/health`, { headers: { origin: TRUSTED_ORIGIN } })).json();
+    assert.equal(health.ok, true, 'health 必须可用');
     const response = await fetch(`${base}/api/eda/library/devices/search`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-circuitpilot-token': health.sessionProof },
+      headers: { 'content-type': 'application/json', 'x-circuitpilot-token': token },
       body: JSON.stringify({ query: 'C45924513' }),
       signal: AbortSignal.timeout(20000),
     });

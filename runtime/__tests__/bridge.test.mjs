@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { BridgeClient, COMMANDS, JOB_COMMAND_KINDS, commandTimeoutMs, validateArgs } from '../bridge.mjs';
 import { rectPolygonSource } from '../engineering/eda-primitives.mjs';
+import { createRuntimeServer } from '../server.mjs';
 
 const INJECTION_MARKER = '__CIRCUITPILOT_INJECTION_MARKER__';
 const HOSTILE = `0,0,true,true);globalThis.${INJECTION_MARKER}=1;//`;
@@ -175,6 +179,7 @@ const VALID_ARGS = {
   'pcb.pins.read': { primitiveId: 'e62cb8acd7a12cc9' },
   'pcb.pour.deleteAdded': { existingIds: ['e22091677d2bce31', '899554a7b177f308'] },
   'pcb.copper.read': {},
+  'pcb.pads.read': { pcbUuid: 'e'.repeat(16), restoreUuid: 'f'.repeat(16) },
   'pcb.lines.delete': { primitiveIds: ['a1'] },
   'pcb.vias.delete': { primitiveIds: ['b2'] },
   'workspace.create': { friendlyName: '控制板', projectName: 'control-board', description: '' },
@@ -191,12 +196,18 @@ const VALID_ARGS = {
   'schematic.wire.create': { line: [0, 0, 1, 1], net: 'GND' },
   'pcb.layers.setCount': { layers: 4 },
   'pcb.open': { documentUuid: 'b'.repeat(16) },
+  'pcb.region.create': { layer: 12, originXMm: 50, originYMm: 50, widthMm: 5, heightMm: 5, ruleType: [7], regionName: 'CP_REGION', lineWidthMil: 10, primitiveLock: false },
+  'pcb.region.delete': { primitiveIds: ['r1'] },
+  'pcb.text.create': { layer: 3, xMil: 2000, yMil: 2000, text: 'CPTEST', fontFamily: 'Arial', fontSizeMil: 40, lineWidthMil: 6, alignMode: 5, rotationDeg: 0, reverse: true, mirror: false, expansion: 0, primitiveLock: false },
+  'pcb.text.delete': { primitiveIds: ['t1'] },
+  'pcb.reload': { saved: true },
   'project.open': { projectUuid: 'd'.repeat(16) },
   'pcb.importChanges': { schematicUuid: 'c'.repeat(16) },
   'pcb.component.modify': { primitiveId: 'P1', property: { x: 1, y: 2, rotation: 0 } },
   'pcb.component.create': { component: { libraryUuid: 'L', uuid: 'U' }, layer: 1, xMil: 1574.8, yMil: -1181.1, rotationDeg: 0, primitiveLock: false },
   'pcb.line.create': { layer: 4, startX: 0, startY: 0, endX: 1, endY: 1, lineWidth: 0.2, primitiveLock: false },
   'pcb.pour.rebuild': { primitiveIds: ['abc123'] },
+  'pcb.poured.read': {},
   'pcb.autoRoute.start': { nets: ['GND'], ignoreNets: [], layers: [1, 2] },
   'pcb.routing.capabilities': {},
   'pcb.placement.write': { updates: [{ primitiveId: 'P1', designator: 'U1', xMil: 255.905512, yMil: -1102.362205, rotationDeg: 0 }] },
@@ -612,6 +623,36 @@ test('pcb.component.create：生成的调用参数正确，明显错误的参数
   assert.equal(fetches, 1);
 });
 
+test('document.source.restore：默认不校验文档；传 expectedDocumentUuid 时必须先比对激活文档再写', async () => {
+  const command = COMMANDS['document.source.restore'];
+  assert.ok(command, '命令必须注册');
+  const plain = command.buildCode({ source: '{"type":"DOCHEAD"}||{}|' });
+  assert.ok(!plain.includes('getCurrentDocumentInfo'), '不传期望文档时保持原行为，不额外读文档');
+  assert.ok(plain.includes('setDocumentSource'), '必须调用官方写接口');
+
+  const guarded = command.buildCode({ source: '{"type":"DOCHEAD"}||{}|', expectedDocumentUuid: 'DOC-1' });
+  assert.ok(guarded.includes('getCurrentDocumentInfo'), '传期望文档时必须先读激活文档');
+  assert.ok(guarded.includes('"DOC-1"'), '期望文档 id 必须进入校验');
+  assert.ok(guarded.includes('EDA_SOURCE_RESTORE_TARGET_MISMATCH'), '不一致必须有稳定错误码');
+  assert.ok(guarded.indexOf('getCurrentDocumentInfo') < guarded.indexOf('setDocumentSource'), '校验必须在写入之前');
+
+  let fetches = 0;
+  const fetcher = async (url) => {
+    if (String(url).endsWith('/health')) return { service: 'easyeda-bridge', status: 'ok' };
+    if (String(url).endsWith('/eda-windows')) return { windows: [{ windowId: 'W1', connected: true }] };
+    fetches += 1;
+    return { result: true };
+  };
+  const bridge = new BridgeClient({ ports: [49620], fetcher, logger: { warn: () => undefined } });
+  await bridge.discover();
+  await assert.rejects(
+    () => bridge.execute('document.source.restore', { source: 'x', expectedDocumentUuid: '  ' }, { allowWrite: true }),
+    (error) => error.code === 'EDA_COMMAND_ARGS_INVALID',
+    '空白 expectedDocumentUuid 必须被拦下',
+  );
+  assert.equal(fetches, 0, '参数错误不得发出任何桥请求');
+});
+
 test('未显式发现时 execute 会自动发现桥：运行时重启后首次调用不应 BRIDGE_NOT_FOUND', async () => {
   const calls = [];
   const fetcher = async (url, options) => {
@@ -626,4 +667,153 @@ test('未显式发现时 execute 会自动发现桥：运行时重启后首次�
   const result = await client.execute('project.current');
   assert.deepEqual(result, { ok: true }, '惰性发现后应能直接执行命令');
   assert.ok(calls.some((call) => call.url.endsWith('/health')), '必须先探测 /health 完成发现');
+});
+
+test('pcb.copper.read：矩形焊盘半径走"内切半径" helper（0.4mm 间距器件不再被判焊盘重叠）', () => {
+  const code = COMMANDS['pcb.copper.read'].code;
+  assert.match(code, /const padRadius=function padClearanceRadiusMil\(sizes\)/, '焊盘半径 helper 必须内联进远程脚本');
+  assert.match(code, /const radius=padRadius\(sizes\);/, '必须调用 helper，而不是各自内联取 max');
+  assert.doesNotMatch(code, /Math\.max\.apply\(null,sizes\)\/2/, '旧实现（长边/2）不得残留');
+});
+
+test('桥重启后 windows() 自动重新发现端口：不再永久 BRIDGE_NOT_FOUND（真机演练回归）', async () => {
+  const calls = [];
+  const client = new BridgeClient({
+    ports: [49620, 49621],
+    fetcher: async (url) => {
+      calls.push(url);
+      if (url.includes('/health')) return { service: 'easyeda-bridge', version: 'test', edaConnected: true };
+      if (url.includes('/eda-windows')) return { windows: [{ windowId: 'w-after-restart', connected: true }], count: 1 };
+      throw new Error(`unexpected ${url}`);
+    },
+  });
+  // 模拟"上一次 discover 没发现桥"把 port 置空的状态。
+  client.port = null;
+  const data = await client.windows();
+  assert.equal(data.windows.length, 1);
+  assert.equal(data.windows[0].windowId, 'w-after-restart');
+  assert.equal(client.selectedWindowId, 'w-after-restart');
+  assert.ok(calls.some((url) => url.endsWith('/health')), '必须先发现桥端口');
+});
+
+// ---------------------------------------------------------------------------
+// HTTP 语义契约（第 61 轮）：桥连通性故障必须是 503 Service Unavailable，而不是 400。
+//
+// 背景：bridge.mjs 抛出的 BRIDGE_UNREACHABLE / BRIDGE_TIMEOUT 不带 status，顶层 catch
+// 以前一律兜底成 400，把"桥暂时不可用、可重试"说成了"请求参数错误"。这里用注入假桥
+// 的真实 Runtime HTTP 服务（不碰真机 EDA）锁死：状态码、错误码/文案、retryable 标记。
+// ---------------------------------------------------------------------------
+
+const fakeKeychain = { async configured() { return false; }, async read() { throw new Error('unused'); } };
+
+/**
+ * 起一个只注入假桥的真实 Runtime HTTP 服务（离线）。
+ * 状态/证据目录隔离到临时目录，避免读到开发机上真实的工程/证据。
+ */
+async function withRuntimeServer(bridge, run) {
+  const savedStateDir = process.env.CIRCUITPILOT_STATE_DIR;
+  const savedEvidenceDir = process.env.CIRCUITPILOT_EVIDENCE_DIR;
+  const stateDir = mkdtempSync(join(tmpdir(), 'cp-bridge-status-state-'));
+  const evidenceDir = mkdtempSync(join(tmpdir(), 'cp-bridge-status-evidence-'));
+  process.env.CIRCUITPILOT_STATE_DIR = stateDir;
+  process.env.CIRCUITPILOT_EVIDENCE_DIR = evidenceDir;
+  const { server, sessionToken } = createRuntimeServer({ keychain: fakeKeychain, bridge });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const request = (path, init = {}) => fetch(`${base}${path}`, {
+    ...init,
+    headers: { 'x-circuitpilot-token': sessionToken, ...(init.headers || {}) },
+  });
+  try {
+    await run({ request, base });
+  } finally {
+    server.closeAllConnections?.();
+    await new Promise((resolve) => server.close(resolve));
+    if (savedStateDir === undefined) delete process.env.CIRCUITPILOT_STATE_DIR;
+    else process.env.CIRCUITPILOT_STATE_DIR = savedStateDir;
+    if (savedEvidenceDir === undefined) delete process.env.CIRCUITPILOT_EVIDENCE_DIR;
+    else process.env.CIRCUITPILOT_EVIDENCE_DIR = savedEvidenceDir;
+    rmSync(stateDir, { recursive: true, force: true });
+    rmSync(evidenceDir, { recursive: true, force: true });
+  }
+}
+
+/** 假桥：windows() 永远抛指定连通性错误；discover() 模拟"端口确实还能发现"。 */
+function bridgeWithConnectivityFailure(code) {
+  const message = code === 'BRIDGE_TIMEOUT'
+    ? 'Bridge 请求超时（未在预算内返回）'
+    : 'Bridge 不可达（fetch failed）：桥进程可能已随 EDA 退出';
+  return {
+    port: 49620,
+    selectedWindowId: 'w-bridge-status',
+    async discover() { this.port = 49620; return { port: 49620 }; },
+    async windows() { throw Object.assign(new Error(message), { code }); },
+    async execute() { throw Object.assign(new Error('不应执行到命令'), { code: 'EDA_OFFLINE' }); },
+    listCommands() { return []; },
+  };
+}
+
+test('桥不可达：只读 EDA 路由返回 503 + retryable，而不是 400', async () => {
+  await withRuntimeServer(bridgeWithConnectivityFailure('BRIDGE_UNREACHABLE'), async ({ request }) => {
+    // 直连 bridge.windows() 的路由。
+    const windows = await request('/api/eda/windows');
+    assert.equal(windows.status, 503, '桥不可达必须是 503 Service Unavailable（不是 400）');
+    const windowsBody = await windows.json();
+    assert.equal(windowsBody.ok, false);
+    assert.equal(windowsBody.error.code, 'BRIDGE_UNREACHABLE', '原有错误码必须保留');
+    assert.match(windowsBody.error.message, /Bridge 不可达/, '原有文案必须保留');
+    assert.equal(windowsBody.error.retryable, true, '瞬时断线必须标 retryable');
+
+    // 走 ensureEdaSession（先 discover 再 windows）的只读路由也必须同样映射，
+    // 不能只在"某个刚好没被包装的路由"上生效。
+    const layers = await request('/api/eda/pcb/layers');
+    assert.equal(layers.status, 503);
+    const layersBody = await layers.json();
+    assert.equal(layersBody.error.code, 'BRIDGE_UNREACHABLE');
+    assert.equal(layersBody.error.retryable, true);
+  });
+});
+
+test('桥超时：只读 EDA 路由返回 503 + retryable，而不是 400', async () => {
+  await withRuntimeServer(bridgeWithConnectivityFailure('BRIDGE_TIMEOUT'), async ({ request }) => {
+    const response = await request('/api/eda/pcb/layers');
+    assert.equal(response.status, 503);
+    const body = await response.json();
+    assert.equal(body.error.code, 'BRIDGE_TIMEOUT');
+    assert.equal(body.error.retryable, true);
+  });
+});
+
+test('桥未发现：保持 503（契约不变），但不标 retryable（需先启动/发现桥）', async () => {
+  const bridge = {
+    port: null,
+    selectedWindowId: null,
+    async discover() { this.port = null; return null; },
+    async windows() { throw new Error('未发现桥时不应调用 windows'); },
+    async execute() { throw new Error('未发现桥时不应执行命令'); },
+    listCommands() { return []; },
+  };
+  await withRuntimeServer(bridge, async ({ request }) => {
+    const response = await request('/api/eda/pcb/layers');
+    assert.equal(response.status, 503);
+    const body = await response.json();
+    assert.equal(body.error.code, 'BRIDGE_NOT_FOUND');
+    assert.equal(body.error.retryable, undefined, '未发现桥不是"立即可重试"的瞬时故障');
+  });
+});
+
+test('非桥连通性错误维持原状态码：未知路由 404、参数错误 400（503 映射不得放大）', async () => {
+  await withRuntimeServer(bridgeWithConnectivityFailure('BRIDGE_UNREACHABLE'), async ({ request }) => {
+    const missing = await request('/api/not-a-route');
+    assert.equal(missing.status, 404);
+    assert.equal((await missing.json()).error.code, 'ROUTE_NOT_FOUND');
+
+    const bad = await request('/api/eda/pcb/layers', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ copperLayers: 3 }),
+    });
+    assert.equal(bad.status, 400);
+    assert.equal((await bad.json()).error.code, 'EDA_COMMAND_ARGS_INVALID');
+  });
 });

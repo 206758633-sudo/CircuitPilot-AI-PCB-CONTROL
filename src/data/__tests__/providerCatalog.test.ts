@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROVIDER_CATALOG, groupedProviderOptions, isAccountProvider, isApiProvider, modelOptions, providerEntry, providerLabel, providerOptions } from '../providerCatalog';
+import { PROVIDER_CATALOG, customModelOptions, groupedProviderOptions, isAccountProvider, isApiProvider, modelOptions, providerEntry, providerLabel, providerOptions } from '../providerCatalog';
 import type { ProviderSummary } from '../../types';
 
 const summary = (patch: Partial<ProviderSummary> & { id: ProviderSummary['id'] }): ProviderSummary => ({ label: patch.id, kind: 'api', ready: false, configured: false, ...patch });
@@ -18,16 +18,26 @@ describe('providerCatalog', () => {
 
   it('第三方 API 平台都有独立申请入口与模型建议', () => {
     const apiEntries = PROVIDER_CATALOG.filter((entry) => entry.kind === 'api');
-    expect(apiEntries.length).toBeGreaterThanOrEqual(12);
+    expect(apiEntries.length).toBeGreaterThanOrEqual(13);
     for (const entry of apiEntries) {
-      expect(entry.keyUrl, `${entry.id} 缺少 Key 申请入口`).toMatch(/^https:\/\//);
+      // 自定义 API 由用户填写 URL，没有平台控制台，属于唯一例外。
+      if (entry.id !== 'custom_api') expect(entry.keyUrl, `${entry.id} 缺少 Key 申请入口`).toMatch(/^https:\/\//);
       expect(entry.models.length, `${entry.id} 缺少模型建议`).toBeGreaterThan(0);
     }
   });
 
+  it('自定义 API 让用户自己填 URL、Key 与模型名', () => {
+    const custom = providerEntry('custom_api');
+    expect(custom?.kind).toBe('api');
+    expect(custom?.keyUrl).toBeUndefined();
+    expect(custom?.defaultBaseUrl).toBeUndefined();
+    expect(custom?.models).toContain('deepseek-chat');
+    expect(isApiProvider('custom_api')).toBe(true);
+  });
+
   it('国内平台与国际平台都被登记，且分组顺序固定', () => {
     const groups = groupedProviderOptions([]);
-    expect(groups.map((item) => item.group)).toEqual(['本地与官方账号', '国内平台 API', '国际平台 API']);
+    expect(groups.map((item) => item.group)).toEqual(['本地与官方账号', '国内平台 API', '国际平台 API', '自定义 API']);
     expect(groups.flatMap((item) => item.entries).map((entry) => entry.id)).toEqual(PROVIDER_CATALOG.map((entry) => entry.id));
     for (const id of ['deepseek_api', 'moonshot_api', 'zhipu_api', 'dashscope_api', 'siliconflow_api']) {
       expect(providerEntry(id)?.group).toBe('国内平台 API');
@@ -63,5 +73,46 @@ describe('providerCatalog', () => {
     expect(isAccountProvider('codex_account')).toBe(true);
     expect(isApiProvider('unknown')).toBe(false);
     expect(isAccountProvider('unknown')).toBe(false);
+  });
+});
+
+describe('providerCatalog · 注册表自定义 Provider（自定义模型 API）', () => {
+  const registryModel = { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', contextWindow: 256000, maxOutputTokens: 32000, input: ['text', 'image'] as Array<'text' | 'image'>, reasoning: false };
+  const registrySummary = (patch: Partial<ProviderSummary> = {}): ProviderSummary => summary({
+    id: 'acme-gateway' as ProviderSummary['id'],
+    label: 'Acme 网关',
+    custom: true,
+    editable: true,
+    protocol: 'openai',
+    baseUrl: 'https://gateway.example/v1',
+    models: [registryModel],
+    configured: true,
+    ready: true,
+    ...patch,
+  });
+
+  it('注册表 Provider 归入「自定义 API」分组，并保留 editable/模型目录摘要', () => {
+    const options = providerOptions([registrySummary()]);
+    const entry = options.find((item) => String(item.id) === 'acme-gateway');
+    expect(entry?.group).toBe('自定义 API');
+    expect(entry?.editable).toBe(true);
+    expect(entry?.custom).toBe(true);
+    expect(entry?.label).toBe('Acme 网关');
+    expect(entry?.models).toEqual(['gpt-5.6-sol']);
+    expect(entry?.summary).toContain('自定义模型 API');
+    // 与内置自定义槽同组，且内置槽不会被误标成 editable。
+    const customGroup = groupedProviderOptions([registrySummary()]).find((item) => item.group === '自定义 API');
+    expect(customGroup?.entries.map((item) => String(item.id))).toEqual(['custom_api', 'acme-gateway']);
+    expect(options.find((item) => item.id === 'custom_api')?.editable).not.toBe(true);
+  });
+
+  it('模型选项来自模型目录并去重保留当前值；无目录时退回平台建议列表', () => {
+    const summaryWithCatalog = registrySummary({ models: [registryModel, { ...registryModel, id: 'gpt-5.6-luna' }] });
+    expect(customModelOptions(summaryWithCatalog, 'gpt-5.6-sol')).toEqual(['gpt-5.6-sol', 'gpt-5.6-luna']);
+    expect(customModelOptions(summaryWithCatalog, 'legacy-model')).toEqual(['gpt-5.6-sol', 'gpt-5.6-luna', 'legacy-model']);
+    // 注册表 Provider 的模型必须在目录内，因此不追加 'auto'。
+    expect(customModelOptions(summaryWithCatalog, 'auto')).toEqual(['gpt-5.6-sol', 'gpt-5.6-luna']);
+    expect(customModelOptions(registrySummary({ models: [] }), 'auto')).toEqual(['auto']);
+    expect(customModelOptions(undefined, 'deepseek-chat')).toEqual(['auto', 'deepseek-chat']);
   });
 });

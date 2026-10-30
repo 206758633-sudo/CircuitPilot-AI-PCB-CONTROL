@@ -10,6 +10,7 @@ import { createRuntimeServer } from '../server.mjs';
 
 process.env.CIRCUITPILOT_STATE_DIR = mkdtempSync(join(tmpdir(), 'cp-desig-state-'));
 process.env.CIRCUITPILOT_EVIDENCE_DIR = mkdtempSync(join(tmpdir(), 'cp-desig-evidence-'));
+process.env.CIRCUITPILOT_AUTOMATION_DIR = mkdtempSync(join(tmpdir(), 'cp-desig-automation-'));
 process.env.CIRCUITPILOT_PROJECT_MEMO = join(mkdtempSync(join(tmpdir(), 'cp-desig-memo-')), 'memo.json');
 const TRUSTED_ORIGIN = 'http://127.0.0.1:4177';
 

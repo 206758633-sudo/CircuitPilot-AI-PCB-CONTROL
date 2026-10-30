@@ -27,8 +27,10 @@ test('计划：解析既有元件引脚坐标；已在目标网络算满足；�
   const plan = planNetConnect({ connections: [{ net: 'SDA', pins: [{ componentPrimitiveId: 'p-u1', pinNumber: 'A4' }] }], components: components(), pins: pins(), netlist: netlist() });
   assert.equal(plan.ok, true);
   assert.equal(plan.operations.length, 1);
-  assert.deepEqual(plan.operations[0].args, { portType: 'BI', net: 'SDA', x: 100, y: 200 });
+  assert.deepEqual(plan.operations[0].args, { portType: 'BI', net: 'SDA', x: 100, y: 200, rotation: 180 }, 'A4 在 U1 引脚质心左侧 → 标签必须朝左（rotation=180），不能默认朝右压元件');
   assert.equal(plan.planHash.length, 64);
+  assert.equal(plan.labelSummary.planned, 1, 'dry-run 要能展示标签可读性摘要');
+  assert.equal(plan.labelSummary.outward, 1);
 
   const satisfied = planNetConnect({ connections: [{ net: 'GND', pins: [{ componentPrimitiveId: 'p-u1', pinNumber: 'A5' }] }], components: components(), pins: pins(), netlist: netlist() });
   assert.equal(satisfied.ok, true);
@@ -39,6 +41,15 @@ test('计划：解析既有元件引脚坐标；已在目标网络算满足；�
   assert.equal(refuse.ok, false);
   assert.equal(refuse.findings[0].code, NET_CONNECT_CODES.PIN_ALREADY_ON_OTHER_NET);
   assert.equal(refuse.operations.length, 0);
+});
+
+test('计划：引脚数超过单次上限时 fail-closed（保护 O(端口²) 的标签碰撞打分）', () => {
+  const pinsList = Array.from({ length: 2001 }, (_, index) => ({ componentPrimitiveId: 'p-u1', pinNumber: `P${index}` }));
+  const plan = planNetConnect({ connections: [{ net: 'SDA', pins: pinsList }], components: components(), pins: pins(), netlist: netlist() });
+  assert.equal(plan.ok, false);
+  assert.equal(plan.operations.length, 0);
+  assert.equal(plan.findings[0].code, NET_CONNECT_CODES.CONNECTIONS_INVALID);
+  assert.match(plan.findings[0].message, /2001.*2000/);
 });
 
 test('计划：不存在的图元/引脚/网表身份一律 fail-closed，不产生写入操作', () => {
@@ -81,6 +92,7 @@ test('执行：写端口→保存→读回目标引脚网络正确才通过；�
   assert.equal(applied.verification.ok, true);
   assert.equal(calls.filter((item) => item.commandId === 'schematic.netPort.create').length, 1);
   assert.equal(calls.find((item) => item.commandId === 'schematic.netPort.create').options.allowWrite, true);
+  assert.equal(calls.find((item) => item.commandId === 'schematic.netPort.create').args.rotation, 180, '执行阶段必须把规划出的 rotation 原样传给 netPort.create');
 });
 
 test('执行：写入"静默无效"（读回没变）必须回滚删端口+保存+再核对，并以失败收场', async () => {
@@ -198,4 +210,24 @@ test('回滚幂等：图元已被上一次回滚删掉时，不能再调 delete/
   assert.equal(rollback.ok, true);
   assert.equal(rollback.deleted, true);
   assert.deepEqual(calls, [], '已不存在就不该再写盘');
+});
+
+test('标签朝向：按引脚相对元件主体的朝外方向给 rotation；只并入 warning/info 的布局 findings，不改变 ok', () => {
+  const wideNetlist = { components: { gge1: { props: { Designator: 'U1', 'Unique ID': 'gge1' }, pinInfoMap: { L: { net: '' }, R: { net: '' }, T: { net: '' }, B: { net: '' } } } } };
+  const wideComponents = [{ primitiveId: 'p-u1', designator: 'U1', uniqueId: 'gge1', componentType: 'part', x: 200, y: 200 }];
+  const widePins = { 'p-u1': [
+    { pinNumber: 'L', x: 120, y: 200 },
+    { pinNumber: 'R', x: 280, y: 200 },
+    { pinNumber: 'T', x: 200, y: 120 },
+    { pinNumber: 'B', x: 200, y: 280 },
+  ] };
+  const connections = ['L', 'R', 'T', 'B'].map((pinNumber) => ({ net: `N_${pinNumber}`, pins: [{ componentPrimitiveId: 'p-u1', pinNumber }] }));
+  const first = planNetConnect({ connections, components: wideComponents, pins: widePins, netlist: wideNetlist });
+  const second = planNetConnect({ connections, components: wideComponents, pins: widePins, netlist: wideNetlist });
+  assert.equal(first.ok, true);
+  assert.deepEqual(first.operations.map((item) => [item.pinNumber, item.args.rotation]), [['L', 180], ['R', 0], ['T', 90], ['B', 270]], '左/右/上/下引脚必须朝外，不能一律 0');
+  assert.equal(first.planHash, second.planHash, '同一读回输入必须得到同一计划（rotation 也是确定性的）');
+  // 可读性 findings 只能是非阻断级：它们提醒"标签可能仍挤"，绝不能变成拒绝写入的理由
+  assert.ok(first.findings.every((item) => item.severity !== 'blocking'));
+  assert.ok(first.findings.every((item) => ['warning', 'info'].includes(item.severity)));
 });

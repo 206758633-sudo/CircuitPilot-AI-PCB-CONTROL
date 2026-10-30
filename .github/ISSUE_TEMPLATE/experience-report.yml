@@ -1,0 +1,64 @@
+name: 提交复盘经验（Experience report）
+description: 把项目收尾复盘出的经验/踩坑提交给 CircuitPilot 知识库（经人工审核后进入知识包）
+title: "[经验] "
+labels: ["experience", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢贡献！提交前请先在 CircuitPilot「知识库 → 复盘学习 Agent → 导出经验包」导出 JSON，
+        并把内容粘贴到下面（或作为附件拖入）。**不要提交工程文件、Gerber、客户名或完整本机路径**。
+  - type: input
+    id: app-version
+    attributes:
+      label: CircuitPilot 版本
+      description: 设置页或安装包文件名里的版本号（例如 0.2.0）
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: domain
+    attributes:
+      label: 场景
+      options:
+        - 电源 / 双电池切换
+        - 布局 / 机械 / 3D
+        - 原理图 / 网表
+        - 交付 / Gerber / DFM
+        - 其它
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: 经验内容（现象 → 原因 → 怎么预防）
+      description: 只写经过验证的部分；不确定的根因请标注"待调研"，不要编造。
+      placeholder: |
+        现象：
+        原因：
+        预防：
+    validations:
+      required: true
+  - type: textarea
+    id: bundle
+    attributes:
+      label: 导出的经验包（JSON）
+      description: 粘贴 `circuitpilot-experience-*.json` 内容，或拖入附件。包里带 bundleSha256，便于核对未被改动。
+      render: json
+  - type: input
+    id: bundle-sha256
+    attributes:
+      label: bundleSha256（可选）
+      description: 导出时提示的 sha256 前 12 位即可
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: 授权
+      options:
+        - label: 我确认内容已脱敏（无客户名/工程文件/本机绝对路径），同意按 CC BY 4.0 进入公开知识库并经人工审核后发布
+          required: true
+  - type: input
+    id: contact
+    attributes:
+      label: 联系方式（可选）
+      description: 便于审核时追问；留空也可以

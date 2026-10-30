@@ -157,17 +157,60 @@ test('复核不通过的计划直接拒写（不落铜）', async () => {
 
 test('收尾：重建铺铜 + 显式保存，且两笔写入都必须走受控授权', async () => {
   const calls = [];
-  const execute = async (commandId, args, options) => { calls.push({ commandId, allowWrite: options?.allowWrite === true }); return { result: { ok: true } }; };
+  const execute = async (commandId, args, options) => {
+    calls.push({ commandId, allowWrite: options?.allowWrite === true });
+    if (commandId === 'pcb.poured.read') return { result: [{ primitiveId: 'p1', net: 'GND', layer: 1, filledFills: 4 }] };
+    if (commandId === 'pcb.save') return { result: { saved: true } };
+    return { result: { ok: true } };
+  };
   const done = await finishRouting({ execute });
-  assert.deepEqual(calls.map((entry) => entry.commandId), ['pcb.pour.rebuild', 'pcb.save']);
-  assert.ok(calls.every((entry) => entry.allowWrite), '写入必须带受控授权，不能绕过运行时');
+  assert.deepEqual(calls.map((entry) => entry.commandId), ['pcb.pour.rebuild', 'pcb.poured.read', 'pcb.save']);
+  const writes = calls.filter((entry) => entry.commandId !== 'pcb.poured.read');
+  assert.ok(writes.every((entry) => entry.allowWrite), '写入必须带受控授权，不能绕过运行时');
   assert.equal(done.saved, true);
+  assert.equal(done.poursFilled, true);
 
   calls.length = 0;
   const light = await finishRouting({ execute, rebuildPours: false, save: false });
   assert.deepEqual(calls, [], '显式关闭时不应写任何东西');
   assert.equal(light.saved, false);
   assert.equal(light.pours, null);
+});
+
+test('收尾复核（D-36-1）：覆铜重建后没有任何填充 → 重试一次仍失败则不保存并如实报错', async () => {
+  const calls = [];
+  const execute = async (commandId, args, options) => {
+    calls.push({ commandId, allowWrite: options?.allowWrite === true });
+    if (commandId === 'pcb.poured.read') {
+      // 真机现象：覆铜边框在，但一个填充都没产出
+      return { result: [{ primitiveId: 'gnd', net: 'GND', layer: 1, filledFills: 0 }, { primitiveId: 'p5v', net: '+5V', layer: 1, filledFills: 3 }] };
+    }
+    return { result: { ok: true } };
+  };
+  const done = await finishRouting({ execute });
+  assert.equal(done.ok, false);
+  assert.equal(done.saved, false, '没填充的板不能被保存成"已完成"');
+  assert.equal(done.poursFilled, false);
+  assert.equal(done.error.code, 'PCB_POUR_FILL_INCOMPLETE');
+  assert.deepEqual(done.unfilledPours.map((item) => item.net), ['GND']);
+  assert.equal(calls.filter((entry) => entry.commandId === 'pcb.pour.rebuild').length, 2, '必须重试一次');
+  assert.equal(calls.filter((entry) => entry.commandId === 'pcb.save').length, 0, '失败时不得保存');
+});
+
+test('收尾复核（P0-4）：填充数据读不到 → 判为未知、失败且绝不保存', async () => {
+  const calls = [];
+  const execute = async (commandId, args, options) => {
+    calls.push({ commandId, allowWrite: options?.allowWrite === true });
+    if (commandId === 'pcb.poured.read') throw Object.assign(new Error('bridge read failed'), { code: 'BRIDGE_ERROR' });
+    return { result: { ok: true } };
+  };
+  const done = await finishRouting({ execute });
+  assert.equal(done.ok, false, '读不到填充不能保持 ok:true');
+  assert.equal(done.saved, false, '未知填充状态不得保存');
+  assert.equal(done.poursFilled, null);
+  assert.equal(done.error.code, 'PCB_POUR_FILL_UNKNOWN');
+  assert.equal(calls.filter((entry) => entry.commandId === 'pcb.pour.rebuild').length, 1, '读失败重试重建无意义，只重建一次');
+  assert.equal(calls.filter((entry) => entry.commandId === 'pcb.save').length, 0, '失败时不得保存');
 });
 
 test('通孔焊盘（层12/带孔）在内层同样占位：内层路线不得横穿它', () => {
@@ -630,4 +673,85 @@ test('差分对等长写入：回读发现旧线没删掉 ⇒ 回滚（删新铜
   const rollbackDeletes = created.map((line) => line.id).filter((id) => deleted.includes(id));
   assert.equal(rollbackDeletes.length, created.length, `回滚必须删干净新铜：${JSON.stringify(deleted)}`);
   assert.ok(deleted.includes('L-P'), '回滚也要重新尝试删掉没删成功的旧线');
+});
+
+test('写入顺序：先过孔后走线（真机第 33 轮：先线后孔 → DRC 判 Connection Error/Track，布线写回必被回滚）', async () => {
+  const geometry = {
+    pads: [
+      { designator: 'U1', pad: '1', net: 'N1', layer: 1, x: 0, y: 0, radius: 5 },
+      { designator: 'U2', pad: '1', net: 'N1', layer: 12, x: 100, y: 0, radius: 5, throughHole: true },
+    ],
+    lines: [], vias: [],
+  };
+  const route = { ok: true, net: 'N1', viaInPad: true, from: { x: 0, y: 0, layer: 1 }, segments: [{ layer: 17, x1: 0, y1: 0, x2: 100, y2: 0 }], vias: [] };
+  const calls = [];
+  const written = { lines: [], vias: [] };
+  const execute = async (commandId, args) => {
+    calls.push(commandId);
+    if (commandId === 'pcb.line.create') { written.lines.push({ id: `L${written.lines.length}`, net: args.net, layer: args.layer, x1: args.startX, y1: args.startY, x2: args.endX, y2: args.endY, width: args.lineWidth }); return { result: { primitiveId: `L${written.lines.length - 1}` } }; }
+    if (commandId === 'pcb.via.create') { written.vias.push({ id: `V${written.vias.length}`, net: args.net, x: args.x, y: args.y, outerDiameter: args.diameter, hole: args.holeDiameter }); return { result: { primitiveId: `V${written.vias.length - 1}` } }; }
+    if (commandId === 'pcb.copper.read') return { result: { lines: [...geometry.lines, ...written.lines], vias: [...geometry.vias, ...written.vias], pads: geometry.pads } };
+    if (commandId === 'pcb.save') return { result: { saved: true } };
+    throw new Error(`未预期的命令 ${commandId}`);
+  };
+  const result = await applyRoutingPlan({ execute, plan: { routes: [route] }, geometry, dryRun: false });
+  assert.equal(result.dryRun, false);
+  const viaAt = calls.indexOf('pcb.via.create');
+  const lineAt = calls.indexOf('pcb.line.create');
+  assert.ok(viaAt >= 0 && lineAt >= 0, `应同时写入过孔与走线：${calls.join(',')}`);
+  assert.ok(viaAt < lineAt, `过孔必须先于走线创建：${calls.join(',')}`);
+});
+
+test('盘中孔间距判据按真机实测校准：0.5mm 间距器件 8/4mil 盘中孔到相邻焊盘 9.8mil 不算违规（第 34 轮）', () => {
+  const geometry = {
+    pads: [
+      { designator: 'U1', pad: '1', net: 'N1', layer: 1, x: 0, y: 0, radius: 5, clearanceRadius: 34.4 },
+      { designator: 'U1', pad: '2', net: 'N2', layer: 1, x: 19.7, y: 0, radius: 5.9, clearanceRadius: 26.27, shape: ['RECT', 11.8, 51.2, 0] },
+      { designator: 'U1', pad: '9', net: 'N1', layer: 12, x: 100, y: 0, radius: 5, throughHole: true },
+    ],
+    lines: [], vias: [],
+  };
+  const route = { ok: true, net: 'N1', viaInPad: true, from: { x: 0, y: 0, layer: 1 }, segments: [{ layer: 17, x1: 0, y1: 0, x2: 100, y2: 0 }], vias: [] };
+  const ok = verifyRoutingPlan({ plan: { routes: [route] }, geometry });
+  assert.equal(ok.ok, true, `盘中孔到相邻焊盘 9.8mil 应放行：${JSON.stringify(ok.violations)}`);
+  // 真贴上去（间距 1.1mil）仍然要拦
+  const crowded = { ...geometry, pads: geometry.pads.map((pad) => (pad.pad === '2' ? { ...pad, x: 11 } : pad)) };
+  const bad = verifyRoutingPlan({ plan: { routes: [route] }, geometry: crowded });
+  assert.equal(bad.ok, false);
+  assert.ok(bad.violations.some((entry) => entry.kind === 'via-in-pad-to-pad'));
+});
+
+test('UI 复审 P0-A：pcb.save 未确认落盘时不得报“已保存”（apply）', async () => {
+  const geometry = boardWith({ x: 200, y: 0 });
+  const { connections } = buildRepairConnections(geometry);
+  const route = planConnectionRoute({ geometry, connection: connections[0] });
+  const written = { lines: [], vias: [] };
+  const calls = [];
+  const execute = async (commandId, args) => {
+    calls.push(commandId);
+    if (commandId === 'pcb.line.create') { written.lines.push({ id: 'L0', net: args.net, layer: args.layer, x1: args.startX, y1: args.startY, x2: args.endX, y2: args.endY, width: args.lineWidth }); return { result: { primitiveId: 'L0' } }; }
+    if (commandId === 'pcb.via.create') { written.vias.push({ id: 'V0', net: args.net, x: args.x, y: args.y, outerDiameter: args.diameter, hole: args.holeDiameter }); return { result: { primitiveId: 'V0' } }; }
+    if (commandId === 'pcb.copper.read') return { result: { lines: [...geometry.lines, ...written.lines], vias: [...geometry.vias, ...written.vias], pads: geometry.pads } };
+    if (commandId === 'pcb.save') return { result: false };
+    if (commandId === 'pcb.lines.delete' || commandId === 'pcb.vias.delete') return { result: { ok: true } };
+    throw new Error(`未预期的命令 ${commandId}`);
+  };
+  await assert.rejects(
+    () => applyRoutingPlan({ execute, plan: { routes: [route] }, geometry, dryRun: false, save: true }),
+    (error) => error.code === 'PCB_SAVE_UNCONFIRMED',
+  );
+  assert.ok(calls.includes('pcb.save'), '必须真的尝试保存，再据返回值判定失败');
+  assert.ok(calls.includes('pcb.lines.delete') || calls.includes('pcb.vias.delete'), '保存未确认时走回滚，不把半写状态留在板上');
+});
+
+test('UI 复审 P0-A：覆铜收尾 pcb.save 未确认时 ok=false 且不报 saved', async () => {
+  const execute = async (commandId) => {
+    if (commandId === 'pcb.poured.read') return { result: [{ primitiveId: 'p1', net: 'GND', layer: 1, filledFills: 4 }] };
+    if (commandId === 'pcb.save') return { result: { saved: false } };
+    return { result: { ok: true } };
+  };
+  const done = await finishRouting({ execute });
+  assert.equal(done.ok, false);
+  assert.equal(done.saved, false);
+  assert.equal(done.error?.code, 'PCB_SAVE_UNCONFIRMED');
 });

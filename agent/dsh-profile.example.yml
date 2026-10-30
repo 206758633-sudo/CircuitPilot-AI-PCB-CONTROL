@@ -1,0 +1,37 @@
+# CircuitPilot MCP server 的 DSH profile 示例（@deepseek-ai/dsh-mcp-client）
+#
+# 用法：把下面这一条加入你的 DSH profile 的插件列表（与其它 - id/name/config
+# 条目同级）。改完 profile 后由 DSH 在重载/重启时启动 MCP server；本仓库的测试
+# 不会、也不应该重启 DSH。
+#
+# 关键约定：
+#   - serverName 决定模型侧工具名前缀：mcp__circuitpilot__cp_status 等；
+#   - stdio 子进程环境是“清洗过的父环境 + 这里显式配置的 env”：token 文件路径
+#     必须在这里显式传入（不要把 token 原文写进 profile）；
+#   - 工具调用超时要覆盖长任务（cp_job wait 最长 300s），因此调到 300000ms；
+#   - failOnStartupError: false：MCP server 起不来不应阻止 DSH 启动（工具缺失即可）。
+
+- id: mcp-circuitpilot
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: circuitpilot
+    transport: stdio
+    command: node
+    args:
+      - '/Users/jescochen/Desktop/AI- PCBA/agent/mcp-server.mjs'
+      - '--approval-mode'
+      - 'chat'
+    env:
+      CIRCUITPILOT_RUNTIME_URL: 'http://127.0.0.1:4178'
+      # 方式 A（推荐）：profile 支持 !!js 标签时，从 DSH 进程环境读取 token 文件路径。
+      # CIRCUITPILOT_AGENT_TOKEN_FILE: !!js process.env.CIRCUITPILOT_AGENT_TOKEN_FILE
+      # 方式 B：直接写死绝对路径（macOS 默认路径；Windows/Linux 请换成各自路径）。
+      CIRCUITPILOT_AGENT_TOKEN_FILE: '/Users/jescochen/Library/Application Support/CircuitPilot/agent-token.json'
+    toolCallTimeoutMs: 300000
+    maxInstructionBytes: 32768
+    failOnStartupError: false
+    reconnect:
+      enabled: true
+      initialDelayMs: 500
+      maxDelayMs: 30000
+      maxAttempts: 10

@@ -41,6 +41,18 @@ test('证据读取 fail-closed：未知 schemaVersion 与非法 JSON 都必须�
   assert.throws(() => store.latest('signoff'), (error) => error.code === 'EVIDENCE_CORRUPT');
 });
 
+test('遗留非契约文件不参与读取：旧 *-summary.json 不得让当前证据整类不可用', () => {
+  const store = makeStore();
+  const entry = store.save({ kind: 'lib-evidence', payload: { verdict: 'pass' }, fingerprint: { pcbUuid: 'pcb-legacy' } });
+  const dir = store.dirFor('lib-evidence');
+  // 真机 artifacts/evidence 里存在的旧格式汇总文件（不是当前证据契约）。
+  writeFileSync(join(dir, 'lib-evidence-2026-10-21T15-10-35-815Z-5d055fd6e620-summary.json'), JSON.stringify({ summary: 'legacy' }), 'utf8');
+  const list = store.list('lib-evidence');
+  assert.equal(list.length, 1);
+  assert.equal(list[0].digest, entry.digest);
+  assert.equal(store.latest('lib-evidence').digest, entry.digest);
+});
+
 test('latest 按 fingerprint 精确过滤：不同 PCB 的报告不会串用', () => {
   const store = makeStore();
   store.save({ kind: 'drc-report', payload: { items: [], reportedCount: 0 }, fingerprint: { pcbUuid: 'pcb-a' } });
@@ -54,7 +66,35 @@ test('参数校验：未知证据类型/空 payload 一律拒绝', () => {
   const store = makeStore();
   assert.throws(() => store.save({ kind: 'nope', payload: {} }), (error) => error.code === 'EVIDENCE_KIND_INVALID');
   assert.throws(() => store.save({ kind: 'drc-report', payload: null }), (error) => error.code === 'EVIDENCE_PAYLOAD_REQUIRED');
-  assert.deepEqual(EVIDENCE_KINDS, ['drc-report', 'dfm-evidence', 'signoff', 'schematic-erc', 'spice-simulation', 'order-confirmation', 'pcb-layer-stack']);
+  assert.deepEqual(EVIDENCE_KINDS, [
+    'drc-report', 'dfm-evidence', 'signoff', 'schematic-erc', 'spice-simulation', 'order-confirmation', 'pcb-layer-stack',
+    'research', 'lib-evidence', 'netlist-diff', 'rules', 'field-issue', 'design-spec', 'knowledge',
+    'placement', 'fabrication-release',
+    // P0-5：门禁评估报告与门禁终审签字独立 kind，不再占用 signoff。
+    'gate-report', 'gate-signoff',
+    // W5-01：项目复盘证据独立成类。
+    'retrospective',
+  ]);
+});
+
+test('S1 新增证据类型：research 证据可保存/按 fingerprint 读取，并保持 sha256 绑定', () => {
+  const store = makeStore();
+  const entry = store.save({
+    kind: 'research',
+    payload: { provider: 'duckduckgo', query: 'WS2812B datasheet', results: [{ title: 't', url: 'https://example.com', snippet: 's' }], digest: 'a'.repeat(64) },
+    fingerprint: { kind: 'web-search', query: 'WS2812B datasheet' },
+    note: '真机验证：检索 4 条结果',
+  });
+  assert.equal(entry.kind, 'research');
+  assert.match(entry.digest, /^[a-f0-9]{64}$/);
+  const hit = store.latest('research', { fingerprint: { kind: 'web-search', query: 'WS2812B datasheet' } });
+  assert.equal(hit.digest, entry.digest);
+  assert.equal(store.latest('research', { fingerprint: { query: '不存在的查询' } }), null);
+  // 篡改后必须 fail-closed（与既有证据同一语义）
+  const raw = JSON.parse(readFileSync(entry.path, 'utf8'));
+  raw.payload.provider = 'bing';
+  writeFileSync(entry.path, JSON.stringify(raw), 'utf8');
+  assert.throws(() => store.latest('research'), (error) => error.code === 'EVIDENCE_CORRUPT');
 });
 
 test('清理：测试目录可删除（确保 store 不持有句柄）', () => {

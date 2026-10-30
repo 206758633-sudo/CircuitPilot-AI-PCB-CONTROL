@@ -37,6 +37,11 @@ async function startServer(context) {
   process.env.CIRCUITPILOT_DRC_EXEMPTIONS = join(root, 'drc-exemptions.json');
   const previousStateDir = process.env.CIRCUITPILOT_STATE_DIR;
   process.env.CIRCUITPILOT_STATE_DIR = join(root, 'state');
+  // 真机教训：这套用例的假桥返回 project.current = 'project-1'，而路由会在指纹读取时
+  // rememberProject。没有隔离时它会把开发机真实的 ~/.circuitpilot/last-project.json 覆盖成
+  // "project-1"，下次会话自愈就会去开一个不存在的工程。
+  const previousMemo = process.env.CIRCUITPILOT_PROJECT_MEMO;
+  process.env.CIRCUITPILOT_PROJECT_MEMO = join(root, 'project-memo.json');
   const { server } = createRuntimeServer({ keychain: fakeKeychain, bridge: fakeBridge, gui: fakeGui, evidence });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   context.after(() => new Promise((resolve) => server.close(resolve)));
@@ -45,6 +50,8 @@ async function startServer(context) {
     else process.env.CIRCUITPILOT_DRC_EXEMPTIONS = previousExemptions;
     if (previousStateDir === undefined) delete process.env.CIRCUITPILOT_STATE_DIR;
     else process.env.CIRCUITPILOT_STATE_DIR = previousStateDir;
+    if (previousMemo === undefined) delete process.env.CIRCUITPILOT_PROJECT_MEMO;
+    else process.env.CIRCUITPILOT_PROJECT_MEMO = previousMemo;
     rmSync(root, { recursive: true, force: true });
   });
   const base = `http://127.0.0.1:${server.address().port}`;

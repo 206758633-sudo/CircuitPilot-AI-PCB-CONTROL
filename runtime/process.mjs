@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
 import { access } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { CLI_CANDIDATES, PROCESS_TIMEOUT_MS } from './config.mjs';
 
@@ -15,13 +16,30 @@ async function isExecutable(candidate) {
   }
 }
 
-export async function findExecutable(name) {
-  for (const candidate of CLI_CANDIDATES[name] || []) {
-    if (await isExecutable(candidate)) return candidate;
-  }
-  const pathEntries = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
-  for (const directory of pathEntries) {
-    const candidate = path.join(directory, name);
+/**
+ * 解析一个 CLI 的候选绝对路径（按优先级）：显式落点 → PATH → 常见用户 bin 目录。
+ *
+ * 最后一段是给"从 Finder/Dock 启动的 GUI App"兜底的：它拿到的是 launchd 的最小 PATH，
+ * 看不到 ~/.cargo/bin、~/.local/bin、Homebrew 等目录。只在 PATH 里找，就会把已安装的
+ * cargo/codex/claude 判成"未安装"——这是真实发生过的误报（Rust/Cargo 显示待安装）。
+ *
+ * homeDir/pathValue 可注入，便于测试不依赖真实机器环境。
+ */
+export function executableSearchPaths(name, { homeDir = os.homedir(), pathValue = process.env.PATH } = {}) {
+  const explicit = CLI_CANDIDATES[name] || [];
+  const fromPath = String(pathValue || '').split(path.delimiter).filter(Boolean).map((directory) => path.join(directory, name));
+  const wellKnown = [
+    path.join(homeDir, '.cargo/bin'),
+    path.join(homeDir, '.local/bin'),
+    path.join(homeDir, '.npm-global/bin'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+  ].map((directory) => path.join(directory, name));
+  return [...new Set([...explicit, ...fromPath, ...wellKnown])];
+}
+
+export async function findExecutable(name, options = {}) {
+  for (const candidate of executableSearchPaths(name, options)) {
     if (await isExecutable(candidate)) return candidate;
   }
   return null;

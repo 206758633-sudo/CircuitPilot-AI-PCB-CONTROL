@@ -1,0 +1,66 @@
+{
+  "kind": "agent-environment-recovery",
+  "at": "2026-10-30T02:25:24.820393+00:00",
+  "desktop": {
+    "appPath": "src-tauri/target/release/bundle/macos/CircuitPilot.app",
+    "rebuilt": true,
+    "restarted": true,
+    "repoPcbSha256": "3236fef6f6588f1899359711907005776559941033974e88b053f38e8d6ec95a",
+    "bundlePcbSha256": "3236fef6f6588f1899359711907005776559941033974e88b053f38e8d6ec95a",
+    "hashesMatch": true,
+    "targetedRollbackMarkerCount": 2
+  },
+  "ports": {
+    "circuitpilotRuntime": "{\"ok\":true,\"service\":\"circuitpilot-runtime\",\"version\":\"0.2.0\",\"host\":\"127.0.0.1\"}",
+    "viteDevServer": "<!doctype html>\n<html lang=\"zh-CN\">\n  <head>\n    <script type=\"module\">import { injectIntoGlobalHook } from \"/@react-ref",
+    "easyedaBridge": "{\"service\":\"easyeda-bridge\",\"status\":\"ok\",\"managedBy\":\"easyeda-agent-adapter\",\"version\":\"adapter-1\",\"processId\":13208,\"r"
+  },
+  "viteRuntimeUrl": "http://127.0.0.1:4179",
+  "e2e": {
+    "app": "31/31 passed",
+    "full": "38 passed, 6 skipped (4 live + 2 exclusive-port C6/F7; no failures)",
+    "durationSeconds": 34.5
+  },
+  "pluginTests": {
+    "result": "85/85 passed",
+    "note": "cp_issues title/code fallback fixed; live DSH process may still run old module until restart"
+  },
+  "runtimeTests": {
+    "result": "1421/1421 passed"
+  },
+  "uiTests": {
+    "result": "218/218 passed"
+  },
+  "residual": [
+    "DSH live session still has old plugin module in memory; restart DSH to load cp_issues fix",
+    "current project edaWorkspace pcbUuid 5595... differs from active EDA workspace pcbUuid 0847...",
+    "full document.source.restore/non-create rollback not re-verified",
+    "formal export/signoff blocked by human gates",
+    "worktree has uncommitted changes and untracked temp dirs"
+  ],
+  "issueProjection": {
+    "codeFix": "plugin/dsh-circuitpilot/lib/tools.mjs summarizeIssues title/id-code fallback + test",
+    "dataMigration": "normalized 3 legacy open issues in issue-state.json (backup issue-state.json.backup-20261030-issue-projection)",
+    "liveResult": "cp_issues now returns code/summary for PCB_DRC_NETLIST_SNAPSHOT_UNRESOLVED, PCB_LED_IFACE_NET_NAMING, PCB_LED_3V3_ORPHAN"
+  },
+  "tests": {
+    "runtime": "1433/1433 passed",
+    "ui": "218/218 passed",
+    "plugin": "85/85 passed",
+    "typecheck": "exit 0",
+    "build": "passed",
+    "e2eApp": "31/31 passed",
+    "e2eFull": "38 passed, 6 skipped (4 live + 2 exclusive-port C6/F7)"
+  },
+  "devRuntime": {
+    "port": 4179,
+    "stateDir": ".tmp/e2e-runtime-state (copy of desktop state for anchored audit)",
+    "purpose": "E2E real Runtime / Agent console"
+  },
+  "testFixes": [
+    "e2e/app.spec.ts: API route mocks host-agnostic (**/api/**) instead of hardcoded :4178",
+    "e2e/voice-requirement-input.spec.ts: host-agnostic API interception",
+    "e2e/layout-rules.spec.ts: health URL configurable/default 4179; rules 151/hard 126; strict-mode .first()",
+    "dev runtime 4179 seeded with desktop state copy so agent-console real-runtime test sees anchored audit"
+  ]
+}

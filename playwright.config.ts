@@ -34,6 +34,7 @@ const devPort = portFromBaseUrl(process.env.BASE_URL) ?? allocatedPort;
 
 export default defineConfig({
   testDir: './e2e',
+  globalTeardown: './e2e/global-teardown.ts',
   fullyParallel: false,
   timeout: 45_000,
   expect: { timeout: 8_000 },

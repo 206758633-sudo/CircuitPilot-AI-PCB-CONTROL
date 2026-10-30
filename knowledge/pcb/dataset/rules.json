@@ -1,0 +1,5397 @@
+{
+  "version": "1.3.0",
+  "generatedAt": "2026-10-28T12:25:25.164Z",
+  "domain": "pcb-design-rules",
+  "notes": "数值为工程参考值与常见工艺能力。2026-10-23 起新增公开资料研究条目（ESP32/TI/RPi/JLCPCB/PCBWay/Sierra/IPC），每条带 sources 指向 sources.json；落地前必须按 IPC-2221/IPC-2152 原文、datasheet 与目标板厂当前能力表复核。",
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "载流线宽：1oz 铜、10°C 温升下 1A 电流参考线宽",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CURRENT-001",
+        "category": "布线/载流",
+        "severity": "warning",
+        "statement": "外部走线按 IPC-2152 估算：1oz（35µm）铜厚、允许 10°C 温升时，0.25mm≈0.65A、0.5mm≈1.2A、1.0mm≈2.3A；内层走线按同等电流取外部宽度的 1.5~2 倍。",
+        "limits": [
+          "1oz 外层 1A ≈ 0.5mm（保守）",
+          "内层同电流线宽 ≈ 外层 ×1.5~2",
+          "2oz 同宽度载流约为 1oz 的 1.8 倍",
+          "压降而不是温升成为限制时，按 R=ρL/(W·t) 单独计算"
+        ],
+        "rationale": "载流不足会因 I²R 发热导致温升过高、长期可靠性下降，极端情况烧断走线；窄线还会带来额外压降与 EMI。",
+        "check": "按每条电源/地/大电流网络的峰值电流查表并计算压降；布线完成后在 EDA 中检查关键网络最小线宽，DRC 不通过则加宽或并铜/开窗加锡。",
+        "appliesTo": [
+          "power",
+          "motor",
+          "charging",
+          "led-driver"
+        ],
+        "tags": [
+          "载流",
+          "线宽",
+          "IPC-2152",
+          "温升",
+          "压降"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "导线间距按电压分级，低压默认 ≥0.2mm",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CLEARANCE-001",
+        "category": "布线/间距",
+        "severity": "error",
+        "statement": "常规低压板（<30V）走线/焊盘间距建议 ≥0.2mm（8mil），最小不得低于板厂能力；30~100V ≥0.4mm，100~300V ≥1.0mm，更高电压按 IPC-2221 爬电距离表计算。",
+        "limits": [
+          "<30V：≥0.2mm（建议），板厂极限常见 0.1~0.15mm",
+          "30~100V：≥0.4mm",
+          "100~300V：≥1.0mm",
+          "高压/市电按爬电距离与电气间隙单独核算"
+        ],
+        "rationale": "间距不足在湿热、污染、盐雾环境下会爬电/击穿；制造公差与蚀刻偏差可能进一步缩小实际间距。",
+        "check": "在设计规则中设置按网络类别的间距规则（电源/高压单独加严），DRC 中检查 Clearance；高压区域还需要开槽、加阻焊或灌封等附加措施。",
+        "appliesTo": [
+          "all",
+          "high-voltage"
+        ],
+        "tags": [
+          "间距",
+          "爬电",
+          "IPC-2221",
+          "安规"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "普通过孔 0.3mm 钻孔 / 0.6mm 焊盘，载流按 0.5~1A/孔估算",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-VIA-001",
+        "category": "过孔",
+        "severity": "warning",
+        "statement": "信号过孔推荐 0.3mm 钻孔 / 0.6mm 焊盘（板厂普遍可做）；电流过孔按电镀铜厚 20~25µm 估算，0.3mm 孔约 0.5~0.7A/孔，大电流用多孔并联或 0.5mm 以上孔。",
+        "limits": [
+          "常规信号孔：0.3/0.6mm",
+          "小孔/激光孔：0.2/0.45mm（成本与板厂能力确认）",
+          "0.3mm 孔载流保守 0.5A/孔",
+          "电源过孔阵列：每个功率回路 ≥2~4 孔"
+        ],
+        "rationale": "过孔电镀铜厚小于表层铜厚，载流与散热能力都弱于走线；单个过孔过大电流会熔断或长期过热。",
+        "check": "电源/地/大电流网络禁止单孔跨越；检查过孔与焊盘/铜皮间距，确认板厂最小孔环与孔壁铜厚能力。",
+        "appliesTo": [
+          "power",
+          "gnd",
+          "thermal"
+        ],
+        "tags": [
+          "过孔",
+          "载流",
+          "孔壁铜厚",
+          "散热"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "孔环（annular ring）最小 0.13mm，推荐 ≥0.15mm",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ANNULAR-001",
+        "category": "过孔/焊盘",
+        "severity": "error",
+        "statement": "过孔与插件焊盘单边孔环 ≥0.13mm（常见板厂极限约 0.13mm），推荐 ≥0.15mm；钻孔偏移与成品孔径公差会吃掉孔环余量。",
+        "limits": [
+          "最小孔环：0.13mm（能力极限）",
+          "推荐：≥0.15mm",
+          "大孔/重载连接器：≥0.2mm"
+        ],
+        "rationale": "孔环不足在钻孔偏移时可能破环，造成开路或孔壁与铜皮连接不可靠；返修/热应力下更易失效。",
+        "check": "DRC 检查 annular ring / hole-to-copper 规则；对插件连接器与安装孔单独确认。",
+        "appliesTo": [
+          "all"
+        ],
+        "tags": [
+          "孔环",
+          "钻孔偏移",
+          "可靠性"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "阻焊开窗单边 0.05mm，阻焊桥最小 0.1~0.15mm",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-MASK-001",
+        "category": "阻焊",
+        "severity": "warning",
+        "statement": "焊盘阻焊开窗相对铜皮单边外扩 0.05mm（2mil）；相邻焊盘之间阻焊桥宽度 ≥0.1mm（极限），常规设计按 ≥0.15mm 以保证油墨附着。",
+        "limits": [
+          "开窗外扩：0.05mm（单边）",
+          "阻焊桥：极限 0.1mm，推荐 ≥0.15mm",
+          "BGA/密脚器件按板厂能力确认"
+        ],
+        "rationale": "开窗不足导致焊盘被油墨覆盖、焊接不良；开窗过大则会缩小阻焊桥，造成连锡与油墨脱落。",
+        "check": "检查阻焊层（solder mask）与焊盘的相对关系；密间距器件用 1:1 焊盘开窗，确认阻焊桥可否加工。",
+        "appliesTo": [
+          "all"
+        ],
+        "tags": [
+          "阻焊",
+          "开窗",
+          "阻焊桥",
+          "连锡"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "丝印线宽 ≥0.15mm、字高 ≥0.8mm，且不得压焊盘/开窗",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SILK-001",
+        "category": "丝印",
+        "severity": "info",
+        "statement": "丝印线宽 ≥0.15mm，字符高度 ≥0.8mm，字符与焊盘/开窗保持 ≥0.15mm 间距；器件位号放置在装配后仍可见的位置。",
+        "limits": [
+          "线宽：≥0.15mm",
+          "字高：≥0.8mm（推荐 1.0mm）",
+          "与焊盘间距：≥0.15mm"
+        ],
+        "rationale": "丝印压焊盘会被油墨污染焊盘或上锡不良；厂家也会自动裁掉压焊盘的丝印，导致位号缺失。",
+        "check": "检查丝印层与焊盘/开窗是否存在重叠；高密度板可将位号移到器件外侧或改用装配图。",
+        "appliesTo": [
+          "all"
+        ],
+        "tags": [
+          "丝印",
+          "位号",
+          "可读性"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "器件距板边 ≥0.5mm，V-cut/邮票孔区域留 1mm 以上禁布",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-EDGE-001",
+        "category": "板边/拼板",
+        "severity": "warning",
+        "statement": "贴片器件外框距板边 ≥0.5mm；V-cut 线与邮票孔两侧各留 ≥1mm 器件禁布区；拼板工艺边宽度 ≥5mm。",
+        "limits": [
+          "器件到板边：≥0.5mm",
+          "V-cut/邮票孔禁布：≥1mm",
+          "工艺边：≥5mm",
+          "板边裸铜/走线：按板厂要求内缩"
+        ],
+        "rationale": "铣板公差、V-cut 应力与分板毛刺会损伤过近的器件和走线；工艺边不足无法过贴片机轨道。",
+        "check": "布局完成后用板边/拼板规则检查；分板方式（V-cut vs 邮票孔）与厂内工艺确认。",
+        "appliesTo": [
+          "placement",
+          "panel"
+        ],
+        "tags": [
+          "板边",
+          "V-cut",
+          "拼板",
+          "分板"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "光学定位点：1mm 铜、2mm 开窗、至少 3 个非对称分布",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-FIDUCIAL-001",
+        "category": "拼板/贴片",
+        "severity": "info",
+        "statement": "整板与拼板至少各放 3 个光学定位点（Fiducial），中心铜盘直径 1mm、阻焊开窗 2mm，周围 ≥1mm 无其他铜/丝印/过孔；三点呈非对称分布。",
+        "limits": [
+          "铜盘：1mm",
+          "开窗：2mm",
+          "周围净空：≥1mm",
+          "数量：≥3，非对称"
+        ],
+        "rationale": "贴片机靠定位点做视觉校正；定位点污染或对称分布会造成角度歧义与贴装偏移。",
+        "check": "检查定位点层是否单独输出、是否被丝印/铜皮遮挡；双面贴装时两面都布置。",
+        "appliesTo": [
+          "panel",
+          "assembly"
+        ],
+        "tags": [
+          "Fiducial",
+          "贴片",
+          "定位"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "关键网络留测试点：电源、地、复位、调试接口",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-TESTPOINT-001",
+        "category": "测试/可维护性",
+        "severity": "info",
+        "statement": "每条电源轨、地、复位、SWD/UART 调试口预留 ≥1 个测试点；测试点直径 1.0~1.5mm，间距 ≥2.54mm，优先放在单面且不被结构件遮挡。",
+        "limits": [
+          "测试点直径：1.0~1.5mm",
+          "间距：≥2.54mm",
+          "关键网络：电源/地/复位/调试口"
+        ],
+        "rationale": "没有测试点只能靠飞线/探针接触器件引脚，调试与量产测试效率低且易短路。",
+        "check": "在原理图/PCB 中核对网络与测试点清单；确认测试点不在屏蔽罩或电池下方。",
+        "appliesTo": [
+          "debug",
+          "production-test"
+        ],
+        "tags": [
+          "测试点",
+          "调试",
+          "量产"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "50Ω 单端阻抗：参考平面完整，走线宽度按叠层用场求解器确认",
+      "doc": "docs/knowledge/pcb/02-stackup-impedance.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-IMPEDANCE-001",
+        "category": "阻抗/高速",
+        "severity": "warning",
+        "statement": "需要 50Ω 单端阻抗的信号必须指定参考层（GND 优先），按叠层用阻抗计算器/场求解器求线宽；微带线粗略起点 W≈2H（FR-4，εr≈4.2），实际以板厂阻抗计算为准。",
+        "limits": [
+          "参考平面：完整 GND，禁止跨分割",
+          "微带初估：W≈2H",
+          "带状线初估：W≈H/2~H（视叠层）",
+          "阻抗公差：常规 ±10%，严格 ±5% 需板厂确认"
+        ],
+        "rationale": "线宽、介质厚度、铜厚、阻焊厚度都影响阻抗；只按经验值不计算会在批量时失配，造成反射/振铃。",
+        "check": "叠层确定后让板厂出阻抗计算单；在板上加阻抗测试条（coupon），首件用 TDR 验证。",
+        "appliesTo": [
+          "high-speed",
+          "rf",
+          "usb",
+          "ethernet"
+        ],
+        "tags": [
+          "阻抗",
+          "微带线",
+          "带状线",
+          "叠层",
+          "TDR"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "差分对：100Ω/90Ω 受控阻抗、对内等长 ≤5mil、不跨分割",
+      "doc": "docs/knowledge/pcb/02-stackup-impedance.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-DIFF-001",
+        "category": "阻抗/差分",
+        "severity": "warning",
+        "statement": "USB2.0 差分 90Ω、以太网 100Ω、LVDS 100Ω；对内长度差 ≤5mil（0.127mm），差分对与其他信号 ≥3W 间距，全程同一参考平面，换层时成对换并补回流地孔。",
+        "limits": [
+          "USB2.0：90Ω ±10%",
+          "以太网/LVDS：100Ω ±10%",
+          "对内等长：≤5mil",
+          "与邻线间距：≥3W"
+        ],
+        "rationale": "长度失配与参考面断裂会破坏共模抑制，产生 EMI 与眼图闭合。",
+        "check": "阻抗计算单、DRC 差分规则、等长报告；目检差分对是否被过孔/器件打断或跨分割。",
+        "appliesTo": [
+          "usb",
+          "ethernet",
+          "lvds",
+          "hdmi"
+        ],
+        "tags": [
+          "差分",
+          "等长",
+          "90Ω",
+          "100Ω",
+          "EMI"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "四层板推荐叠层：信号-地-电源-信号，参考平面连续",
+      "doc": "docs/knowledge/pcb/02-stackup-impedance.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-STACKUP-001",
+        "category": "叠层",
+        "severity": "info",
+        "statement": "通用四层板推荐 L1 信号 / L2 完整 GND / L3 电源 / L4 信号；两层内层完整，禁止在 L2 走长距离信号；六层板优先 SIG-GND-SIG-PWR-GND-SIG，保证每个信号层都有相邻参考面。",
+        "limits": [
+          "4 层：SIG-GND-PWR-SIG",
+          "6 层推荐：SIG-GND-SIG-PWR-GND-SIG",
+          "参考平面完整性：跨分割处加缝合电容/桥接"
+        ],
+        "rationale": "参考平面是回流路径；平面被切碎会让回流绕行、环路面积增大，引发串扰与辐射。",
+        "check": "叠层图评审 + 平面完整性检查；关键高速线跨分割时，在跨缝处放 0.1µF 桥接电容或改层。",
+        "appliesTo": [
+          "stackup",
+          "high-speed"
+        ],
+        "tags": [
+          "叠层",
+          "四层",
+          "六层",
+          "参考平面",
+          "回流"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "去耦电容 0.1µF 距电源引脚 ≤2mm，优先同层直连过孔",
+      "doc": "docs/knowledge/pcb/04-power-integrity-decoupling.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-DECOUPLE-001",
+        "sources": [
+          "SRC-ESP32-HW",
+          "SRC-TI-QFN"
+        ],
+        "evidenceLevel": "A",
+        "category": "电源完整性",
+        "severity": "warning",
+        "statement": "每个电源引脚配 0.1µF（或 1µF+0.1µF）去耦，电容到引脚的距离 ≤2mm，电源-电容-地回路面积最小；电容需用独立过孔直接连到电源/地平面，不走长支线。",
+        "limits": [
+          "电容到引脚：≤2mm（BGA 可放背面焊盘内）",
+          "过孔：电容两端各 ≥1 个，优先 2 个",
+          "回路面积：越小越好"
+        ],
+        "rationale": "去耦靠的是短回路与低电感；走线过长引入的寄生电感会让高频去耦失效，瞬态电流只能由远端电源提供。",
+        "check": "布局评审逐引脚核对电容位置与过孔；电源平面/地平面连接是否被过孔/分割打断。",
+        "appliesTo": [
+          "power-integrity",
+          "mcu",
+          "high-speed"
+        ],
+        "tags": [
+          "去耦",
+          "旁路",
+          "回路电感",
+          "PI"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "大电容+小电容组合，避免同容值并联谐振峰",
+      "doc": "docs/knowledge/pcb/04-power-integrity-decoupling.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-DECOUPLE-002",
+        "category": "电源完整性",
+        "severity": "info",
+        "statement": "电源入口用 10µF 级别体电容，芯片近端用 0.1µF/1µF；需要宽频去耦时按 10 倍容值间隔组合（如 10µF/1µF/0.1µF/0.01µF），不要仅堆同容值电容。",
+        "limits": [
+          "体电容：10~100µF",
+          "近端去耦：0.1µF/1µF",
+          "组合间隔：约 10×",
+          "注意各容值自谐振频率（SRF）"
+        ],
+        "rationale": "电容在 SRF 以上呈感性，单一容值无法覆盖宽频；并联不同容值可降低阻抗，但同容值并联只降 ESR 不拓宽频带。",
+        "check": "用目标阻抗法估算所需容值；有条件时用 VNA/PDN 分析验证；至少确认每个电源引脚都有近端去耦。",
+        "appliesTo": [
+          "power-integrity"
+        ],
+        "tags": [
+          "去耦",
+          "目标阻抗",
+          "自谐振",
+          "PDN"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "晶振电路：环路面积最小、负载电容对称、下方净空",
+      "doc": "docs/knowledge/pcb/03-placement-routing.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CRYSTAL-001",
+        "category": "时钟",
+        "severity": "warning",
+        "statement": "晶振紧贴 MCU 放置，XIN/XOUT 走线尽量短且等长；负载电容地端就近接地，晶振下方避免走线/电源，外围加地保护环或地铜。",
+        "limits": [
+          "走线长度：≤10mm（越短越好）",
+          "负载电容：对称，按 CL 计算",
+          "下方净空：不穿信号线"
+        ],
+        "rationale": "晶振是高阻小信号节点，长走线与不对称负载会增加寄生电容/串扰，导致频偏或起振失败。",
+        "check": "布局评审晶振与 MCU 距离；CL 计算值与实际电容核对；必要时示波器/频率计验证。",
+        "appliesTo": [
+          "clock",
+          "mcu"
+        ],
+        "tags": [
+          "晶振",
+          "负载电容",
+          "起振",
+          "EMI"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "USB2.0 差分 90Ω：不跨分割、ESD 靠连接器、走线不 stub",
+      "doc": "docs/knowledge/pcb/02-stackup-impedance.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-USB-001",
+        "sources": [
+          "SRC-TI-USB",
+          "SRC-RPI-HW"
+        ],
+        "evidenceLevel": "A",
+        "category": "接口/USB",
+        "severity": "warning",
+        "statement": "USB2.0 D+/D- 按 90Ω 差分走线，尽量短、不跨参考平面分割、不打测试 stub；ESD 器件放在连接器与差分线之间且靠近连接器；VBUS 加 TVS 与限流。",
+        "limits": [
+          "差分阻抗：90Ω",
+          "对内等长：≤5mil",
+          "ESD 到连接器：尽量 ≤10mm",
+          "差分对间：≥3W"
+        ],
+        "rationale": "USB 热插拔易受 ESD 冲击；差分线跨分割或 stub 会造成眼图劣化、枚举失败。",
+        "check": "差分 DRC + 等长报告；ESD 回流路径是否短而宽；USB 眼图/枚举测试（有条件）。",
+        "appliesTo": [
+          "usb",
+          "interface"
+        ],
+        "tags": [
+          "USB",
+          "差分",
+          "ESD",
+          "眼图"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "USB-C 受电：CC1/CC2 各 5.1kΩ 下拉到 GND",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-USBC-CC-001",
+        "category": "接口/USB-C",
+        "severity": "error",
+        "statement": "USB-C sink（受电）设备在 CC1、CC2 上各接 5.1kΩ ±1% 下拉到 GND；不可只接一路，也不可用 10k 或并联共用；VBUS 需过 ESD/限流后进入后级。",
+        "limits": [
+          "CC 下拉：5.1kΩ ±1%",
+          "两路独立：CC1 与 CC2 各一只",
+          "源端 Rd：由 Source 提供，Sink 只做 Rd"
+        ],
+        "rationale": "CC 是 Type-C 检测与电流能力协商的通道；接错会导致无法被 C 口充电器识别、只能 5V 小电流或完全不供电。",
+        "check": "原理图核对 CC 电阻数量/阻值/接地；用 C 口充电器实测 VBUS 建立与电流能力。",
+        "appliesTo": [
+          "usb-c",
+          "power"
+        ],
+        "tags": [
+          "USB-C",
+          "CC",
+          "5.1k",
+          "受电"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "I2C 上拉电阻范围：按总线电容与速率计算，常规 2.2~10kΩ",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-I2C-001",
+        "category": "总线/I2C",
+        "severity": "warning",
+        "statement": "I2C 上拉电阻由总线电容与上升时间决定：Rp(max)≈tr/(0.8473·Cbus)，同时满足灌电流（≥3mA 通常 Rp(min)≈(VDD-0.4)/3mA）。100kHz、Cbus≤400pF 时常用 4.7kΩ；400kHz 常用 2.2~4.7kΩ；长线/多器件降到 1.5~2.2kΩ 并复核功耗。",
+        "limits": [
+          "100kHz：4.7kΩ 常见（Cbus<400pF）",
+          "400kHz：2.2~4.7kΩ",
+          "1MHz：1~2.2kΩ（需器件支持）",
+          "总线电容：标准模式 ≤400pF"
+        ],
+        "rationale": "上拉过大上升沿变缓导致时序违例；过小则灌电流/低电平超标、功耗增加。",
+        "check": "按实际总线电容计算 Rp 上下限；示波器看 SCL/SDA 上升时间与低电平；多主/多从时检查地址冲突。",
+        "appliesTo": [
+          "i2c",
+          "sensor",
+          "eeprom"
+        ],
+        "tags": [
+          "I2C",
+          "上拉",
+          "总线电容",
+          "上升时间"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "ESD 器件放在连接器与受保护电路之间，回流路径短",
+      "doc": "docs/knowledge/pcb/05-emc-esd-thermal.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ESD-001",
+        "sources": [
+          "SRC-TI-ESD",
+          "SRC-TI-USB"
+        ],
+        "evidenceLevel": "A",
+        "category": "保护/ESD",
+        "severity": "error",
+        "statement": "接口 TVS/ESD 阵列必须位于连接器与后级电路之间，尽量贴近连接器；TVS 地端用短而宽的走线/多过孔直接连到地平面，禁止经过长支线或跨分割。",
+        "limits": [
+          "TVS 到连接器：≤10mm（越近越好）",
+          "地回路：短、宽、多孔",
+          "受保护线先过 TVS 再进芯片"
+        ],
+        "rationale": "ESD 电流上升极快（ns 级），长路径的寄生电感会产生高残压，保护失效并可能耦合到邻近电路。",
+        "check": "布局评审 TVS 位置与地连接；有条件做 ESD 枪/IEC 61000-4-2 测试；确认受保护线上无分支绕过 TVS。",
+        "appliesTo": [
+          "interface",
+          "esd"
+        ],
+        "tags": [
+          "ESD",
+          "TVS",
+          "回流",
+          "IEC61000-4-2"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "功率器件散热焊盘：过孔阵列 + 大面积铜 + 热焊盘连接",
+      "doc": "docs/knowledge/pcb/05-emc-esd-thermal.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-THERMAL-001",
+        "sources": [
+          "SRC-TI-QFN",
+          "SRC-SIERRA-THERMAL"
+        ],
+        "evidenceLevel": "A",
+        "category": "热设计",
+        "severity": "warning",
+        "statement": "QFN/DFN/功率 IC 的散热焊盘（EPAD）下打 0.3mm 过孔阵列（间距 1.0~1.2mm，盖油塞孔防漏锡），连接到内层/底层大面积地铜；铜皮面积与过孔数量按功耗和温升预算确定。",
+        "limits": [
+          "过孔：0.3mm，间距 1.0~1.2mm",
+          "铜皮：尽量大，多面铺铜",
+          "功耗估算：Tj=Ta+θja·P"
+        ],
+        "rationale": "散热焊盘不接地/不打孔时，热量只能通过封装表面散出，θja 显著变差，功率器件会过热降额或损坏。",
+        "check": "计算 Tj 与 θja（按 JEDEC 板或实际铜面积）；热像仪/热电偶实测；确认过孔塞孔不过孔漏锡。",
+        "appliesTo": [
+          "power",
+          "thermal"
+        ],
+        "tags": [
+          "散热",
+          "EPAD",
+          "过孔阵列",
+          "Tj",
+          "θja"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高压爬电距离按 IPC-2221 与安规标准计算并留裕量",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CREEPAGE-001",
+        "category": "安规/高压",
+        "severity": "error",
+        "statement": "市电/高压区域按 IPC-2221 或目标安规标准（如 IEC 62368-1）计算电气间隙与爬电距离；常用参考：污染等级 2、材料组 IIIa 时，250V 工作电压爬电距离约 2.5mm，400V 约 4mm，实际以标准表格为准并留 ≥20% 裕量。",
+        "limits": [
+          "250V：约 2.5mm（污染等级2/IIIa 参考）",
+          "400V：约 4mm",
+          "裕量：≥20%",
+          "开槽/灌封可改善"
+        ],
+        "rationale": "爬电距离不足在高湿/污秽环境下会形成漏电通道，长期碳化后短路起火。",
+        "check": "安规评审 + 耐压/绝缘电阻测试；高压区做开槽、加阻焊、灌封或使用隔离电源。",
+        "appliesTo": [
+          "high-voltage",
+          "ac-dc"
+        ],
+        "tags": [
+          "安规",
+          "爬电距离",
+          "IEC62368",
+          "隔离"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "DRC 违规必须修复或带理由豁免，禁止静默忽略",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-DRC-001",
+        "category": "流程/质量",
+        "severity": "error",
+        "statement": "布局布线完成后必须运行 DRC；每条违规要么修复，要么登记豁免（对象、理由、风险、批准人）；未解释的 DRC 违规不得进入制造文件导出。",
+        "limits": [
+          "DRC 错误：0 未解释项",
+          "豁免：必须有理由与批准人",
+          "导出前：ERC/DRC 报告与版本绑定"
+        ],
+        "rationale": "未处理 DRC 意味着已知风险被隐藏；制造后再发现，返工成本高甚至报废。",
+        "check": "DRC 报告逐条分类（修复/豁免/误报）；豁免清单与证据归档；导出前复核。",
+        "appliesTo": [
+          "process",
+          "manufacturing"
+        ],
+        "tags": [
+          "DRC",
+          "豁免",
+          "质量门禁",
+          "证据"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "制造文件齐套：Gerber、钻孔、层图、BOM、坐标文件、拼板",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-GERBER-001",
+        "category": "制造文件",
+        "severity": "error",
+        "statement": "下单包至少包含：Gerber（RS-274X，含各铜层/阻焊/丝印/板框）、NC 钻孔文件、叠层与阻抗说明、BOM、贴片坐标文件（含旋转/面别）、拼板与工艺边说明；文件命名带版本与日期。",
+        "limits": [
+          "Gerber：RS-274X/X2",
+          "钻孔：Excellon",
+          "BOM：必填完整字段",
+          "坐标：mm、原点一致",
+          "版本：可追溯"
+        ],
+        "rationale": "制造文件缺失或版本错位会导致做错板、贴错面、器件极性反；事后无法追溯到具体版本。",
+        "check": "用 Gerber 查看器逐层检查（阻焊开窗、丝印、板框、钻孔对位）；BOM/坐标/贴片图交叉核对。",
+        "appliesTo": [
+          "manufacturing"
+        ],
+        "tags": [
+          "Gerber",
+          "钻孔",
+          "BOM",
+          "坐标文件",
+          "版本"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "BOM 必备字段与替代料规则",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-BOM-001",
+        "category": "BOM/选型",
+        "severity": "error",
+        "statement": "BOM 每行必须包含位号、数量、值/型号、MPN、封装、LCSC 料号、DNP 标记；替代料必须标注 pin-to-pin 兼容性与电气差异，未经核验不得直接替换。",
+        "limits": [
+          "必填：refdes/qty/value/mpn/package/lcscId",
+          "DNP：显式标注",
+          "替代料：需核验封装/引脚/参数"
+        ],
+        "rationale": "BOM 缺字段会导致采购错料、贴片错件；未经核验的替代料可能引脚或参数不兼容。",
+        "check": "BOM 与原理图/PCB 交叉核对；替代料走 Librarian 三源核验；关键料确认库存与生命周期。",
+        "appliesTo": [
+          "bom",
+          "manufacturing"
+        ],
+        "tags": [
+          "BOM",
+          "替代料",
+          "采购",
+          "DNP"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "拼板：工艺边 ≥5mm，V-cut/邮票孔按分板方式留距",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PANEL-001",
+        "sources": [
+          "SRC-JLC-CAP",
+          "SRC-PCBWAY-CAP"
+        ],
+        "evidenceLevel": "B",
+        "category": "拼板",
+        "severity": "warning",
+        "statement": "拼板工艺边 ≥5mm，拼板间按 V-cut（直边，无间距）或邮票孔（间距约 1.6~2mm，孔距 0.5~0.8mm）设计；V-cut 线两侧器件禁布 ≥1mm，拼板尺寸与贴片机轨道兼容。",
+        "limits": [
+          "工艺边：≥5mm",
+          "邮票孔：孔径约 0.5mm，孔距 0.8~1.0mm",
+          "V-cut 禁布：≥1mm",
+          "拼板外形：按产线轨道与贴片机范围"
+        ],
+        "rationale": "拼板不合理会导致分板应力损伤器件、贴片机无法夹持、板边不平整。",
+        "check": "拼板图评审；确认分板方式与板厂/贴片厂能力；首件检查分板后板边与器件。",
+        "appliesTo": [
+          "panel",
+          "manufacturing"
+        ],
+        "tags": [
+          "拼板",
+          "工艺边",
+          "V-cut",
+          "邮票孔"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "铜平衡：各层铜覆盖率尽量均衡，避免大面积孤岛",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-COPPER-001",
+        "category": "制造/翘曲",
+        "severity": "info",
+        "statement": "各层铜分布尽量均衡（覆盖率差异建议 <20%），大面积无网络铜皮要接地或删除；孤岛铜必须删除，避免蚀刻不均、板翘与天线效应。",
+        "limits": [
+          "层间铜覆盖率差异：建议 <20%",
+          "孤岛铜：删除或过孔接地",
+          "大面积铜：网格/实铜按工艺选择"
+        ],
+        "rationale": "铜分布不均会在回流焊/蚀刻中产生应力与翘曲；孤岛铜会形成悬浮天线，影响 EMC。",
+        "check": "各层铜覆盖率统计；孤岛检查（DRC/目检）；必要时加平衡铜或调整铺铜。",
+        "appliesTo": [
+          "stackup",
+          "manufacturing"
+        ],
+        "tags": [
+          "铜平衡",
+          "翘曲",
+          "孤岛",
+          "铺铜"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "避免酸角/锐角：走线与焊盘连接处用 ≥90° 或泪滴",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ACID-001",
+        "category": "制造/蚀刻",
+        "severity": "info",
+        "statement": "走线转角使用 45° 或圆弧，避免 <90° 锐角（酸角）；走线与焊盘/过孔连接处可加泪滴，减少蚀刻残留与应力集中。",
+        "limits": [
+          "转角：≥90°（推荐 135°/圆弧）",
+          "泪滴：焊盘/过孔连接处",
+          "高密度区：按 DFM 检查"
+        ],
+        "rationale": "锐角在蚀刻时药水易滞留（酸角），造成过蚀刻/残留，长期可能断路；应力集中也易在热循环中开裂。",
+        "check": "DFM/目检检查锐角与残铜；高密度板可让板厂做 DFM 分析。",
+        "appliesTo": [
+          "routing",
+          "manufacturing"
+        ],
+        "tags": [
+          "酸角",
+          "锐角",
+          "泪滴",
+          "蚀刻"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "信号换层时在过孔旁加回流地孔",
+      "doc": "docs/knowledge/pcb/03-placement-routing.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-RETURN-001",
+        "category": "信号完整性",
+        "severity": "warning",
+        "statement": "高速/敏感信号换层时，在信号过孔旁 0.5~1mm 内放置回流地过孔（或成对差分换层），保证回流路径连续；禁止跨越平面分割换层。",
+        "limits": [
+          "回流地孔距离：0.5~1mm",
+          "差分：成对换层",
+          "跨分割：用缝合电容桥接或改层"
+        ],
+        "rationale": "信号换层时回流必须换层；没有就近地孔，回流会绕远路，形成大环路，引发串扰与辐射。",
+        "check": "检查高速信号过孔附近的回流地孔；平面分割处是否被跨越；SI 仿真/实测（有条件）。",
+        "appliesTo": [
+          "high-speed",
+          "si"
+        ],
+        "tags": [
+          "回流",
+          "换层",
+          "过孔",
+          "信号完整性"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电源纹波测量：使用地弹簧/短地回路，带宽 20MHz",
+      "doc": "docs/knowledge/pcb/05-emc-esd-thermal.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-MEASURE-001",
+        "category": "测试/量测",
+        "severity": "info",
+        "statement": "测量电源纹波必须使用探头地弹簧或最短地回路，示波器带宽限制 20MHz，探头 1:1 或专用电源探头；测量点选在负载端而不是电源输出端。",
+        "limits": [
+          "带宽限制：20MHz",
+          "地回路：≤1cm（地弹簧）",
+          "测量点：负载端/芯片电源引脚"
+        ],
+        "rationale": "长地线会引入开关噪声与振铃，把探头地环路噪声误判为电源纹波；带宽过宽也会拾取高频噪声。",
+        "check": "记录测量设置（带宽/探头/地点）与波形；在负载端复测；与规格书纹波要求对比。",
+        "appliesTo": [
+          "test",
+          "power"
+        ],
+        "tags": [
+          "纹波",
+          "示波器",
+          "地弹簧",
+          "量测"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "过孔盖油与塞孔：按用途选择，BGA 区优先塞孔",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-VIA-TENT-001",
+        "category": "过孔/工艺",
+        "severity": "info",
+        "statement": "普通过孔默认盖油（tented）；需要测试/散热/防止漏锡的过孔选择开窗或塞孔（via-in-pad 必须塞孔+电镀填平）；BGA 焊盘内过孔必须填平，避免焊接空洞。",
+        "limits": [
+          "默认：盖油",
+          "测试孔：开窗",
+          "via-in-pad：塞孔+填平",
+          "散热孔：塞孔或开窗按工艺"
+        ],
+        "rationale": "未塞孔的 via-in-pad 会吸走锡膏造成虚焊；盖油不良会露铜氧化或短路。",
+        "check": "过孔属性表与 Gerber 阻焊层核对；与板厂确认塞孔工艺（树脂/油墨）。",
+        "appliesTo": [
+          "manufacturing",
+          "bga"
+        ],
+        "tags": [
+          "过孔盖油",
+          "塞孔",
+          "via-in-pad",
+          "BGA"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "射频天线净空：模组天线区所有层禁铜禁线禁器件",
+      "doc": "docs/knowledge/cases/03-esp32-devkit.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-RF-001",
+        "category": "射频/布局",
+        "severity": "error",
+        "statement": "2.4GHz/5GHz 模组的天线净空区必须按模组 datasheet 留足，净空区内所有层（含 GND 覆铜）不得有铜、走线、过孔、器件、丝印；天线尽量伸出板边，远离电池/金属/外壳。",
+        "limits": [
+          "净空尺寸以模组 datasheet 为准（常见天线前方 15mm 级、侧向数 mm）",
+          "净空区四层全部挖空，禁止自动覆铜进入",
+          "天线与电池/金属件距离按整机射频测试确认"
+        ],
+        "rationale": "天线附近的铜会改变谐振频率、降低效率并造成方向图畸变；自动覆铜最容易误入净空区，是无线产品最常见的低级错误。",
+        "check": "在 EDA 中用 keepout/禁布区约束所有层；逐层检查净空区；整机做吞吐/RSSI 对比与认证预测试。",
+        "appliesTo": [
+          "rf",
+          "wifi",
+          "ble",
+          "module"
+        ],
+        "tags": [
+          "天线净空",
+          "射频",
+          "ESP32",
+          "keepout"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "多电源输入：优先级、防倒灌与切换要显式设计",
+      "doc": "docs/knowledge/cases/02-arduino-uno-r3.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-POWERMUX-001",
+        "category": "电源/保护",
+        "severity": "warning",
+        "statement": "适配器/电池/USB 等多路输入必须定义优先级与切换方式（二极管 OR、P-MOS OR、理想二极管、专用 PMIC）；任一输入不得通过体二极管/上拉电阻倒灌到另一路；切换瞬间不得掉电复位。",
+        "limits": [
+          "ORing 器件额定电流 ≥ 各路峰值电流",
+          "防倒灌路径的反向漏电流 ≤ 系统待机预算",
+          "切换瞬态压降 < 后级欠压阈值"
+        ],
+        "rationale": "多电源系统若没有明确优先级，会出现电池向适配器倒灌、USB 与电池互充、切换掉电复位等问题；体二极管路径在反接/掉电时尤其危险。",
+        "check": "画电源优先级表；检查每路是否有防倒灌器件；做插拔/掉电/反接测试并测各路电流方向。",
+        "appliesTo": [
+          "power",
+          "battery",
+          "usb",
+          "adapter"
+        ],
+        "tags": [
+          "电源切换",
+          "ORing",
+          "防倒灌",
+          "优先级"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电流采样：分流电阻开尔文接法 + 成对走线 + 功率降额",
+      "doc": "docs/knowledge/cases/10-circuitpilot-6l.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SHUNT-001",
+        "category": "模拟/测量",
+        "severity": "warning",
+        "statement": "分流电阻必须四线开尔文连接：电流路径在外侧、电压采样点从焊盘内侧引出；采样线成对等长、包地、远离开关节点；分流电阻功率 ≥ I²R 的 2 倍，并按精度要求核算温漂。",
+        "limits": [
+          "采样线从焊盘内侧引出，避免共享电流路径",
+          "分流电阻功率 ≥ 2×I²R",
+          "温漂按目标精度选型（如 50ppm/°C 级）"
+        ],
+        "rationale": "分流电阻压降为 mV 级，走线/过孔寄生电阻会直接变成增益误差；功率不足会温漂甚至烧毁。",
+        "check": "检查采样点是否在电流路径内侧；测不同电流下的线性度；热像仪看分流电阻温升；与万用表/电子负载比对。",
+        "appliesTo": [
+          "current-sense",
+          "battery",
+          "motor",
+          "power-monitor"
+        ],
+        "tags": [
+          "电流采样",
+          "开尔文",
+          "分流电阻",
+          "INA226"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "DC-DC 反馈采样：取自输出电容之后，远离 SW 节点",
+      "doc": "docs/knowledge/cases/06-sync-buck-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-FEEDBACK-001",
+        "category": "电源/布局",
+        "severity": "error",
+        "statement": "Buck/Boost 的反馈分压必须取自输出电容之后的稳定节点；FB 走线短、远离 SW 节点与电感，必要时用地线屏蔽；大电流/远端负载可用开尔文远程采样。",
+        "limits": [
+          "FB 走线长度尽量 <10mm（按环路带宽）",
+          "FB 分压电阻靠近控制器 FB 脚",
+          "反馈节点到输出电容的走线不经过大电流路径"
+        ],
+        "rationale": "反馈取自 SW 节点或电感附近会把开关噪声注入误差放大器，导致输出纹波大、环路不稳；取自输出电容之前会漏掉走线压降。",
+        "check": "检查 FB 取样点位置与走线；示波器测输出纹波/负载跳变；满载与轻载下确认稳定。",
+        "appliesTo": [
+          "buck",
+          "boost",
+          "dc-dc",
+          "power"
+        ],
+        "tags": [
+          "反馈",
+          "DC-DC",
+          "SW节点",
+          "环路"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "FPC 连接器：翻盖方向、补强、弯折半径与 Pin1 标识",
+      "doc": "docs/knowledge/cases/08-wardrobe-v12.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-FPC-001",
+        "category": "连接器/结构",
+        "severity": "error",
+        "statement": "FPC 连接器必须确认上接/下接与翻盖方向、Pin1 标识、FPC 补强板与弯折半径；连接器下方避免走线/过孔，插拔方向与结构受力一致；信号线按需加低电容 ESD。",
+        "limits": [
+          "FPC 弯折半径按软板规格（常见 ≥3–5 倍板厚，按厂商要求）",
+          "Pin1 用方形焊盘/丝印标识",
+          "连接器下方净空、避免过孔"
+        ],
+        "rationale": "翻盖方向选错会导致 FPC 插不进/接触不良；弯折半径不足会断线；Pin1 反接可能烧摄像头/屏幕。",
+        "check": "对照 FPC 规格书确认方向/补强/弯折半径；3D 检查开合空间；首件插拔与出图测试。",
+        "appliesTo": [
+          "fpc",
+          "camera",
+          "display",
+          "connector"
+        ],
+        "tags": [
+          "FPC",
+          "翻盖",
+          "补强",
+          "弯折半径"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "板间连接器：交叉线序 + 防呆 + 低电容 TVS",
+      "doc": "docs/knowledge/cases/09-wardrobe-v20.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-BOARD2BOARD-001",
+        "category": "连接器/可靠性",
+        "severity": "warning",
+        "statement": "两块板之间的信号/电源连接器应选带防呆/带锁型号；关键线序采用交叉（如 1↔3）并在丝印/装配图标注；每条对外信号加低电容 TVS（高速信号 <0.5pF 级），连接器额定电流覆盖峰值。",
+        "limits": [
+          "连接器额定电流 ≥ 灯板/外设峰值电流",
+          "TVS 结电容不影响信号（WS2812 数据、I2C 等）",
+          "Pin1 方形焊盘 + 丝印"
+        ],
+        "rationale": "装配插反是高频人为错误；交叉线序把“反插”变成信号错位而不是电源短路；TVS 吸收热插拔/ESD。",
+        "check": "故意反插测试不烧板；插拔/热插拔测试；核对 TVS 结电容与连接器额定电流。",
+        "appliesTo": [
+          "board-to-board",
+          "connector",
+          "led",
+          "sensor"
+        ],
+        "tags": [
+          "板间连接",
+          "防呆",
+          "线序",
+          "TVS"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "充电 IC 与电池：截止电压、充电电流、温度保护必须匹配",
+      "doc": "docs/knowledge/cases/09-wardrobe-v20.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CHARGER-001",
+        "category": "电源/电池",
+        "severity": "error",
+        "statement": "充电 IC 的截止电压必须与电池化学体系一致（4.2V/4.35V/4.4V 不可混用）；充电电流按电池容量与规格（常见 0.5C 级，按规格书）；NTC/温度保护、过充/过放/短路保护必须按认证要求配置。",
+        "limits": [
+          "截止电压误差按 IC 规格（通常 ±1% 级）",
+          "充电电流不超过电池规格书上限",
+          "NTC 位置靠近电芯，按电池规格选 B 值"
+        ],
+        "rationale": "过充会鼓包/起火，欠充会容量不足；消费类认证（GB31241/UN38.3）要求充电参数与电池规格一致。",
+        "check": "对照电池规格书核对截止电压/电流/NTC；测充满电压；做温度保护与过充测试。",
+        "appliesTo": [
+          "battery",
+          "charger",
+          "power"
+        ],
+        "tags": [
+          "充电",
+          "电池",
+          "截止电压",
+          "NTC"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "音频功放/喇叭：电源去耦、LC 滤波、AU_GND 单点与默认静音",
+      "doc": "docs/knowledge/cases/08-wardrobe-v12.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-AUDIO-001",
+        "category": "音频/模拟",
+        "severity": "warning",
+        "statement": "D 类功放输出按 datasheet 加 LC/磁珠滤波；PVDD 就近去耦（大电容+100nF）；模拟/音频地汇到 AU_GND 后单点接系统地；PA_EN/MUTE 默认电平应保证上电静音；喇叭走线宽、成对/双绞。",
+        "limits": [
+          "LC 截止频率按开关频率与 EMI 要求计算",
+          "AU_GND 单点连接，避免地环路",
+          "PA_EN 默认下拉/静音"
+        ],
+        "rationale": "功放是大电流脉冲负载，电源/地噪声会串到麦克风与 Codec；默认非静音会产生上电/关机爆音。",
+        "check": "测底噪/串音/上电爆音；检查 AU_GND 单点；满功率测电源纹波与温升。",
+        "appliesTo": [
+          "audio",
+          "amp",
+          "speaker",
+          "analog"
+        ],
+        "tags": [
+          "音频",
+          "功放",
+          "AU_GND",
+          "爆音"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "WS2812/级联 LED：数据电平、每颗去耦与刷新电流预算",
+      "doc": "docs/knowledge/cases/09-wardrobe-v20.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LED-001",
+        "category": "灯效/接口",
+        "severity": "warning",
+        "statement": "WS2812B 类 5V 供电灯珠：3.3V MCU 数据直连可能低于 VIH，需电平转换或首颗降压供电；每颗灯珠 VDD-GND 就近 100nF；数据线串 33–100Ω；电源按“全白电流 × 颗数”预算线宽与连接器。",
+        "limits": [
+          "VIH 按灯珠 datasheet（5V 供电常见 0.7×VDD）",
+          "每颗 100nF 去耦",
+          "刷新电流按 60mA/颗（全白）估算，按实际型号修正"
+        ],
+        "rationale": "数据电平不足会颜色错乱/不亮；去耦不足会造成级联末端的灯珠闪烁；全白电流远超平均电流，线宽/连接器不足会掉压。",
+        "check": "测数据高电平与灯珠波形；全白/彩虹模式测末端压降与温升；检查每颗去耦。",
+        "appliesTo": [
+          "led",
+          "ws2812",
+          "rgb",
+          "interface"
+        ],
+        "tags": [
+          "WS2812",
+          "灯效",
+          "电平",
+          "去耦"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "隔离 CAN/RS485：隔离带无铜、爬电/间隙、TVS 与终端",
+      "doc": "docs/knowledge/cases/07-isolated-can-rs485.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ISO-001",
+        "category": "隔离/工业接口",
+        "severity": "error",
+        "statement": "隔离接口必须同时隔离电源与信号；跨隔离带下方所有层不得有铜/走线，爬电与电气间隙按目标标准（IEC/UL/产品认证）计算；总线侧加 TVS/共模电感，CAN 两端 120Ω 终端，RS485 按 TIA-485 偏置/终端；隔离两侧地不得直接相连。",
+        "limits": [
+          "爬电/间隙按工作电压、污染等级、材料组别查标准",
+          "隔离器件额定隔离电压 ≥ 认证要求",
+          "Y 电容按 EMI/漏电流要求选型"
+        ],
+        "rationale": "隔离带被铜或走线跨越会直接短路隔离；爬电不足在高压/污染环境下会击穿；总线浪涌会经接口打坏隔离器。",
+        "check": "检查隔离带下方所有层无铜；量爬电/间隙；做隔离耐压/浪涌测试；核对终端/偏置。",
+        "appliesTo": [
+          "can",
+          "rs485",
+          "isolation",
+          "industrial"
+        ],
+        "tags": [
+          "隔离",
+          "CAN",
+          "RS485",
+          "爬电"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "8/10/12 层叠层：每个信号层必须相邻完整参考平面且叠层对称",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-STACKUP-001",
+        "category": "叠层/多层",
+        "severity": "error",
+        "statement": "6 层以上板必须先定义叠层用途（信号/地/电源）再布线：每个信号层与至少一个完整 GND 平面相邻；电源/地平面成对；叠层在介质厚度、铜厚、铜分布上尽量对称；不允许两个信号层直接相邻且都无参考。",
+        "limits": [
+          "信号层到参考平面距离按阻抗计算（常见 0.05–0.20mm）",
+          "叠层以中心层为轴尽量对称",
+          "内层铜分布均匀（经验 ≥70% 覆盖或加平衡铜）"
+        ],
+        "rationale": "层数增加的意义是买到更多参考面与电源平面，不是更多布线层；没有参考平面的高速层会产生大回流环路、串扰与阻抗失配；不对称叠层在压合/回流焊后翘曲。",
+        "check": "逐层标注参考平面与用途；EDA 检查参考层是否被分割；叠层图与板厂标准叠层比对；做翘曲/共面度检查。",
+        "appliesTo": [
+          "stackup",
+          "high-speed",
+          "multilayer",
+          "8l",
+          "10l",
+          "12l"
+        ],
+        "tags": [
+          "叠层",
+          "多层",
+          "参考平面",
+          "对称",
+          "翘曲"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电源/地平面成对放置，间距按平面电容与阻抗目标选薄",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-PLANE-001",
+        "category": "电源完整性/叠层",
+        "severity": "warning",
+        "statement": "电源平面必须与相邻完整 GND 平面成对，介质厚度尽量薄（按板厂能力，常见 0.05–0.15mm）；平面成对区域覆盖主要负载；禁止电源平面两侧均为信号层且无地。",
+        "limits": [
+          "平面间距 0.05–0.15mm（以板厂能力/阻抗计算为准）",
+          "平面成对区域覆盖 CPU/DDR/PHY 等主要负载",
+          "电源分割缝两侧加缝合电容"
+        ],
+        "rationale": "平面间距越小平面电容越大、高频阻抗越低；成对平面同时为跨层信号提供回流；电源平面无地相邻时边缘辐射与阻抗都会恶化。",
+        "check": "叠层图检查 PWR/GND 成对；电源平面分割图；平面电容/PDN 阻抗仿真；缝合电容位置。",
+        "appliesTo": [
+          "power-integrity",
+          "stackup",
+          "multilayer",
+          "pdn"
+        ],
+        "tags": [
+          "平面成对",
+          "电源完整性",
+          "叠层",
+          "缝合电容"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "HDI 微孔：孔径/纵横比/叠孔方式按板厂能力，盘中孔必须塞孔填平",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-HDI-001",
+        "category": "过孔/HDI",
+        "severity": "error",
+        "statement": "激光微孔孔径常见 0.075–0.15mm，孔深/孔径比按板厂能力（常见 ≤1:1）；优先 stagger 错位布置，stacked 同轴叠孔需确认填铜/电镀能力；微孔盘中孔必须树脂塞孔+电镀填平。",
+        "limits": [
+          "微孔孔径 0.075–0.15mm（按板厂能力）",
+          "深径比 ≤1:1（经验，厚板需确认）",
+          "盘中孔塞孔/填平，首件 X-Ray/切片"
+        ],
+        "rationale": "深径比过大会导致孔底空洞/连接可靠性差；同轴叠孔应力集中，热循环易开裂；未填平的盘中孔在回流时吸锡造成虚焊/锡珠。",
+        "check": "微孔结构图与板厂 HDI 能力表比对；X-Ray/切片；热循环/IST；BGA 扇出图。",
+        "appliesTo": [
+          "hdi",
+          "microvia",
+          "bga",
+          "multilayer"
+        ],
+        "tags": [
+          "HDI",
+          "微孔",
+          "盘中孔",
+          "叠孔",
+          "塞孔"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速过孔 stub 控制：能盲埋就盲埋，不能就背钻",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-BACKDRILL-001",
+        "category": "过孔/高速",
+        "severity": "error",
+        "statement": "信号速率 ≥5Gbps 或 stub 长度超过仿真容限（经验 >0.5mm）时，必须用盲孔/埋孔或背钻控制 stub；背钻深度按叠层与残桩上限计算，保留铜厚按板厂能力，背钻后电测确认未伤及内层。",
+        "limits": [
+          "stub 上限按协议/仿真确定（经验 ≤0.5mm 为起点）",
+          "背钻残桩按板厂精度（常见 0.1–0.2mm 量级）",
+          "背钻后做电测/切片确认"
+        ],
+        "rationale": "stub 是开路分支，在特定频率谐振，造成插入损耗尖峰与眼图闭合；速率越高容限越短。",
+        "check": "过孔剖面/背钻深度测量；TDR/VNA 看 stub 谐振；仿真对比有/无背钻；板厂背钻精度确认。",
+        "appliesTo": [
+          "high-speed",
+          "via",
+          "backdrill",
+          "multilayer"
+        ],
+        "tags": [
+          "背钻",
+          "stub",
+          "过孔",
+          "高速"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "通孔纵横比按板厂能力控制，厚板优先小孔径/盲埋孔",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-ASPECT-001",
+        "category": "过孔/制造",
+        "severity": "warning",
+        "statement": "通孔纵横比（成品板厚/孔径）常规板厂 ≤8:1–10:1，高可靠性/厚板建议 ≤8:1；孔环按 IPC-6012 Class 2/3 与板厂能力保留；超出能力时改小孔径、减薄板厚或改用盲埋孔。",
+        "limits": [
+          "纵横比 ≤8:1–10:1（按板厂能力）",
+          "孔环单边按 IPC 等级（Class 2/3 更严）",
+          "厚板/高可靠优先 ≤8:1"
+        ],
+        "rationale": "纵横比过大导致电镀液交换困难、孔壁镀层薄/空洞，回流焊后孔壁开裂；孔环不足在钻孔偏移时破环。",
+        "check": "孔径/板厚比计算；孔环图；切片测孔壁铜厚；板厂能力表。",
+        "appliesTo": [
+          "via",
+          "manufacturing",
+          "multilayer",
+          "reliability"
+        ],
+        "tags": [
+          "纵横比",
+          "孔环",
+          "通孔",
+          "厚板"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "差分对对内/对间偏斜按协议控制，等距同参考",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-SKEW-001",
+        "category": "高速/差分",
+        "severity": "error",
+        "statement": "差分对内偏斜按协议控制（USB3/PCIe 常见 ≤5mil 量级，按规范复核）；对间偏斜按总线协议；差分对全程等距、同层、同参考；换层成对并就近加地孔；蛇形补偿放在失配位置且靠近源端。",
+        "limits": [
+          "对内偏斜 ≤5mil 量级（按协议版本复核）",
+          "对间偏斜按总线/协议",
+          "差分阻抗公差常见 ±10%"
+        ],
+        "rationale": "对内偏斜产生共模转换与眼图闭合；对间偏斜造成多 lane 采样窗口错位；间距变化改变差分阻抗。",
+        "check": "EDA 差分对报告；TDR/眼图；协议一致性测试；换层对称性检查。",
+        "appliesTo": [
+          "high-speed",
+          "diff-pair",
+          "usb3",
+          "pcie",
+          "multilayer"
+        ],
+        "tags": [
+          "差分",
+          "偏斜",
+          "等长",
+          "高速"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "并行总线按字节通道/组等长，不做全局等长",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-BUS-001",
+        "category": "高速/总线",
+        "severity": "error",
+        "statement": "DDR 等并行总线按 byte lane（DQ/DQS/DM）组内等长、组间按协议允许偏差；地址/命令/控制按拓扑（fly-by/T）单独等长；时钟与数据关系按控制器要求；禁止全局等长替代分组时序设计。",
+        "limits": [
+          "组内偏差 ±5mil 量级（按速率/协议复核）",
+          "组间按飞行时间/拓扑补偿",
+          "DQS 与 DQ 必须同组"
+        ],
+        "rationale": "并行总线时序窗口按组定义；全局等长浪费布线且无法解决组间偏斜；DQS/DQ 不同组会直接导致采样错误。",
+        "check": "分组等长报告；时序仿真；DDR 训练/读写测试；协议一致性。",
+        "appliesTo": [
+          "ddr",
+          "parallel-bus",
+          "high-speed",
+          "multilayer"
+        ],
+        "tags": [
+          "DDR",
+          "等长",
+          "字节通道",
+          "时序"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速线串扰：3W 底线、5W 更稳，带状线优于微带",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-XTALK-001",
+        "category": "高速/串扰",
+        "severity": "warning",
+        "statement": "单端高速线中心间距 ≥3 倍线宽（3W）为底线，≥5W 显著降低串扰；差分对间 ≥5W；避免长距离平行；必要时加 guard trace 并两端/每隔 λ/10 打地孔；内层带状线优先。",
+        "limits": [
+          "3W 底线、5W 更稳（按速率/仿真）",
+          "guard trace 必须多点接地",
+          "并行长度按协议/仿真限制"
+        ],
+        "rationale": "平行走线容性/感性耦合随间距指数下降；微带线有空气场串扰大于带状线；浮空 guard trace 会变成天线。",
+        "check": "串扰仿真/近场扫描；间距统计；眼图/BER；guard trace 地孔检查。",
+        "appliesTo": [
+          "high-speed",
+          "crosstalk",
+          "multilayer",
+          "emc"
+        ],
+        "tags": [
+          "串扰",
+          "3W",
+          "guard trace",
+          "带状线"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "玻璃纤维效应：≥5Gbps 差分避免平行玻纤，10° 布线或低 Dk 材料",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-WEAVE-001",
+        "category": "高速/材料",
+        "severity": "warning",
+        "statement": "≥5Gbps 差分对避免长距离平行于玻纤布经/纬方向；采用 10° 斜角布线、展宽走线、低 Dk/低 Df 材料或 spread glass 板材；对内偏斜按协议控制并做仿真/实测。",
+        "limits": [
+          "布线角度约 10°（经验）",
+          "材料/玻纤布类型与板厂确认",
+          "对内偏斜按协议"
+        ],
+        "rationale": "FR-4 玻纤与树脂 Dk 不同，差分两根线分别压在玻纤束/树脂区时传播速度不同，产生周期性偏斜与眼图抖动。",
+        "check": "TDR/相位测量；眼图抖动；材料 datasheet；与板厂确认玻纤布类型。",
+        "appliesTo": [
+          "high-speed",
+          "material",
+          "fiber-weave",
+          "multilayer"
+        ],
+        "tags": [
+          "玻璃纤维",
+          "weave",
+          "偏斜",
+          "低Dk"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速链路做插入损耗预算：板材+铜箔+过孔+连接器",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-LOSS-001",
+        "category": "高速/材料",
+        "severity": "warning",
+        "statement": "≥5Gbps 或长距离链路必须做插入损耗预算（板材损耗+铜损+过孔+连接器+AC 电容），按协议眼高/眼宽/BER 目标分配；损耗不足时选低 Df 材料、平滑铜箔（HVLP 等）、短 stub、优化连接器。",
+        "limits": [
+          "损耗预算按协议规范/链路长度",
+          "Df 以板材 datasheet 为准",
+          "铜箔粗糙度按板厂可选类型"
+        ],
+        "rationale": "损耗随频率/长度指数上升；Df 与铜箔粗糙度是板材损耗主因；过孔 stub 与连接器是集中损耗点。",
+        "check": "VNA 测 S21/插入损耗；眼图/BER；材料 datasheet；与预算对比。",
+        "appliesTo": [
+          "high-speed",
+          "material",
+          "loss",
+          "multilayer"
+        ],
+        "tags": [
+          "插入损耗",
+          "Df",
+          "铜箔",
+          "眼图"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "PDN 目标阻抗法：Ztarget=允许纹波/瞬态电流，全频段低于目标",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-PI-001",
+        "category": "电源完整性",
+        "severity": "error",
+        "statement": "先算 Ztarget = ΔV_allow / ΔI_transient，再按频段分配体电容/陶瓷电容/平面电容，保证全频段 PDN 阻抗低于目标；高速大电流负载（FPGA/GPU/DDR）必须做 PI 仿真与实测。",
+        "limits": [
+          "Ztarget 按允许纹波与瞬态电流计算",
+          "电容按频段选型并就近放置、多过孔",
+          "平面成对降低高频阻抗"
+        ],
+        "rationale": "PDN 阻抗在负载瞬态时产生压降；只堆电容不看频段会出现阻抗尖峰，导致抖动/误码。",
+        "check": "PDN 阻抗仿真；负载瞬态实测（短地弹簧）；电源纹波；高低温/低压 corner。",
+        "appliesTo": [
+          "power-integrity",
+          "pdn",
+          "high-speed",
+          "multilayer"
+        ],
+        "tags": [
+          "目标阻抗",
+          "PDN",
+          "去耦",
+          "瞬态"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电源平面腔体谐振：评估谐振点，缝合电容/分割/阻尼抑制",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-CAVITY-001",
+        "category": "电源完整性/EMC",
+        "severity": "warning",
+        "statement": "大面积电源/地平面在 GHz 频段形成腔体谐振；高速/射频板必须用 PI/SI 工具评估谐振点，必要时加缝合电容、分割平面、增加损耗层或调整平面尺寸；谐振点不得落在关键信号/时钟谐波上。",
+        "limits": [
+          "谐振点按平面尺寸/介质评估",
+          "缝合电容按谐振电流路径布置",
+          "谐振点避开关键时钟谐波"
+        ],
+        "rationale": "腔体谐振会在特定频率放大噪声、引起边缘辐射与信号抖动；板越大、平面越完整，谐振频率越低。",
+        "check": "VNA 测平面阻抗；近场/远场扫描；频谱找谐振峰；与仿真对比。",
+        "appliesTo": [
+          "power-integrity",
+          "emc",
+          "multilayer",
+          "rf"
+        ],
+        "tags": [
+          "腔体谐振",
+          "平面",
+          "缝合电容",
+          "EMC"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "DDR 拓扑/字节通道/ODT/VREF 按控制器与协议设计",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-DDR-001",
+        "category": "高速/DDR",
+        "severity": "error",
+        "statement": "DDR 布线按控制器要求选 fly-by 或 T 拓扑；DQ/DQS/DM 按 byte lane 组内等长；地址/命令/控制按拓扑等长；ODT、VREF、VTT 终端按颗粒/控制器要求配置；DDR 电源（VDDQ/VTT）按峰值电流去耦。",
+        "limits": [
+          "组内等长 ±5mil 量级（按速率）",
+          "fly-by 末端终端/ODT 按控制器",
+          "VREF/VTT 按颗粒要求"
+        ],
+        "rationale": "DDR 时序窗口窄，拓扑与终端决定信号质量；字节通道内偏斜/串扰会直接导致读写错误。",
+        "check": "分组等长报告；DDR 训练/读写测试；时序仿真；电源纹波。",
+        "appliesTo": [
+          "ddr",
+          "high-speed",
+          "multilayer",
+          "memory"
+        ],
+        "tags": [
+          "DDR",
+          "fly-by",
+          "ODT",
+          "VREF"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速串行 AC 耦合电容、ESD 与连接器按协议放置",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-AC-001",
+        "category": "高速/接口",
+        "severity": "warning",
+        "statement": "PCIe/SATA/USB3 等 AC 耦合电容按协议放发送端/接收端指定位置，封装小、走线短；ESD 器件靠连接器且结电容满足速率；连接器 pin field 过孔 stub 要控制，差分对保持等长等距。",
+        "limits": [
+          "AC 电容位置按协议规范",
+          "ESD 结电容按速率（高速常 <0.5pF 级）",
+          "连接器 fanout stub 按仿真"
+        ],
+        "rationale": "AC 电容位置影响直流偏置/链路训练；ESD 结电容过大使高速信号衰减；连接器区域过孔密集，stub 与串扰风险高。",
+        "check": "协议一致性测试；眼图/BER；ESD 结电容确认；连接器 fanout 仿真。",
+        "appliesTo": [
+          "high-speed",
+          "pcie",
+          "usb3",
+          "sata",
+          "connector"
+        ],
+        "tags": [
+          "AC耦合",
+          "ESD",
+          "连接器",
+          "协议"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "多层板防 CAF：材料/钻孔/清洁/压合四管齐下",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-CAF-001",
+        "category": "制造/可靠性",
+        "severity": "error",
+        "statement": "高可靠/高压/高温高湿场景选抗 CAF 板材与工艺；孔壁到铜/纤维距离足够；钻孔无毛刺/树脂沾污；层压前清洁；按 IPC/客户要求做 CAF 测试（HAST/高温高湿偏压）。",
+        "limits": [
+          "按产品可靠性等级选材料/工艺",
+          "孔到铜间距按耐压/CAF 数据",
+          "CAF 测试按 IPC/客户要求"
+        ],
+        "rationale": "CAF 是玻纤/树脂界面在湿气+偏压下形成的导电丝，导致绝缘失效；多层板孔密集、层间薄，风险更高。",
+        "check": "CAF 测试报告；高温高湿偏压绝缘电阻；切片；板厂工艺认证。",
+        "appliesTo": [
+          "manufacturing",
+          "reliability",
+          "multilayer",
+          "caf"
+        ],
+        "tags": [
+          "CAF",
+          "可靠性",
+          "压合",
+          "钻孔"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "多层板翘曲控制：对称叠层+铜平衡+压合参数",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-WARP-001",
+        "category": "制造/叠层",
+        "severity": "warning",
+        "statement": "叠层以中心层为轴对称（介质/铜厚/铜分布）；大面积无铜区与满铜区交错；板边加铜平衡条；不对称叠层做翘曲仿真/实测；按 IPC-6012/客户要求验收翘曲。",
+        "limits": [
+          "叠层对称（介质/铜厚/铜分布）",
+          "内层铜覆盖经验 ≥70% 或加平衡铜",
+          "翘曲按 IPC-6012/客户标准"
+        ],
+        "rationale": "压合固化时树脂收缩与铜热膨胀不匹配产生内应力；不对称叠层回流焊/老化后翘曲，导致 BGA 虚焊/连接器共面度超差。",
+        "check": "叠层对称性/铜分布图；回流焊后翘曲测量；首件共面度；板厂压合记录。",
+        "appliesTo": [
+          "manufacturing",
+          "warpage",
+          "multilayer",
+          "stackup"
+        ],
+        "tags": [
+          "翘曲",
+          "对称",
+          "铜平衡",
+          "压合"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "多层高速板验收：阻抗测试条+TDR/VNA/眼图/切片",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ML-TEST-001",
+        "category": "测试/验收",
+        "severity": "warning",
+        "statement": "高速多层板拼版加阻抗测试条（单端/差分），首件/批量抽测 TDR；≥5Gbps 链路做 VNA 插损/回损与眼图/BER；首件做切片（孔壁铜厚/层偏/填胶）、X-Ray（BGA/微孔/背钻）、AOI、翘曲测量；按 IPC-6012/协议规范验收。",
+        "limits": [
+          "阻抗公差常见 ±10%（按协议可更严）",
+          "测试条叠层/线宽与板内一致",
+          "测试夹具要去嵌（de-embedding）"
+        ],
+        "rationale": "计算书只是设计值，TDR/VNA 才是验收依据；多层板孔壁/层偏/填胶缺陷外观不可见，必须切片/X-Ray。",
+        "check": "TDR 报告；VNA S 参数；眼图/BER；首件切片/X-Ray/AOI；翘曲数据；报告归档。",
+        "appliesTo": [
+          "test",
+          "multilayer",
+          "high-speed",
+          "acceptance"
+        ],
+        "tags": [
+          "TDR",
+          "VNA",
+          "眼图",
+          "切片",
+          "验收"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "布局规则必须有依据链：标准/datasheet/工艺/市场证据/实测",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-SOURCE-001",
+        "category": "布局/依据",
+        "severity": "warning",
+        "statement": "每条布局规则至少标注依据类型（安全/器件 datasheet/IPC/板厂能力/市场参考/仿真实测）、来源、适用条件、超限后果与验证方法；无依据的‘经验值’只能作为待验证假设，不得作为评审门禁。",
+        "limits": [
+          "依据类型+来源+适用条件齐全",
+          "市场证据需标注验证状态",
+          "超限后果与量测方法明确"
+        ],
+        "rationale": "布局错误布线后不可逆；无依据链无法评审、迁移与处理冲突；市场做法若无原理支撑换封装/工艺即失效。",
+        "check": "抽查 10 条规则能否追到来源；评审记录含依据；规则变更记录原因。",
+        "appliesTo": [
+          "placement",
+          "review",
+          "process"
+        ],
+        "tags": [
+          "布局",
+          "依据链",
+          "规则治理",
+          "评审"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "按 IPC-2221/2222 五类原则评审布局：分区/热/机械/可制造/可测试",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-STD-001",
+        "category": "布局/标准",
+        "severity": "warning",
+        "statement": "布局评审必须覆盖功能分区与信号流向、热分布与热敏感件、机械应力与连接器受力、可制造（贴装/焊接/分板）、可测试（ICT/FCT/探针）五类；每类有可判定检查项与证据。",
+        "limits": [
+          "五类原则每类至少 2 条检查项",
+          "检查项可量测/可截图",
+          "例外记录批准人"
+        ],
+        "rationale": "IPC-2221/2222 是刚性板通用设计框架；只关注电气会漏掉装配/测试/热问题。",
+        "check": "评审表五类齐全；DFM/DFA 报告覆盖；证据归档。",
+        "appliesTo": [
+          "placement",
+          "standard",
+          "review"
+        ],
+        "tags": [
+          "IPC-2221",
+          "IPC-2222",
+          "布局评审",
+          "五类原则"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "器件间距以 IPC-7351B courtyard 为基准，不重叠并留工艺余量",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-COURTYARD-001",
+        "category": "布局/封装",
+        "severity": "error",
+        "statement": "相邻器件 courtyard 不得重叠；间距取 courtyard、贴片机吸嘴、返修空间、高件遮挡四者的最大值；封装库按 IPC-7351B 密度等级生成，不手改单个焊盘；细间距器件需与贴片厂确认能力。",
+        "limits": [
+          "courtyard 不重叠",
+          "间距 ≥ 四层判据最大值",
+          "密度等级与实际工艺匹配"
+        ],
+        "rationale": "courtyard 定义器件实际占位与贴装误差；重叠导致碰撞/偏移/立碑；仅按焊盘间距会忽略吸嘴/返修。",
+        "check": "courtyard 层完整；DRC 无 courtyard 重叠；贴片厂 DFM 报告；返修演练。",
+        "appliesTo": [
+          "placement",
+          "courtyard",
+          "dfm",
+          "assembly"
+        ],
+        "tags": [
+          "courtyard",
+          "IPC-7351",
+          "间距",
+          "贴装"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高频去耦电容靠引脚：距离≤2mm、地过孔≤1mm、回路面积最小",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-DECOUPLE-001",
+        "category": "布局/电源",
+        "severity": "error",
+        "statement": "0.1µF 级高频去耦电容到电源引脚距离尽量 ≤2mm（经验范围），电容地端到平面过孔 ≤1mm、每端至少 1 个过孔；电源先经电容再到引脚；禁止菊花链；大容量体电容靠近电源入口。",
+        "limits": [
+          "电容到引脚 ≤2mm（经验）",
+          "地过孔 ≤1mm、每端 ≥1 孔",
+          "回路面积按 L·di/dt 评估"
+        ],
+        "rationale": "瞬态电流由电容-引脚-地回路提供，回路电感与面积/长度成正比；L 越大 ΔV=L·di/dt 越大，去耦失效。",
+        "check": "量测电容到引脚距离/过孔；负载瞬变测 VDD 跌落；与 datasheet 推荐布局对比。",
+        "appliesTo": [
+          "placement",
+          "decoupling",
+          "power-integrity"
+        ],
+        "tags": [
+          "去耦",
+          "回路电感",
+          "摆放距离",
+          "电源完整性"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "晶振靠芯片、负载电容就近、下方不走线、时钟远离 I/O",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-CRYSTAL-001",
+        "category": "布局/时钟",
+        "severity": "error",
+        "statement": "晶振与芯片距离尽量 ≤5–10mm（经验），负载电容紧靠晶振（≤3mm），晶振下方按需不走线/不铺铜，外围包地多点接地；时钟线短、不跨分割、远离板边/连接器。",
+        "limits": [
+          "晶振到芯片 ≤5–10mm（经验）",
+          "负载电容 ≤3mm",
+          "时钟线不靠近 I/O/板边"
+        ],
+        "rationale": "晶振是高阻低电平节点，寄生电容改变负载电容导致频偏；时钟是强辐射源，靠近 I/O 会把噪声带出板外。",
+        "check": "频偏/起振测试；晶振下方走线检查；负载电容位置；近场扫描时钟谐波。",
+        "appliesTo": [
+          "placement",
+          "crystal",
+          "clock",
+          "emc"
+        ],
+        "tags": [
+          "晶振",
+          "时钟",
+          "负载电容",
+          "包地"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "DC-DC 输入电容紧贴 VIN/GND，SW 节点最小，电感/输出电容靠近",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-DCDC-001",
+        "sources": [
+          "SRC-TI-AN1149",
+          "SRC-TI-BOOST"
+        ],
+        "evidenceLevel": "A/B",
+        "category": "布局/电源",
+        "severity": "error",
+        "statement": "输入陶瓷电容紧贴高侧开关 VIN 与 PGND（回路面积按功率/频率仿真，经验 <25mm² 量级）；SW 节点铜面积最小；电感靠近 SW 与输出电容；反馈取自输出电容之后；功率地与信号地分区。",
+        "limits": [
+          "输入热环路面积尽量小（经验 <25mm²，按仿真）",
+          "SW 节点不引长线/不打测试点",
+          "反馈取样点在输出电容之后"
+        ],
+        "rationale": "Buck 的 EMI/效率/稳定性主要由输入热环路（高 di/dt）决定；环路越大寄生电感越大，导致振铃/辐射/损耗。",
+        "check": "SW 节点振铃/辐射预扫；输入电容位置与环路面积；效率/温升；反馈取样点。",
+        "appliesTo": [
+          "placement",
+          "buck",
+          "dc-dc",
+          "power"
+        ],
+        "tags": [
+          "DC-DC",
+          "热环路",
+          "输入电容",
+          "SW节点"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "模拟/数字分区：敏感电路远离噪声源，地按 datasheet 单点/星点连接",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-ANALOG-001",
+        "category": "布局/模拟",
+        "severity": "warning",
+        "statement": "模拟/音频/传感器区与数字/开关电源/时钟区分离（经验 ≥3–5mm 或地围栏）；模拟地与数字地按器件要求单点/星点连接；ADC 参考/输入远离高速线与 DC-DC。",
+        "limits": [
+          "模拟/数字区间距 ≥3–5mm 或地围栏（经验）",
+          "地连接方式按 datasheet",
+          "ADC 输入/参考远离噪声源"
+        ],
+        "rationale": "数字回流与开关噪声通过共阻抗/容性耦合进入模拟前端；分区+单点接地切断耦合路径。",
+        "check": "底噪/信噪比测试；区间距；地连接方式；近场扫描。",
+        "appliesTo": [
+          "placement",
+          "analog",
+          "audio",
+          "sensor"
+        ],
+        "tags": [
+          "模拟分区",
+          "地分割",
+          "ADC",
+          "底噪"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "RF 模组靠板边、天线朝外、净空区所有层无铜无走线",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-RF-001",
+        "category": "布局/射频",
+        "severity": "error",
+        "statement": "RF 模组/天线放在板边或角落，天线净空区按模组 datasheet（所有层无铜/无走线/无器件/无丝印）；模组下方地平面完整并布置地孔阵列；50Ω 走线短直、不跨分割。",
+        "limits": [
+          "净空尺寸按模组 datasheet",
+          "净空区全层禁铜/禁线/禁器件",
+          "模组地过孔阵列、50Ω 连续"
+        ],
+        "rationale": "天线附近铜/介质改变谐振与效率；模组地不完整导致辐射/灵敏度下降；50Ω 不连续产生反射。",
+        "check": "净空区逐层检查；RSSI/吞吐/方向图；50Ω TDR；整机认证预测试。",
+        "appliesTo": [
+          "placement",
+          "rf",
+          "wifi",
+          "antenna"
+        ],
+        "tags": [
+          "RF",
+          "天线净空",
+          "模组",
+          "50Ω"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "ESD/TVS 靠连接器、先于 IC、地短而宽、结电容满足速率",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-ESD-001",
+        "category": "布局/保护",
+        "severity": "error",
+        "statement": "ESD/TVS 放在连接器与受保护 IC 之间，尽量靠连接器（经验 ≤5–10mm）；被保护走线先经 TVS 再进 IC；TVS 地端多过孔、短而宽；结电容满足信号速率（高速常 <0.5pF 级，按器件规格）。",
+        "limits": [
+          "TVS 靠近连接器（经验 ≤5–10mm）",
+          "走线顺序：连接器→TVS→IC",
+          "TVS 地多过孔、短宽"
+        ],
+        "rationale": "ESD 是共模瞬态，TVS 靠前才能把残压钳在 IC 绝对最大额定内；走线电感在钳位前产生尖峰。",
+        "check": "ESD 枪测试（接触/空气）；残压/钳位波形；TVS 位置/地过孔；结电容参数。",
+        "appliesTo": [
+          "placement",
+          "esd",
+          "connector",
+          "protection"
+        ],
+        "tags": [
+          "ESD",
+          "TVS",
+          "连接器",
+          "残压"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "连接器靠板边、开口朝外、补强固定、避分板应力区",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-CONN-001",
+        "category": "布局/连接器",
+        "severity": "warning",
+        "statement": "连接器沿板边布置、开口朝外；与板边/外壳留装配公差；插拔力大的连接器加补强/固定脚/螺丝；FPC/板对板连接器避免布置在板弯/分板应力区；连接器焊盘按受力加固。",
+        "limits": [
+          "连接器靠边、开口朝外",
+          "与外壳 3D 公差检查",
+          "大插拔力连接器加固定/补强"
+        ],
+        "rationale": "连接器是整机受力点，布局不当把插拔力传到焊点/PCB，导致焊点开裂/板弯；位置偏差导致装配干涉。",
+        "check": "3D 装配/插拔测试；焊点应力检查；板边距离；首件装配。",
+        "appliesTo": [
+          "placement",
+          "connector",
+          "mechanical",
+          "assembly"
+        ],
+        "tags": [
+          "连接器",
+          "板边",
+          "机械应力",
+          "装配"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "热源分散、热过孔阵列、热敏感件远离热源",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-THERMAL-001",
+        "category": "布局/热",
+        "severity": "warning",
+        "statement": "多个热源（DC-DC/功放/充电 IC/电机驱动）分散布置避免热点叠加；功率器件下方热过孔阵列+铜皮；温度传感器/电池/晶振/塑料件远离热源（经验 ≥5mm，按热仿真）；必要时开热隔离槽。",
+        "limits": [
+          "热源分散、避免热点叠加",
+          "热敏感件距热源 ≥5mm（经验，按仿真）",
+          "热过孔阵列+铜皮按 θja 计算"
+        ],
+        "rationale": "热耦合使传感器读数偏差、电池寿命下降、晶振频偏；热点集中降低可靠性。",
+        "check": "热像仪/热仿真；传感器读数对比；高温老化；热过孔/铜面积检查。",
+        "appliesTo": [
+          "placement",
+          "thermal",
+          "sensor",
+          "power"
+        ],
+        "tags": [
+          "热布局",
+          "热过孔",
+          "热隔离",
+          "温升"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "温湿度/压力传感器靠板边通风处，远离热源与铜皮热质量",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-SENSOR-001",
+        "category": "布局/传感器",
+        "severity": "warning",
+        "statement": "TMP117/SHT40/压力等环境传感器布置在板边/通风处，远离 MCU/DC-DC/LDO/连接器；传感器下方避免大面积铜（或按 datasheet 开热隔离槽/开窗）；外壳开透气孔；出厂做温度/湿度校准。",
+        "limits": [
+          "远离热源（经验 ≥5mm，按精度）",
+          "热隔离槽/开窗按 datasheet",
+          "外壳通风/透气"
+        ],
+        "rationale": "传感器测自身温度，板级热源与铜箔导热使读数偏离环境；SHT40 还受外壳热质量影响。",
+        "check": "与标准温湿度计对比；热像仪看板面温度；整机老化漂移；热隔离结构检查。",
+        "appliesTo": [
+          "placement",
+          "sensor",
+          "thermal",
+          "environment"
+        ],
+        "tags": [
+          "传感器",
+          "热隔离",
+          "SHT40",
+          "TMP117"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "同类同向、极性一致、连接器开口朝外、丝印标 Pin1",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-ORIENT-001",
+        "category": "布局/装配",
+        "severity": "warning",
+        "statement": "同类器件（电阻/电容/二极管/连接器）尽量统一 0°/90° 朝向；极性器件 Pin1/正极方向一致；连接器开口朝板边/外壳；丝印标 Pin1/极性/方向；便于 AOI/返修/目检。",
+        "limits": [
+          "同类器件朝向统一",
+          "极性器件同向",
+          "丝印标识清晰可读"
+        ],
+        "rationale": "统一朝向降低贴装程序复杂度与极性错件风险；AOI 模板/返修更高效；开口朝外是装配基本要求。",
+        "check": "AOI 极性检查；首件目检；连接器 3D 装配；丝印可读性。",
+        "appliesTo": [
+          "placement",
+          "assembly",
+          "orientation"
+        ],
+        "tags": [
+          "朝向",
+          "极性",
+          "AOI",
+          "装配"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "板边/拼板应力区避让：元件距边留余量、V-CUT/邮票孔旁禁放易损件",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-EDGE-001",
+        "category": "布局/拼板",
+        "severity": "warning",
+        "statement": "元件距板边经验 ≥3–5mm（按铣边/分板工艺）；拼板 V-CUT/邮票孔连接筋附近禁放细间距/易损器件；工艺边 ≥5mm，Mark 点 3 个且周围无铜无阻焊；异形板用邮票孔/铣槽。",
+        "limits": [
+          "元件距板边 ≥3–5mm（经验，按工艺）",
+          "分板应力区避让",
+          "Mark 点/工艺边按贴片厂要求"
+        ],
+        "rationale": "铣边/分板应力损伤板边器件/焊点；V-CUT 传应力；Mark 点决定贴装定位精度。",
+        "check": "拼板图；分板后边缘/器件检查；Mark 识别测试；板边距离量测。",
+        "appliesTo": [
+          "placement",
+          "panel",
+          "assembly",
+          "dfm"
+        ],
+        "tags": [
+          "板边",
+          "拼板",
+          "分板",
+          "Mark点"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "测试点按探针网格布置，关键网络可测、不被高件遮挡",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-TEST-001",
+        "category": "布局/测试",
+        "severity": "warning",
+        "statement": "测试点按 2.54mm/1.27mm 网格（按治具）布置，测试盘直径/间距满足探针；测试点不被高件遮挡、不放在板边易损区；关键电源/地/信号/调试口可测；FCT 留连接器/指示灯可视空间。",
+        "limits": [
+          "测试点网格按治具（2.54/1.27mm）",
+          "测试点不被高件遮挡",
+          "关键网络覆盖率按产品要求"
+        ],
+        "rationale": "无测试点只能靠探针碰焊盘，量产效率低/误判高；位置不当与治具干涉。",
+        "check": "测试点覆盖率；治具装配检查；测试良率/误判率；探针接触可靠性。",
+        "appliesTo": [
+          "placement",
+          "test",
+          "ict",
+          "fct"
+        ],
+        "tags": [
+          "测试点",
+          "ICT",
+          "探针",
+          "可测试性"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "关键器件留返修空间，屏蔽罩可开窗，BGA/QFN 可加热",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-REWORK-001",
+        "category": "布局/可维修",
+        "severity": "warning",
+        "statement": "BGA/QFN/连接器等关键器件周围留返修空间（热风喷嘴/烙铁头）；屏蔽罩可开窗/可拆；底部填充/灌胶区域可返修；返修后焊盘/邻件不受损。",
+        "limits": [
+          "按返修工具尺寸留空间（经验 1–2mm）",
+          "屏蔽罩可开窗/可拆",
+          "BGA/QFN 留加热区"
+        ],
+        "rationale": "量产不良不可避免；无返修空间会让小问题变整板报废；市场产品留白常是返修经验。",
+        "check": "返修演练；热风/烙铁可达性；返修后功能/可靠性；DFA 评审。",
+        "appliesTo": [
+          "placement",
+          "rework",
+          "dfa",
+          "service"
+        ],
+        "tags": [
+          "返修",
+          "可维修",
+          "屏蔽罩",
+          "DFA"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "去耦以引脚-电容寄生电感为判据（TI：100–500 pH），同层、过孔贴焊盘",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-PARASITIC-001",
+        "category": "布局/电源完整性",
+        "severity": "error",
+        "statement": "按器件 datasheet 给出的引脚-去耦电容寄生电感上限设计：TI TAS2563 为 100/150/200/500 pH（按电源引脚不同）；电容与器件同层摆放，过孔直接贴焊盘并多打孔，避免先走线到平面再进电容；0.1 µF 用最小封装，细间距 BGA 可两球共享过孔把电容放到器件下方。",
+        "limits": [
+          "引脚-电容寄生电感 ≤100–500 pH（按器件 datasheet）",
+          "电容与器件同层",
+          "过孔贴焊盘、多过孔",
+          "0.1 µF 最小封装"
+        ],
+        "rationale": "去耦效果由回路寄生电感决定，ΔV=L·di/dt；同层/贴焊盘过孔能显著压低 L，毫米距离只是 L 的间接代理。",
+        "check": "对照 datasheet 的 pH 上限；检查电容层与过孔位置；负载瞬变测 VDD 跌落；与厂商参考布局对比。",
+        "appliesTo": [
+          "placement",
+          "decoupling",
+          "power-integrity"
+        ],
+        "tags": [
+          "去耦",
+          "寄生电感",
+          "pH",
+          "同层",
+          "TI",
+          "已联网核对"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "晶振距时钟引脚 ≥2.0 mm、完整 GND、地孔围栏（Espressif）",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-CRYSTAL-GAP-001",
+        "sources": [
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "A",
+        "category": "布局/时钟",
+        "severity": "error",
+        "statement": "晶振本体与芯片时钟引脚保持 ≥2.0 mm 间距，负载电容贴近晶振；RF、晶振、芯片下方保证完整 GND 平面；时钟走线周围加高密度地孔 stitching；顶层地足够时在晶振周围留 keepout 以降低寄生电容和热传导，地不足时不要留 keepout。",
+        "limits": [
+          "晶振-时钟引脚 ≥2.0 mm",
+          "负载电容贴近晶振",
+          "完整 GND 平面",
+          "时钟线地孔围栏/按需 keepout"
+        ],
+        "rationale": "晶振是高阻节点，过近/寄生电容导致频偏，热传导导致温漂；地孔围栏与参考平面提供稳定回流与屏蔽。",
+        "check": "量测晶振到时钟引脚间距；检查 GND 平面与地孔；频偏/起振测试；温度漂移测试。",
+        "appliesTo": [
+          "placement",
+          "crystal",
+          "clock",
+          "emc"
+        ],
+        "tags": [
+          "晶振",
+          "2.0mm",
+          "GND平面",
+          "地孔围栏",
+          "Espressif",
+          "已联网核对"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "整机天线净空 ≥15 mm，净空区四边掏空、附近铺地打孔（Espressif）",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-ANTENNA-15MM-001",
+        "sources": [
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "A",
+        "category": "布局/射频",
+        "severity": "error",
+        "statement": "模组天线在整机外壳内各方向净空 ≥15 mm；模组放置在底板上时天线 feed 点尽量靠板边，天线净空区四边掏空（所有层无铜/无走线/无器件），附近铺地并打密地孔；整机必须测吞吐量与通信距离。",
+        "limits": [
+          "外壳内各方向净空 ≥15 mm",
+          "净空区四边掏空、全层禁铜/禁线/禁器件",
+          "feed 点靠板边",
+          "整机吞吐/距离测试"
+        ],
+        "rationale": "天线近场对金属/介质/外壳敏感，净空不足导致失谐、效率下降与距离缩短；地孔与铺地提供稳定参考。",
+        "check": "逐层检查净空区；外壳 3D/实物测量；RSSI/吞吐/距离测试；与模组 datasheet 净空图对比。",
+        "appliesTo": [
+          "placement",
+          "rf",
+          "antenna",
+          "wifi"
+        ],
+        "tags": [
+          "RF",
+          "天线净空",
+          "15mm",
+          "整机",
+          "Espressif",
+          "已联网核对"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "拼板/板边按板厂能力：V-CUT 铜避让 ≥0.4 mm、Mark 1 mm@3.85 mm、邮票孔 0.5–0.8 mm",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PLACE-PANEL-001",
+        "category": "布局/拼板",
+        "severity": "warning",
+        "statement": "拼板与板边按当前板厂能力设计：V-CUT 板边铜避让 ≥0.4 mm；最小工艺边 3 mm，SMT 建议 5 mm 工艺边 + 2 mm 工艺孔 + 1 mm Mark 点（中心距拼板边 3.85 mm）；邮票孔推荐 0.5–0.8 mm、孔间距 0.2–0.3 mm、连接筋最小宽度 4 mm；分板应力区禁放细间距/易损器件。",
+        "limits": [
+          "V-CUT 铜避让 ≥0.4 mm",
+          "工艺边 ≥3 mm（SMT 建议 5 mm）",
+          "Mark 1 mm、中心距边 3.85 mm",
+          "邮票孔 0.5–0.8 mm、连接筋 ≥4 mm"
+        ],
+        "rationale": "板边/拼板直接决定分板应力、贴装定位与铣边损伤；按板厂能力留值可避免拼板被拒或分板裂板。",
+        "check": "对照板厂能力表；拼板图检查铜避让/Mark/工艺边；分板后边缘与器件检查；Mark 识别测试。",
+        "appliesTo": [
+          "placement",
+          "panel",
+          "assembly",
+          "dfm"
+        ],
+        "tags": [
+          "拼板",
+          "V-CUT",
+          "Mark点",
+          "工艺边",
+          "JLCPCB",
+          "已联网核对"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "原理图网络命名必须唯一、可读、可检索",
+      "doc": "docs/knowledge/schematic/01-conventions.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-NAMING-001",
+        "category": "原理图/规范",
+        "severity": "error",
+        "statement": "非电源网络统一用 `功能块_信号[_序号]` 大写命名（如 USB1_DP、MCU_RST）；禁止 EDA 自动名（NetC14_1、N$12）进入评审版；同一信号跨页同名，一个网络只能有一个名字。",
+        "limits": [
+          "自动网络名：0 条（评审版）",
+          "同一网络别名：0 个",
+          "跨页信号：同名或层次端口唯一映射"
+        ],
+        "rationale": "网络名进入网表、PCB 网络类、测试点丝印和 RAG 检索；自动名不可读、不可搜，别名会让网表与设计意图不一致。",
+        "check": "导出网表用正则筛自动名/别名；比对接口清单与网络名一一对应；ERC 同名网络告警清零。",
+        "appliesTo": [
+          "schematic",
+          "netlist",
+          "review"
+        ],
+        "tags": [
+          "网络命名",
+          "规范",
+          "ERC",
+          "网表"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "原理图 / BOM / PCB 版本必须有一张映射表并同步发布",
+      "doc": "docs/knowledge/schematic/01-conventions.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-VERSION-001",
+        "category": "原理图/规范",
+        "severity": "error",
+        "statement": "原理图、BOM、PCB 三者版本必须通过版本映射表绑定；任一文件版本落后或未同时发布即视为未受控，不得导出网表/投板。",
+        "limits": [
+          "三件套版本映射：1 张表，含版本/日期/批准人",
+          "发版：PDF+BOM+网表+Gerber 同时归档",
+          "变更：必须有 ECO 号与影响文件清单"
+        ],
+        "rationale": "EDA 三个文件独立保存，版本漂移会造成“原理图加了 TVS、PCB 还是旧封装”的典型事故。",
+        "check": "发版前对照映射表与文件头；网表与 PCB 网络数/位号数比对；抽查 3 个变更位号在 PCB 同步。",
+        "appliesTo": [
+          "schematic",
+          "bom",
+          "pcb",
+          "release"
+        ],
+        "tags": [
+          "版本",
+          "ECO",
+          "受控文件",
+          "三件套"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "符号引脚号必须与封装焊盘号一一对应，禁止占位引脚",
+      "doc": "docs/knowledge/schematic/01-conventions.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-SYMBOL-001",
+        "category": "原理图/库",
+        "severity": "error",
+        "statement": "符号引脚号与封装焊盘号必须一一对应；多单元器件单元划分与 datasheet 一致；隐藏电源脚映射到实际 pin；禁止 pin 0 / pin -1 等占位引脚。",
+        "limits": [
+          "引脚映射错误：0 处",
+          "占位引脚：0 个",
+          "关键器件（MCU/电源/连接器/二极管）：逐颗核对 datasheet"
+        ],
+        "rationale": "符号-封装映射错误多为 DRC 查不出、板子直接报废的缺陷；BGA/QFN 错位无法飞线补救。",
+        "check": "对照 datasheet pin table 逐颗核对；EDA 符号-封装对应检查；首件 FAI 抽测 pin1/极性。",
+        "appliesTo": [
+          "schematic",
+          "library",
+          "footprint"
+        ],
+        "tags": [
+          "引脚映射",
+          "符号",
+          "封装",
+          "库"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "ERC 告警必须三态归属：已修 / 有依据豁免 / 待复核",
+      "doc": "docs/knowledge/schematic/06-erc-review-checklist.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ERC-001",
+        "category": "原理图/ERC",
+        "severity": "error",
+        "statement": "每条 ERC 告警必须归入已修复、有依据豁免（waiver）、待复核之一；豁免记录理由/依据/批准人/失效条件；默认状态是“未处理”，不是“通过”。",
+        "limits": [
+          "未归属告警：0 条",
+          "豁免：每条有 datasheet 页码/计算/测试证据",
+          "ERC 报告版本：与原理图版本一致"
+        ],
+        "rationale": "告警多时最省事的做法是全部忽略，这正是漏真问题的路径；无归属记录的 ERC 报告不能作为放行证据。",
+        "check": "抽查 3 条豁免的依据；核对报告时间/版本；ERC 台账与问题单逐条对应。",
+        "appliesTo": [
+          "schematic",
+          "erc",
+          "review"
+        ],
+        "tags": [
+          "ERC",
+          "豁免",
+          "台账",
+          "评审"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "输出冲突/多驱动必须判错，开漏总线需上拉且单主动驱动",
+      "doc": "docs/knowledge/schematic/06-erc-review-checklist.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ERC-002",
+        "category": "原理图/ERC",
+        "severity": "error",
+        "statement": "同一网络两个及以上推挽输出同时驱动判错误；开漏/双向总线允许线与，但必须有上拉且同一时刻只有一个主动驱动；三态缓冲器使能不能同时有效。",
+        "limits": [
+          "推挽输出冲突：0 处",
+          "开漏总线：上拉存在且地址/方向唯一",
+          "串阻只能限流，不能修复输出冲突"
+        ],
+        "rationale": "输出冲突形成大电流直通，轻则数据错乱，重则烧 IO；多页层次图里尤其难肉眼发现。",
+        "check": "检查网络成员引脚电气类型；核对层次端口方向；上电测冲突点电流/波形。",
+        "appliesTo": [
+          "schematic",
+          "erc",
+          "io"
+        ],
+        "tags": [
+          "输出冲突",
+          "多驱动",
+          "开漏",
+          "ERC"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电源脚未驱动与单端网络必须逐条定性",
+      "doc": "docs/knowledge/schematic/06-erc-review-checklist.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ERC-003",
+        "category": "原理图/ERC",
+        "severity": "error",
+        "statement": "ERC 报电源引脚未驱动/单端网络时，必须确认是漏连、故意 NC/预留、还是电源来源缺失；电源域短接必须拆开，预留功能用 NC/0Ω 显式表达。",
+        "limits": [
+          "电源脚未驱动：0 条未解释",
+          "单端网络：0 条未定性",
+          "NC/预留：图上标注 + BOM DNP 说明"
+        ],
+        "rationale": "这两类告警最常被批量忽略；电源脚未驱动可能让某域实际无供电，单端网络意味着设计意图未实现。",
+        "check": "按网络名定位成员；核对电源符号/稳压器输出/连接器输入；上电测该引脚电压。",
+        "appliesTo": [
+          "schematic",
+          "erc",
+          "power"
+        ],
+        "tags": [
+          "电源引脚",
+          "单端网络",
+          "NC",
+          "ERC"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "原理图放行必须同时满足 ERC 清零、评审关闭、证据归档",
+      "doc": "docs/knowledge/schematic/06-erc-review-checklist.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-REVIEW-001",
+        "category": "评审/门禁",
+        "severity": "error",
+        "statement": "原理图放行需同时具备：ERC 无未归属告警（错误清零/警告有豁免）、评审问题单阻断项全部关闭、证据归档（ERC 报告/网表/BOM/计算/波形/签字）；缺一不得导出网表。",
+        "limits": [
+          "ERC 未归属：0",
+          "阻断问题未关闭：0",
+          "证据包：ERC+网表+BOM+计算+波形+签字"
+        ],
+        "rationale": "单看 ERC 会漏设计问题，单看评审会漏连接错误；只有机器检查+人工评审+证据三者合一才能复核。",
+        "check": "按放行检查表逐项签字；网表与原理图版本/哈希绑定；变更后重新走门禁。",
+        "appliesTo": [
+          "schematic",
+          "release",
+          "review"
+        ],
+        "tags": [
+          "放行",
+          "门禁",
+          "评审",
+          "证据"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "跨页连接必须用正确作用域标签，禁止依赖同名隐式连接",
+      "doc": "docs/knowledge/schematic/01-conventions.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-NET-002",
+        "category": "原理图/规范",
+        "severity": "warning",
+        "statement": "局部标签只在本页生效，跨页必须用层次端口或登记过的全局标签/电源符号；禁止依赖“同名即连接”跨页；电源符号与网络标签不得混用于同一网络。",
+        "limits": [
+          "跨页隐式同名连接：0 处",
+          "全局网络：仅电源/地与登记过的少数信号",
+          "层次端口：名称/方向/数量与母图 sheet 一一对应"
+        ],
+        "rationale": "隐式连接是多出一根线和漏连的根源；ERC 往往只报 warning，容易被批量忽略。",
+        "check": "导出网表检查每个网络成员是否与设计意图一致；母图 sheet pin 与子图端口三对照。",
+        "appliesTo": [
+          "schematic",
+          "netlist",
+          "hierarchy"
+        ],
+        "tags": [
+          "标签作用域",
+          "层次端口",
+          "隐式连接",
+          "网表"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "降额门禁：每个功率/高压/大电流器件必须算应力比并签核超限项",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-REL-DERATING-001",
+        "category": "可靠性/降额",
+        "severity": "error",
+        "statement": "投板前每个功率/高压/大电流/热敏器件必须计算主应力比（功率/电压/电流/结温）且不超过企业降额规范限值；未计算或超限未签核不得投板。常见工程起点（非标准强制值，需按企业规范/datasheet 复核）：电阻连续功率≤60%、MLCC 直流电压≤80%（并计入 DC bias 容值损失）、钽电容≤50% 且禁反接/浪涌、电感峰值≤Isat 的 80%、MOSFET VDS≤80% 且 Tj≤Tjmax−20~40°C、连接器每触点电流≤70%。",
+        "limits": [
+          "电阻连续功率 ≤ 额定 60%（高温区按曲线再降）",
+          "MLCC 直流电压 ≤ 额定 80%，须按 DC bias 修正有效容值",
+          "钽电容工作电压 ≤ 额定 50%，禁反接/低阻浪涌",
+          "电感峰值电流 ≤ Isat 的 80%（Isat 定义按 datasheet）",
+          "MOSFET VDS ≤ 80%，Tj ≤ Tjmax − 20~40°C",
+          "连接器每触点电流 ≤ 额定 70%，温升 ≤30°C（经验）"
+        ],
+        "rationale": "额定值通常是理想散热/单一应力下的极限，实际板内温度、纹波、瞬态会叠加；降额不足会在量产高温满载时集中暴露，返工成本远高于设计阶段换料。",
+        "check": "从 BOM/原理图导出工作点批量计算应力比并输出超限清单；抽查 5 个功率/高压器件复算；超限项必须更换器件/改设计/书面让步并签核；变更后重跑。",
+        "appliesTo": [
+          "power",
+          "analog",
+          "connector",
+          "reliability"
+        ],
+        "tags": [
+          "降额",
+          "应力比",
+          "结温",
+          "钽电容",
+          "降额门禁"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "寿命预算取最短寿命件：Arrhenius/Coffin-Manson/厂商公式必须给参数来源",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-REL-LIFE-001",
+        "category": "可靠性/寿命",
+        "severity": "warning",
+        "statement": "整机/板级寿命结论必须由寿命预算得出：列出电解电容、继电器、风扇、电池、焊点等寿命相关件的估算模型与参数来源，取最短寿命件作为板级寿命。温度加速须用 Arrhenius（Ea 来自试验/厂商数据），焊点用 Coffin-Manson（n 按合金/试验标定），电解电容用厂商寿命公式并含纹波电流修正；仅用“10°C 法则”只能做方案对比，不能作为验收依据。",
+        "limits": [
+          "寿命预算覆盖电气/机械/电化学寿命件",
+          "Arrhenius：AF=exp[(Ea/k)(1/T_use−1/T_test)]，Ea 必须来自数据",
+          "Coffin-Manson：N2/N1=(ΔT1/ΔT2)^n，SAC 焊点 n 常取 1.9~2.0 量级",
+          "电解电容按厂商公式 + 纹波系数修正",
+          "最短寿命件寿命 ≥ 产品目标寿命（含安全系数）"
+        ],
+        "rationale": "平均寿命没有意义，客户感知的是第一个坏的点；寿命短板往往是电解电容/继电器/焊点等不显眼器件，不建模就无法提前更换或降额。",
+        "check": "审阅寿命预算表是否覆盖电气/机械/电化学件；抽查电解电容与焊点模型参数来源；确认最短寿命件寿命 ≥ 目标寿命（含安全系数）；用现场失效率回校模型。",
+        "appliesTo": [
+          "power",
+          "reliability",
+          "thermal",
+          "battery"
+        ],
+        "tags": [
+          "寿命预算",
+          "Arrhenius",
+          "Coffin-Manson",
+          "电解电容",
+          "最短寿命件"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "环境试验矩阵按任务剖面裁剪，逐项写样本量/监测/失效判据",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-REL-ENV-001",
+        "category": "可靠性/环境试验",
+        "severity": "warning",
+        "statement": "环境与可靠性试验矩阵必须从任务剖面生成，至少覆盖低温/高温工作与存储、温度变化、湿热（含偏压）、振动、机械冲击、跌落/运输、腐蚀（按使用环境），并逐项写明标准方法、严酷等级、样本量、试验中监测项与失效判据；无样本量或无判据的“通过”不算证据。",
+        "limits": [
+          "试验项与任务剖面一一对应",
+          "每项必须写样本量 n、失效判据、允许失效数（通常 0 失效）",
+          "湿热项必须含偏压与在线监测",
+          "温度循环须确认整板均温（驻留足够）",
+          "试验前后功能/参数数据齐全"
+        ],
+        "rationale": "不按剖面裁剪会做多（浪费）或做少（漏风险）；没有样本量与判据的试验无法支撑统计结论，也无法在客户/认证审核时自证。",
+        "check": "核对矩阵与任务剖面一致性；检查每项样本量/判据/监测记录；抽查温度曲线与失效分析；确认湿热项含偏压与在线监测；报告是否含原始数据。",
+        "appliesTo": [
+          "reliability",
+          "environment",
+          "qualification"
+        ],
+        "tags": [
+          "环境试验",
+          "IEC 60068",
+          "任务剖面",
+          "样本量",
+          "失效判据"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "焊点热循环按 IPC-9701 验证，Coffin-Manson 参数需按合金标定",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-REL-THERMALCYCLE-001",
+        "category": "可靠性/热循环",
+        "severity": "warning",
+        "statement": "焊点热疲劳按 IPC-9701 方法验证：按任务剖面最恶劣 ΔT 与循环数用 Coffin-Manson（N2/N1=(ΔT1/ΔT2)^n，SAC 焊点 n 常取 1.9~2.0 量级，需按合金/试验标定）估算寿命；BGA/QFN/大铜面/连接器焊点必须纳入；热循环试验需在线监测并做失效分析（裂纹位置/形貌）。",
+        "limits": [
+          "ΔT 与循环数来自任务剖面最恶劣工况",
+          "Coffin-Manson n 值按合金/焊点形状/试验数据标定",
+          "BGA/QFN/大铜面/连接器焊点 100% 纳入评估",
+          "热循环试验按 IPC-9701 执行并记录温度曲线",
+          "失效分析定位裂纹位置/形貌"
+        ],
+        "rationale": "焊点失效是 CTE 失配导致的塑性应变累积，ΔT 是最敏感变量；ΔT 从 60°C 增到 80°C 按 n=2 寿命只剩约 56%，不建模会显著高估寿命。",
+        "check": "检查 ΔT/循环数来源与模型参数；确认试验按 IPC-9701 执行并记录温度曲线；失效做切片/染色分析；对短板焊点做布局/工艺改进。",
+        "appliesTo": [
+          "solder-joint",
+          "bga",
+          "qfn",
+          "thermal-cycle",
+          "reliability"
+        ],
+        "tags": [
+          "热循环",
+          "焊点疲劳",
+          "Coffin-Manson",
+          "IPC-9701",
+          "CTE"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "可测网络覆盖率门禁：关键网络 100%，整体建议 ≥95%",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-TEST-COVERAGE-001",
+        "category": "可测试性/覆盖率",
+        "severity": "warning",
+        "statement": "投板前必须统计可测网络覆盖率并设门禁：关键网络（每个电源域、地、复位、时钟、调试口、关键通信/模拟节点）覆盖率 100%，整体可测网络覆盖率建议 ≥95%（按产品等级在测试规范中定义）；未覆盖网络必须列出替代手段（边界扫描/FCT/飞针）并经 DFT 评审签核。",
+        "limits": [
+          "关键网络（电源域/地/复位/时钟/调试口）覆盖率 100%",
+          "整体可测网络覆盖率建议 ≥95%（项目定义）",
+          "未覆盖网络必须有替代测试手段",
+          "覆盖率报告随版本归档，版本变更后不得回退"
+        ],
+        "rationale": "没有覆盖率的可测性无法验收；缺口往往集中在 BGA、屏蔽罩内、连接器背面等最难测也最易失效的位置。",
+        "check": "从 EDA 导出网络清单与测试点清单做差集；检查关键网络是否 100% 可测；缺口清单与替代手段；版本变更后覆盖率是否回退；试产实测覆盖率。",
+        "appliesTo": [
+          "test",
+          "dft",
+          "ict",
+          "fct",
+          "production"
+        ],
+        "tags": [
+          "可测性",
+          "覆盖率",
+          "DFT",
+          "门禁",
+          "测试点"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "边界扫描链与覆盖率：TAP 连通、BSDL 对齐、1149.6 场景单独评估",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-TEST-BSCAN-001",
+        "category": "可测试性/边界扫描",
+        "severity": "warning",
+        "statement": "使用 IEEE 1149.1 边界扫描的板子必须验证：TAP（TCK/TMS/TDI/TDO，可选 TRST）链路连通、未用 TAP 引脚按 datasheet 处理不悬空、链路长度/TCK 频率满足时序、BSDL 版本与器件一致；覆盖率分互连覆盖率与器件覆盖率统计并列出未覆盖原因（无边界扫描单元/AC 耦合/电源模拟网络）；AC 耦合或差分链路按 IEEE 1149.6 评估。",
+        "limits": [
+          "TAP 链路连通、IDCODE 可读",
+          "未用 TAP 引脚不得悬空（按 datasheet 上拉/下拉）",
+          "链路长度/TCK 频率满足时序",
+          "BSDL 版本与 BOM 器件版本一致",
+          "互连覆盖率/器件覆盖率分开统计（目标按项目定义）"
+        ],
+        "rationale": "BGA 底部焊点无法用探针直接测，边界扫描能在不加测试点的情况下验证互连；但链路/电平/BSDL 任一环节错误都会让测试无法执行，误以为“已覆盖”。",
+        "check": "读 IDCODE/链路连通测试；核对 BSDL 与 BOM 器件版本；用工具生成互连/器件覆盖率报告；检查 AC 耦合链路的 1149.6 覆盖；试产验证扫描程序。",
+        "appliesTo": [
+          "test",
+          "jtag",
+          "bga",
+          "dft"
+        ],
+        "tags": [
+          "边界扫描",
+          "JTAG",
+          "IEEE 1149.1",
+          "1149.6",
+          "BSDL"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "爬电/间隙按标准表计算：四输入齐全并留裕量，隔离带禁跨接",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-CREEPAGE-001",
+        "sources": [
+          "SRC-SIERRA-IPC2221",
+          "SRC-IPC-2221B"
+        ],
+        "evidenceLevel": "A/B",
+        "category": "安规/间距",
+        "severity": "error",
+        "statement": "每处绝缘跨接必须按实测工作电压、污染等级（PD1/PD2/PD3）、材料组（CTI：I≥600 / II 400~599 / IIIa 175~399 / IIIb 100~174）与过压类别查 IEC 62368-1 / IEC 60664-1 表得到爬电距离与电气间隙，并留设计裕量；常见工程引用值（非标准原文，仅供理解量级）：250V RMS、PD2、材料组 IIIa 的基本绝缘爬电距离约 2.5mm 量级。爬电与间隙分别检查，隔离带下所有层禁走线/铺铜。",
+        "limits": [
+          "跨接清单逐项含工作电压/绝缘类型/污染等级/材料组/过压类别",
+          "爬电距离按标准表值 × 设计裕量",
+          "电气间隙按冲击电压/过压类别/海拔修正",
+          "隔离带下方所有层无铜/无走线（认证允许的跨接器件除外）",
+          "材料 CTI/UL 94 阻燃等级有报告"
+        ],
+        "rationale": "爬电不足在潮湿/污染下会漏电起痕甚至起火；间隙不足会在瞬态/高海拔下空气击穿；固定经验毫米数在不同污染等级/材料组下可能不足或过度。",
+        "check": "跨接清单逐项核对工作电压/绝缘类型/污染等级/材料组；PCB 实测间距（含阻焊下铜）；隔离带 keepout 截图；耐压/绝缘电阻测试；认证机构预评估。",
+        "appliesTo": [
+          "high-voltage",
+          "ac-dc",
+          "isolation",
+          "safety"
+        ],
+        "tags": [
+          "安规",
+          "爬电距离",
+          "电气间隙",
+          "IEC 62368-1",
+          "IEC 60664-1"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "隔离器件必须有安规证书，隔离带与耐压测试可追溯",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-ISOLATION-001",
+        "category": "安规/隔离",
+        "severity": "error",
+        "statement": "跨隔离带的 Y 电容、光耦、数字隔离器、变压器、隔离电源必须按绝缘类型（基本/加强）选型并持有有效安规证书，证书型号与 BOM 一致；隔离带下方所有层无铜/无走线（除认证允许的跨接器件），隔离两侧地不直接相连；耐压测试区分型式试验与产线例行试验，参数/判据/失效分析可追溯。",
+        "limits": [
+          "隔离器件证书型号与 BOM 双向一致",
+          "隔离带下方所有层无铜/无走线",
+          "隔离两侧地不直接相连（按拓扑允许的 Y 电容除外）",
+          "耐压参数按绝缘类型/工作电压与标准/认证机构文件",
+          "型式试验与产线例行试验分别定义并记录"
+        ],
+        "rationale": "隔离器件是认证件，用错型号/无证书会导致整机认证失败；隔离带下走线会直接短路隔离；耐压参数错误会损伤绝缘或漏检。",
+        "check": "隔离带 keepout 检查；关键隔离件证书台账与 BOM 双向核对；隔离耐压/绝缘电阻测试记录；型式/例行耐压参数与标准/认证机构文件一致。",
+        "appliesTo": [
+          "isolation",
+          "ac-dc",
+          "industrial",
+          "safety"
+        ],
+        "tags": [
+          "隔离",
+          "Y 电容",
+          "光耦",
+          "耐压",
+          "安规证书"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "EMC 按发射/抗扰/谐波分项认证，预测试留 ≥6dB 量级裕量",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-EMC-001",
+        "category": "认证/EMC",
+        "severity": "error",
+        "statement": "目标市场 EMC 必须按发射（CISPR 32 / EN 55032 / GB/T 9254.1 / FCC Part 15B）、抗扰（CISPR 35 / EN 55035 / IEC 61000-4 系列 / GB/T 17626）、谐波/闪烁（IEC 61000-3-2/-3-3）分别列项测试；正式认证前必须做预测试并留 ≥6dB 量级裕量（经验值，按标准/产品调整），送样按最不利配置（最长线缆/最大负载/外壳屏蔽与量产一致）并记录；整改按“接口/线缆→滤波/回流→屏蔽→改板”顺序单项验证。",
+        "limits": [
+          "发射/抗扰/谐波/闪烁四类标准分项列全",
+          "预测试发射项建议留 ≥6dB 量级裕量（经验）",
+          "认证样品为最不利配置且与量产 BOM/结构一致",
+          "整改单项验证并记录效果",
+          "正式报告覆盖全部适用项"
+        ],
+        "rationale": "EMC 是“发射 + 抗扰 + 电能质量”的组合，漏项会导致证书不全或抽查不合格；裕量不足会在正式测试时“差一点超标”，反复送样延误上市。",
+        "check": "EMC 标准矩阵与目标市场对应；预测试报告与裕量；认证样品配置清单与量产 BOM 对比；整改项单项效果记录；正式报告覆盖全部适用项。",
+        "appliesTo": [
+          "emc",
+          "certification",
+          "ce",
+          "fcc",
+          "ccc"
+        ],
+        "tags": [
+          "EMC",
+          "CISPR 32",
+          "IEC 61000-4",
+          "预测试",
+          "认证裕量"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电池双合规：使用安全（GB 31241/IEC 62133-2）+ 运输（UN38.3）",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-BATTERY-001",
+        "category": "安规/电池",
+        "severity": "error",
+        "statement": "含锂电池产品必须同时满足使用安全与运输要求：电池/电池组按 GB 31241-2022（或目标市场 IEC 62133-2 / UL 2054 / UL 1642）评估，运输按 UN38.3 T1~T8 完成并保留测试摘要；BMS/保护板至少具备过充、过放、过流/短路、温度保护，并评估 MOS/保护 IC 单点失效的二级防护；电芯/电池组证书型号、容量、温度范围必须与整机 BOM 和使用条件一致。",
+        "limits": [
+          "使用安全报告：GB 31241-2022 / IEC 62133-2 / UL 2054 / UL 1642",
+          "运输报告：UN38.3 T1~T8 + 测试摘要",
+          "BMS 保护：过充/过放/过流/短路/温度",
+          "MOS/保护 IC 单点失效需有二级防护",
+          "电池证书型号/容量/温度范围与 BOM 一致"
+        ],
+        "rationale": "运输测试只证明“可运输”，不证明“使用安全”；保护单点失效会让电池直接短路/起火；证书型号不匹配会被认证机构/货代拒收。",
+        "check": "核对电池/电芯证书与 BOM；GB 31241/UN38.3 报告与测试摘要；保护功能测试（过充/过放/短路/温度）；二级防护与失效模式分析；CCC/认证机构文件引用。",
+        "appliesTo": [
+          "battery",
+          "bms",
+          "safety",
+          "transport"
+        ],
+        "tags": [
+          "电池",
+          "GB 31241",
+          "UN38.3",
+          "IEC 62133-2",
+          "BMS"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "元件生命周期状态与 PCN 响应：BOM 每行必须有状态、来源、日期",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "ruleId": "CMP-RULE-SC-001",
+        "category": "供应链/生命周期",
+        "severity": "error",
+        "statement": "每个 BOM 行必须记录生命周期状态（Active / NRND / LTB / EOL / Obsolete）、来源（原厂/授权代理/PCN）与采集日期，并在收到 PCN 后的流程时限内完成影响评估；NRND/LTB 器件必须有替代料、最后采购或库存覆盖计划，否则不得直接放行投产。",
+        "limits": [
+          "状态值五选一并带来源与日期，禁止只写 Active 而不留证据",
+          "PCN 分类：工艺/晶圆/封装/料号/文档；涉及电气、封装、认证的变更必须重新验证",
+          "生命周期/交期/价格数据 TTL 建议 90～180 天（按公司流程复核），过期重采",
+          "影响已认证产品的变更须评估是否重测认证（按产品适用标准复核）"
+        ],
+        "rationale": "NRND 与 LTB 是不可逆的时间窗口；错过 LTB 只能改板或走灰色渠道。PCN 可能改变晶圆/封装来源与参数，忽略会导致量产一致性与认证失效。",
+        "check": "检查 BOM 生命周期字段完整率与数据新鲜度；核对原厂/授权代理生命周期页面与 PCN 台账；抽查高风险器件的替代/库存计划是否闭环；不通过则补数据或走风险批准。",
+        "appliesTo": [
+          "bom",
+          "sourcing",
+          "lifecycle",
+          "release-gate",
+          "risk"
+        ],
+        "tags": [
+          "EOL",
+          "PCN",
+          "NRND",
+          "LTB",
+          "生命周期",
+          "供应链"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "关键器件双供/替代料覆盖：pin-to-pin 不等于可替换",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "ruleId": "CMP-RULE-SC-002",
+        "category": "供应链/双供替代",
+        "severity": "error",
+        "statement": "关键器件（MCU、电源 IC、连接器、晶振、认证相关件、长交期件）必须至少有一个经批准的替代料或双供来源，否则必须列为单点风险并在投产前获得书面风险批准；替代料须完成 7 项参数比对与样机/小批验证，禁止仅凭 pin-to-pin 直接替换。",
+        "limits": [
+          "7 项比对：电气 / 封装与焊盘 / 温度 / 精度与温漂 / 寿命与 MSL / 认证 / 供货",
+          "替代料必须记录 datasheet 页码与版本，差异项标“需验证/不可替代”",
+          "关键器件单点清单在 release gate 前清零，或带风险批准与缓解措施",
+          "认证件换料前必须评估重新认证需求（按产品标准复核）"
+        ],
+        "rationale": "参数差异（ESR、CTR、精度、温漂、饱和电流）会让电路在边界工况失效；安规/车规换料可能触发重新认证，代价远高于料价差。",
+        "check": "核对双供清单与参数比对表；查替代料验证记录（样机/小批/量产三阶段）；查单点风险批准记录；不通过则补验证或获得风险批准。",
+        "appliesTo": [
+          "bom",
+          "sourcing",
+          "alternate-part",
+          "risk",
+          "release-gate"
+        ],
+        "tags": [
+          "双供",
+          "替代料",
+          "单点风险",
+          "pin-to-pin",
+          "认证"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "符号/封装/焊盘三源核验：引脚号三者必须一致",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "CMP-RULE-LIB-001",
+        "category": "元件库/核验",
+        "severity": "error",
+        "statement": "符号引脚号、封装焊盘号与 datasheet pin map 必须三者一致，Pin 1 在符号、封装丝印与 3D 中一致；datasheet 为第一优先来源，供应商页面次之，EDA 自带/第三方库只能作参考。未三源核验或存在冲突的库不得进入生产库。",
+        "limits": [
+          "datasheet 版本/页码必须记录在库核验记录中",
+          "高风险封装（BGA/QFN/LQFP/连接器/极性器件）必须双人复核并做首件验证",
+          "冲突状态按 blocked 处理，禁止以“EDA 库里本来就有”作为通过依据",
+          "极性器件（二极管/钽电容/LED/连接器）必须额外核对方向与 Pin 1"
+        ],
+        "rationale": "pin map 错会导致整颗反装或直通烧板，Pin 1 认错在 QFN/LQFP/BGA 上尤其致命；EDA 库可能来自旧版本或通用库，不能自证正确。",
+        "check": "查库核验记录与 datasheet 页码；跑库链接/引脚一致性检查；首件做万用表通断、体二极管与 AOI 方向检查；不通过则回改库并重新审核。",
+        "appliesTo": [
+          "library",
+          "schematic",
+          "layout",
+          "footprint",
+          "review"
+        ],
+        "tags": [
+          "三源核验",
+          "pin map",
+          "Pin 1",
+          "符号",
+          "封装"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "焊盘按 IPC-7351 密度等级与器件公差计算",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "CMP-RULE-LIB-002",
+        "category": "元件库/焊盘",
+        "severity": "error",
+        "statement": "焊盘尺寸必须按 IPC-7351 密度等级（A/B/C）与器件 datasheet 引脚公差计算，包含 toe/heel/side 外延、courtyard 与阻焊开窗；连接器/功率器件优先采用 datasheet 推荐 land pattern，禁止套用无关封装或“通用尺寸”。",
+        "limits": [
+          "同板同一封装族统一密度等级；A=Most、B=Nominal、C=Least（定义按 IPC-7351 版本复核）",
+          "焊盘尺寸 = 引脚尺寸 + 外延，输入参数（引脚尺寸/公差/等级）必须留计算记录",
+          "EPAD 过孔阵列、塞孔与钢网开孔需与焊盘/热设计成套确定",
+          "细间距/高密度封装须经首件 AOI/SPI 与良率验证"
+        ],
+        "rationale": "焊盘过大易桥连、占面积；过小易虚焊/立碑/强度不足。不同厂家同封装引脚公差不同，套用通用尺寸会在边界批次暴露不良。",
+        "check": "对照 IPC-7351 计算表与 datasheet 推荐 land pattern；检查 courtyard 与器件干涉；首件 AOI/SPI、切片与推力测试；不通过则重算焊盘并升库版本。",
+        "appliesTo": [
+          "library",
+          "footprint",
+          "land-pattern",
+          "dfm",
+          "review"
+        ],
+        "tags": [
+          "IPC-7351",
+          "密度等级",
+          "焊盘",
+          "courtyard",
+          "公差"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "柔性板弯折半径：静态 6–10 倍总厚、动态 20–100 倍总厚，最终以弯折寿命实测为准",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-FLEX-BEND-001",
+        "category": "柔性板/弯折",
+        "severity": "error",
+        "statement": "弯折区必须按总厚度确定最小弯曲半径：静态弯折经验取 R ≥ 6–10×总厚，动态弯折经验取 R ≥ 20–100×总厚；动态弯折区优先 RA 铜、单面/薄层结构，最终以弯折寿命试验（角度/次数/电阻变化）判定。",
+        "limits": [
+          "静态弯折：R ≥ 6–10×总厚（工程经验，需按 IPC-2223 与材料 datasheet 复核）",
+          "动态弯折：R ≥ 20–100×总厚，具体按铜箔类型/层数/弯折次数确定",
+          "动态弯折区铜箔优先 RA（压延铜），避免 ED 铜",
+          "弯折区总厚越薄越好：单面常见 0.08–0.15 mm、双面 0.15–0.30 mm（按叠层复核）",
+          "弯折寿命必须实测，禁止仅用公式外推"
+        ],
+        "rationale": "弯折时外侧铜受拉、内侧受压；半径越小应变越大，超过材料延伸率即铜裂/分层。动态弯折为疲劳问题，寿命随半径减小呈指数下降。",
+        "check": "叠层图核对总厚；3D/结构件量实际弯曲半径；弯折工装验证；弯折寿命试验记录失效次数与电阻变化；失效样品切片看铜箔裂纹。",
+        "appliesTo": [
+          "flex",
+          "rigid-flex",
+          "camera-module",
+          "battery-connector",
+          "wearable"
+        ],
+        "tags": [
+          "柔性板",
+          "弯折半径",
+          "动态弯折",
+          "RA铜",
+          "寿命试验"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "覆盖膜开窗：比焊盘单边大 0.05–0.15 mm，不盖焊盘、桥宽 ≥0.15–0.20 mm",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-FLEX-COVERLAY-001",
+        "category": "柔性板/保护层",
+        "severity": "error",
+        "statement": "柔性板覆盖膜（coverlay）开窗应比焊盘单边大 0.05–0.15 mm（按板厂对位精度复核），不得盖住焊盘/金手指/测试点；相邻开窗之间保留 ≥0.15–0.20 mm 覆盖膜桥；动态弯折区必须覆盖膜而非阻焊油墨。",
+        "limits": [
+          "开窗相对焊盘单边补偿：0.05–0.15 mm（经验值，按板厂能力表复核）",
+          "相邻开窗覆盖膜桥宽：≥0.15–0.20 mm",
+          "覆盖膜厚度常见 25 µm 膜 + 25 µm 胶（按材料 datasheet 复核）",
+          "动态弯折区：覆盖膜全覆，禁止仅用阻焊油墨"
+        ],
+        "rationale": "覆盖膜对位公差大于阻焊；开窗过小会盖盘导致不上锡，过大则胶层暴露、吸湿分层；桥过窄会断裂。阻焊油墨在反复弯折下易开裂脱落。",
+        "check": "覆盖膜开窗 Gerber 与焊盘层 XOR；首件显微镜/目检；上锡与溢胶检查；弯折后覆盖膜起翘检查。",
+        "appliesTo": [
+          "flex",
+          "rigid-flex",
+          "fpc-connector"
+        ],
+        "tags": [
+          "柔性板",
+          "覆盖膜",
+          "coverlay",
+          "开窗",
+          "溢胶"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "补强板：连接器/SMT/插拔区必须局部加硬，且不得跨弯折线",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-FLEX-STIFFENER-001",
+        "category": "柔性板/机械",
+        "severity": "error",
+        "statement": "FPC 的 ZIF/FFC/板对板连接器、SMT 密集区、螺钉/定位区必须加补强；补强材料与厚度按受力选（FR-4 常见 0.2–1.0 mm、PI 0.1–0.3 mm、不锈钢 0.1–0.3 mm，需按板厂与受力复核）；补强边缘距弯折区 ≥1–2 mm，且不得跨越弯折线。",
+        "limits": [
+          "FR-4 补强厚度常见 0.2–1.0 mm",
+          "PI 补强厚度常见 0.1–0.3 mm",
+          "不锈钢/铝补强厚度常见 0.1–0.3 mm",
+          "补强边缘到弯折区：≥1–2 mm（经验值，按受力/板厂复核）"
+        ],
+        "rationale": "FPC 刚度低，连接器插拔力与 SMT 应力会使局部弯折、焊盘撕裂；补强把力分散到刚性区。补强跨弯折线会把刚性区应力直接传到弯折区。",
+        "check": "补强图与弯折线叠合；补强剥离/剪切测试；插拔力测试；3D 装配检查。",
+        "appliesTo": [
+          "flex",
+          "rigid-flex",
+          "fpc-connector"
+        ],
+        "tags": [
+          "柔性板",
+          "补强",
+          "stiffener",
+          "连接器",
+          "插拔力"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "BGA 空洞验收：按单球面积百分比与位置判定，不只看「有没有空洞」",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PKG-BGA-VOID-001",
+        "category": "封装/焊接",
+        "severity": "error",
+        "statement": "BGA 焊球空洞按单球面积百分比与位置验收：常见 Class 2 口径单球空洞 ≤25% 且不得集中在焊盘界面/焊球颈部，Class 3 更严；具体限值必须按 IPC-A-610 等级、IPC-7093 与客户规范复核；界面空洞/大空洞判不合格。",
+        "limits": [
+          "单球空洞面积：≤25%（Class 2 常见口径，需按标准/客户规范复核）",
+          "空洞不得集中在焊盘界面或焊球颈部",
+          "Class 3/高可靠产品限值更严，按客户规范执行",
+          "空洞总面积/位置需逐球统计并记录"
+        ],
+        "rationale": "空洞降低焊点机械强度与导热；界面空洞在热循环下扩展成裂纹；分散小空洞通常可接受，界面大空洞不可接受。",
+        "check": "X-ray 2D 初筛 + 3D/切片确认位置；逐球统计面积；超标调整钢网/回流/焊膏/焊盘；热循环/跌落验证。",
+        "appliesTo": [
+          "bga",
+          "wlcsp",
+          "qfn",
+          "smt"
+        ],
+        "tags": [
+          "BGA",
+          "空洞",
+          "X-ray",
+          "IPC-A-610",
+          "焊点"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "MSL 湿度等级与 floor life：超期/受潮必须按 J-STD-033 烘烤",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PKG-MSL-001",
+        "category": "封装/工艺",
+        "severity": "error",
+        "statement": "按 J-STD-020 的 MSL 等级控制 floor life（常见 MSL3 168 h、MSL4 72 h、MSL5 48 h、MSL5a 24 h、MSL6 使用前烘烤，需按标准原文复核）；超期或湿度指示卡变色时按 J-STD-033 烘烤（常见 125 °C 24 h 量级，按厚度/等级复核），烘烤后限时使用并记录。",
+        "limits": [
+          "MSL3 floor life 常见 168 h",
+          "MSL4 常见 72 h、MSL5 常见 48 h、MSL5a 常见 24 h",
+          "MSL6 使用前必须烘烤",
+          "烘烤条件常见 125 °C/24 h 量级，按 J-STD-033 与器件厚度复核"
+        ],
+        "rationale": "塑封料吸湿，回流时水汽膨胀导致爆米花/分层/焊球损伤；MSL 越高越敏感，超期使用风险不可控。",
+        "check": "湿度指示卡；MSL 标签/批次记录；开封计时；烘烤记录；回流后 C-SAM/外观/切片。",
+        "appliesTo": [
+          "bga",
+          "qfn",
+          "wlcsp",
+          "smt"
+        ],
+        "tags": [
+          "MSL",
+          "J-STD-020",
+          "J-STD-033",
+          "烘烤",
+          "爆米花"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "BGA/QFN 返修：预热—拆除—清理—植球—对位—回流—检验，且记录返修次数",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PKG-REWORK-001",
+        "category": "封装/返修",
+        "severity": "warning",
+        "statement": "BGA/QFN 返修必须按「底部预热 → 顶部加热拆除 → 清理焊盘/残胶 → 植球/换球 → 助焊剂/对位 → 回流 → 冷却 → X-ray/AOI/电测」执行；返修温度曲线按返修台与器件 datasheet，峰值不超过器件耐温；同一器件返修次数建议 ≤2–3 次（按产品规范复核），超限评估报废。",
+        "limits": [
+          "返修次数建议 ≤2–3 次（经验值，按板层数/焊盘/客户规范复核）",
+          "返修峰值温度不得超过器件 datasheet 耐温",
+          "返修后必须做 X-ray/AOI/电测，必要时切片",
+          "邻件需热保护，热敏器件评估是否可返修"
+        ],
+        "rationale": "返修热与机械应力会损伤邻件、内层与焊盘；多次返修累积损伤（坑裂/分层），外观正常不代表可靠。",
+        "check": "返修曲线记录；X-ray 焊球/空洞/偏移；AOI 极性/连锡；电测；切片/染色抽检；返修记录与次数。",
+        "appliesTo": [
+          "bga",
+          "qfn",
+          "wlcsp",
+          "rework"
+        ],
+        "tags": [
+          "返修",
+          "BGA",
+          "QFN",
+          "植球",
+          "X-ray"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速链路阻抗：按协议定 85/90/100 Ω，TDR 验收并做测试条",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-HS-IMPEDANCE-001",
+        "category": "高速/阻抗",
+        "severity": "error",
+        "statement": "高速接口差分阻抗按协议/连接器要求设计（USB 常见 90 Ω、以太网/HDMI/MIPI 常见 100 Ω、PCIe 常见 85 Ω，均需按规范版本复核）；阻抗公差按协议（常见 ±10%）；必须用与产品同叠层的阻抗测试条 + TDR 验收，不能只看计算书。",
+        "limits": [
+          "USB3.x/USB4：差分 90 Ω（按规范版本复核）",
+          "PCIe Gen3–5：差分常见 85 Ω（部分设计 90 Ω，按规范/连接器复核）",
+          "以太网/HDMI/MIPI D-PHY：差分常见 100 Ω",
+          "阻抗公差常见 ±10%，具体按协议/客户规范复核",
+          "每批/每拼板附阻抗测试条，TDR 实测"
+        ],
+        "rationale": "阻抗偏离导致反射、回损变差、眼图闭合；公式/计算书与实际叠层、蚀刻、阻焊存在偏差，只有实测能闭环。",
+        "check": "板厂阻抗计算书；同叠层测试条 TDR；VNA 回损；眼图/BER；超差整批隔离追溯。",
+        "appliesTo": [
+          "usb",
+          "pcie",
+          "ethernet",
+          "hdmi",
+          "mipi"
+        ],
+        "tags": [
+          "阻抗",
+          "TDR",
+          "USB",
+          "PCIe",
+          "以太网",
+          "测试条"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速 AC 耦合电容：容值/位置按协议，焊盘保持阻抗连续",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-HS-AC-COUPLING-001",
+        "category": "高速/无源器件",
+        "severity": "warning",
+        "statement": "高速串行链路的 AC 耦合电容按协议/芯片要求选容值（USB3/PCIe TX 常见 0.1 µF，需按规范版本复核），放在靠近发送端或芯片推荐位置；电容焊盘/挖空必须保持差分阻抗连续，电容下方参考平面连续，不得在此处换层。",
+        "limits": [
+          "USB3/PCIe TX AC 耦合常见 0.1 µF（按规范/芯片复核）",
+          "电容靠近 TX 端或按芯片推荐位置",
+          "焊盘/挖空按差分阻抗优化，避免大焊盘造成阻抗跌落",
+          "电容下方参考平面连续，不在电容处换层"
+        ],
+        "rationale": "AC 耦合隔直流、允许两端共模不同；但电容焊盘比走线宽，是阻抗不连续点，焊盘越大/越近越严重，会恶化回损与眼图。",
+        "check": "TDR 看电容处阻抗跌落；VNA 插损/回损；眼图/BER；与仿真对比。",
+        "appliesTo": [
+          "usb",
+          "pcie",
+          "sata",
+          "high-speed"
+        ],
+        "tags": [
+          "AC耦合",
+          "电容",
+          "阻抗连续",
+          "USB3",
+          "PCIe"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "ADC 源阻抗必须满足采样建立时间并留 2 倍余量",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ANALOG-001",
+        "category": "模拟/采样",
+        "severity": "error",
+        "statement": "任何 ADC 通道在定稿前必须按 t ≥ (Rsource + Rsw) × Csh × ln(2^(N+1)) 校核采样建立并留 ≥2 倍余量；源阻抗超限时必须加缓冲运放或加长采样时间，不得用软件平均掩盖建立不足。",
+        "limits": [
+          "12 位、Csh=8pF、Rsource=10kΩ → ts ≥ 约 721ns",
+          "实际采样时间 ≥ 计算值 × 2",
+          "缓冲后源阻抗目标 < 1kΩ",
+          "Rsource 含分压电阻、串阻、传感器输出阻抗与 mux Ron"
+        ],
+        "rationale": "采样电容未充满就转换会得到偏低码值，且随源阻抗、温度和通道切换变化，属于硬件误差，软件平均无法修正。",
+        "check": "同一输入在不同采样时间/采样率下扫读数是否变化；切换相邻通道测串扰；对照 datasheet 的 tACQ 公式与最大源阻抗。",
+        "appliesTo": [
+          "schematic",
+          "adc",
+          "sensor",
+          "analog",
+          "measurement"
+        ],
+        "tags": [
+          "ADC",
+          "采样时间",
+          "源阻抗",
+          "建立时间",
+          "读数偏低"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "运放驱动容性负载必须做稳定性校核（隔离电阻/相位裕度）",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ANALOG-002",
+        "category": "模拟/运放",
+        "severity": "error",
+        "statement": "运放直接驱动 ADC 采样电容、线缆或长走线等容性负载时必须做稳定性校核：输出串 10~100Ω 隔离电阻或按 datasheet 补偿，相位裕度 ≥45°（推荐 ≥60°），小信号阶跃过冲 ≤10%~20%，不允许无校核直连。",
+        "limits": [
+          "Riso 典型 10~100Ω（按 CL 与器件取值）",
+          "相位裕度 ≥45°，推荐 ≥60°",
+          "阶跃过冲 ≤10%（PM≈60°）或 ≤20%（PM≈45°）",
+          "CL > 100pF 必须评估稳定性"
+        ],
+        "rationale": "容性负载与运放输出阻抗形成附加极点，消耗相位裕度，轻则振铃重则持续振荡；一旦振荡，ADC 读数与后级逻辑都会异常。",
+        "check": "小信号阶跃测过冲/振铃频率；扫频看闭环幅频峰化（>3dB 说明裕度不足）；容性负载从 0 扫到实际最大值复测。",
+        "appliesTo": [
+          "schematic",
+          "opamp",
+          "adc",
+          "analog"
+        ],
+        "tags": [
+          "运放",
+          "稳定性",
+          "容性负载",
+          "相位裕度",
+          "振荡"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "基准源必须做误差预算与独立去耦，否则不得作为精度保证",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ANALOG-003",
+        "category": "模拟/基准",
+        "severity": "warning",
+        "statement": "ADC/DAC 的基准必须做误差预算：初始精度 + 温漂×ΔT + 低频/宽带噪声 RSS 后不超过系统目标精度的 1/3~1/2，否则必须做满量程校准；基准必须有独立去耦（典型 100nF+1~10µF，按 datasheet）并远离开关节点，误差会按比例进入所有采样结果。",
+        "limits": [
+          "12 位 1 LSB ≈ 244ppm（VREF=3.3V）",
+          "示例：0.05% + 5ppm/°C×40°C + 噪声 3ppm → RSS ≈ 538ppm",
+          "基准输出电容与容性负载范围按 datasheet，不可随意加大",
+          "基准走线远离 DC-DC 开关节点与数字线"
+        ],
+        "rationale": "ADC 输出码 = Vin/VREF × 2^N，VREF 的初始误差与漂移是全局增益误差，相关噪声无法靠平均消除；基准不达标时前端做得再好也没有意义。",
+        "check": "6.5 位以上表测基准实际值/温漂；示波器 AC 耦合测纹波（限制带宽）；短路输入测噪声底；对比校准前后满量程误差。",
+        "appliesTo": [
+          "schematic",
+          "adc",
+          "dac",
+          "analog",
+          "reference"
+        ],
+        "tags": [
+          "基准",
+          "VREF",
+          "误差预算",
+          "温漂",
+          "去耦"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "混合信号器件默认单地：AGND/DGND 同平面就近汇合，地反弹小于 1 LSB",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ANALOG-004",
+        "category": "模拟/接地",
+        "severity": "error",
+        "statement": "混合信号器件（ADC/DAC/MCU）的 AGND/DGND 必须接到同一块完整地平面并在器件下方就近汇合；默认单地，模拟小信号回流不得与数字/功率回流共路径；确需分割时只能有唯一桥接点并在图上可见；地反弹按 V=L·di/dt 折算，必须小于 1 LSB 对应的输入值。",
+        "limits": [
+          "默认单地，桥接点唯一且原理图上可见（0Ω/磁珠/星点）",
+          "AGND/DGND 引脚均下同一地平面，不在芯片下方开槽",
+          "地反弹估算 < 1 LSB 折合输入",
+          "模拟区不得承载功放/电机/DC-DC 返回电流"
+        ],
+        "rationale": "把 AGND/DGND 分开再单点连接常造成回流绕行、环路变大与串扰增加；地反弹是数字开关电流在地电感上的压降，会直接叠加到模拟参考上并变成采样误差。",
+        "check": "测 AGND 与 DGND 交流压差；ADC 采样时观察码值抖动；对比数字静默/繁忙两种状态；近场探头扫描；检查桥接点唯一。",
+        "appliesTo": [
+          "schematic",
+          "pcb",
+          "gnd",
+          "analog",
+          "mixed-signal"
+        ],
+        "tags": [
+          "分区",
+          "地",
+          "AGND",
+          "DGND",
+          "地反弹",
+          "回流"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "I2C 传感器接入必须同时满足上拉范围、地址唯一、总线电容与中断上拉",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-SENSOR-001",
+        "category": "总线/I2C",
+        "severity": "error",
+        "statement": "I2C 传感器接入必须同时满足：上拉在 Rp(min)~Rp(max) 之间（Rp(max)=tr/(0.8473·Cb)、Rp(min)=(VDD−VOL)/IOL）、地址唯一且设置方式在图上标注、总线电容 ≤400pF、中断脚为开漏时必上拉并接到可唤醒 GPIO；长线/多节点超限时用分路器或缓冲器，而不是继续加大上拉。",
+        "limits": [
+          "标准/快速模式总线电容 Cb ≤ 400pF",
+          "3.3V、400kHz、Cb=200pF → Rp 约 1.2~1.5kΩ",
+          "100kHz 常用 4.7kΩ（仍须按 Cb 与 tr 复核）",
+          "地址设置脚不得真悬空，必须有明确电平"
+        ],
+        "rationale": "I2C 故障大多不是协议问题：上拉过大导致上升沿慢、地址冲突导致读不到、中断脚悬空漏事件、总线电容超限后无法同时满足上升时间与灌电流。",
+        "check": "I2C 全地址扫描与分配表对照；示波器测 SCL/SDA 上升时间与高电平；逐器件单独读写；中断脚逐个触发；总线挂满后复测。",
+        "appliesTo": [
+          "schematic",
+          "sensor",
+          "i2c",
+          "bus"
+        ],
+        "tags": [
+          "I2C",
+          "上拉",
+          "地址",
+          "总线电容",
+          "传感器",
+          "中断"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "模拟传感器优先比例式测量，并至少做零点+满量程两点校准",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-SENSOR-002",
+        "category": "模拟/传感器",
+        "severity": "warning",
+        "statement": "模拟传感器必须明确激励方式并优先做比例式测量（ADC 参考与激励同源，使激励慢漂移在比值中抵消）；每个传感器通道至少做零点+满量程两点校准，非线性传感器用多点/查表，校准系数带版本存非易失存储；宽温应用必须有温补方案。",
+        "limits": [
+          "比例式：码值 = k × 2^N，与激励慢漂移无关",
+          "线性两点：y = a·x + b；非线性用分段/查表",
+          "校准后回测 3~5 点误差在目标内",
+          "校准记录含日期、设备、环境温度、操作者与系数版本"
+        ],
+        "rationale": "传感器自身容差通常远大于电路误差，不校准等于精确地测了一个不准的传感器；激励漂移会按比例进入读数，比例式是低成本高精度的抵消手段。",
+        "check": "改变激励电压/电流看读数是否按比例变化；校准后回测 3~5 点；换板抽检一致性；高低温复测温漂；不通过则重新校准或加温补。",
+        "appliesTo": [
+          "schematic",
+          "sensor",
+          "analog",
+          "calibration"
+        ],
+        "tags": [
+          "传感器",
+          "激励",
+          "比例式",
+          "校准",
+          "温补"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "充电方案必须校核热耗/结温，CC/CV 与温度窗口符合电芯规格",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-BATT-001",
+        "category": "电源/电池",
+        "severity": "error",
+        "statement": "充电方案定稿前必须校核：线性充电 P=(Vin−Vbat)×I 后的结温 Tj=Ta+P×θJA 在规格内（否则降流或改开关方案）、CC/CV/预充/终止参数符合电芯规格（终止电压 4.2/4.35/4.4V 不可混用）、充电温度窗口（JEITA）与安全定时器在图上实现。",
+        "limits": [
+          "示例 5V/4.2V/1A → P=0.8W；θJA=100°C/W、Ta=40°C → Tj≈120°C",
+          "终止电压按电芯规格，精度按充电 IC（±1% 级需复核）",
+          "CC 常见 0.5C 级、CV 终止常见 C/10 级（按电芯规格）",
+          "安全定时约 1.5~2 倍预计充满时间"
+        ],
+        "rationale": "线性充电把压差全部变成热，结温超限会触发热调节使充电变慢/反复暂停；终止电压与温度窗口错误则直接影响安全与寿命。",
+        "check": "满载充电测温升/结温；45°C 环境复测充电电流是否被热调节；用电池模拟器扫充电曲线核对预充/CC/CV/终止；高低温箱验证 JEITA 分区。",
+        "appliesTo": [
+          "schematic",
+          "battery",
+          "charging",
+          "charger",
+          "power"
+        ],
+        "tags": [
+          "充电",
+          "CC/CV",
+          "热耗",
+          "JEITA",
+          "电池",
+          "结温"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电池保护必须独立于充电 IC：双 MOS 发热与阈值/二次保护 I²t 协调",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-BATT-002",
+        "category": "电源/电池保护",
+        "severity": "error",
+        "statement": "电池保护必须独立于充电 IC：1S 至少覆盖 OVP/UVP/OCP/SCP/OTP，多串必须逐节采样并支持断线检测；充放电 MOS 背靠背串联并按 P=I²×(Rds_chg+Rds_dis) 校核发热；保护阈值/延时按电芯规格与保护 IC 精度留余量，且与二次保护（保险丝/PTC）的 I²t 协调。",
+        "limits": [
+          "双 MOS 示例：5A、各 20mΩ → P = 1W",
+          "OVP/UVP 须留保护 IC 精度余量（常见 ±25~50mV 级，按 datasheet）",
+          "OCP 按最大持续电流 1.5~2 倍，延时避开启动浪涌",
+          "I²t_fuse < 0.8 × 被保护对象耐受 I²t，且 > 启动浪涌 I²t × 1.5~2"
+        ],
+        "rationale": "充电 IC 失效（过充）时只有独立保护能切断，一次保护 MOS 短路时只有二次保护能兜底；双 MOS 选型/发热不当会在正常工作时过热，阈值协调不当会导致误保护或拒动。",
+        "check": "逐项触发 OVP/UVP/OCP/SCP/OTP 记录阈值/延时；满载测双 MOS 温升与压降；断开采样线验证断线检测；对照保险丝/PTC 的 I²t 曲线。",
+        "appliesTo": [
+          "schematic",
+          "battery",
+          "bms",
+          "protection"
+        ],
+        "tags": [
+          "保护",
+          "OVP",
+          "UVP",
+          "OCP",
+          "双MOS",
+          "BMS",
+          "I2t"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "天线净空禁布区：keepout 内不得有铜/走线/器件/金属",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-RF-001",
+        "category": "射频/天线净空",
+        "severity": "error",
+        "statement": "天线 keepout 区内（尺寸按所选天线/模块 datasheet）禁止铺铜、走线、过孔、器件、电池与金属结构件；周围金属、外壳材料与装配公差必须一并评估，净空被破坏即判设计不通过。",
+        "limits": [
+          "keepout 尺寸以所选天线/模块 datasheet 为准，禁止套用其他型号或凭经验估计",
+          "keepout 内所有层铜箔面积=0，禁止走线与过孔",
+          "电池/喇叭/屏蔽罩/金属螺丝/外壳与天线的最小距离不得小于 datasheet 净空要求",
+          "外壳含金属涂层、高介电常数材料或人体接触场景时，必须重新评估天线性能"
+        ],
+        "rationale": "天线依靠空间电磁场工作，净空内任何导体都会吸收/反射能量并改变输入阻抗，表现为频偏、效率下降与通信距离变短；该问题在裸板不一定暴露，整机装配后才集中出现。",
+        "check": "用 EDA/DRC 检查 keepout 内是否有铜、走线、过孔与器件；对照天线 datasheet 净空图逐项核对布局；整机用 VNA 测 S11、暗室测 TRP/TIS；不通过则清净空或换天线位置。",
+        "appliesTo": [
+          "rf",
+          "antenna",
+          "wireless",
+          "layout-review"
+        ],
+        "tags": [
+          "天线净空",
+          "keepout",
+          "RF",
+          "失谐",
+          "效率"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "50Ω RF 走线：按叠层算线宽、两侧包地、参考地连续",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-RF-002",
+        "category": "射频/传输线",
+        "severity": "error",
+        "statement": "单端 RF 链路默认 50Ω：线宽必须用实际叠层参数（h、εr、铜厚）经场求解器/EDA 阻抗工具计算；走线两侧包地、下方参考地连续，不得跨越地/电源分割；换层必须伴随地过孔。",
+        "limits": [
+          "线宽由叠层与阻抗工具计算，不得凭经验或套用其他板叠层",
+          "RF 走线不得跨越分割地、电源平面缺口或参考平面开槽",
+          "两侧地过孔间距建议 ≤ 最高频率对应波长的 1/20（2.4GHz λ≈125mm，即约 6mm），需按仿真/实测复核",
+          "必须换层时，换层过孔旁就近布置地过孔，保持回流连续"
+        ],
+        "rationale": "阻抗偏离造成反射（S11 变差）、插损与辐射；参考地不连续会让回流绕行、形成辐射环路并改变等效阻抗，是 RF 性能不达标的常见根因。",
+        "check": "核对 EDA 阻抗计算与板厂阻抗报告；VNA 测 S11/S21；TDR 测阻抗连续性；目检地过孔与参考平面。不通过则调线宽/叠层/参考地。",
+        "appliesTo": [
+          "rf",
+          "antenna",
+          "transmission-line",
+          "stackup"
+        ],
+        "tags": [
+          "50欧姆",
+          "微带线",
+          "参考地",
+          "回波损耗",
+          "地过孔"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "匹配元件必须满足 SRF、Q 值与精度余量",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-RF-003",
+        "category": "射频/匹配网络",
+        "severity": "warning",
+        "statement": "匹配用电感/电容的自谐振频率应高于工作频率 2~3 倍（按 datasheet 曲线与仿真复核）、Q 值满足插损预算、容差满足带宽与量产良率要求；匹配网络必须预留 π 型调试位。",
+        "limits": [
+          "SRF 目标 ≥2~3×工作频率；SRF 以上元件呈容性/感性反转，匹配会失效",
+          "2.4GHz 下 1nH 感抗约 15Ω、1pF 容抗约 66Ω，0.1pF/0.1nH 级误差即可明显移动匹配点",
+          "电容优先 C0G/NP0，避免 X7R/Y5V 的容值漂移与压电效应",
+          "电感饱和电流与额定功率必须覆盖 RF 功率，并核实 Q 值随频率下降"
+        ],
+        "rationale": "匹配网络对元件寄生与容差极其敏感；SRF 不足会让高次谐波旁路/泄漏，精度不足会导致量产 S11 分布离散、良率下降。",
+        "check": "查 datasheet 的 SRF/Q vs 频率曲线与容差；VNA 测目标频段 S11 与带宽；换批次抽测 S11；不通过则换更高 SRF/更高精度元件或改拓扑。",
+        "appliesTo": [
+          "rf",
+          "antenna",
+          "matching-network",
+          "bom"
+        ],
+        "tags": [
+          "匹配网络",
+          "SRF",
+          "Q值",
+          "容差",
+          "调试位"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "多相 Buck 均流误差与相位一致性要求",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-PWR-001",
+        "category": "电源/多相拓扑",
+        "severity": "error",
+        "statement": "多相 Buck 各相必须做均流（droop 或主动均流），满载均流误差目标 ≤10%（按控制器 datasheet 收紧），每相电感/开关管/驱动参数一致且布局对称；输出纹波频率为 N×fsw。",
+        "limits": [
+          "均流误差目标 ≤10%，最热相温升不得显著高于其他相（建议温差 ≤10°C，按项目复核）",
+          "相位数按总电流/纹波/成本选择（常见 2/3/4/6 相）",
+          "输出纹波频率 = 相数 N × 开关频率 fsw，输出电容按纹波目标核算",
+          "各相功率级参数一致、驱动与采样走线对称，禁止一相远离控制器"
+        ],
+        "rationale": "多相把电流分散以降低单相损耗与输出纹波；不均流时最热一相先失效，多相优势变成可靠性风险；相位错乱还会削弱纹波抵消效果。",
+        "check": "满载/半载用电流探头或分流电阻测各相电流与温升；示波器确认各相驱动相位差 360°/N；动态负载测试；不通过则调均流/改布局/换控制器。",
+        "appliesTo": [
+          "power",
+          "multiphase",
+          "cpu-core",
+          "high-current"
+        ],
+        "tags": [
+          "多相",
+          "均流",
+          "纹波抵消",
+          "相位",
+          "温升"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "热插拔必须限流/软启动，并核算 MOSFET SOA",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-PWR-002",
+        "category": "电源/热插拔",
+        "severity": "error",
+        "statement": "带电插拔板卡必须设置浪涌限流与 dV/dt 软启动，启动电流 Iinrush≈C×dV/dt 必须小于母线、连接器与上游保护能力；热插拔 MOSFET 的 SOA 必须覆盖启动过程的电压-电流-时间组合。",
+        "limits": [
+          "Iinrush 按 C×dV/dt 计算并留 ≥1.5× 余量",
+          "限流点按最大稳态电流 ×1.5 设置（按控制器/连接器能力复核）",
+          "MOSFET SOA 必须覆盖启动时 Vin(max)×Ilimit×启动时间，并核算结温",
+          "连接器采用长针地/短针电源，插拔瞬态加 TVS 抑制"
+        ],
+        "rationale": "热插拔瞬间负载电容近似短路，电流可达数十安培，会拉低母线、烧蚀连接器、触发上游保护；MOSFET 在高压大电流同时存在时最易超出 SOA 而失效。",
+        "check": "带电插拔测试（示波器看母线跌落、启动电流、MOSFET 温升）；反复插拔 ≥100 次；短路/过流保护动作测试；不通过则调限流/dV/dt/换 MOSFET。",
+        "appliesTo": [
+          "power",
+          "hot-swap",
+          "backplane",
+          "connector"
+        ],
+        "tags": [
+          "热插拔",
+          "浪涌",
+          "SOA",
+          "dV/dt",
+          "连接器"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "开关电源环路：穿越频率、相位裕度与增益裕度",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-PWR-003",
+        "category": "电源/环路补偿",
+        "severity": "warning",
+        "statement": "开关电源闭环必须满足：穿越频率 fc ≤ fsw/5~fsw/10、相位裕度 ≥45°（工程目标 60°）、增益裕度 ≥10dB；补偿参数须按功率级传递函数计算并用注入法实测 Bode 验证。",
+        "limits": [
+          "fc ≤ fsw/5~fsw/10，按负载动态要求与开关噪声复核",
+          "相位裕度 ≥45°，工程目标 60°；增益裕度 ≥10dB",
+          "注入电阻 10~50Ω 串入反馈分压点，注入幅度足够小避免非线性",
+          "满载/轻载/最高最低输入电压均需复测 Bode"
+        ],
+        "rationale": "fc 过高会受开关噪声影响且相位裕度不足而振荡，fc 过低则负载瞬态掉压/过冲；计算与仿真无法完全代表实际寄生，必须实测。",
+        "check": "用频响分析仪/注入法测环路 Bode，记录 fc/PM/GM 与测试条件；负载阶跃响应验证过冲/恢复时间；不通过则调补偿/输出电容/降 fc。",
+        "appliesTo": [
+          "power",
+          "dcdc",
+          "loop-compensation",
+          "stability"
+        ],
+        "tags": [
+          "环路",
+          "相位裕度",
+          "穿越频率",
+          "Bode",
+          "稳定性"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "受控文件变更必须走 ECO 并同步版本矩阵",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-DOC-001",
+        "category": "文件/变更控制",
+        "severity": "error",
+        "statement": "任何影响受控文件的变更必须走 ECO，并同步更新版本矩阵（原理图/BOM/PCB/固件/测试）；ECO 必填变更前后版本、内容、原因、影响文件、影响分析、验证计划、批准人与生效日期；旧版本必须归档可回滚。",
+        "limits": [
+          "ECO 必填字段：编号/变更前后版本/变更内容/原因/影响文件/影响分析/验证计划/批准人/生效日期",
+          "版本矩阵至少覆盖原理图、BOM、PCB/Gerber、固件、测试程序五件套",
+          "禁止覆盖旧版本；旧版本归档并保留只读，支持回滚",
+          "紧急变更可走快速 ECO，但仍需批准与记录，不得跳过"
+        ],
+        "rationale": "硬件事故常见根因不是设计错，而是生产用了旧版 BOM/旧版 Gerber/旧版测试程序；ECO 是变更的唯一合法入口，版本矩阵是判断版本组合是否验证过的唯一依据。",
+        "check": "抽查 ECO 字段完整性与版本矩阵一致性；核对产线/外协实际使用版本；随机抽板按序列号反查版本组合与测试记录；不通过则补 ECO/冻结发版。",
+        "appliesTo": [
+          "documentation",
+          "eco",
+          "version-control",
+          "release"
+        ],
+        "tags": [
+          "ECO",
+          "版本矩阵",
+          "受控文件",
+          "变更管理",
+          "回滚"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "替代料必须逐项评估关键参数并小批验证",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-DOC-002",
+        "category": "BOM/替代料",
+        "severity": "error",
+        "statement": "替代料必须逐项评估耐压/电流/功率、精度/温漂、ESR/饱和电流、Vf/结电容、Rds(on)/Qg、封装/极性/认证等关键参数，并做小批验证；未评估的替代料不得上产线，换料必须走 ECO 并更新 AVL。",
+        "limits": [
+          "评估项至少覆盖：额定电压/电流/功率、精度/容差、温漂、ESR/ESL、饱和电流、Vf/Vr、结电容、Rds(on)/Vgs(th)/Qg、封装/引脚/极性、认证状态",
+          "关键项需 datasheet 页码证据，并对 MLCC 偏压特性、电感饱和电流等做实测",
+          "替代关系写入 BOM 的 AVL 并注明首选/替代",
+          "换料走 ECO，更新版本矩阵并通知产线/外协"
+        ],
+        "rationale": "参数看似相同的替代料常在 ESR、饱和电流、温度特性、封装热阻上差异很大；未经评估的替代会造成批量失效、认证失效或产线停线。",
+        "check": "抽查 BOM 替代料是否有评估表与验证记录；对比关键参数（datasheet 页码）；关键替代料做小批复测；不通过则暂停使用或换回原料号。",
+        "appliesTo": [
+          "bom",
+          "substitute-part",
+          "supply-chain",
+          "eco"
+        ],
+        "tags": [
+          "替代料",
+          "BOM",
+          "AVL",
+          "参数评估",
+          "小批验证"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "原生自动布线只能作为 EVT 候选，布完必须重建覆铜并回读官方 DRC",
+      "doc": "docs/knowledge/pcb/15-circuitpilot-recheck-truthfulness.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-AUTO-001",
+        "category": "布线/流程",
+        "severity": "warning",
+        "statement": "EDA 原生 autoRouting 属于 user-assisted EVT 候选通道，不是生产级布线结论。布完必须：①保存并重建覆铜；②用官方 DRC 读回（0 items 才算本步通过）；③人工评审线宽/过孔/回流路径后才可进入生产评审。",
+        "limits": [
+          "autoRouting 的 successNetsCount 只代表\"连上\"，不代表\"可制造/可回流\"",
+          "按本机实测：主板 autoRouting 49/49 网后重建覆铜 + 官方 DRC 0 items；灯板 13/14 网（+3V3 单脚网络被拒绝）",
+          "每次移动器件后必须清空旧线孔再重布，否则出现大量 SMD Pad to Track 间距错误",
+          "过孔 24/12 mil = 0.61/0.30 mm，需与板厂能力表核对"
+        ],
+        "rationale": "把自动布线当生产结论会造成线宽/过孔/回流不可制造却\"看起来连通\"的假通过；DRC 是唯一官方读数。",
+        "check": "读回 autoRouting 结果 failedNets；重建覆铜读 fills>0；POST /api/eda/pcb/drc/start|report 读 items 数；遗留失败网逐条登记。",
+        "appliesTo": [
+          "routing",
+          "autoroute",
+          "drc",
+          "pour"
+        ],
+        "tags": [
+          "自动布线",
+          "EVT",
+          "覆铜重建",
+          "DRC",
+          "可制造性"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "布局复核必须用真实物理包围盒（按旋转）+ 按正反面分面比较",
+      "doc": "docs/knowledge/pcb/15-circuitpilot-recheck-truthfulness.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-BBOX-002",
+        "category": "布局/几何",
+        "severity": "error",
+        "statement": "布局/出界复核必须按器件真实物理包围盒（旋转 90/270 时宽高互换并绕原点旋转中心）计算；重叠判定必须在同一面内比较（top vs bottom 不构成碰撞）。否则会把合规板判成出界，或把双面板永远判成重叠。",
+        "limits": [
+          "嘉立创EDA getPrimitivesBBox 返回未旋转局部包围盒：rot90 的 ESP32 报 26.2×19.0（物理 19.0×26.17）",
+          "物理中心 = 器件原点 + R(θ)·(局部框中心-原点)，宽高按旋转后角点重算",
+          "同面判定用 layerSide（top/bottom），THT 器件需按实际跨面另行处理",
+          "板框复核必须\"焊盘包络=本体∪焊盘\"且沿边 0.25mm 采样，不能只查四角"
+        ],
+        "rationale": "真机实测：未旋转 bbox 把 rot90 的 U1 判成\"85 个角出界、伸出 3.112mm\"；不分面把底层 ESP32 与顶层器件判成重叠——两类误判都会让合规设计无法放行。",
+        "check": "对比读回 bbox 与焊盘实际范围；rot90 器件宽高是否互换；正反面重叠是否仍被报 blocking；写后焊盘级板框读回 0 违规。",
+        "appliesTo": [
+          "placement",
+          "bbox",
+          "double-sided",
+          "drc-gate"
+        ],
+        "tags": [
+          "包围盒",
+          "旋转",
+          "双面贴装",
+          "布局复核",
+          "误判"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "DRC/仿真等验收证据必须绑定当前工程与当前板/网表指纹，否则不可消费",
+      "doc": "docs/knowledge/pcb/15-circuitpilot-recheck-truthfulness.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-EVID-003",
+        "category": "放行/证据链",
+        "severity": "error",
+        "statement": "放行门消费 DRC/仿真证据前必须校验：证据带当前 pcbUuid（或网表 sha256）绑定、结构合法（items 数组 / status=ok / runs exitCode=0）、未过期；绑定缺失或指纹不符一律阻断，不得\"看到文件就算通过\"。",
+        "limits": [
+          "DRC 证据：报告须含 items 数组 + pcbUuid 与目标一致，否则 RELEASE_DRC_EVIDENCE_UNBOUND",
+          "仿真证据：kind=spice-simulation-evidence + status=ok + netlist.sha256 + runs[].exitCode=0 + 数值结果",
+          "内联 {report:{items}} 与裸 items 的结构差异要先用 --check 校验",
+          "证据路径必须指向 state evidence 真文件，不接受临时文件冒充"
+        ],
+        "rationale": "旧报告里出现过 pcbUuid 与当前 PCB 不一致的 DRC 证据：若门禁直接消费会产生\"DRC 干净\"的假结论。",
+        "check": "对比证据 pcbUuid/sha256 与当前读回；缺失字段时按 fail-closed 阻断；过期证据要求重跑。",
+        "appliesTo": [
+          "release-gate",
+          "drc",
+          "simulation",
+          "evidence"
+        ],
+        "tags": [
+          "证据绑定",
+          "pcbUuid",
+          "sha256",
+          "放行门",
+          "fail-closed"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "嘉立创EDA 设计规则存在 PCB 文档源码 type=RULE 行：改规则要存快照、读回校验、可回滚",
+      "doc": "docs/knowledge/pcb/16-fine-pitch-escape.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-RULE-004",
+        "category": "布线/流程",
+        "severity": "warning",
+        "statement": "嘉立创EDA专业版的设计规则不是独立配置项，而是 PCB 文档源码里的 type=RULE 行（viaSize 用 minRadius/defRadius，单位 mil、直径=2×radius）；需要放宽/收窄规则时用 sys_FileManager.setDocumentSource 整体恢复源码，改前必须保存原源码快照 + sha256，改后读回校验，写坏可回滚。",
+        "limits": [
+          "真机实测：viaSize minRadius=9.8425（0.5mm 直径）时 0.2mm 过孔报 Physical Error；改为 3.937 后 0.2mm 过孔可用于 via-in-pad",
+          "规则改动会改变整块板可制造性：必须与板厂能力表核对，不能为了\"布通\"单方面放宽",
+          "源码恢复是整体替换，必须记录快照和哈希，否则无法回滚",
+          "改完必须重新读回规则 + 重跑 DRC，读回值不符就不能继续"
+        ],
+        "rationale": "真机出现过\"布线器拒绝写违规计划\"但人工以为规则可随便改的情况；规则是设计意图的一部分，改动要留痕、可复核、可回滚。",
+        "check": "sys_FileManager.getDocumentSource 读源码 → 定位 type=RULE 行并记录 sha256 → 改 → setDocumentSource → 再读回比对 → 重跑 DRC。",
+        "appliesTo": [
+          "design-rule",
+          "via",
+          "via-in-pad",
+          "drc"
+        ],
+        "tags": [
+          "设计规则",
+          "type=RULE",
+          "viaSize",
+          "盘中孔",
+          "源码快照"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "规划安装孔/禁布区/丝印文字前，必须先探测 EDA 插件 API 的真实创建能力",
+      "doc": "docs/knowledge/pcb/17-circuitpilot-mechanical-capability-gaps.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-CAP-005",
+        "title": "规划安装孔/禁布区/丝印文字前，必须先探测 EDA 插件 API 的真实创建能力",
+        "category": "布局/机械",
+        "severity": "error",
+        "statement": "嘉立创EDA专业版 3.2.186 的 pcb_PrimitivePad / pcb_PrimitiveRegion / pcb_PrimitiveString 的 create() 均返回\"参数不正确\"，无参调用也失败；PCB 文档源码整体替换（setDocumentSource）在 PCB 编辑器被拒（返回 false，内容未落盘）。因此安装孔、禁布区、丝印文字不能靠插件 API 盲写，必须走 GUI 人工放置或等待产品补齐该能力。",
+        "limits": [
+          "create() 无参签名属于官方 Beta，真机三种调用形态全部失败",
+          "setDocumentSource 在封装编辑器可用，在 PCB 编辑器不可用（返回 false 且内容不变）",
+          "批量\"补机械要素\"的脚本化路线在本版本不可行，不能把失败重试当成实现"
+        ],
+        "rationale": "AI 容易把\"API 有 create 方法\"当成\"能创建\"；真机能力必须以读回数据为准，先探测再规划，否则会把整轮交付建立在错误假设上。",
+        "check": "规划前写一次性能力探针：create(no-arg)/create(args)/setDocumentSource 各试一次，读回 getAll 计数与源码哈希；三者皆失败即判定为产品能力缺口并落 issue。",
+        "appliesTo": [
+          "mounting-hole",
+          "keepout",
+          "silkscreen",
+          "capability-probe"
+        ],
+        "tags": [
+          "能力探测",
+          "插件API",
+          "安装孔",
+          "禁布区",
+          "丝印"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "参考工程只作对标基准：解包要按 DOCHEAD 分组、BOM 用 ATTR parentId+Devicemeta 还原，机械图元语义先确认再对齐",
+      "doc": "docs/knowledge/pcb/17-circuitpilot-mechanical-capability-gaps.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-REF-006",
+        "title": "参考工程只作对标基准：解包要按 DOCHEAD 分组、BOM 用 ATTR parentId+Devicemeta 还原，机械图元语义先确认再对齐",
+        "category": "参考设计案例",
+        "severity": "warning",
+        "statement": ".epro2 → epru 记录流解析时，必须按 DOCHEAD 分组到 SCH/SCH_PAGE/PCB/DEVICE/FOOTPRINT 等文档，再用 SCH_PAGE 的 ATTR(parentId) 聚合成 BOM、用 DEVICE META title 映射器件名；PCB 里的 FILL 圆/REGION 圆不一定是安装孔（参考工程用 MULTI 层 Ø2mm FILL + 1.8mm 半径 PROHIBIT 表示），对齐前先确认语义。",
+        "limits": [
+          "参考工程 BOM 值/型号不在 ATTR 里，需经 Device uuid → DEVICE META title 映射",
+          "参考工程把两块板器件放在同一 PCB 文档，器件簇统计不能直接当单板清单",
+          "把 FILL 圆当\"安装孔\"会误导机械补强范围"
+        ],
+        "rationale": "参考工程是\"设计源对标\"，不是可导入的完成态；解析错一层就会得出错误的\"已完成/未完成\"结论。",
+        "check": "解析脚本输出：文档分组计数、SCH_PAGE BOM 行数、Device→名称映射覆盖率、PCB 各图元计数；结论写到 evidence 供复核。",
+        "appliesTo": [
+          "epro2",
+          "reference-bom",
+          "bom-compare"
+        ],
+        "tags": [
+          "epro2",
+          "BOM还原",
+          "参考工程",
+          "对标"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "BOM 完备度对齐先做\"按器件聚合\"的差异清单，禁止只改 PCB 补料",
+      "doc": "docs/knowledge/pcb/17-circuitpilot-mechanical-capability-gaps.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-BOM-007",
+        "title": "BOM 完备度对齐先做\"按器件聚合\"的差异清单，禁止只改 PCB 补料",
+        "category": "BOM/选型",
+        "severity": "warning",
+        "statement": "与参考工程/BOM 对齐时先按\"器件名+位号前缀\"聚合出差异清单（0Ω、去耦电容、电源轨器件、ESD、晶振、连接器），再决定补料；任何补料必须走 原理图→网表→PCB 导入→布局→布线 全链，只改 PCB 会造成网表/焊盘不一致。",
+        "limits": [
+          "参考 179 器件 vs 我方 71：缺 1uF/100nF/22pF/10uF/22uF、0Ω 排阻、ESD 阵列、2.8V/1.5V LDO、USB-UART/Hub、编解码器",
+          "DRC 0 不能证明电气完备，只证明几何/间距合规"
+        ],
+        "rationale": "本轮真机对比出现\"DRC 0 但器件只有参考的 45%\"的情况；完备度是独立维度，必须单独度量。",
+        "check": "生成 gap JSON：参考按器件聚合表 + 我方 BOM + 缺失清单（含功能说明）；补料前后各跑一次 ERC/DRC/网表核对。",
+        "appliesTo": [
+          "bom",
+          "completeness",
+          "decoupling",
+          "ldo"
+        ],
+        "tags": [
+          "BOM对比",
+          "完备度",
+          "去耦",
+          "电源轨"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "GND 缝合过孔批量补强：先做边界带净空筛选，再一次 DRC 复核，证据落盘",
+      "doc": "docs/knowledge/pcb/17-circuitpilot-mechanical-capability-gaps.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-STITCH-008",
+        "title": "GND 缝合过孔批量补强：先做边界带净空筛选，再一次 DRC 复核，证据落盘",
+        "category": "布线/流程",
+        "severity": "info",
+        "statement": "在既有板框/布线不动的条件下补 GND 缝合孔：从板框折线取边界 30–70mil 带内的候选点，按\"到走线/焊盘/过孔 ≥ 55mil\"筛净空，批量 create(net=GND, 12/24mil)，重建覆铜后跑官方 DRC，结果为 0 才保存并写证据。",
+        "limits": [
+          "过孔净空按\"线段距离 - 线宽/2\"与焊盘中心距估算，最终以 DRC 为准",
+          "板边 1mm 内放孔要满足板厂孔到边规则",
+          "覆铜不重建时新孔可能显示未连接"
+        ],
+        "rationale": "本轮主板 32 孔 + 灯板 16 孔全部一次 DRC 通过，证明该筛选方法可复用；但必须 DRC 证伪，不能凭坐标判断。",
+        "check": "计划 JSON（候选数/净空通过数/最终点位）→ create 回读 newCount/GND 计数 → 覆铜重建 → DRC 0 → 证据。",
+        "appliesTo": [
+          "stitching",
+          "via",
+          "emc",
+          "gnd"
+        ],
+        "tags": [
+          "缝合过孔",
+          "GND",
+          "DRC",
+          "EMC"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "2 层简化 vs 参考 4 层电源平面：属于成本/叠层决策，不能靠局部铜皮冒充",
+      "doc": "docs/knowledge/pcb/17-circuitpilot-mechanical-capability-gaps.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-STACK-009",
+        "title": "2 层简化 vs 参考 4 层电源平面：属于成本/叠层决策，不能靠局部铜皮冒充",
+        "category": "叠层",
+        "severity": "warning",
+        "statement": "参考工程 4 层铜（Top/Bottom/Inner1/Inner2）含 3V3/GND/AGND/GND0 内层平面、13 个覆铜；我方 2 层只有 GND 顶/底覆铜。把 2 层改 4 层会改变叠层/阻抗/成本并要求重布，属于产品决策；在 2 层上补局部 +5V/+3V3 铜皮只能缓解载流，不能宣称\"电源平面已完成\"。",
+        "limits": [
+          "4 层需重新叠层、重新布线、重新 DRC 与阻抗核对",
+          "局部电源铜皮与 GND 覆铜同层存在优先级/孤岛问题",
+          "未做平面时电源完整性结论必须标注\"未验证\""
+        ],
+        "rationale": "AI 容易用\"加了覆铜\"冒充\"补了平面\"；叠层变更影响报价与交期，必须交给产品/硬件负责人决策。",
+        "check": "叠层差异表（层数/平面网/覆铜数/过孔数）进 evidence；若决定升 4 层，走\"改叠层→重布→DRC→仿真\"完整流程。",
+        "appliesTo": [
+          "stackup",
+          "power-plane",
+          "cost"
+        ],
+        "tags": [
+          "叠层",
+          "电源平面",
+          "2层vs4层",
+          "成本决策"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "4 层板补电源平面的正确姿势：内层1=+3V3、底层=+5V、GND 双面+缝合，写后 DRC 0 才算完成",
+      "doc": "docs/knowledge/pcb/18-four-layer-planes-mech-holes-and-research-limits.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-PLANE-010",
+        "title": "4 层板补电源平面的正确姿势：内层1=+3V3、底层=+5V、GND 双面+缝合，写后 DRC 0 才算完成",
+        "category": "叠层/多层",
+        "severity": "warning",
+        "statement": "确认板子实际铜层数（layers.copperCount / enabledCopperIds）后，再决定是否\"升层\"。本轮真机：主板本就是 4 层 [1,2,15,16]，缺的只是内层平面。补法：Inner1(15)=+3V3 整板 pour、Bottom(2)=+5V 整板 pour、GND 保留 Top(1)+Inner2(16)，随后对全部 pour rebuildCopperRegion→保存→官方 DRC。pour 创建走 /api/eda/pcb/pour/create（一次批准只能创建一次，第二个 pour 必须重新签发 write 批准）。",
+        "limits": [
+          "同层铺两种电源需拆分区域并核对爬电间距",
+          "平面载流与过孔数量需按电流核算，不能只看\"有平面\"",
+          "DRC 0 只说明规则通过，不等于电源完整性/EMC 验证"
+        ],
+        "verification": "pour 回读 net/layer/名称 4/4 匹配；rebuild 返回 4/4 true；DRC 0 items（drc-robust-main-r45/r46）",
+        "source": "r45 真机操作（用户授权 4 层电源平面）",
+        "rationale": "内层平面是 4 层板相对 2 层板的核心收益：低阻抗回流与电源载流；但平面必须与 GND 参考相邻、并在同一轮 DRC 里验证，否则只是“有铜”而非“有平面”。",
+        "check": "①layers.copperCount/enabledCopperIds 记录；②每个 pour 回读 net/layer/名称；③rebuild 全 true；④保存 true；⑤官方 DRC 0 items；⑥报告写明各层职责。",
+        "appliesTo": [
+          "pcb",
+          "多层板",
+          "电源完整性"
+        ],
+        "tags": [
+          "叠层",
+          "电源平面",
+          "4层",
+          "DRC"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "NPTH 安装孔不可创建时，用大孔径镀铜 via 近似并显式标注，不能静默冒充",
+      "doc": "docs/knowledge/pcb/18-four-layer-planes-mech-holes-and-research-limits.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-MECH-011",
+        "title": "NPTH 安装孔不可创建时，用大孔径镀铜 via 近似并显式标注，不能静默冒充",
+        "category": "布局/机械",
+        "severity": "warning",
+        "statement": "EDA 3.2.186 插件 API 无 NPTH/安装孔创建能力（PrimitivePad/Region/String 三种 create 形态均失败；setDocumentSource 追加记录返回 false）。可用的近似是 pcb_PrimitiveVia.create(net=\"\", x, y, hole, dia)：本轮用 hole=106.2mil(2.7mm)/dia=122mil(3.1mm) 生成 4 个机械孔，DRC 0。必须在制造说明/报告里标注\"镀铜安装孔（非 NPTH）\"，并列出与参考 Ø2.0mm 非镀铜孔的差异。",
+        "limits": [
+          "镀铜孔可能把小螺钉/外壳与 GND 等电位连通，需结构/EMC 确认",
+          "孔壁镀铜会让\"安装孔\"具备电气属性，不能声称等同 NPTH",
+          "阻焊开窗/禁布/丝印仍无法通过 API 产生"
+        ],
+        "verification": "via 回读 HoleDiameter/Diameter 4/4 正确；DRC 0 items（main-r46）",
+        "source": "r46 真机操作（用户授权人工 GUI，但能力受限后采用 via 近似）",
+        "rationale": "机械孔是结构装配的硬需求，EDA 无法创建时不能因为“做不了”就跳过，也不能把镀铜孔说成 NPTH；必须给出近似物+差异声明。",
+        "check": "①定位点与板框/最近图元的距离计算；②via 回读 hole/diameter/net；③DRC 0；④制造说明标注“镀铜安装孔”；⑤报告列出与参考的孔差异。",
+        "appliesTo": [
+          "pcb",
+          "机械",
+          "结构"
+        ],
+        "tags": [
+          "安装孔",
+          "NPTH",
+          "via",
+          "机械"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "相机/DVP 接口必须先核对传感器引脚与三路电源，再画 FPC 连接器",
+      "doc": "docs/knowledge/pcb/19-camera-interface-gc0308-and-eda-netlist-edit-limits.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-CAM-012",
+        "title": "相机/DVP 接口必须先核对传感器引脚与三路电源，再画 FPC 连接器",
+        "category": "总线/传感器",
+        "severity": "warning",
+        "statement": "画任何相机 FPC 连接器前，先从需求/验证工程确认真实传感器型号与引脚定义：GC0308 为 DVP 0.3MP，AVDD=2.8V、DOVDD=2.8V（经 0Ω 隔离为 AVDD_2V8）、DVDD=1.5V，AGND 单点；24P FPC 的脚位必须是 14=2V8、15=1V5、21=AVDD_2V8、23=AGND、10=GND，其余 16 脚为 D0–D7/PCLK/XCLK/HREF/VSYNC/PWDN/RESET/SCL/SDA。禁止把 24 脚一律接 MCU GPIO。",
+        "limits": [
+          "2.8V/1.5V 必须由独立 LDO 产生，不能用 3.3V 直供",
+          "AVDD 应经 0Ω 或磁珠从 DOVDD 隔离并单独去耦",
+          "I2C 上拉电阻接到 2V8 而非 3V3",
+          "AGND 与 GND 单点连接"
+        ],
+        "rationale": "把相机当“排线”直接接 GPIO 是典型设计缺陷：传感器电源脚接 3.3V 会超出 AVDD 上限（GC0308 AVDD 2.6–3.0V），轻则不工作重则损坏；DVP 数据/时钟映射错位则出图花屏或无图。",
+        "check": "1) 从验证工程读 SCH_PAGE 文本确认型号；2) 用 PAD_NET 还原连接器每一脚网络；3) 对照本文引脚表逐脚核对电源/地/信号；4) 检查 LDO 输出与去耦；5) PCB 回读 PAD_NET 复核。",
+        "appliesTo": [
+          "相机接口设计",
+          "DVP 摄像头",
+          "FPC 连接器",
+          "GC0308",
+          "电源轨检查"
+        ],
+        "tags": [
+          "camera",
+          "dvp",
+          "gc0308",
+          "fpc",
+          "power-rail"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "相机 FPC 必须配 ESD 与上拉：SCL/SDA/复位/PWDN 就近 TVS，I2C 上拉到 2V8",
+      "doc": "docs/knowledge/pcb/19-camera-interface-gc0308-and-eda-netlist-edit-limits.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-CAM-013",
+        "title": "相机 FPC 必须配 ESD 与上拉：SCL/SDA/复位/PWDN 就近 TVS，I2C 上拉到 2V8",
+        "category": "接口/ESD",
+        "severity": "warning",
+        "statement": "相机/外设 FPC 属于外部可插拔接口，必须做 ESD 与上拉设计：I2C_SCL/SDA、RESET、PWDN 等控制线在连接器侧就近放置低电容 TVS（如 RCLAMP0521T-ES，单线 0.5pF 级），I2C 上拉 4.7kΩ 接到 2V8（相机 IO 电源），避免用 3V3 上拉导致 IO 过压或漏电。",
+        "limits": [
+          "TVS 应放在连接器与 MCU 之间，地回流短",
+          "上拉电阻按总线电容与速率选 2.2–10kΩ",
+          "若相机模组自带 TVS 仍需在主板侧预留"
+        ],
+        "rationale": "可插拔 FPC 是 ESD 主要入口；相机 IO 供电为 2.8V 时用 3.3V 上拉会向传感器 IO 灌电流并抬压，属于典型隐性失效。",
+        "check": "检查连接器附近是否有 TVS 与上拉；核对上拉电源域=2V8；ESD 器件残压与结电容满足 DVP 速率；DRC/ERC 通过。",
+        "appliesTo": [
+          "相机接口设计",
+          "ESD",
+          "I2C 上拉"
+        ],
+        "tags": [
+          "camera",
+          "esd",
+          "i2c",
+          "tvs"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "约束来源分级：标准/原厂/板厂/社区证据不可混用",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SRC-001",
+        "category": "布局/依据",
+        "severity": "warning",
+        "statement": "每条布局约束必须标注证据等级、适用条件、来源 URL/版本/抓取日期；A 级标准/原厂、B 级板厂/行业文章、C 级社区经验不得互相冒充。缺来源或适用条件时只能作为候选知识，不能进入放行判据。",
+        "limits": [
+          "A=标准/原厂官方文件；B=板厂能力表/行业技术文章；C=社区/开源参考设计",
+          "数值必须带电压/铜厚/叠层/工艺/封装等适用条件",
+          "板厂能力表必须记录厂家、抓取日期、版本；下单前重新核对",
+          "二手转述（如 IPC 表）必须与标准原文/认证机构交叉复核"
+        ],
+        "rationale": "脱离适用条件的数值会被错误放大成全局规则；来源等级决定它是设计目标、工艺极限还是待验证经验。",
+        "check": "逐条检查来源登记（knowledge/pcb/dataset/sources.json）与条目 sources 字段；B/C 级不得单独作为硬 FAIL 依据；过期来源重新抓取。",
+        "appliesTo": [
+          "布局评审",
+          "知识库",
+          "规则引擎",
+          "DFM"
+        ],
+        "tags": [
+          "来源",
+          "证据",
+          "知识库",
+          "可追溯"
+        ],
+        "sources": [
+          "SRC-IPC-2221B",
+          "SRC-IPC-2152",
+          "SRC-ESP32-HW",
+          "SRC-JLC-CAP",
+          "SRC-PCBWAY-CAP"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "本条是方法论约束，不依赖单一数值。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "无线模组天线伸出板边，整机净空建议 ≥15 mm",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-RF-MODULE-001",
+        "category": "射频/天线净空",
+        "severity": "error",
+        "statement": "模组放在底板边缘，PCB 天线尽量伸出底板外，馈电点靠近板边；无法伸出时天线两侧和下方挖空，但不要把模组放板中心四面掏空。装入外壳后，天线在壳内各方向净空建议 ≥15 mm，天线附近底板保留地铜和密集地孔。",
+        "limits": [
+          "整机壳内天线净空建议 ≥15 mm",
+          "天线伸出底板边缘或馈电点尽量靠边",
+          "禁止把模组放板中心再四面掏空",
+          "天线附近地铜 + 密集地孔",
+          "最终以整机吞吐/通信距离实测为准"
+        ],
+        "rationale": "底板介质、外壳、电池和金属会改变天线阻抗与方向图；净空不足会降低辐射效率和接收灵敏度。",
+        "check": "装配图/外壳 3D 叠加；所有层 keepout；馈电点位置；整机吞吐/距离测试。",
+        "appliesTo": [
+          "rf",
+          "wifi",
+          "ble",
+          "antenna",
+          "module-on-board"
+        ],
+        "tags": [
+          "RF",
+          "天线",
+          "净空",
+          "模组",
+          "ESP32"
+        ],
+        "sources": [
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "15 mm 是 Espressif 对外壳内净空的建议值，不是所有频段/天线的通用硬阈值；按模组 datasheet 与整机实测确认。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "RF 走线 50 Ω、短、不换层、不分支、两侧地孔",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-RF-TRACE-002",
+        "category": "射频/传输线",
+        "severity": "error",
+        "statement": "RF 走线按叠层做 50 Ω；尽量短、等宽、不分支；优先外层且不换层；转弯用 135°/圆弧，不用 90°；相邻层参考地完整，RF 线下方尽量不走线；RF 线周围密集地孔；IPEX 连接器下方所有层挖空；PCB 天线做仿真 + 实板验证并预留匹配网络。",
+        "limits": [
+          "50 Ω 特征阻抗",
+          "RF 线不换层、不分支",
+          "转弯 135° 或圆弧，避免 90°",
+          "相邻层参考地完整；RF 下方不走线",
+          "IPEX 连接器下方所有层 keepout",
+          "匹配网络尽量靠近天线"
+        ],
+        "rationale": "RF 走线的阻抗不连续、分支和过孔会造成反射/损耗；参考地不完整会让回流路径和阻抗失控。",
+        "check": "叠层阻抗计算 + TDR/网分；线宽/过孔/分支统计；参考平面连续性；天线匹配实测。",
+        "appliesTo": [
+          "rf",
+          "antenna",
+          "2.4ghz",
+          "5ghz",
+          "sub-6ghz"
+        ],
+        "tags": [
+          "RF",
+          "50Ω",
+          "阻抗",
+          "参考地",
+          "匹配"
+        ],
+        "sources": [
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "50 Ω 是常见目标；具体按天线/模组 datasheet 与叠层计算，不能只抄线宽。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "RF 电源：10 µF + 0.1/1 µF、LC/CLC、星形分支、地孔 ≥9",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-RF-PWR-001",
+        "category": "布局/射频",
+        "severity": "warning",
+        "statement": "主 3.3 V 走线 ≥25 mil、VDD3P3 ≥20 mil、其他电源 12–15 mil（ESP32 参考值，按铜厚/电流复核）；电源入口/芯片电源脚 10 µF 并联 0.1 µF 或 1 µF；RF 电源脚加 LC/CLC；电源从入口星形分支；芯片底部地焊盘至少 9 个地孔。",
+        "limits": [
+          "ESP32 参考：主 3V3 ≥25 mil、VDD3P3 ≥20 mil、其他 12–15 mil",
+          "10 µF + 0.1/1 µF 并联，靠近电源脚",
+          "RF 电源脚 LC/CLC 滤波",
+          "电源星形分支，降低电源脚间耦合",
+          "芯片底部地焊盘 ≥9 个地孔"
+        ],
+        "rationale": "RF 发射是脉冲电流，电源纹波和寄生电感会调制 PA，导致 EVM、TX 功率和灵敏度恶化。",
+        "check": "电源纹波实测（ESP32 参考：MCS7@11n <80 mVpp、11b <120 mVpp）；去耦位置/回路面积；地孔数量；RF 功率/EVM。",
+        "appliesTo": [
+          "rf",
+          "wifi",
+          "ble",
+          "pa",
+          "power-integrity"
+        ],
+        "tags": [
+          "RF",
+          "电源",
+          "去耦",
+          "纹波",
+          "地孔"
+        ],
+        "sources": [
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "线宽/纹波阈值来自 ESP32 参考设计；其他模组按 datasheet/电流重算。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "SDIO：50 Ω ±10%、时钟/数据 ±50 mil、总长 ≤2000 mil、不换层",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-RF-SDIO-001",
+        "category": "总线",
+        "severity": "warning",
+        "statement": "SDIO 走线按 50 Ω 单端 ±10%；SDIO_CMD/DATA0–3 相对 SDIO_CLK 长度差 ≤±50 mil；总长尽量 ≤2000 mil；不换层；下方参考平面（优先 GND）连续；CLK 包地。",
+        "limits": [
+          "50 Ω 单端 ±10%",
+          "CMD/DATA 相对 CLK ≤±50 mil",
+          "总长建议 ≤2000 mil",
+          "不换层；参考平面连续",
+          "CLK 周围包地"
+        ],
+        "rationale": "SDIO 是高速并行总线，长度偏差和参考不连续会压缩建立/保持窗口；换层会引入回流断裂。",
+        "check": "等长报告；参考平面检查；CLK 包地/地孔；协议分析仪/示波器眼图与误码。",
+        "appliesTo": [
+          "sdio",
+          "wifi",
+          "storage",
+          "high-speed-bus"
+        ],
+        "tags": [
+          "SDIO",
+          "等长",
+          "50Ω",
+          "参考平面"
+        ],
+        "sources": [
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "Espressif ESP32 SDIO 参考约束；其他主控按 datasheet 时序重算。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "USB 2.0：90 Ω ±15% 差分 / 45 Ω ±15% 单端，端接按 PHY",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-USB-HS-001",
+        "category": "高速/差分",
+        "severity": "error",
+        "statement": "USB 2.0 差分阻抗 90 Ω ±15%，单端 45 Ω ±15%；串联端接按 PHY 要求并靠近芯片（RP2040 参考为 27 Ω，不是通用值）；USB 2.0 不允许 AC 耦合电容和极性反转；线缆长度上限 5 m。USB 3.x/4 的阻抗按协议表（如 90 Ω ±15%），对内等长按协议。",
+        "limits": [
+          "USB2：90 Ω ±15% 差分 / 45 Ω ±15% 单端",
+          "USB2 无 AC 耦合电容、无极性反转",
+          "USB2 线缆 ≤5 m",
+          "RP2040 参考：27 Ω 串联端接靠芯片",
+          "USB3.2 对内建议 ≤5 mil；按协议/PHY 复核"
+        ],
+        "rationale": "阻抗不连续/端接错误会造成反射和眼图闭合；AC 耦合/极性反转违反 USB2 协议。",
+        "check": "叠层阻抗计算 + TDR；端接电阻位置/阻值；连接器/线缆规格；USB-IF 眼图/一致性测试。",
+        "appliesTo": [
+          "usb2",
+          "usb3",
+          "usb4",
+          "high-speed",
+          "interface"
+        ],
+        "tags": [
+          "USB",
+          "90Ω",
+          "差分",
+          "端接",
+          "眼图"
+        ],
+        "sources": [
+          "SRC-TI-USB",
+          "SRC-RPI-HW"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "端接值随 PHY 变化；RP2040 的 27 Ω 仅作实例，不能直接套到其他芯片。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速差分参考平面：边缘 ≥90 mil、空洞 ≥1.5W、回流地孔 200 mil",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-HS-REF-001",
+        "category": "高速/阻抗",
+        "severity": "error",
+        "statement": "高速差分线距参考平面边缘 ≥90 mil；距参考平面空洞 ≥1.5W（W=线宽）；换层时在信号过孔 200 mil 内放置对称地回流孔；不跨分割，必须跨时在跨分割处加 stitching 电容；差分对之间保持 ≥30 mil（封装 escape 后到连接器前）。",
+        "limits": [
+          "参考平面边缘 ≥90 mil",
+          "参考平面空洞 ≥1.5W",
+          "回流地孔在信号过孔 200 mil 内、对称放置",
+          "差分对间 ≥30 mil",
+          "跨分割必须加 stitching 电容"
+        ],
+        "rationale": "参考平面边缘/空洞会让回流路径被迫绕行，造成阻抗突变、串扰和 EMI；回流地孔给换层电流提供低感路径。",
+        "check": "参考平面 TDR/连续性检查；过孔/回流孔位置；跨分割处电容；串扰/眼图。",
+        "appliesTo": [
+          "usb3",
+          "usb4",
+          "pcie",
+          "hdmi",
+          "high-speed"
+        ],
+        "tags": [
+          "高速",
+          "参考平面",
+          "回流",
+          "过孔",
+          "串扰"
+        ],
+        "sources": [
+          "SRC-TI-USB"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "TI SLLA414A 以 USB/HDMI/DP/PCIe/SATA 为对象；其他协议按各自规范复核。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "USB ESD：TVS 靠连接器、flow-through、ESD 路径不换层",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-USB-ESD-001",
+        "category": "接口/ESD",
+        "severity": "error",
+        "statement": "ESD/EMI 器件尽量靠连接器；优先 flow-through 封装，差分对不拐弯；ESD 源到 TVS 的路径尽量直、短，转角 ≤45°（优先圆弧），该区域禁止未保护走线；尽量不在 ESD 源与 TVS 之间换层；TVS 地脚接同层地平面并与相邻层地平面缝合。USB3/4 的 AC 耦合/共模滤波（CMF）与 ESD 保护尽量靠连接器；ESD/EMI 器件信号焊盘下方做约 60% 挖空（void）以降低损耗。",
+        "limits": [
+          "TVS 靠连接器",
+          "flow-through 封装优先",
+          "ESD 源到 TVS 转角 ≤45°，优先圆弧",
+          "ESD 路径禁止未保护走线",
+          "ESD 源与 TVS 之间避免过孔",
+          "TVS 地脚旁至少 1 个地孔并缝合地平面",
+          "USB3/4 AC 耦合/CMF 与 ESD 尽量靠连接器",
+          "ESD/EMI 器件信号焊盘下方约 60% 挖空"
+        ],
+        "rationale": "ESD 是 ns 级大电流，路径电感决定被保护 IC 的残压；绕远/过孔/长地回路会让 TVS 失效。",
+        "check": "ESD 路径拓扑；过孔/转角；地平面缝合；IEC 61000-4-2 接触/空气放电实测。",
+        "appliesTo": [
+          "usb",
+          "hdmi",
+          "connector",
+          "esd",
+          "interface"
+        ],
+        "tags": [
+          "ESD",
+          "TVS",
+          "USB",
+          "回流",
+          "地缝合"
+        ],
+        "sources": [
+          "SRC-TI-ESD",
+          "SRC-TI-USB"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "IEC 61000-4-2 等级/判据按产品标准确定；本规则不替代 ESD 实测。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "ESD 地：TVS 地脚旁地孔 + 相邻地平面缝合 + chassis 地靠近",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ESD-GND-001",
+        "category": "布局/保护",
+        "severity": "error",
+        "statement": "TVS 地脚应接同层地平面，并与相邻层地平面用缝合孔连接；TVS 地脚旁至少 1 个地孔；有 chassis 螺钉地时，让螺钉地/TVS 地/连接器屏蔽地尽量靠近；BGA TVS 的地脚用多孔接内部地平面。",
+        "limits": [
+          "TVS 地脚旁至少 1 个地孔",
+          "同层地平面 + 相邻层缝合",
+          "chassis 螺钉地靠近 TVS/连接器地",
+          "BGA TVS 地脚多孔接平面"
+        ],
+        "rationale": "ESD 电流最终要回流到地；地路径电感是残压的主要来源，单孔/长地线会把残压抬高。",
+        "check": "TVS 地脚到地平面路径；缝合孔数量/位置；chassis 地连接；ESD 实测残压。",
+        "appliesTo": [
+          "esd",
+          "usb",
+          "connector",
+          "chassis",
+          "grounding"
+        ],
+        "tags": [
+          "ESD",
+          "接地",
+          "缝合孔",
+          "chassis"
+        ],
+        "sources": [
+          "SRC-TI-ESD"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "chassis/数字地是否分割按产品 EMC/安规方案决定，不能盲目单点。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "开关电源：电容贴 IC、功率环路最小、FB 远离电感/SW",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PWR-SW-001",
+        "category": "电源/布局",
+        "severity": "error",
+        "statement": "Buck 输入陶瓷电容紧贴 VIN/GND 引脚；Boost 输出电容优先紧贴 IC；高 di/dt 环路（输入电容—开关—地）面积最小；电感/输出电容/二极管彼此靠近；FB 走线短、直接、远离电感和 SW，必要时换层并用地平面隔离；功率地与信号地单点连接；功率走线短而宽。",
+        "limits": [
+          "Buck：输入电容贴 VIN/GND",
+          "Boost：输出电容优先贴 IC",
+          "功率环路面积最小",
+          "FB 远离电感/SW，短而直接",
+          "功率地/信号地单点连接",
+          "功率走线短而宽"
+        ],
+        "rationale": "寄生电感在开关瞬间产生电压尖峰、振铃和 EMI；FB 被 SW 噪声耦合会导致稳压精度/环路问题。",
+        "check": "功率环路面积；电容位置；FB 拓扑；SW 振铃；输出纹波/负载瞬态。",
+        "appliesTo": [
+          "buck",
+          "boost",
+          "buck-boost",
+          "switching-regulator",
+          "power"
+        ],
+        "tags": [
+          "开关电源",
+          "功率环路",
+          "FB",
+          "地",
+          "EMI"
+        ],
+        "sources": [
+          "SRC-TI-AN1149",
+          "SRC-TI-BOOST",
+          "SRC-IPC-2152"
+        ],
+        "evidenceLevel": "A/B",
+        "verificationNotes": "AN-1149 较早；环路/地/反馈原则仍适用，具体电容/线宽按当前 IC datasheet 与实测。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "QFN 热焊盘：等大、0.2 mm clearance、1.0 mm 过孔间距、钢网 50–70%",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-THERM-QFN-001",
+        "category": "布局/热",
+        "severity": "error",
+        "statement": "PCB 热焊盘尺寸与 QFN/SON 外露焊盘一致；周围 clearance ≥0.2 mm；散热过孔间距约 1.0 mm、钻孔 0.3 mm 起步；过孔塞孔/盖油（盖油直径比孔大 0.1 mm）；钢网开口约热焊盘面积 50–70%；≤0.5 mm pitch 外围开口可再缩 20%；回流后热焊盘空洞建议 ≤50%；采用 NSMD，引脚焊盘阻焊开窗比引脚焊盘大 0.1–0.14 mm（0.5 mm pitch 建议整排开窗、clearance ≤0.05 mm）。",
+        "limits": [
+          "热焊盘与封装外露焊盘等大",
+          "热焊盘周围 clearance ≥0.2 mm",
+          "散热过孔间距约 1.0 mm，钻孔 0.3 mm 起步",
+          "塞孔/盖油，盖油直径 +0.1 mm",
+          "钢网开口 50–70% 热焊盘面积",
+          "热焊盘空洞 ≤50%（高功率按标准复核）",
+          "NSMD，引脚焊盘开窗比焊盘大 0.1–0.14 mm；0.5 mm pitch 整排开窗/clearance ≤0.05 mm"
+        ],
+        "rationale": "热焊盘不焊会失去机械/热路径；1:1 钢网锡量过多会浮件/开路；不塞孔会吸锡、空洞。",
+        "check": "X-Ray 空洞率；热焊盘润湿；钢网开口面积；过孔塞孔/盖油；结温/热阻实测。",
+        "appliesTo": [
+          "qfn",
+          "son",
+          "dfn",
+          "thermal",
+          "assembly"
+        ],
+        "tags": [
+          "QFN",
+          "热焊盘",
+          "散热过孔",
+          "钢网",
+          "空洞"
+        ],
+        "sources": [
+          "SRC-TI-QFN",
+          "SRC-SIERRA-THERMAL"
+        ],
+        "evidenceLevel": "A/B",
+        "verificationNotes": "钢网/空洞阈值按 TI SLUA271C；具体封装/工艺以 datasheet 与板厂/组装厂确认为准。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "板厂能力是工艺窗口，不是设计默认值；必须按当前能力表 + EQ 复核",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 180,
+      "payload": {
+        "ruleId": "PCB-RULE-MFG-CAP-001",
+        "category": "制造/DFM",
+        "severity": "error",
+        "statement": "同一参数在不同板厂/工艺档不同。JLCPCB 当前能力表（2026-10-23 快照）：标准工艺盖油线宽/间距 0.15/0.15 mm，露铜 0.25/0.25 mm；铜到铣边 ≥0.2 mm、铜到 V-CUT ≥0.4 mm；焊盘到丝印 ≥0.15 mm；最小过孔 0.15 mm 孔/0.25 mm 盘；阻抗 ±10%（特殊 ±5%）。PCBWay 标准能力：最小线宽/间距 0.1/0.1 mm；孔环 ≥0.15 mm；钻孔 0.15–6.0 mm；丝印字符宽 ≥0.15 mm、高 ≥0.8 mm、宽高比 1:5；V-SCORE 板间距 0，断板铣空间 ≥1.6 mm。",
+        "limits": [
+          "JLC 标准：盖油 0.15/0.15 mm；露铜 0.25/0.25 mm",
+          "JLC：铜到铣边 ≥0.2 mm；铜到 V-CUT ≥0.4 mm；焊盘到丝印 ≥0.15 mm",
+          "JLC：最小过孔 0.15 mm 孔/0.25 mm 盘；阻抗 ±10%（特殊 ±5%）",
+          "PCBWay 标准：线宽/间距 0.1/0.1 mm；孔环 ≥0.15 mm；钻孔 0.15–6.0 mm",
+          "PCBWay：丝印字符 0.15/0.8 mm、宽高比 1:5；V-SCORE 间距 0；断板铣 ≥1.6 mm",
+          "能力表必须记录厂家/日期/版本，下单前复核"
+        ],
+        "rationale": "能力表是「能做」的极限，不是「稳定量产」的默认；不同厂家差异说明不能把某个最小值写死成全局规则。",
+        "check": "下单前抓取厂家当前能力表并记录日期/版本；关键项走 EQ；首件/批量良率验证；本页快照过期后重新核对。",
+        "appliesTo": [
+          "dfm",
+          "manufacturing",
+          "panel",
+          "quote",
+          "supplier"
+        ],
+        "tags": [
+          "板厂能力",
+          "DFM",
+          "线宽",
+          "间距",
+          "V-CUT",
+          "EQ"
+        ],
+        "sources": [
+          "SRC-JLC-CAP",
+          "SRC-PCBWAY-CAP"
+        ],
+        "evidenceLevel": "B",
+        "verificationNotes": "能力表会随产线/工艺档变化；本条是 2026-10-23 快照，不是永久承诺。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "拼板/V-CUT：余厚、间距、分板禁布区显式设计",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 180,
+      "payload": {
+        "ruleId": "PCB-RULE-MFG-PANEL-002",
+        "category": "拼板",
+        "severity": "error",
+        "statement": "V-CUT 后剩余厚度按板厂能力（PCBWay 给 ≥0.25 mm；厚度 0.6–2.4 mm、角度 20/30/45/60°）；V-SCORE 拼板板间可 0 间距，但 V-CUT 线之间最小 2 mm（3 mm 推荐）；铣边拼板板间 ≥1.6 mm（PCBWay）/≥2 mm（JLC 建议）；V-CUT/邮票孔/分板应力区按 EDGE-001 留 1 mm 禁布；拼板最小尺寸按厂家（PCBWay 100×120 mm）。",
+        "limits": [
+          "V-CUT 余厚 ≥0.25 mm（PCBWay 能力）",
+          "V-CUT 角度 20/30/45/60°；板厚 0.6–2.4 mm",
+          "V-CUT 线之间 ≥2 mm（3 mm 推荐）",
+          "铣边拼板间距 ≥1.6 mm（PCBWay）/≥2 mm（JLC 建议）",
+          "分板应力区按 EDGE-001 留 1 mm 禁布",
+          "拼板最小尺寸按厂家（PCBWay 100×120 mm）"
+        ],
+        "rationale": "V-CUT 太深会伤板/断板，太浅分不开；元件/焊盘靠分板线会受机械应力开裂。",
+        "check": "拼板图；V-CUT 余厚/角度；元件到分板线距离；分板后外观/应力测试。",
+        "appliesTo": [
+          "panel",
+          "v-cut",
+          "assembly",
+          "dfm"
+        ],
+        "tags": [
+          "拼板",
+          "V-CUT",
+          "分板",
+          "应力",
+          "DFM"
+        ],
+        "sources": [
+          "SRC-JLC-CAP",
+          "SRC-PCBWAY-CAP"
+        ],
+        "evidenceLevel": "B",
+        "verificationNotes": "不同板厂 V-CUT 能力不同；本条给 2026-10-23 快照，量产前按目标板厂 EQ 锁定。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "丝印：字符 0.15/0.8 mm、宽高比 1:5、距焊盘 ≥0.15 mm",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SILK-LEGIBLE-002",
+        "category": "丝印",
+        "severity": "warning",
+        "statement": "丝印字符最小线宽 0.15 mm、最小字高 0.8 mm，宽高比约 1:5；丝印到焊盘/开窗 ≥0.15 mm（JLC）；不得压焊盘/过孔/测试点；位号方向统一、Pin1 明确。",
+        "limits": [
+          "字符线宽 ≥0.15 mm",
+          "字符高度 ≥0.8 mm",
+          "宽高比约 1:5",
+          "丝印到焊盘/开窗 ≥0.15 mm",
+          "不得压焊盘/过孔/测试点"
+        ],
+        "rationale": "低于板厂解析能力会糊/断；压焊盘会造成焊接不良/误印。",
+        "check": "丝印 DRC/1:1 打印；板厂 DFM；首件目检。",
+        "appliesTo": [
+          "silkscreen",
+          "dfm",
+          "assembly",
+          "marking"
+        ],
+        "tags": [
+          "丝印",
+          "位号",
+          "DFM",
+          "可读性"
+        ],
+        "sources": [
+          "SRC-JLC-CAP",
+          "SRC-PCBWAY-CAP"
+        ],
+        "evidenceLevel": "B",
+        "verificationNotes": "字符极限随板厂/颜色/线宽变化；按目标板厂能力表复核。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "IPC-2221 电气间隙按电压/层位/涂覆/海拔分档",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-CREEP-002",
+        "category": "安规/间距",
+        "severity": "error",
+        "statement": "裸板最小电气间隙按电压和导体类型分档，不能用一个 0.2 mm 打天下。关键行（mm）：0–15 V 内层 0.05/外层未涂覆 0.1/高海拔 0.1/涂覆 0.05；31–50 V 0.1/0.6/0.6/0.13；51–100 V 0.1/0.6/1.5/0.13；101–150 V 0.2/0.6/3.2/0.4；151–170 V 0.2/1.25/6.4/0.4；171–250 V 0.2/1.25/6.4/0.4；251–300 V 0.2/1.25/12.5/0.4；301–500 V 0.25/2.5/12.5/0.8；>500 V 内层 0.025 mm/V、外层 0.005 mm/V、高海拔 0.025 mm/V、涂覆 0.00305 mm/V。",
+        "limits": [
+          "0–15 V：内层 0.05 / 外层未涂覆 0.1 / 高海拔 0.1 / 涂覆 0.05 mm",
+          "31–50 V：0.1 / 0.6 / 0.6 / 0.13 mm",
+          "51–100 V：0.1 / 0.6 / 1.5 / 0.13 mm",
+          "101–150 V：0.2 / 0.6 / 3.2 / 0.4 mm",
+          "151–300 V：0.2 / 1.25 / 6.4–12.5 / 0.4 mm",
+          "301–500 V：0.25 / 2.5 / 12.5 / 0.8 mm",
+          ">500 V：内层 0.025 mm/V、外层 0.005 mm/V、高海拔 0.025 mm/V、涂覆 0.00305 mm/V"
+        ],
+        "rationale": "电气间隙是空气击穿距离，受电压、海拔（气压）、涂覆影响；把内层数值用到外层、或把涂覆数值用到未涂覆，会严重欠设计。",
+        "check": "按网络电压分组；确认层位/涂覆/海拔；安规评审 + 耐压测试；有认证要求时按 IEC 62368-1/IEC 60664-1 等原文复核。",
+        "appliesTo": [
+          "high-voltage",
+          "safety",
+          "creepage",
+          "clearance",
+          "mains"
+        ],
+        "tags": [
+          "IPC-2221",
+          "电气间隙",
+          "海拔",
+          "涂覆",
+          "安规"
+        ],
+        "sources": [
+          "SRC-SIERRA-IPC2221",
+          "SRC-IPC-2221B"
+        ],
+        "evidenceLevel": "A/B",
+        "verificationNotes": "数值来自 Sierra 对 IPC-2221 表的转述；正式安规必须按 IPC-2221B 原文/认证机构。表列含义按原文复核。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "爬电 ≠ 间隙：CTI、污染等级、海拔、绝缘类型必须齐全",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-CTI-001",
+        "category": "安规/高压",
+        "severity": "error",
+        "statement": "爬电是沿绝缘表面的最短路径，间隙是空气中最短直线距离；计算爬电还要材料 CTI、污染等级（1/2/3/4）、海拔、绝缘类型/工作电压（RMS/峰值）。FR-4 默认 CTI 约 175，高 CTI/特殊材料可到 600；高 CTI 允许更小爬电，但必须按材料规格与标准表取值。",
+        "limits": [
+          "爬电按沿面路径，间隙按空气直线",
+          "必须声明材料 CTI、污染等级、海拔、绝缘类型",
+          "FR-4 默认 CTI 约 175；高 CTI 材料可到 600",
+          "高 CTI 不等于可以免算；按标准表取爬电",
+          "必要时开槽/加挡墙/三防漆"
+        ],
+        "rationale": "表面污染/凝露会降低沿面耐压，爬电不足会电化学迁移/起痕；只用间隙表会把爬电算小。",
+        "check": "材料 CTI 报告；污染等级声明；安规爬电表；湿热/盐雾/耐压测试。",
+        "appliesTo": [
+          "high-voltage",
+          "safety",
+          "creepage",
+          "cti",
+          "pollution"
+        ],
+        "tags": [
+          "爬电",
+          "CTI",
+          "污染等级",
+          "海拔",
+          "安规"
+        ],
+        "sources": [
+          "SRC-SIERRA-CREEP",
+          "SRC-SIERRA-IPC2221"
+        ],
+        "evidenceLevel": "B",
+        "verificationNotes": "CTI/污染等级取值按 IEC 60664-1/产品标准；本条不替代认证机构评审。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "QFN 钢网：热焊盘 50–70%、外围 1:1、空洞 ≤50%",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-MFG-STENCIL-001",
+        "category": "焊接/DFM",
+        "severity": "warning",
+        "statement": "QFN/SON 外围引脚钢网开口通常 1:1；热焊盘钢网开口约 50–70% 焊盘面积（不是 1:1）；0.5 mm pitch 外围焊盘宽可减到 0.28 mm 或更小，0.4 mm pitch 建议 0.2 mm 宽/0.2 mm 间隙；钢网厚度常 0.10–0.15 mm（0.125 mm 典型）；面积比 <0.66 时用镍成型钢网；回流后热焊盘空洞建议 ≤50%。",
+        "limits": [
+          "外围引脚钢网 1:1",
+          "热焊盘钢网 50–70%",
+          "0.5 mm pitch 外围焊盘宽 ≤0.28 mm",
+          "0.4 mm pitch 焊盘宽 0.2 mm、间隙 0.2 mm",
+          "钢网厚度 0.10–0.15 mm，0.125 mm 典型",
+          "面积比 <0.66 用镍成型钢网",
+          "热焊盘空洞 ≤50%"
+        ],
+        "rationale": "热焊盘 1:1 会锡量过多导致浮件/开路；面积比不足会锡膏释放不良；空洞过大影响热阻/可靠性。",
+        "check": "钢网开口面积/面积比；X-Ray 空洞；首件润湿/立碑/桥连；SPI 锡膏体积。",
+        "appliesTo": [
+          "qfn",
+          "son",
+          "stencil",
+          "smt",
+          "assembly"
+        ],
+        "tags": [
+          "QFN",
+          "钢网",
+          "锡膏",
+          "空洞",
+          "DFM"
+        ],
+        "sources": [
+          "SRC-TI-QFN"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "钢网参数按 TI SLUA271C；实际开口需按封装/焊盘/锡膏/板厂做 DOE。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "布局复核不得用含焊盘的 bbox 冒充真实本体",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-COURTYARD-002",
+        "category": "布局/封装",
+        "severity": "error",
+        "statement": "EDA 回读的 bbox 可能包含焊盘/丝印/测试点；没有独立真实 body/courtyard/3D 数据时，器件干涉、吸嘴间距、连接器插拔空间只能判 REVIEW，不能把 bbox 当本体判 PASS/FAIL。需要本体时应读封装轮廓/3D/courtyard，或由设计意图显式提供。",
+        "limits": [
+          "bbox 可能含焊盘，不等于本体",
+          "无真实 body/courtyard/3D 时只判 REVIEW",
+          "本体数据优先：封装轮廓/3D/courtyard/设计意图",
+          "不能用 bbox 重叠直接判短路/干涉"
+        ],
+        "rationale": "把含焊盘的 bbox 当本体，会把正常焊盘包络误判为器件干涉/吸嘴空间不足（本项目真机 SPACE-14 已出现）。",
+        "check": "检查数据源字段（bbox/body/courtyard/3D）；缺少真实本体时输出 REVIEW 并说明；有本体后重算。",
+        "appliesTo": [
+          "layout",
+          "courtyard",
+          "clearance",
+          "eda-readback"
+        ],
+        "tags": [
+          "bbox",
+          "本体",
+          "courtyard",
+          "吸嘴",
+          "REVIEW"
+        ],
+        "sources": [
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "C",
+        "verificationNotes": "本条来自 CircuitPilot 真机回读经验与 Espressif 模组本体/净空要求；不是外部标准原文。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "阻抗公差与叠层签核：±10% 标准、±5% 特殊，先锁叠层再布线",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-IMPEDANCE-002",
+        "category": "阻抗/高速",
+        "severity": "error",
+        "statement": "受控阻抗板必须先与板厂锁定叠层（介质厚度/Dk/铜厚/阻焊），再按场求解器算线宽/间距；板厂标准阻抗公差 ±10%，±5% 需特殊材料/叠层并额外验证；测试条与 TDR 验收必须绑定当前叠层/批次。",
+        "limits": [
+          "先锁叠层，再算线宽/间距",
+          "标准阻抗公差 ±10%；±5% 需特殊工艺",
+          "测试条与 TDR 验收",
+          "叠层/批次变更后重新验证",
+          "不能只抄参考设计线宽"
+        ],
+        "rationale": "阻抗由叠层/介质/铜厚决定；参考设计的线宽只在相同叠层下成立；公差收紧会显著增加成本/工艺难度。",
+        "check": "叠层图/板厂 EQ；阻抗计算记录；测试条 TDR；批次变更记录。",
+        "appliesTo": [
+          "high-speed",
+          "impedance",
+          "stackup",
+          "usb",
+          "rf"
+        ],
+        "tags": [
+          "阻抗",
+          "叠层",
+          "TDR",
+          "公差",
+          "板厂"
+        ],
+        "sources": [
+          "SRC-JLC-CAP",
+          "SRC-TI-USB",
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "B/A",
+        "verificationNotes": "±10%/±5% 是 JLC 能力表口径；其他板厂按其能力表。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速差分不放测试点/探针，测试点不得形成 stub",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-DFT-002",
+        "category": "布局/测试",
+        "severity": "warning",
+        "statement": "高速差分线上不要放测试点/探针/测试过孔；必须测试时用高阻抗缓冲/专用测试焊盘，并保证不形成长 stub、不破坏参考平面和差分对称；测试点不得压在高速差分对之间造成阻抗/串扰。",
+        "limits": [
+          "高速差分线上禁放测试点/探针",
+          "必须测试时用专用测试焊盘/缓冲",
+          "测试点不得形成长 stub",
+          "测试点不得破坏参考平面/差分对称"
+        ],
+        "rationale": "测试点/探针是阻抗不连续和 stub，会反射/增加插损；在差分对上还会破坏对称性。",
+        "check": "高速网络测试点审查；stub 长度；参考平面；眼图/TDR。",
+        "appliesTo": [
+          "dft",
+          "high-speed",
+          "usb3",
+          "pcie",
+          "test"
+        ],
+        "tags": [
+          "DFT",
+          "测试点",
+          "stub",
+          "高速",
+          "阻抗"
+        ],
+        "sources": [
+          "SRC-TI-USB"
+        ],
+        "evidenceLevel": "C",
+        "verificationNotes": "TI SLLA414A 明确不建议在高速差分上放 probe/test point；测试方案按产品 DFT 需求。"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "用 EDA 插件 API 对既有工程做受控 ECO 的流程（备份→网表→器件→位号→子集布线→DRC→导出回读）",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-ECO-014",
+        "category": "布线/流程",
+        "severity": "info",
+        "statement": "对既有工程做 ECO 必须：先导出 .epro2 备份；用 pcb_PrimitivePad.modify 改/清焊盘网络；从个人库放器件并 modify designator 同步位号；GND/+3V3 用 via 接平面；信号网用 autoRouting({nets}) 布子集并 DRC 复核、失败即回滚；逐块重建覆铜；最后导出工程文件回读 PAD_NET/NET 验收。",
+        "rationale": "r51 相机 GC0308 ECO 实战验证：全流程可由插件 API 完成，但任何一步缺少回读/回滚都会在真实工程留下网表或间距缺陷。",
+        "appliesTo": [
+          "EDA 自动化",
+          "ECO",
+          "PCB 网表修改",
+          "设计变更"
+        ],
+        "evidence": "artifacts/wardrobe-case/pm-run-20261022/evidence/camera-eco-execution-r51.json",
+        "limits": [
+          "仅适用于插件 API 可写操作的 ECO；禁布区/丝印/真 NPTH/在线 DFM/正式生产导出不能由 API 完成，需人工 GUI 与人工门禁。"
+        ],
+        "check": "ECO 后必须：DRC 仅允许 No Connection（且数量与待布线网络焊盘数一致）；导出 .epro2 回读 PAD_NET 计数与原理图 NET 标签一致；保存返回 true。",
+        "tags": [
+          "EDA",
+          "ECO",
+          "自动化",
+          "网表",
+          "回读验收"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "自动布线后先重建全部覆铜并关闭重开文档，再判读 DRC（否则旧间距报警会误导回滚）",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-ROUTE-015",
+        "category": "布线/间距",
+        "severity": "warning",
+        "statement": "嘉立创EDA专业版 3.2.186 上，autoRouting 布完电源网后，先对全部覆铜（含 GND/电源平面）逐块 rebuildCopperRegion()，保存、关闭 PCB 标签再重开，然后跑 DRC；此时才可信。未重建覆铜/未重载时读到的 Safe Spacing（实测 56 条）与 No Connection（实测 10 条旧 id）多为缓存假象。",
+        "rationale": "r52/r53 实测：同一份布线结果，重建覆铜+重开文档后 DRC 由 56 条间距+10 条飞线变为 0 间距；仅在对的拓扑下，剩余 2 条飞线才是真实几何问题。",
+        "appliesTo": [
+          "EDA 自动化",
+          "PCB 布线",
+          "DRC 判读",
+          "覆铜重建"
+        ],
+        "evidence": "artifacts/wardrobe-case/pm-run-20261022/PM-FULL-CHAIN-RUN-20261022.md#56",
+        "limits": [
+          "重建后仍需用 .epro2 导出回读或 DRC 明细核对，不能只看 DRC 面板计数。"
+        ],
+        "check": "DRC 明细必须逐条检查 obj1/obj2 与 layer；若对象 id 无法在当前图元集合中找到，说明缓存未刷新，需关闭重开文档再测。",
+        "tags": [
+          "autuoroute",
+          "DRC",
+          "覆铜",
+          "缓存",
+          "EDA"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "EDA 3.2.186 机械要素 API 可用性矩阵：丝印文字可批量创建、禁布区可建但须放空区、独立 NPTH 焊盘会崩覆铜",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-MECH-016",
+        "category": "布局/机械",
+        "severity": "info",
+        "statement": "实测 3.2.186 公开插件 API：①pcb_PrimitiveString.create(3,x,y,text,'Arial',size,lineWidth,alignModeNum,0,false,0,false,false) 可创建顶层丝印文字（layer 3=TOP_SILKSCREEN，坐标单位 mil，alignMode 用数字 1-9），可批量写板名/版本/测试点标识；②pcb_PrimitiveRegion.create(12, polygon, [2,5,6,7], name, 6, false) 可创建 MULTI 层禁布区，polygon 用 pcb_MathPolygon.createPolygon([x0,y0,'L',x1,y1,...]) 构造（首点为起点、后续 'L'+坐标成对），但禁布区必须放在无器件/无走线/无覆铜区域，否则 DRC 会产生大量 Device/Track to Prohibited Region 违反；③pcb_PrimitivePad.create 只有在带 hole 参数时才能创建独立焊盘（无 hole 报“无法创建焊盘图元”）；带 hole 的独立无金属化焊盘（安装孔）创建成功但随后 rebuildCopperRegion 抛 'Cannot read properties of undefined (reading length)'，等于无法与覆铜共存，故真 NPTH 仍只能用镀铜 via 近似或人工 GUI 放置。",
+        "rationale": "r53 全量实测：丝印 5 条一次成功；禁布区 2 个创建成功但覆盖已有铜箔立即产生 62+ 条 DRC 违反，已回滚；独立 NPTH 焊盘创建成功但覆铜重建 4/4 崩溃。 追加实测：独立焊盘不带 hole 无法创建，说明该 API 只接受“带钻孔的独立焊盘”，而带孔独立焊盘必然触发覆铜崩溃。",
+        "appliesTo": [
+          "EDA 自动化",
+          "机械要素",
+          "丝印",
+          "禁布区",
+          "NPTH"
+        ],
+        "evidence": "artifacts/wardrobe-case/pm-run-20261022/PM-FULL-CHAIN-RUN-20261022.md#56",
+        "limits": [
+          "API 无法建立带封装的 NPTH 安装孔；禁布区实际坐标需机械图纸/结构确认后再放，不能随意猜测。"
+        ],
+        "check": "回读：pcb_PrimitiveString.getAll().length 增加；pcb_PrimitiveRegion.getAll().length 增加且 DRC 无新增 Prohibited Region 违反；安装孔保持 via 近似并记录偏差。",
+        "tags": [
+          "EDA",
+          "丝印",
+          "禁布区",
+          "NPTH",
+          "机械"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "布局重叠必须按真实包围盒解：先用 getPrimitivesBBox 读全板 bbox，再在候选点做间隙/走线净空双判",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-PLACE-017",
+        "category": "布局/几何",
+        "severity": "warning",
+        "statement": "解 J7/C25 包围盒重叠时：①用 pcb_Primitive.getPrimitivesBBox([componentPrimitiveId]) 逐个读真实 bbox（本次 J7=785.4..1106 x 1745..1970.7 mil，C25 高 66 mil），不要凭封装视觉猜；②候选点要同时满足 a) 与所有其他器件 bbox 在判定阈值(0.5mm)内不相交、b) 新焊盘到异网铜皮/走线/过孔边距 ≥8 mil、c) 新焊盘与新增折线之间（含另一焊盘）不冲突；③改完重建覆铜+关重开+DRC，最后用 /api/eda/release/gate 复核 RELEASE_PLACEMENT_NOT_VERIFIED 是否消失。",
+        "rationale": "r54 实测：C25 由 (760,1790) 移到 (850,1750) 后重叠反而 0.873→0.964mm，因为 J7 bbox 下沿到 1745 而 C25 新位置仍在其内；直到移到 (760,2025)、AVDD 折线 (732.4,2025)-(732.4,1790) 才 0 重叠且 DRC 仅剩 1 条项目级 Netlist Error。",
+        "appliesTo": [
+          "布局",
+          "封装重叠",
+          "门禁复核",
+          "DRC"
+        ],
+        "evidence": "evidence/release-gate-r54-c25-fixed.json；PM-FULL-CHAIN-RUN-20261022.md §58",
+        "limits": [
+          "判定阈值 0.5mm 包围盒重叠",
+          "新焊盘到异网铜边距 ≥8 mil",
+          "孔/焊盘到板框 ≥2.3mm（NPTH）",
+          "改完必须重建全部覆铜+关重开+DRC"
+        ],
+        "check": "用 pcb_Primitive.getPrimitivesBBox 读全器件 bbox，在候选网格上同时判 bbox 不相交、焊盘净空、折线净空；落地后 /api/eda/release/gate 无 RELEASE_PLACEMENT_NOT_VERIFIED 且 DRC 只剩已知项",
+        "tags": [
+          "布局",
+          "包围盒",
+          "重叠",
+          "门禁"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "工程文档清理与双板网表自证：pinInfoMap 逐位号对比 + 空文档删除 API",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-PROJECT-018",
+        "category": "文件/变更控制",
+        "severity": "info",
+        "statement": "①power-user 清理空文档：dmt_Board.deleteBoard('Board1') 会留下孤立 sch/pcb，必须再调 eda.dmt_Schematic.deleteSchematic(schUuid) 与 eda.dmt_Pcb.deletePcb(pcbUuid)，直到 getCurrentProjectInfo().data 只剩目标 board；②网表自证用 pcb_ManufactureData/sch_ManufactureData.getNetlistFile('n.txt','JLCEDA') 取 JSON，按 components[].props.Designator + pinInfoMap[pin].net 建 des→{pin:net} 映射逐条对比（本次主板 53/53、LED 板 24/24、0 pin diff）；③对比通过后 DRC 仍报 1 条项目级 Netlist Error（Import Changes）时，importChanges() 传 undefined/sch uuid/project uuid 都返回 true 但错误不清除，属 EDA 侧快照问题，不要循环重试，记录为产品缺陷并保留下一步人工 GUI 复核。",
+        "rationale": "r54 实测：删除 Board1 与 stray Schematic1 后 DRC 仍 1 条 Netlist Error；两板网表 0 差异，证明不是设计网表错误而是 EDA 的 Import Changes 快照/缓存未同步。",
+        "appliesTo": [
+          "工程清理",
+          "网表核对",
+          "DRC 判读",
+          "产品缺陷记录"
+        ],
+        "evidence": "evidence/netlist-consistency-r54.json；evidence/board-level-simulation-r54.json",
+        "limits": [
+          "仅删除空文档/孤立文档",
+          "删除前必须导出 .epro2 备份",
+          "网表自证必须两板各自 0 pin diff"
+        ],
+        "check": "getCurrentProjectInfo().data 只剩目标 board；两板 getNetlistFile 对比 des→{pin:net} 全等；删除后 project 备份可回滚",
+        "tags": [
+          "工程管理",
+          "网表",
+          "文档清理"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "NPTH 安装孔的可用路径：库器件+组件焊盘 modify（不要用独立焊盘）",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-CP-MECH-019",
+        "category": "布局/机械",
+        "severity": "info",
+        "statement": "3.2.186 上要真 NPTH 孔：①复制系统库 1-pad 小封装到个人库（如 SMD-1P_L2.2-W1.5-H1.0）；②lib_Device.create(personalLib,name,undefined,{symbolType:'NON_ELECTRICAL',footprint:{uuid,libraryUuid}},'说明',{designator:'MH',addIntoBom:false,addIntoPcb:true})；③以器件方式放置组件（{libraryUuid,uuid} 形态）到 PCB；④对该组件焊盘 pcb_PrimitivePad.modify(padId,{pad:['ELLIPSE',106.3,106.3],hole:['ROUND',106.3],metallization:false,layer:12,net:''})；⑤rebuildCopperRegion() 不再崩（组件拥有的焊盘 vs 独立焊盘不同代码路径，实测 4 块覆铜全 ok）。",
+        "rationale": "r54 实测：独立 NPTH 焊盘必崩覆铜（PCB-FAIL-CP-MECH-017），但“器件焊盘 modify”路径可建 Ø2.7mm NPTH 且覆铜重建 4/4 ok；最终是否放孔要回到需求（本板 P-M04 为磁吸安装、DXF 无孔位，故撤掉 4 孔，能力保留备用）。",
+        "appliesTo": [
+          "机械",
+          "NPTH",
+          "安装孔",
+          "EDA API"
+        ],
+        "evidence": "evidence/npth-component-pad-r54.json；PM-FULL-CHAIN-RUN-20261022.md §58",
+        "limits": [
+          "孔 Ø106.3 mil(2.7mm)",
+          "焊盘 ELLIPSE 同直径、metallization=false、layer=MULTI(12)",
+          "组件焊盘 modify 后才可 rebuild 覆铜"
+        ],
+        "check": "组件焊盘 modify 后 getState_Hole/getState_Metallization 读回正确；4 块覆铜 rebuildCopperRegion 全 ok；DRC 不新增孔相关错误",
+        "tags": [
+          "NPTH",
+          "安装孔",
+          "机械",
+          "EDA API"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "原理图网络标签必须按引脚朝外并可读",
+      "doc": "docs/knowledge/pcb/22-ai-assisted-layout-and-readable-schematic.md",
+      "ttlDays": 180,
+      "payload": {
+        "ruleId": "PCB-RULE-SCH-LABEL-001",
+        "category": "原理图/规范",
+        "severity": "warning",
+        "statement": "网络标签（网络端口/网络名）应从引脚向远离元件主体的方向展开（右/左/上/下四向），不允许全部固定朝右；标签之间、标签与元件符号之间不得重叠，写盘前必须能审计出重叠。",
+        "limits": [
+          "四向朝向按引脚所在边选择：右侧=右、左侧=左、上侧=上、下侧=下（rotation 映射集中定义，真机不符只改映射）",
+          "标签矩形与元件符号/相邻标签的重叠面积为 0 才判可读",
+          "估计标签尺寸：字符宽≈8、字高≈14、内边距≈4（原理图单位，按实际字号复核）",
+          "可读性审计是 warning，不替代官方网表/ERC 的电气验收"
+        ],
+        "rationale": "网络标签全部朝右会压在元件符号上、相邻标签互相叠字，评审者会误读网络，增加返工与改错风险；“网表连通”不等于“人能读、能审”。",
+        "check": "写盘前用纯函数估计每个标签与元件/其它标签的 AABB 重叠，重叠项作为 warning 返回；写盘后以官方网表读回 + 原理图 ERC 为准；人工抽看截图确认无压字/压件。",
+        "appliesTo": [
+          "schematic",
+          "原理图评审",
+          "AI 生成原理图"
+        ],
+        "tags": [
+          "原理图",
+          "网络标签",
+          "可读性",
+          "重叠",
+          "ERC"
+        ]
+      }
+    }
+  ]
+}

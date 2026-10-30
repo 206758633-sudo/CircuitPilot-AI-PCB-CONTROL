@@ -1,0 +1,852 @@
+{
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "天线净空禁布区：keepout 内不得有铜/走线/器件/金属",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-RF-001",
+        "category": "射频/天线净空",
+        "severity": "error",
+        "statement": "天线 keepout 区内（尺寸按所选天线/模块 datasheet）禁止铺铜、走线、过孔、器件、电池与金属结构件；周围金属、外壳材料与装配公差必须一并评估，净空被破坏即判设计不通过。",
+        "limits": [
+          "keepout 尺寸以所选天线/模块 datasheet 为准，禁止套用其他型号或凭经验估计",
+          "keepout 内所有层铜箔面积=0，禁止走线与过孔",
+          "电池/喇叭/屏蔽罩/金属螺丝/外壳与天线的最小距离不得小于 datasheet 净空要求",
+          "外壳含金属涂层、高介电常数材料或人体接触场景时，必须重新评估天线性能"
+        ],
+        "rationale": "天线依靠空间电磁场工作，净空内任何导体都会吸收/反射能量并改变输入阻抗，表现为频偏、效率下降与通信距离变短；该问题在裸板不一定暴露，整机装配后才集中出现。",
+        "check": "用 EDA/DRC 检查 keepout 内是否有铜、走线、过孔与器件；对照天线 datasheet 净空图逐项核对布局；整机用 VNA 测 S11、暗室测 TRP/TIS；不通过则清净空或换天线位置。",
+        "appliesTo": [
+          "rf",
+          "antenna",
+          "wireless",
+          "layout-review"
+        ],
+        "tags": [
+          "天线净空",
+          "keepout",
+          "RF",
+          "失谐",
+          "效率"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "50Ω RF 走线：按叠层算线宽、两侧包地、参考地连续",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-RF-002",
+        "category": "射频/传输线",
+        "severity": "error",
+        "statement": "单端 RF 链路默认 50Ω：线宽必须用实际叠层参数（h、εr、铜厚）经场求解器/EDA 阻抗工具计算；走线两侧包地、下方参考地连续，不得跨越地/电源分割；换层必须伴随地过孔。",
+        "limits": [
+          "线宽由叠层与阻抗工具计算，不得凭经验或套用其他板叠层",
+          "RF 走线不得跨越分割地、电源平面缺口或参考平面开槽",
+          "两侧地过孔间距建议 ≤ 最高频率对应波长的 1/20（2.4GHz λ≈125mm，即约 6mm），需按仿真/实测复核",
+          "必须换层时，换层过孔旁就近布置地过孔，保持回流连续"
+        ],
+        "rationale": "阻抗偏离造成反射（S11 变差）、插损与辐射；参考地不连续会让回流绕行、形成辐射环路并改变等效阻抗，是 RF 性能不达标的常见根因。",
+        "check": "核对 EDA 阻抗计算与板厂阻抗报告；VNA 测 S11/S21；TDR 测阻抗连续性；目检地过孔与参考平面。不通过则调线宽/叠层/参考地。",
+        "appliesTo": [
+          "rf",
+          "antenna",
+          "transmission-line",
+          "stackup"
+        ],
+        "tags": [
+          "50欧姆",
+          "微带线",
+          "参考地",
+          "回波损耗",
+          "地过孔"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "匹配元件必须满足 SRF、Q 值与精度余量",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-RF-003",
+        "category": "射频/匹配网络",
+        "severity": "warning",
+        "statement": "匹配用电感/电容的自谐振频率应高于工作频率 2~3 倍（按 datasheet 曲线与仿真复核）、Q 值满足插损预算、容差满足带宽与量产良率要求；匹配网络必须预留 π 型调试位。",
+        "limits": [
+          "SRF 目标 ≥2~3×工作频率；SRF 以上元件呈容性/感性反转，匹配会失效",
+          "2.4GHz 下 1nH 感抗约 15Ω、1pF 容抗约 66Ω，0.1pF/0.1nH 级误差即可明显移动匹配点",
+          "电容优先 C0G/NP0，避免 X7R/Y5V 的容值漂移与压电效应",
+          "电感饱和电流与额定功率必须覆盖 RF 功率，并核实 Q 值随频率下降"
+        ],
+        "rationale": "匹配网络对元件寄生与容差极其敏感；SRF 不足会让高次谐波旁路/泄漏，精度不足会导致量产 S11 分布离散、良率下降。",
+        "check": "查 datasheet 的 SRF/Q vs 频率曲线与容差；VNA 测目标频段 S11 与带宽；换批次抽测 S11；不通过则换更高 SRF/更高精度元件或改拓扑。",
+        "appliesTo": [
+          "rf",
+          "antenna",
+          "matching-network",
+          "bom"
+        ],
+        "tags": [
+          "匹配网络",
+          "SRF",
+          "Q值",
+          "容差",
+          "调试位"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "多相 Buck 均流误差与相位一致性要求",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-PWR-001",
+        "category": "电源/多相拓扑",
+        "severity": "error",
+        "statement": "多相 Buck 各相必须做均流（droop 或主动均流），满载均流误差目标 ≤10%（按控制器 datasheet 收紧），每相电感/开关管/驱动参数一致且布局对称；输出纹波频率为 N×fsw。",
+        "limits": [
+          "均流误差目标 ≤10%，最热相温升不得显著高于其他相（建议温差 ≤10°C，按项目复核）",
+          "相位数按总电流/纹波/成本选择（常见 2/3/4/6 相）",
+          "输出纹波频率 = 相数 N × 开关频率 fsw，输出电容按纹波目标核算",
+          "各相功率级参数一致、驱动与采样走线对称，禁止一相远离控制器"
+        ],
+        "rationale": "多相把电流分散以降低单相损耗与输出纹波；不均流时最热一相先失效，多相优势变成可靠性风险；相位错乱还会削弱纹波抵消效果。",
+        "check": "满载/半载用电流探头或分流电阻测各相电流与温升；示波器确认各相驱动相位差 360°/N；动态负载测试；不通过则调均流/改布局/换控制器。",
+        "appliesTo": [
+          "power",
+          "multiphase",
+          "cpu-core",
+          "high-current"
+        ],
+        "tags": [
+          "多相",
+          "均流",
+          "纹波抵消",
+          "相位",
+          "温升"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "热插拔必须限流/软启动，并核算 MOSFET SOA",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-PWR-002",
+        "category": "电源/热插拔",
+        "severity": "error",
+        "statement": "带电插拔板卡必须设置浪涌限流与 dV/dt 软启动，启动电流 Iinrush≈C×dV/dt 必须小于母线、连接器与上游保护能力；热插拔 MOSFET 的 SOA 必须覆盖启动过程的电压-电流-时间组合。",
+        "limits": [
+          "Iinrush 按 C×dV/dt 计算并留 ≥1.5× 余量",
+          "限流点按最大稳态电流 ×1.5 设置（按控制器/连接器能力复核）",
+          "MOSFET SOA 必须覆盖启动时 Vin(max)×Ilimit×启动时间，并核算结温",
+          "连接器采用长针地/短针电源，插拔瞬态加 TVS 抑制"
+        ],
+        "rationale": "热插拔瞬间负载电容近似短路，电流可达数十安培，会拉低母线、烧蚀连接器、触发上游保护；MOSFET 在高压大电流同时存在时最易超出 SOA 而失效。",
+        "check": "带电插拔测试（示波器看母线跌落、启动电流、MOSFET 温升）；反复插拔 ≥100 次；短路/过流保护动作测试；不通过则调限流/dV/dt/换 MOSFET。",
+        "appliesTo": [
+          "power",
+          "hot-swap",
+          "backplane",
+          "connector"
+        ],
+        "tags": [
+          "热插拔",
+          "浪涌",
+          "SOA",
+          "dV/dt",
+          "连接器"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "开关电源环路：穿越频率、相位裕度与增益裕度",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-PWR-003",
+        "category": "电源/环路补偿",
+        "severity": "warning",
+        "statement": "开关电源闭环必须满足：穿越频率 fc ≤ fsw/5~fsw/10、相位裕度 ≥45°（工程目标 60°）、增益裕度 ≥10dB；补偿参数须按功率级传递函数计算并用注入法实测 Bode 验证。",
+        "limits": [
+          "fc ≤ fsw/5~fsw/10，按负载动态要求与开关噪声复核",
+          "相位裕度 ≥45°，工程目标 60°；增益裕度 ≥10dB",
+          "注入电阻 10~50Ω 串入反馈分压点，注入幅度足够小避免非线性",
+          "满载/轻载/最高最低输入电压均需复测 Bode"
+        ],
+        "rationale": "fc 过高会受开关噪声影响且相位裕度不足而振荡，fc 过低则负载瞬态掉压/过冲；计算与仿真无法完全代表实际寄生，必须实测。",
+        "check": "用频响分析仪/注入法测环路 Bode，记录 fc/PM/GM 与测试条件；负载阶跃响应验证过冲/恢复时间；不通过则调补偿/输出电容/降 fc。",
+        "appliesTo": [
+          "power",
+          "dcdc",
+          "loop-compensation",
+          "stability"
+        ],
+        "tags": [
+          "环路",
+          "相位裕度",
+          "穿越频率",
+          "Bode",
+          "稳定性"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "受控文件变更必须走 ECO 并同步版本矩阵",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-DOC-001",
+        "category": "文件/变更控制",
+        "severity": "error",
+        "statement": "任何影响受控文件的变更必须走 ECO，并同步更新版本矩阵（原理图/BOM/PCB/固件/测试）；ECO 必填变更前后版本、内容、原因、影响文件、影响分析、验证计划、批准人与生效日期；旧版本必须归档可回滚。",
+        "limits": [
+          "ECO 必填字段：编号/变更前后版本/变更内容/原因/影响文件/影响分析/验证计划/批准人/生效日期",
+          "版本矩阵至少覆盖原理图、BOM、PCB/Gerber、固件、测试程序五件套",
+          "禁止覆盖旧版本；旧版本归档并保留只读，支持回滚",
+          "紧急变更可走快速 ECO，但仍需批准与记录，不得跳过"
+        ],
+        "rationale": "硬件事故常见根因不是设计错，而是生产用了旧版 BOM/旧版 Gerber/旧版测试程序；ECO 是变更的唯一合法入口，版本矩阵是判断版本组合是否验证过的唯一依据。",
+        "check": "抽查 ECO 字段完整性与版本矩阵一致性；核对产线/外协实际使用版本；随机抽板按序列号反查版本组合与测试记录；不通过则补 ECO/冻结发版。",
+        "appliesTo": [
+          "documentation",
+          "eco",
+          "version-control",
+          "release"
+        ],
+        "tags": [
+          "ECO",
+          "版本矩阵",
+          "受控文件",
+          "变更管理",
+          "回滚"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "替代料必须逐项评估关键参数并小批验证",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-DOC-002",
+        "category": "BOM/替代料",
+        "severity": "error",
+        "statement": "替代料必须逐项评估耐压/电流/功率、精度/温漂、ESR/饱和电流、Vf/结电容、Rds(on)/Qg、封装/极性/认证等关键参数，并做小批验证；未评估的替代料不得上产线，换料必须走 ECO 并更新 AVL。",
+        "limits": [
+          "评估项至少覆盖：额定电压/电流/功率、精度/容差、温漂、ESR/ESL、饱和电流、Vf/Vr、结电容、Rds(on)/Vgs(th)/Qg、封装/引脚/极性、认证状态",
+          "关键项需 datasheet 页码证据，并对 MLCC 偏压特性、电感饱和电流等做实测",
+          "替代关系写入 BOM 的 AVL 并注明首选/替代",
+          "换料走 ECO，更新版本矩阵并通知产线/外协"
+        ],
+        "rationale": "参数看似相同的替代料常在 ESR、饱和电流、温度特性、封装热阻上差异很大；未经评估的替代会造成批量失效、认证失效或产线停线。",
+        "check": "抽查 BOM 替代料是否有评估表与验证记录；对比关键参数（datasheet 页码）；关键替代料做小批复测；不通过则暂停使用或换回原料号。",
+        "appliesTo": [
+          "bom",
+          "substitute-part",
+          "supply-chain",
+          "eco"
+        ],
+        "tags": [
+          "替代料",
+          "BOM",
+          "AVL",
+          "参数评估",
+          "小批验证"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "2.4GHz 匹配网络与巴伦前端",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-RF-001",
+        "category": "射频/前端",
+        "purpose": "把 RF 芯片的差分/单端阻抗在目标频段变换到 50Ω，完成差分到单端的转换，并用调试位支持量产匹配微调。",
+        "whenToUse": "WiFi/BLE/2.4GHz 私有协议等需要外置天线或模块天线的无线设计；芯片 datasheet 要求外部匹配/巴伦时。",
+        "designPoints": [
+          "按芯片参考设计选 L 型/π 型匹配与集成/分立巴伦",
+          "匹配网络紧贴芯片 RF 引脚，先预留 π 型调试位",
+          "差分对等长对称，巴伦下方地完整、地脚多过孔",
+          "匹配元件选高频 RF 专用、高 Q、SRF 足够、精度 0.1pF/0.1nH 级",
+          "巴伦到天线连接器全程 50Ω，馈线尽量短"
+        ],
+        "keyParameters": [
+          "单端参考阻抗 50Ω，差分阻抗按芯片 datasheet",
+          "匹配元件 SRF ≥2~3×工作频率（按 datasheet 复核）",
+          "巴伦插损典型 0.5~1.5dB（按具体器件 datasheet）",
+          "回波损耗目标按产品/芯片要求（如 ≤−10dB，需按项目定义）"
+        ],
+        "schematic": "芯片 RF 差分脚 → 匹配/巴伦 → 50Ω 馈线 → 天线连接器；π 型调试位放在芯片与天线之间；匹配元件地脚就近下地并标注精度。",
+        "layout": "匹配/巴伦区域下方保持完整参考地；RF 走线短直、包地、地过孔密集；远离开关电源、晶振与数字高速线；天线连接器地脚多过孔。",
+        "pitfalls": [
+          "匹配元件 SRF 不足导致高次谐波泄漏或失配",
+          "巴伦地不完整导致共模电流与方向图畸变",
+          "未预留调试位，量产无法微调匹配",
+          "匹配元件精度不足导致 S11 批次离散"
+        ],
+        "tags": [
+          "2.4GHz",
+          "匹配网络",
+          "巴伦",
+          "50欧姆",
+          "RF前端"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "天线净空、馈线与连接器",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-RF-002",
+        "category": "射频/天线",
+        "purpose": "保证天线在整机环境中的净空、馈线阻抗与接地回流，使天线效率与方向图符合设计预期。",
+        "whenToUse": "使用 PCB 走线天线、陶瓷贴片天线或外置天线（U.FL/SMA/IPEX）的无线产品；结构空间受限或金属件较多的产品必须重点评估。",
+        "designPoints": [
+          "按天线 datasheet 画出 keepout，禁止铺铜/走线/器件/金属",
+          "PCB 天线按参考设计尺寸 1:1 复制，放在板边",
+          "馈线 50Ω、尽量短，连接器地脚与天线地脚多过孔",
+          "外置天线核算线缆损耗并选低损线缆/连接器",
+          "电池、喇叭、屏蔽罩、金属结构远离天线"
+        ],
+        "keyParameters": [
+          "keepout 尺寸按天线 datasheet（不得套用其他型号）",
+          "馈线损耗按线缆 dB/m 计入链路预算（2.4GHz 低损线缆约 0.3~0.6dB/m，需按 datasheet 复核）",
+          "连接器插损按频率选型并计入预算",
+          "整机 TRP/TIS 或效率目标按产品定义"
+        ],
+        "schematic": "匹配网络输出 → 50Ω 馈线 → 天线连接器/天线焊盘；标注天线型号、阻抗与净空要求；外置天线标注线缆型号与长度。",
+        "layout": "keepout 内清空所有层铜箔；馈线包地、地过孔密集；天线远离电池/金属件；连接器地脚就近下地；外壳材料与天线距离在结构评审中确认。",
+        "pitfalls": [
+          "keepout 内有铜/电池导致频偏与效率下降",
+          "馈线过长/损耗未计入预算导致距离不足",
+          "连接器地回流不良导致方向图畸变",
+          "外壳金属涂层未评估导致整机性能不达标"
+        ],
+        "tags": [
+          "天线净空",
+          "馈线",
+          "连接器",
+          "TRP",
+          "整机"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "RF 前端滤波与多制式共存",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-RF-003",
+        "category": "射频/滤波与共存",
+        "purpose": "用滤波/屏蔽/频率规划抑制谐波与邻频干扰，保证 WiFi/BT/LTE 等多制式同板共存时的灵敏度与吞吐。",
+        "whenToUse": "同板存在两个以上无线制式、发射谐波可能落入对方接收频段、或产品需要通过辐射/传导认证时。",
+        "designPoints": [
+          "按谐波频率（2×/3×f）选择低通/带通/SAW 滤波",
+          "发射链路滤波器插损计入 EIRP 预算，接收链路插损计入 NF",
+          "天线间距/极化/方向图优化以提高隔离度",
+          "必要时加屏蔽罩/吸波材料，屏蔽罩多点接地",
+          "软件侧使用时隙/仲裁机制"
+        ],
+        "keyParameters": [
+          "滤波器通带插损与带外抑制按 datasheet 与认证限值选",
+          "SAW 功率容量不得低于发射功率",
+          "天线隔离度目标按共存灵敏度回退要求定义",
+          "2.4GHz λ≈125mm，天线间距与隔离度需仿真/实测复核"
+        ],
+        "schematic": "发射链路：PA → 低通/带通 → 巴伦/匹配 → 天线；接收链路：天线 → 带通/SAW → LNA；滤波器前后保持 50Ω 并预留调试位。",
+        "layout": "滤波器靠近芯片/连接器；RF 与数字/电源分区；屏蔽罩四周连续接地；天线间距按仿真优化。",
+        "pitfalls": [
+          "只加发射滤波忽略接收带通导致灵敏度回退",
+          "SAW 功率容量不足被发射功率打坏",
+          "天线隔离度不足导致共存吞吐下降",
+          "屏蔽罩接地不良形成腔体谐振"
+        ],
+        "tags": [
+          "滤波器",
+          "共存",
+          "谐波",
+          "隔离度",
+          "认证"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "四开关 Buck-Boost 宽输入电源",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-PWR-001",
+        "category": "电源/非隔离拓扑",
+        "purpose": "在输入电压高于、低于或等于输出电压时都能稳定输出，用于宽输入（如 9~36V、电池 2.5~4.2V）场景。",
+        "whenToUse": "输入范围跨越输出电压、需要无缝升降压切换、或电池供电末端电压低于目标输出的产品。",
+        "designPoints": [
+          "按控制器 datasheet 设置 Buck/Buck-Boost/Boost 工作区与带滞回的切换阈值",
+          "电感按最恶劣工作区（通常过渡区）计算纹波与峰值电流",
+          "输入/输出电容按 RMS 纹波与瞬态选型",
+          "开关管 Vds ≥1.3×Vin(max)、Id ≥1.5×Iout(max) 并核算热",
+          "过渡区效率/纹波最差，尽量让工作点避开或快速穿越"
+        ],
+        "keyParameters": [
+          "开关管应力 Vds ≥1.3×Vin(max)，Id 按峰值电流降额",
+          "电感 ΔIL=Vin×D/(L×fsw)，峰值电流留 ≥20% 余量",
+          "输入电容 RMS 纹波按最恶劣工作区计算",
+          "效率与温升在全输入范围扫描"
+        ],
+        "schematic": "VIN → 输入电容 → 四开关半桥 → 电感 → 输出电容 → 负载；反馈分压与补偿按 datasheet；EN/UVLO 分压带滞回；预留电流采样与测试点。",
+        "layout": "功率环路面积最小；SW 节点短而宽；输入电容紧贴开关管；反馈开尔文采样；功率地与信号地单点汇合。",
+        "pitfalls": [
+          "过渡区未验证导致效率骤降/纹波超标",
+          "切换阈值无滞回导致反复切换",
+          "电感按单一工作区计算导致过渡区饱和",
+          "开关管应力按标称输入而非最高输入选型"
+        ],
+        "tags": [
+          "Buck-Boost",
+          "四开关",
+          "宽输入",
+          "升降压",
+          "过渡区"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "反激隔离电源（Flyback）",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-PWR-002",
+        "category": "电源/隔离拓扑",
+        "purpose": "用变压器实现输入输出隔离与电压变换，适合数十瓦以内的辅助电源、工业隔离电源与充电器。",
+        "whenToUse": "需要电气隔离、输入输出地不共地、或安规要求隔离的场合；功率通常在数十瓦以内（按器件与散热复核）。",
+        "designPoints": [
+          "按 Np/Ns=Vin×D/((Vout+Vf)×(1−D)) 设计匝比，D 取 0.4~0.5 附近",
+          "RCD/有源钳位吸收漏感能量，开关管 Vds 应力=Vin+Vclamp+尖峰",
+          "光耦/辅助绕组反馈的 CTR 与环路补偿按 datasheet，留温度/寿命裕度",
+          "输出整流管耐压 ≥Vin×Ns/Np+Vout 并留余量",
+          "变压器规格书写明匝比/电感/漏感/耐压/温升"
+        ],
+        "keyParameters": [
+          "匝比与占空比按最低输入电压核算，避免 D 越界",
+          "开关管 Vds 应力含钳位电压与尖峰，留 ≥20% 余量",
+          "RCD 钳位按漏感能量 E=½×Llk×Ipk² 设计",
+          "光耦 CTR 随温度/寿命变化，环路需留裕度"
+        ],
+        "schematic": "VIN → 输入滤波/电容 → 变压器初级 + 开关管 + RCD 钳位 → 次级整流/输出电容 → 反馈（光耦/辅助绕组）；隔离带两侧地分别为 GND/ISO_GND。",
+        "layout": "初级功率环路面积最小；RCD 钳位紧贴变压器初级；隔离带爬电/间隙按安规；反馈光耦跨隔离带；Y 电容位置按 EMC 方案。",
+        "pitfalls": [
+          "漏感能量未吸收导致开关管过压击穿",
+          "匝比/占空比设计不当导致输出不足或器件过压",
+          "光耦 CTR 衰减导致量产后期环路失效",
+          "隔离带爬电/间隙不足导致安规不通过"
+        ],
+        "tags": [
+          "反激",
+          "隔离电源",
+          "变压器",
+          "RCD钳位",
+          "光耦"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "多相 Buck 大电流电源",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-PWR-003",
+        "category": "电源/非隔离拓扑",
+        "purpose": "把大电流分配到多个错相功率级，降低单相损耗与输入/输出纹波，适合 CPU/FPGA/高电流负载。",
+        "whenToUse": "输出电流数十安以上、单相散热或纹波无法满足、或需要更小输出电容的产品。",
+        "designPoints": [
+          "相位数按总电流/纹波/成本选择（常见 2/3/4/6 相），相位差 360°/N",
+          "各相电感/开关管/驱动参数一致，布局对称",
+          "均流方案（droop/主动均流）按控制器 datasheet 配置",
+          "输出纹波频率 N×fsw，输出电容按纹波与瞬态核算",
+          "每相预留电流采样/温度监测点"
+        ],
+        "keyParameters": [
+          "均流误差目标 ≤10%，相间温升差 ≤10°C（按项目复核）",
+          "每相电流=总电流/N，电感与开关管按单相峰值降额",
+          "输出纹波频率=N×fsw",
+          "动态负载测试覆盖满载↔轻载切换"
+        ],
+        "schematic": "VIN → 输入电容 → N 个半桥/电感 → 输出电容 → 负载；PWM 控制器输出 N 路错相驱动；均流总线/采样电阻按 datasheet；每相 EN/PG 与故障汇总到控制器。",
+        "layout": "各相功率环路对称且面积最小；输出电容靠近负载；均流/采样走线等长抗干扰；功率地与信号地单点汇合；热设计按最热相核算。",
+        "pitfalls": [
+          "不均流导致单相过热/提前失效",
+          "相位错乱削弱纹波抵消",
+          "某一相布局远离控制器导致驱动/采样偏差",
+          "输出电容纹波电流不足导致寿命下降"
+        ],
+        "tags": [
+          "多相",
+          "大电流",
+          "均流",
+          "纹波",
+          "CPU供电"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "热插拔 / eFuse / ORing 电源入口",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-PWR-004",
+        "category": "电源/入口保护",
+        "purpose": "为带电插拔板卡或多电源输入提供浪涌限流、过流/过压保护与防倒灌，保护母线、连接器与下游电路。",
+        "whenToUse": "背板热插拔、双电源冗余、适配器+电池切换、需要可复位过流保护的产品。",
+        "designPoints": [
+          "热插拔控制器设置限流点、dV/dt 与故障响应（闭锁/自动重试）",
+          "eFuse 设置限流/OVP/热保护，核算 Rds(on) 功耗与散热",
+          "ORing 用理想二极管/ORing 控制器，核算反向关断与切换瞬态",
+          "输入加 TVS 抑制插拔瞬态，连接器长针地/短针电源",
+          "保护阈值与下游器件耐受/保险丝 I²t 协调"
+        ],
+        "keyParameters": [
+          "Iinrush=C×dV/dt，限流点按最大稳态电流 ×1.5 设置",
+          "MOSFET SOA 覆盖启动电压/电流/时间",
+          "eFuse Rds(on) 功耗 P=I²×Rds(on)，按 θJA 校核",
+          "ORing 压降：理想二极管几十 mV，肖特基 0.3~0.5V"
+        ],
+        "schematic": "连接器 → TVS → 热插拔控制器/eFuse（+采样电阻+MOSFET）→ 母线；多路输入各串 ORing 理想二极管后汇合；故障状态接 MCU。",
+        "layout": "功率路径短而宽；采样电阻开尔文走线；MOSFET 散热焊盘/过孔足够；TVS 地就近下地；连接器先接地。",
+        "pitfalls": [
+          "未限流导致母线跌落/连接器烧蚀",
+          "MOSFET SOA 不足在启动时失效",
+          "ORing 无反向关断导致电流倒灌",
+          "eFuse 限流/OVP 设置错误导致误触发或保护不足"
+        ],
+        "tags": [
+          "热插拔",
+          "eFuse",
+          "ORing",
+          "浪涌",
+          "母线保护"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "ECO 与版本矩阵管理流程",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-DOC-001",
+        "category": "文件/变更控制",
+        "purpose": "用 ECO 作为变更唯一入口，维护原理图/BOM/PCB/固件/测试五件套的版本矩阵，保证发布、生产、返修与认证始终可追溯。",
+        "whenToUse": "任何影响受控设计文件的变更（器件、网络、布局、结构、固件接口、测试规范）以及新品发布/量产维护。",
+        "designPoints": [
+          "建立受控文件清单与版本矩阵（五件套+ECO 号）",
+          "任何变更先开 ECO：变更前后版本/内容/原因/影响文件/影响分析/验证计划/批准",
+          "原理图/BOM/PCB/固件同步变更，发布前做网表/BOM/PCB 一致性校验",
+          "旧版本归档只读、可回滚；变更后做回归测试",
+          "PCN/替代料按影响分析评估，必要时小批验证"
+        ],
+        "keyParameters": [
+          "版本矩阵字段：文件类型/编号/版本/日期/ECO/批准人/测试记录",
+          "一致性校验：网表↔BOM↔PCB 位号/网络/数量",
+          "归档含 SHA-256 清单，历史版本可打开",
+          "保留年限按质量体系与法规要求（需查体系文件/法规原文）"
+        ],
+        "schematic": "变更不直接改图：变更需求 → ECO 评审 → 修改文件 → 一致性校验 → 回归测试 → 更新版本矩阵 → 发布/归档。",
+        "layout": "不涉及 PCB 布局；但 ECO 必须列全影响文件，PCB 变更需同步 Gerber/坐标文件。",
+        "pitfalls": [
+          "改图不走 ECO 导致版本矩阵失配",
+          "原理图/BOM/PCB 分开发布，中间状态被误用",
+          "旧版本被覆盖无法回滚",
+          "认证相关变更未评估是否触发重新认证"
+        ],
+        "tags": [
+          "ECO",
+          "版本矩阵",
+          "变更控制",
+          "发布",
+          "归档"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "天线净空被铜/电池破坏导致失谐与效率下降",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-RF-001",
+        "code": "ANTENNA_KEEPOUT_VIOLATION",
+        "category": "射频/天线",
+        "severity": "error",
+        "symptom": "无线通信距离明显变短、发射功率正常但 TRP/效率偏低、S11 谐振点偏移；不同整机（含电池/外壳）表现差异大。",
+        "rootCause": "天线 keepout 内存在铜箔/走线/过孔/电池/金属结构件，或外壳含金属涂层/高介电材料，改变了天线输入阻抗与辐射环境。",
+        "detection": "VNA 测天线 S11 与谐振点；暗室测 TRP/TIS/效率；对比裸板与整机；检查 keepout 内铜与器件。",
+        "prevention": [
+          "按天线 datasheet 在布局中画 keepout 并设为禁布区",
+          "电池/喇叭/屏蔽罩/金属件远离天线，结构评审确认",
+          "外壳材料与涂层要求写入结构规格并做整机验证",
+          "量产后换天线/换外壳走 ECO 并复测 RF"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/11-rf-antenna.md",
+          "SCH-RULE-RF-001",
+          "SCH-MOD-RF-002"
+        ],
+        "tags": [
+          "天线净空",
+          "失谐",
+          "TRP",
+          "整机",
+          "效率"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "RF 走线参考地不连续导致回波损耗恶化",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-RF-002",
+        "code": "RF_REFERENCE_DISCONTINUITY",
+        "category": "射频/传输线",
+        "severity": "error",
+        "symptom": "S11 在目标频段达不到指标、插损偏大、辐射杂散或方向图异常；同一设计换布局后表现不同。",
+        "rootCause": "RF 走线跨越分割地/电源缺口、参考地不连续、换层无伴随地过孔、地过孔稀疏，导致回流绕行与阻抗突变。",
+        "detection": "VNA 测 S11/S21；TDR 测阻抗连续性；目检参考地/地过孔；近场扫描定位辐射热点。",
+        "prevention": [
+          "RF 走线下方保持完整参考地，不跨分割",
+          "换层伴随地过孔；地过孔间距 ≤λ/20（按仿真复核）",
+          "50Ω 线宽按实际叠层用阻抗工具计算",
+          "布局评审把参考地连续性列为检查项"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/11-rf-antenna.md",
+          "SCH-RULE-RF-002",
+          "SCH-MOD-RF-001"
+        ],
+        "tags": [
+          "参考地",
+          "回波损耗",
+          "阻抗",
+          "地过孔",
+          "RF走线"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "匹配元件 SRF 不足导致高次谐波泄漏与失配",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-RF-003",
+        "code": "MATCHING_SRF_INSUFFICIENT",
+        "category": "射频/匹配网络",
+        "severity": "warning",
+        "symptom": "目标频段匹配看似正常但谐波/杂散超标、插损偏大；更换批次元件后 S11 与认证结果波动。",
+        "rootCause": "匹配电感/电容自谐振频率接近或低于工作频率，元件呈容性/感性反转；或容差/精度不足导致量产匹配点离散。",
+        "detection": "查元件 datasheet 的 SRF/Q 曲线；VNA 扫宽频段看谐波处阻抗；频谱仪测谐波/杂散；换批次抽测 S11。",
+        "prevention": [
+          "选 SRF ≥2~3×工作频率的 RF 专用元件",
+          "电容用 C0G/NP0，电感按 Q/饱和电流选型",
+          "匹配网络预留 π 型调试位",
+          "BOM 标注精度与 SRF，换料走 ECO 并复测"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/11-rf-antenna.md",
+          "SCH-RULE-RF-003",
+          "SCH-MOD-RF-003"
+        ],
+        "tags": [
+          "SRF",
+          "匹配元件",
+          "谐波",
+          "容差",
+          "认证"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "多相 Buck 不均流导致单相过热失效",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-PWR-001",
+        "code": "MULTIPHASE_CURRENT_IMBALANCE",
+        "category": "电源/多相拓扑",
+        "severity": "error",
+        "symptom": "满载时某一相电感/开关管温度明显高于其他相，长期运行后该相先失效；输出纹波比设计值大。",
+        "rootCause": "均流未配置或参数错误、各相电感/开关管/驱动参数不一致、布局不对称导致寄生/采样偏差、某相采样走线受干扰。",
+        "detection": "满载/半载测各相电流（电流探头/分流电阻）与温升；示波器看各相驱动相位；热像仪找热点；对比设计均流目标。",
+        "prevention": [
+          "按控制器 datasheet 配置均流并验证",
+          "各相功率级参数一致、布局对称",
+          "均流/采样走线等长并远离干扰源",
+          "量产后抽测各相电流/温升，换料走 ECO"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/12-power-topologies.md",
+          "SCH-RULE-PWR-001",
+          "SCH-MOD-PWR-003"
+        ],
+        "tags": [
+          "多相",
+          "不均流",
+          "过热",
+          "均流",
+          "温升"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "热插拔未限流导致母线跌落与连接器烧蚀",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-PWR-002",
+        "code": "HOTSWAP_INRUSH_EXCESS",
+        "category": "电源/热插拔",
+        "severity": "error",
+        "symptom": "板卡插入瞬间母线电压跌落、其他负载复位；连接器针脚发黑/烧蚀；热插拔 MOSFET 反复失效。",
+        "rootCause": "负载电容大且无软启动/限流，Iinrush=C×dV/dt 远超母线/连接器能力；MOSFET SOA 不足；连接器针序未先接地。",
+        "detection": "带电插拔时示波器测母线电压/启动电流；电流探头测浪涌；检查连接器与 MOSFET 温升/外观；反复插拔复现。",
+        "prevention": [
+          "加热插拔控制器/eFuse 限流与 dV/dt 软启动",
+          "按 SOA 选 MOSFET 并核算启动功耗",
+          "连接器长针地/短针电源，插拔瞬态加 TVS",
+          "插拔测试纳入量产抽检"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/12-power-topologies.md",
+          "SCH-RULE-PWR-002",
+          "SCH-MOD-PWR-004"
+        ],
+        "tags": [
+          "热插拔",
+          "浪涌",
+          "母线跌落",
+          "连接器",
+          "SOA"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "反激 RCD 钳位不足导致开关管过压击穿",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-PWR-003",
+        "code": "FLYBACK_CLAMP_INSUFFICIENT",
+        "category": "电源/隔离拓扑",
+        "severity": "error",
+        "symptom": "反激电源在满载/启动/短路时开关管 Vds 尖峰超过额定值，器件击穿；表现为无输出、保险丝断或反复炸管。",
+        "rootCause": "漏感能量未被 RCD/有源钳位有效吸收、钳位电压设计过低、变压器漏感过大、开关管 Vds 余量不足或布局寄生大。",
+        "detection": "示波器测开关管 Vds 尖峰（满载/启动/短路）；测变压器漏感；检查 RCD 元件温度/损坏；核对 Vds 降额。",
+        "prevention": [
+          "按漏感能量 E=½×Llk×Ipk² 设计 RCD 钳位",
+          "开关管 Vds 应力含钳位+尖峰，留 ≥20% 余量",
+          "变压器规格书控制漏感并做进料检验",
+          "满载/短路/启动工况均验证 Vds 尖峰"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/12-power-topologies.md",
+          "SCH-MOD-PWR-002",
+          "SCH-RULE-PWR-003"
+        ],
+        "tags": [
+          "反激",
+          "RCD钳位",
+          "漏感",
+          "开关管",
+          "过压击穿"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "版本矩阵失配导致原理图/BOM/PCB 不一致",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-DOC-001",
+        "code": "VERSION_MATRIX_DRIFT",
+        "category": "文件/变更控制",
+        "severity": "error",
+        "symptom": "产线贴装与 BOM 不符、原理图有器件而 PCB 无封装、调试用错固件版本；返修/客诉时无法确定板卡版本组合。",
+        "rootCause": "变更未走 ECO、原理图/BOM/PCB 分开发布、旧版本被覆盖或未回收、版本矩阵未更新、外协使用旧文件。",
+        "detection": "发布前做网表↔BOM↔PCB 一致性校验；随机抽板按序列号反查版本组合；核对产线/外协实际使用文件；审计归档。",
+        "prevention": [
+          "所有变更走 ECO 并同步更新版本矩阵",
+          "发布前跑一致性校验并记录结果",
+          "旧版本归档只读并回收产线旧文件",
+          "定期文档审计，抽查版本一致性"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/13-documentation-eco.md",
+          "SCH-RULE-DOC-001",
+          "SCH-MOD-DOC-001"
+        ],
+        "tags": [
+          "版本矩阵",
+          "ECO",
+          "BOM",
+          "一致性",
+          "发布"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "替代料未评估导致参数差异与批量失效",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-DOC-002",
+        "code": "SUBSTITUTE_PART_UNASSESSED",
+        "category": "BOM/替代料",
+        "severity": "error",
+        "symptom": "换料后批量出现启动失败、纹波超标、温升异常、通信不稳或认证失败；问题与原设计验证结果不一致。",
+        "rootCause": "替代料仅对比了首页参数，忽略 ESR/饱和电流/温漂/介质/封装热阻/认证状态等差异，且未做小批验证。",
+        "detection": "对比替代料 datasheet 关键参数；小批复测电性能/热/EMC；检查 BOM AVL 与 ECO 记录；抽检产线料号。",
+        "prevention": [
+          "建立替代料评估表，逐项对比关键参数并附 datasheet 页码",
+          "关键替代料做小批验证（电性能/温升/EMC/可靠性）",
+          "替代关系写入 BOM AVL，换料走 ECO",
+          "产线抽检料号与 BOM 一致性"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/13-documentation-eco.md",
+          "SCH-RULE-DOC-002",
+          "SCH-MOD-DOC-001"
+        ],
+        "tags": [
+          "替代料",
+          "BOM",
+          "AVL",
+          "批量失效",
+          "参数差异"
+        ]
+      }
+    }
+  ]
+}

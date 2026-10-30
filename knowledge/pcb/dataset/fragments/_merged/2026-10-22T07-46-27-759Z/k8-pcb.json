@@ -1,0 +1,710 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-10-22",
+  "domain": "pcb",
+  "notes": "K8-PCB 可靠性/可测试性/安规认证 fragmnet，供 Lead 合并进 knowledge/pcb/dataset/{rules,modules,failures}.json；编号接续 09/10/11 三篇文档。",
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "降额门禁：每个功率/高压/大电流器件必须算应力比并签核超限项",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-REL-DERATING-001",
+        "category": "可靠性/降额",
+        "severity": "error",
+        "statement": "投板前每个功率/高压/大电流/热敏器件必须计算主应力比（功率/电压/电流/结温）且不超过企业降额规范限值；未计算或超限未签核不得投板。常见工程起点（非标准强制值，需按企业规范/datasheet 复核）：电阻连续功率≤60%、MLCC 直流电压≤80%（并计入 DC bias 容值损失）、钽电容≤50% 且禁反接/浪涌、电感峰值≤Isat 的 80%、MOSFET VDS≤80% 且 Tj≤Tjmax−20~40°C、连接器每触点电流≤70%。",
+        "limits": [
+          "电阻连续功率 ≤ 额定 60%（高温区按曲线再降）",
+          "MLCC 直流电压 ≤ 额定 80%，须按 DC bias 修正有效容值",
+          "钽电容工作电压 ≤ 额定 50%，禁反接/低阻浪涌",
+          "电感峰值电流 ≤ Isat 的 80%（Isat 定义按 datasheet）",
+          "MOSFET VDS ≤ 80%，Tj ≤ Tjmax − 20~40°C",
+          "连接器每触点电流 ≤ 额定 70%，温升 ≤30°C（经验）"
+        ],
+        "rationale": "额定值通常是理想散热/单一应力下的极限，实际板内温度、纹波、瞬态会叠加；降额不足会在量产高温满载时集中暴露，返工成本远高于设计阶段换料。",
+        "check": "从 BOM/原理图导出工作点批量计算应力比并输出超限清单；抽查 5 个功率/高压器件复算；超限项必须更换器件/改设计/书面让步并签核；变更后重跑。",
+        "appliesTo": ["power", "analog", "connector", "reliability"],
+        "tags": ["降额", "应力比", "结温", "钽电容", "降额门禁"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "寿命预算取最短寿命件：Arrhenius/Coffin-Manson/厂商公式必须给参数来源",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-REL-LIFE-001",
+        "category": "可靠性/寿命",
+        "severity": "warning",
+        "statement": "整机/板级寿命结论必须由寿命预算得出：列出电解电容、继电器、风扇、电池、焊点等寿命相关件的估算模型与参数来源，取最短寿命件作为板级寿命。温度加速须用 Arrhenius（Ea 来自试验/厂商数据），焊点用 Coffin-Manson（n 按合金/试验标定），电解电容用厂商寿命公式并含纹波电流修正；仅用“10°C 法则”只能做方案对比，不能作为验收依据。",
+        "limits": [
+          "寿命预算覆盖电气/机械/电化学寿命件",
+          "Arrhenius：AF=exp[(Ea/k)(1/T_use−1/T_test)]，Ea 必须来自数据",
+          "Coffin-Manson：N2/N1=(ΔT1/ΔT2)^n，SAC 焊点 n 常取 1.9~2.0 量级",
+          "电解电容按厂商公式 + 纹波系数修正",
+          "最短寿命件寿命 ≥ 产品目标寿命（含安全系数）"
+        ],
+        "rationale": "平均寿命没有意义，客户感知的是第一个坏的点；寿命短板往往是电解电容/继电器/焊点等不显眼器件，不建模就无法提前更换或降额。",
+        "check": "审阅寿命预算表是否覆盖电气/机械/电化学件；抽查电解电容与焊点模型参数来源；确认最短寿命件寿命 ≥ 目标寿命（含安全系数）；用现场失效率回校模型。",
+        "appliesTo": ["power", "reliability", "thermal", "battery"],
+        "tags": ["寿命预算", "Arrhenius", "Coffin-Manson", "电解电容", "最短寿命件"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "环境试验矩阵按任务剖面裁剪，逐项写样本量/监测/失效判据",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-REL-ENV-001",
+        "category": "可靠性/环境试验",
+        "severity": "warning",
+        "statement": "环境与可靠性试验矩阵必须从任务剖面生成，至少覆盖低温/高温工作与存储、温度变化、湿热（含偏压）、振动、机械冲击、跌落/运输、腐蚀（按使用环境），并逐项写明标准方法、严酷等级、样本量、试验中监测项与失效判据；无样本量或无判据的“通过”不算证据。",
+        "limits": [
+          "试验项与任务剖面一一对应",
+          "每项必须写样本量 n、失效判据、允许失效数（通常 0 失效）",
+          "湿热项必须含偏压与在线监测",
+          "温度循环须确认整板均温（驻留足够）",
+          "试验前后功能/参数数据齐全"
+        ],
+        "rationale": "不按剖面裁剪会做多（浪费）或做少（漏风险）；没有样本量与判据的试验无法支撑统计结论，也无法在客户/认证审核时自证。",
+        "check": "核对矩阵与任务剖面一致性；检查每项样本量/判据/监测记录；抽查温度曲线与失效分析；确认湿热项含偏压与在线监测；报告是否含原始数据。",
+        "appliesTo": ["reliability", "environment", "qualification"],
+        "tags": ["环境试验", "IEC 60068", "任务剖面", "样本量", "失效判据"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "焊点热循环按 IPC-9701 验证，Coffin-Manson 参数需按合金标定",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-REL-THERMALCYCLE-001",
+        "category": "可靠性/热循环",
+        "severity": "warning",
+        "statement": "焊点热疲劳按 IPC-9701 方法验证：按任务剖面最恶劣 ΔT 与循环数用 Coffin-Manson（N2/N1=(ΔT1/ΔT2)^n，SAC 焊点 n 常取 1.9~2.0 量级，需按合金/试验标定）估算寿命；BGA/QFN/大铜面/连接器焊点必须纳入；热循环试验需在线监测并做失效分析（裂纹位置/形貌）。",
+        "limits": [
+          "ΔT 与循环数来自任务剖面最恶劣工况",
+          "Coffin-Manson n 值按合金/焊点形状/试验数据标定",
+          "BGA/QFN/大铜面/连接器焊点 100% 纳入评估",
+          "热循环试验按 IPC-9701 执行并记录温度曲线",
+          "失效分析定位裂纹位置/形貌"
+        ],
+        "rationale": "焊点失效是 CTE 失配导致的塑性应变累积，ΔT 是最敏感变量；ΔT 从 60°C 增到 80°C 按 n=2 寿命只剩约 56%，不建模会显著高估寿命。",
+        "check": "检查 ΔT/循环数来源与模型参数；确认试验按 IPC-9701 执行并记录温度曲线；失效做切片/染色分析；对短板焊点做布局/工艺改进。",
+        "appliesTo": ["solder-joint", "bga", "qfn", "thermal-cycle", "reliability"],
+        "tags": ["热循环", "焊点疲劳", "Coffin-Manson", "IPC-9701", "CTE"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "可测网络覆盖率门禁：关键网络 100%，整体建议 ≥95%",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-TEST-COVERAGE-001",
+        "category": "可测试性/覆盖率",
+        "severity": "warning",
+        "statement": "投板前必须统计可测网络覆盖率并设门禁：关键网络（每个电源域、地、复位、时钟、调试口、关键通信/模拟节点）覆盖率 100%，整体可测网络覆盖率建议 ≥95%（按产品等级在测试规范中定义）；未覆盖网络必须列出替代手段（边界扫描/FCT/飞针）并经 DFT 评审签核。",
+        "limits": [
+          "关键网络（电源域/地/复位/时钟/调试口）覆盖率 100%",
+          "整体可测网络覆盖率建议 ≥95%（项目定义）",
+          "未覆盖网络必须有替代测试手段",
+          "覆盖率报告随版本归档，版本变更后不得回退"
+        ],
+        "rationale": "没有覆盖率的可测性无法验收；缺口往往集中在 BGA、屏蔽罩内、连接器背面等最难测也最易失效的位置。",
+        "check": "从 EDA 导出网络清单与测试点清单做差集；检查关键网络是否 100% 可测；缺口清单与替代手段；版本变更后覆盖率是否回退；试产实测覆盖率。",
+        "appliesTo": ["test", "dft", "ict", "fct", "production"],
+        "tags": ["可测性", "覆盖率", "DFT", "门禁", "测试点"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "边界扫描链与覆盖率：TAP 连通、BSDL 对齐、1149.6 场景单独评估",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-TEST-BSCAN-001",
+        "category": "可测试性/边界扫描",
+        "severity": "warning",
+        "statement": "使用 IEEE 1149.1 边界扫描的板子必须验证：TAP（TCK/TMS/TDI/TDO，可选 TRST）链路连通、未用 TAP 引脚按 datasheet 处理不悬空、链路长度/TCK 频率满足时序、BSDL 版本与器件一致；覆盖率分互连覆盖率与器件覆盖率统计并列出未覆盖原因（无边界扫描单元/AC 耦合/电源模拟网络）；AC 耦合或差分链路按 IEEE 1149.6 评估。",
+        "limits": [
+          "TAP 链路连通、IDCODE 可读",
+          "未用 TAP 引脚不得悬空（按 datasheet 上拉/下拉）",
+          "链路长度/TCK 频率满足时序",
+          "BSDL 版本与 BOM 器件版本一致",
+          "互连覆盖率/器件覆盖率分开统计（目标按项目定义）"
+        ],
+        "rationale": "BGA 底部焊点无法用探针直接测，边界扫描能在不加测试点的情况下验证互连；但链路/电平/BSDL 任一环节错误都会让测试无法执行，误以为“已覆盖”。",
+        "check": "读 IDCODE/链路连通测试；核对 BSDL 与 BOM 器件版本；用工具生成互连/器件覆盖率报告；检查 AC 耦合链路的 1149.6 覆盖；试产验证扫描程序。",
+        "appliesTo": ["test", "jtag", "bga", "dft"],
+        "tags": ["边界扫描", "JTAG", "IEEE 1149.1", "1149.6", "BSDL"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "爬电/间隙按标准表计算：四输入齐全并留裕量，隔离带禁跨接",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-CREEPAGE-001",
+        "category": "安规/间距",
+        "severity": "error",
+        "statement": "每处绝缘跨接必须按实测工作电压、污染等级（PD1/PD2/PD3）、材料组（CTI：I≥600 / II 400~599 / IIIa 175~399 / IIIb 100~174）与过压类别查 IEC 62368-1 / IEC 60664-1 表得到爬电距离与电气间隙，并留设计裕量；常见工程引用值（非标准原文，仅供理解量级）：250V RMS、PD2、材料组 IIIa 的基本绝缘爬电距离约 2.5mm 量级。爬电与间隙分别检查，隔离带下所有层禁走线/铺铜。",
+        "limits": [
+          "跨接清单逐项含工作电压/绝缘类型/污染等级/材料组/过压类别",
+          "爬电距离按标准表值 × 设计裕量",
+          "电气间隙按冲击电压/过压类别/海拔修正",
+          "隔离带下方所有层无铜/无走线（认证允许的跨接器件除外）",
+          "材料 CTI/UL 94 阻燃等级有报告"
+        ],
+        "rationale": "爬电不足在潮湿/污染下会漏电起痕甚至起火；间隙不足会在瞬态/高海拔下空气击穿；固定经验毫米数在不同污染等级/材料组下可能不足或过度。",
+        "check": "跨接清单逐项核对工作电压/绝缘类型/污染等级/材料组；PCB 实测间距（含阻焊下铜）；隔离带 keepout 截图；耐压/绝缘电阻测试；认证机构预评估。",
+        "appliesTo": ["high-voltage", "ac-dc", "isolation", "safety"],
+        "tags": ["安规", "爬电距离", "电气间隙", "IEC 62368-1", "IEC 60664-1"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "隔离器件必须有安规证书，隔离带与耐压测试可追溯",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-ISOLATION-001",
+        "category": "安规/隔离",
+        "severity": "error",
+        "statement": "跨隔离带的 Y 电容、光耦、数字隔离器、变压器、隔离电源必须按绝缘类型（基本/加强）选型并持有有效安规证书，证书型号与 BOM 一致；隔离带下方所有层无铜/无走线（除认证允许的跨接器件），隔离两侧地不直接相连；耐压测试区分型式试验与产线例行试验，参数/判据/失效分析可追溯。",
+        "limits": [
+          "隔离器件证书型号与 BOM 双向一致",
+          "隔离带下方所有层无铜/无走线",
+          "隔离两侧地不直接相连（按拓扑允许的 Y 电容除外）",
+          "耐压参数按绝缘类型/工作电压与标准/认证机构文件",
+          "型式试验与产线例行试验分别定义并记录"
+        ],
+        "rationale": "隔离器件是认证件，用错型号/无证书会导致整机认证失败；隔离带下走线会直接短路隔离；耐压参数错误会损伤绝缘或漏检。",
+        "check": "隔离带 keepout 检查；关键隔离件证书台账与 BOM 双向核对；隔离耐压/绝缘电阻测试记录；型式/例行耐压参数与标准/认证机构文件一致。",
+        "appliesTo": ["isolation", "ac-dc", "industrial", "safety"],
+        "tags": ["隔离", "Y 电容", "光耦", "耐压", "安规证书"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "EMC 按发射/抗扰/谐波分项认证，预测试留 ≥6dB 量级裕量",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-EMC-001",
+        "category": "认证/EMC",
+        "severity": "error",
+        "statement": "目标市场 EMC 必须按发射（CISPR 32 / EN 55032 / GB/T 9254.1 / FCC Part 15B）、抗扰（CISPR 35 / EN 55035 / IEC 61000-4 系列 / GB/T 17626）、谐波/闪烁（IEC 61000-3-2/-3-3）分别列项测试；正式认证前必须做预测试并留 ≥6dB 量级裕量（经验值，按标准/产品调整），送样按最不利配置（最长线缆/最大负载/外壳屏蔽与量产一致）并记录；整改按“接口/线缆→滤波/回流→屏蔽→改板”顺序单项验证。",
+        "limits": [
+          "发射/抗扰/谐波/闪烁四类标准分项列全",
+          "预测试发射项建议留 ≥6dB 量级裕量（经验）",
+          "认证样品为最不利配置且与量产 BOM/结构一致",
+          "整改单项验证并记录效果",
+          "正式报告覆盖全部适用项"
+        ],
+        "rationale": "EMC 是“发射 + 抗扰 + 电能质量”的组合，漏项会导致证书不全或抽查不合格；裕量不足会在正式测试时“差一点超标”，反复送样延误上市。",
+        "check": "EMC 标准矩阵与目标市场对应；预测试报告与裕量；认证样品配置清单与量产 BOM 对比；整改项单项效果记录；正式报告覆盖全部适用项。",
+        "appliesTo": ["emc", "certification", "ce", "fcc", "ccc"],
+        "tags": ["EMC", "CISPR 32", "IEC 61000-4", "预测试", "认证裕量"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电池双合规：使用安全（GB 31241/IEC 62133-2）+ 运输（UN38.3）",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-SAFE-BATTERY-001",
+        "category": "安规/电池",
+        "severity": "error",
+        "statement": "含锂电池产品必须同时满足使用安全与运输要求：电池/电池组按 GB 31241-2022（或目标市场 IEC 62133-2 / UL 2054 / UL 1642）评估，运输按 UN38.3 T1~T8 完成并保留测试摘要；BMS/保护板至少具备过充、过放、过流/短路、温度保护，并评估 MOS/保护 IC 单点失效的二级防护；电芯/电池组证书型号、容量、温度范围必须与整机 BOM 和使用条件一致。",
+        "limits": [
+          "使用安全报告：GB 31241-2022 / IEC 62133-2 / UL 2054 / UL 1642",
+          "运输报告：UN38.3 T1~T8 + 测试摘要",
+          "BMS 保护：过充/过放/过流/短路/温度",
+          "MOS/保护 IC 单点失效需有二级防护",
+          "电池证书型号/容量/温度范围与 BOM 一致"
+        ],
+        "rationale": "运输测试只证明“可运输”，不证明“使用安全”；保护单点失效会让电池直接短路/起火；证书型号不匹配会被认证机构/货代拒收。",
+        "check": "核对电池/电芯证书与 BOM；GB 31241/UN38.3 报告与测试摘要；保护功能测试（过充/过放/短路/温度）；二级防护与失效模式分析；CCC/认证机构文件引用。",
+        "appliesTo": ["battery", "bms", "safety", "transport"],
+        "tags": ["电池", "GB 31241", "UN38.3", "IEC 62133-2", "BMS"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "降额与应力比设计流程",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-REL-DERATING",
+        "category": "可靠性/降额",
+        "purpose": "把器件额定值翻译成可执行的工作裕量，建立“工作点→应力比→超限清单→签核”的降额闭环。",
+        "whenToUse": "所有含功率/高压/大电流/热敏器件的板子；电源、充电、电机驱动、工业接口板必须做；产品降额规范建立或评审时使用。",
+        "designPoints": [
+          "先定任务剖面与最恶劣工作点，再选器件额定值",
+          "按器件类型分别计算功率/电压/电流/结温应力比",
+          "MLCC 按 DC bias 修正容值，钽电容禁反接/浪涌",
+          "电感同时校核 Isat/Irms/DCR，MOSFET 校核 SOA/EAS",
+          "连接器按每触点电流与温升降额，大电流多针并联",
+          "超限项必须更换/改设计/书面让步并签核"
+        ],
+        "keyParameters": [
+          "应力比 = 实际工作值 ÷ 额定值",
+          "工程起点：电阻功率≤60%、MLCC 电压≤80%、钽电容≤50%、连接器触点≤70%",
+          "结温目标 Tj ≤ Tjmax − 20~40°C",
+          "限值以企业规范/器件 datasheet 为准"
+        ],
+        "schematic": "原理图阶段标注关键工作点（电压/电流/功耗/温度），对功率与高压网络建降额检查表；换料走应力比复算。",
+        "layout": "降额与热布局联动：功率器件分散、热过孔/铜皮按功耗设计，避免局部热点叠加。",
+        "pitfalls": [
+          "只按平均电流选型，漏掉峰值/浪涌",
+          "MLCC 只看额定电压，忽略 DC bias 容值下降",
+          "钽电容反接或低阻浪涌导致短路失效",
+          "换料不复算应力比，量产高温时集中失效"
+        ],
+        "tags": ["降额", "应力比", "热设计", "选型", "可靠性"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "环境与可靠性试验矩阵（IEC 60068/JESD/IPC-9592B）",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-REL-ENV",
+        "category": "可靠性/试验",
+        "purpose": "用任务剖面驱动的试验矩阵证明板级/整机在温度、湿热、机械、腐蚀应力下扛得住，并保留可追溯证据。",
+        "whenToUse": "新产品鉴定、设计变更、换板厂/换料、客户要求环境试验报告、认证前的可靠性摸底。",
+        "designPoints": [
+          "从任务剖面生成试验矩阵（温度/湿热/振动/冲击/跌落/腐蚀）",
+          "每项写标准方法、严酷等级、样本量、监测项、失效判据",
+          "湿热项必须含偏压与在线监测（THB/HAST）",
+          "温度循环确认整板均温，区分热冲击与温度循环",
+          "机械试验分使用环境与运输环境两套条件",
+          "失效必须做失效分析并回写设计/工艺"
+        ],
+        "keyParameters": [
+          "试验标准：IEC 60068-2-1/-2-2/-2-14/-2-27/-2-64/-2-78、JESD22-A101/A104/A110、IPC-9592B §5",
+          "样本量/判据按产品等级与客户要求",
+          "允许失效数通常为 0（按规范）",
+          "加速试验外推前先确认失效机理一致"
+        ],
+        "schematic": "不涉及原理图；需确认试验通电状态、偏压值与监测点定义。",
+        "layout": "布局上为大热质量/高件/连接器预留热电偶与监测点位置；试验夹具模拟实际安装。",
+        "pitfalls": [
+          "试验项与任务剖面不对应，漏掉湿热/振动",
+          "无样本量/判据，报告无法支撑结论",
+          "湿热不加偏压，测不到电化学迁移",
+          "加速应力过高引入新失效机理，外推失真"
+        ],
+        "tags": ["环境试验", "IEC 60068", "JESD22", "IPC-9592B", "鉴定"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "FMEA/HALT/MTBF 可靠性分析与增长",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-REL-FMEA",
+        "category": "可靠性/分析",
+        "purpose": "用 FMEA 找高风险失效模式、用 HALT 找设计极限、用 MTBF/寿命模型量化风险，并形成可靠性增长闭环。",
+        "whenToUse": "新设计评审、关键单点识别、可靠性目标分解、客户要求 FMEA/MTBF 报告、现场失效复盘。",
+        "designPoints": [
+          "DFMEA 覆盖功能块：失效模式/后果/原因/探测/措施",
+          "高严重度单点失效必须冗余/保护/加严",
+          "HALT 找工作/破坏极限，HASS 由 HALT 定限",
+          "MTBF 必须写标准/版本/假设，不可与寿命混淆",
+          "FTA 识别最小割集与关键单点",
+          "现场数据/ORT 回写 FMEA 与选型"
+        ],
+        "keyParameters": [
+          "FMEA 方法：IEC 60812 / AIAG-VDA FMEA（AP 替代 RPN）",
+          "MTBF 方法：Telcordia SR-332 / MIL-HDBK-217F / IEC 61709（需声明）",
+          "HALT/HASS：IPC-9592B §5.2.3 / §7.3.2",
+          "FIT = 10^9 / MTBF(h)"
+        ],
+        "schematic": "FMEA 从原理图功能块/电源树/接口清单展开；关键单点在原理图标注保护/冗余。",
+        "layout": "布局评审把 FMEA 高风险项（热、隔离、连接器应力）作为检查项；HALT 失效位置回写布局规则。",
+        "pitfalls": [
+          "FMEA 只打分不闭环措施",
+          "把 HALT 通过当作鉴定/寿命证明",
+          "MTBF 不同标准/假设直接横比",
+          "忽略单点失效，平均失效率低但事故严重"
+        ],
+        "tags": ["FMEA", "HALT", "HASS", "MTBF", "FTA", "可靠性增长"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "测试点与 ICT 治具设计",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-DFT-ICT",
+        "category": "可测试性/ICT",
+        "purpose": "通过测试点、测试盘几何与治具设计，让针床 ICT 能稳定测到开路/短路/元件值/极性，并控制误判与漏判。",
+        "whenToUse": "有批量生产计划的板子；高密度/BGA/双面/屏蔽罩产品；治具设计与 ICT 程序开发阶段。",
+        "designPoints": [
+          "测试盘直径/间距/网格与治具厂规格一致（100mil/50mil）",
+          "测试盘阻焊开窗露铜，不被塞孔/盖油",
+          "测试点单面集中，避开高件/板边/V-CUT/屏蔽罩遮挡",
+          "每个电源域/地/复位/时钟/调试口必测",
+          "并联网络用 guarding，大电容/低阻节点设稳定时间",
+          "治具定义探针力/导向/防呆/寿命与点检"
+        ],
+        "keyParameters": [
+          "常见测试盘 0.9~1.3mm，中心距 2.54mm 或 1.27mm（按治具厂）",
+          "探针弹簧力常见 1.5~2.5N/支（按型号）",
+          "ICT 测试电压/电流限制避免导通半导体结",
+          "误判率/漏判率分开统计"
+        ],
+        "schematic": "原理图给测试点独立位号/命名规范，标注 ICT 难点网络（并联/大电容/低阻/高压）。",
+        "layout": "布局把测试点作为约束层：单面、网格对齐、避遮挡；测试过孔开窗；与拼板/治具 3D 联合检查。",
+        "pitfalls": [
+          "测试盘太小/太密导致探针打滑误触",
+          "测试点被高件/屏蔽罩遮挡，治具无法到达",
+          "并联网络未 guarding 导致误判",
+          "探针磨损/测试盘氧化导致接触不良"
+        ],
+        "tags": ["ICT", "测试点", "治具", "探针", "可测试性"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "FCT 与量产测试流程",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-DFT-FCT",
+        "category": "可测试性/产测",
+        "purpose": "用功能测试与产测流程覆盖 ICT 测不到的功能/参数/接口，并通过防错、版本对齐、数据闭环保证量产质量。",
+        "whenToUse": "新产品导入（NPI）、产线建设、测试程序开发、量产良率/误判率异常分析。",
+        "designPoints": [
+          "FCT 覆盖上电/复位/电源时序/通信/IO/传感器/软件版本",
+          "覆盖边界条件（最低/最高输入、空载/满载）",
+          "流程：SPI→AOI→X-ray→ICT→FCT→老化→终检",
+          "条码/MES 防错，机型与程序自动绑定",
+          "测试程序/治具/固件/BOM 同版本基线",
+          "采集 FPY/DPPM/误判率/漏判率并做趋势"
+        ],
+        "keyParameters": [
+          "FCT 判据必须量化（电压范围/误码/响应时间）",
+          "复测次数上限与不合格品处理规则",
+          "老化条件按产品等级（见 09 篇）",
+          "测试节拍与产能匹配"
+        ],
+        "schematic": "原理图定义调试口/测试连接器与关键功能测试节点；FCT 工装接口与板级连接器匹配。",
+        "layout": "布局预留 FCT 连接器/指示灯可视/探针空间；调试口可达；测试点与工装对位。",
+        "pitfalls": [
+          "FCT 只测“能开机”，漏掉电源时序/通信/边界条件",
+          "程序/治具/BOM 版本不一致导致批量误判",
+          "没有防错，不同机型程序混用",
+          "老化被当作 ICT/FCT 的替代"
+        ],
+        "tags": ["FCT", "产测", "NPI", "防错", "良率", "追溯"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "边界扫描（JTAG）测试设计",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-DFT-BSCAN",
+        "category": "可测试性/边界扫描",
+        "purpose": "利用器件边界扫描单元测试高密度互连（BGA/连接器），在不加测试点的情况下验证开路/短路与器件存在。",
+        "whenToUse": "含 MCU/FPGA/CPLD/支持 JTAG 接口芯片的板子；BGA 密集、测试点空间不足、连接器互连需验证时。",
+        "designPoints": [
+          "选型确认器件支持 IEEE 1149.1（AC 耦合/差分评估 1149.6）",
+          "TAP 信号引到调试口，链路短、分支少",
+          "未用 TAP 引脚按 datasheet 上拉/下拉，不悬空",
+          "链路长度/TCK 频率满足时序，必要时多链/缓冲",
+          "BSDL 版本与 BOM 器件一致",
+          "互连覆盖率与器件覆盖率分开统计"
+        ],
+        "keyParameters": [
+          "TAP：TCK/TMS/TDI/TDO（可选 TRST）",
+          "参考电压/电平与器件 IO 匹配",
+          "互连覆盖率目标按项目定义（高密度板建议 ≥90%，需实测）",
+          "AC 耦合链路用 IEEE 1149.6"
+        ],
+        "schematic": "原理图画出 TAP 链路拓扑/链序/上拉下拉/串联电阻/ESD，标注每颗器件的 BSDL 版本。",
+        "layout": "TAP 走线短、参考地完整、避免跨分割；调试口靠板边；链路器件按链序布局减少绕线。",
+        "pitfalls": [
+          "TAP 引脚悬空或上下拉错误，链路不通",
+          "链路过长/TCK 过快导致时序失败",
+          "BSDL 与器件版本不符，测试向量错误",
+          "AC 耦合链路未用 1149.6，误以为已覆盖"
+        ],
+        "tags": ["边界扫描", "JTAG", "IEEE 1149.1", "BGA", "互连测试"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "安规设计：能量源分级、间距、隔离与耐压",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-CERT-SAFETY",
+        "category": "安规/认证",
+        "purpose": "按 IEC 62368-1/60664-1 体系完成能量源分级、绝缘配合、爬电/间隙、隔离与耐压设计，形成可认证的板级安规证据。",
+        "whenToUse": "含市电/适配器输入、高压、隔离接口或对外可触及金属的产品；CCC/CE/UL/CB 认证前。",
+        "designPoints": [
+          "先定产品类别/适用标准/目标市场",
+          "画能量源分级（ES/PS/TS/RS）与可触及部件关系",
+          "每处跨接标注绝缘类型（功能/基本/附加/双重/加强）",
+          "间距四输入：工作电压/污染等级/材料组/过压类别+海拔",
+          "隔离带 keepout，隔离器件用认证件",
+          "耐压分型式/例行，失效分析可追溯"
+        ],
+        "keyParameters": [
+          "标准：IEC 62368-1、IEC 60664-1、IEC 60112（CTI）",
+          "材料组：I≥600 / II 400~599 / IIIa 175~399 / IIIb 100~174",
+          "常见引用（非标准原文）：250V RMS/PD2/IIIa 基本绝缘爬电约 2.5mm 量级",
+          "具体数值必须按标准正本/认证机构文件"
+        ],
+        "schematic": "原理图划分危险电压区/一次侧/二次侧/SELV/可触及件；标注跨接器件与绝缘类型；市电区保护器件按安规选型。",
+        "layout": "隔离带所有层禁铜/走线；爬电/间隙按标准表留裕量；需要时开槽/加筋/涂覆并验证；市电区 L/N/PE 与保护器件位置合规。",
+        "pitfalls": [
+          "标准选错或版本过期，整套测试无效",
+          "间距套固定经验毫米数，未按污染等级/材料组计算",
+          "隔离带下走线/铺铜短路隔离",
+          "耐压参数过高损伤绝缘或过低漏检"
+        ],
+        "tags": ["安规", "IEC 62368-1", "爬电距离", "隔离", "耐压"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "EMC 认证与预测试",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-CERT-EMC",
+        "category": "认证/EMC",
+        "purpose": "按目标市场把发射/抗扰/谐波/闪烁标准列全，用预测试与裕量管理降低正式认证失败风险。",
+        "whenToUse": "CE/FCC/CCC 认证前、EMC 整改、产品换板/换结构/换线缆、客户要求 EMC 报告时。",
+        "designPoints": [
+          "按市场列 EMC 标准矩阵（发射/抗扰/谐波/闪烁）",
+          "认证前做预测试，发射项留 ≥6dB 量级裕量",
+          "送样按最不利配置（最长线缆/最大负载/量产外壳）",
+          "整改顺序：接口/线缆→滤波/回流→屏蔽→改板",
+          "整改单项验证，避免多项同改无法归因",
+          "关键件（Y 电容/共模电感/屏蔽件）与量产一致"
+        ],
+        "keyParameters": [
+          "发射：CISPR 32 / EN 55032 / GB/T 9254.1 / FCC Part 15B",
+          "抗扰：CISPR 35 / EN 55035 / IEC 61000-4 系列 / GB/T 17626",
+          "谐波/闪烁：IEC 61000-3-2 / -3-3",
+          "裕量 ≥6dB 为经验值，按标准/产品调整"
+        ],
+        "schematic": "原理图接口处预留共模电感/TVS/滤波位置；电源入口滤波与 Y 电容按安规选型；时钟/开关频率可配置以避开敏感频点。",
+        "layout": "接口靠板边、滤波靠接口、回流短；屏蔽罩/板边过孔墙按最高频率；线缆屏蔽与板地低阻抗连接。",
+        "pitfalls": [
+          "只做辐射发射，漏掉抗扰/谐波/闪烁",
+          "用理想配置过认证，量产线缆/外壳后超标",
+          "裕量不足，正式测试“差一点”反复送样",
+          "一次改多项，无法判断哪项有效"
+        ],
+        "tags": ["EMC", "预测试", "CE", "FCC", "认证", "裕量"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "降额不足导致高温满载过热/寿命不足",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-REL-DERATE-OVER",
+        "code": "DERATE_OVER",
+        "category": "可靠性/降额",
+        "severity": "error",
+        "symptom": "量产高温/满载时电源器件过热、效率下降、寿命不足，甚至烧毁；现场失效率高于预测，返修集中在同一器件位置。",
+        "rootCause": "降额不足（功率/电压/结温裕量小）、热设计差（铜皮/过孔不足）、BOM 换料未复算应力比、任务剖面未取最恶劣工况。",
+        "detection": "降额表复算；热像仪/热电偶测壳温并反推结温；高温满载老化；失效分析（烧毁位置/金相/电迁移）。",
+        "prevention": [
+          "投板前 100% 关键器件算应力比并签核超限项",
+          "按最恶劣任务剖面选型，高温区再降额",
+          "热布局/热过孔/铜皮按功耗设计并实测验证",
+          "换料必须复算应力比并走 ECO",
+          "量产做高温满载抽测与 ORT"
+        ],
+        "refs": ["docs/knowledge/pcb/09-reliability-derating.md", "PCB-RULE-REL-DERATING-001", "PCB-RULE-THERMAL-001"],
+        "tags": ["降额", "过热", "结温", "失效", "换料"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "温度循环后焊点疲劳开裂（BGA/QFN/大铜面）",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-REL-THERMAL-FATIGUE",
+        "code": "THERMAL_FATIGUE",
+        "category": "可靠性/热循环",
+        "severity": "error",
+        "symptom": "温度循环/开关机循环后 BGA/QFN/大铜面/连接器焊点开裂，出现间歇失效、开路或参数漂移；切片可见沿焊点界面的裂纹。",
+        "rootCause": "CTE 失配 + ΔT 大 + 循环次数超寿命 + 焊点应力集中（大铜面/散热焊盘/过孔/连接器受力）；布局/焊盘/工艺不当加剧。",
+        "detection": "按 IPC-9701 做热循环并在线监测；切片/染色/CT 扫描看裂纹；X-ray 对裂纹有限；失效板做电测定位。",
+        "prevention": [
+          "按最恶劣 ΔT/循环数用 Coffin-Manson 估算寿命",
+          "BGA/QFN/大铜面/连接器焊点纳入热循环评估",
+          "布局避免大热质量与刚性约束叠加，连接器加补强",
+          "按 datasheet 设计焊盘/散热过孔/阻焊",
+          "新工艺/新板厂做热循环验证"
+        ],
+        "refs": ["docs/knowledge/pcb/09-reliability-derating.md", "PCB-RULE-REL-THERMALCYCLE-001", "docs/knowledge/pcb/07-multilayer-highspeed.md"],
+        "tags": ["焊点疲劳", "热循环", "BGA", "CTE", "开裂"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "离子污染/湿热偏压导致绝缘劣化与电化学迁移",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-REL-CONTAM",
+        "code": "IONIC_CONTAM",
+        "category": "可靠性/污染",
+        "severity": "warning",
+        "symptom": "湿热/偏压后绝缘电阻下降、漏电增大、出现电化学迁移/枝晶甚至短路；清洗不良批次集中出现，干燥后可能暂时恢复。",
+        "rootCause": "助焊剂残留/离子污染、清洗不彻底、三防涂覆不良（针孔/边缘未覆盖）、湿热环境+偏压、表面处理不当。",
+        "detection": "离子污染度测试（ROSE）；SIR/THB/HAST；绝缘电阻监测；显微/EDS 分析枝晶与腐蚀产物。",
+        "prevention": [
+          "按工艺要求清洗并做离子污染度抽测",
+          "高湿/高可靠产品做三防涂覆并验证覆盖率/厚度",
+          "湿热试验含偏压与在线监测",
+          "布局加大间距/避免露铜，必要时开槽",
+          "来料/助焊剂/清洗液变更做验证"
+        ],
+        "refs": ["docs/knowledge/pcb/09-reliability-derating.md", "PCB-RULE-REL-ENV-001", "PCB-RULE-ML-CAF-001"],
+        "tags": ["离子污染", "电化学迁移", "SIR", "THB", "绝缘电阻"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "ICT 误判/接触不良导致良品被判不良",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-TEST-ICT-FALSE",
+        "code": "ICT_FALSE_CALL",
+        "category": "可测试性/ICT",
+        "severity": "warning",
+        "symptom": "ICT 把良品判为不良、复测通过；或读数漂移/时好时坏；产线误判率升高，返修与报废成本上升。",
+        "rootCause": "测试盘氧化/污染/助焊剂残留、探针磨损/压力不足、治具偏位、程序判据过严、GND 回路不足、并联网络未 guarding。",
+        "detection": "标准板/标准电阻日常校验；接触电阻抽测；误判分类统计；复测对比；探针更换记录。",
+        "prevention": [
+          "测试盘开窗露铜并规定清洁/点检周期",
+          "探针按寿命更换，治具防呆与导向到位",
+          "程序判据按器件公差与测量系统能力设定",
+          "GND 测试点均匀分布，并联网络用 guarding",
+          "误判率/漏判率分开统计并做趋势"
+        ],
+        "refs": ["docs/knowledge/pcb/10-testability-production-test.md", "PCB-RULE-TEST-COVERAGE-001", "PCB-RULE-TESTPOINT-001"],
+        "tags": ["ICT", "误判", "接触不良", "探针", "治具"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "测试覆盖缺口导致不良流出到客户",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-TEST-COVERAGE-GAP",
+        "code": "TEST_COVERAGE_GAP",
+        "category": "可测试性/覆盖率",
+        "severity": "error",
+        "symptom": "量产 ICT/FCT 全通过，但现场出现开路/错件/功能失效；追溯发现该网络无测试点、未被程序覆盖或测试资产与 BOM 版本不一致。",
+        "rootCause": "DFT 介入晚、覆盖率无门禁、关键网络未加测试点、缺陷谱未分层、程序/治具/BOM 版本漂移。",
+        "detection": "可测网络覆盖率差集；缺陷谱×测试层矩阵；现场失效回溯测试记录；试产漏判分析；版本一致性核对。",
+        "prevention": [
+          "原理图/布局冻结前做 DFT 评审并设覆盖率门禁",
+          "关键网络 100% 可测，缺口列替代手段",
+          "建立缺陷谱×测试层矩阵，确保每类缺陷有手段",
+          "测试程序/治具/固件/BOM 同版本基线，ECO 同步",
+          "小批量试产验证覆盖率与漏判率"
+        ],
+        "refs": ["docs/knowledge/pcb/10-testability-production-test.md", "PCB-RULE-TEST-COVERAGE-001", "PCB-RULE-BOM-001"],
+        "tags": ["覆盖率", "漏判", "DFT", "版本漂移", "流出"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "边界扫描链断裂/不可测，高密度互连失去覆盖",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-TEST-BSCAN-CHAIN",
+        "code": "BSCAN_CHAIN_FAIL",
+        "category": "可测试性/边界扫描",
+        "severity": "warning",
+        "symptom": "JTAG 链路无法连通、IDCODE 读错或互连测试失败；BGA 互连无法验证，量产只能靠 FCT 或漏检，返修定位困难。",
+        "rootCause": "TAP 引脚悬空/上下拉错误、链路过长/TCK 过快、电平/参考电压不匹配、BSDL 与器件版本不符、AC 耦合链路未用 1149.6、TAP 无 ESD 保护。",
+        "detection": "IDCODE/链路连通测试；示波器看 TCK/TDO 波形；BSDL 版本核对；覆盖率报告；扫描程序试产验证。",
+        "prevention": [
+          "TAP 走线短、分支少、参考地完整",
+          "未用 TAP 引脚按 datasheet 上拉/下拉，不悬空",
+          "链路长度/TCK 频率满足时序，必要时多链/缓冲",
+          "BSDL 版本与 BOM 器件一致并随 ECO 更新",
+          "AC 耦合/差分链路按 IEEE 1149.6 评估"
+        ],
+        "refs": ["docs/knowledge/pcb/10-testability-production-test.md", "PCB-RULE-TEST-BSCAN-001"],
+        "tags": ["边界扫描", "JTAG", "TAP", "BSDL", "链路"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "爬电距离不足/隔离带被跨越导致打火与耐压击穿",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-SAFE-CREEPAGE",
+        "code": "CREEPAGE_FLASHOVER",
+        "category": "安规/间距",
+        "severity": "error",
+        "symptom": "高压/市电区在潮湿/污染/瞬态下爬电打火、绝缘电阻下降、耐压击穿，严重时碳化短路/起火；认证耐压项失败或现场出现漏电麻手。",
+        "rootCause": "间距按经验值而非标准表、污染等级/材料组/海拔未声明、隔离带被走线/铺铜跨越、开槽/涂覆不符合标准条件、表面污染/助焊剂残留。",
+        "detection": "间距实测（含阻焊下铜）；耐压/绝缘电阻；湿热后复测；失效分析（碳化路径/枝晶）；认证预评估。",
+        "prevention": [
+          "跨接清单逐项按标准表计算爬电/间隙并留裕量",
+          "声明污染等级/材料组/过压类别/海拔并留证据",
+          "隔离带所有层 keepout，禁止走线/铺铜",
+          "开槽/加强筋/涂覆按标准条件设计并验证",
+          "认证前做耐压/绝缘电阻预测试"
+        ],
+        "refs": ["docs/knowledge/pcb/11-safety-certification.md", "PCB-RULE-SAFE-CREEPAGE-001", "PCB-RULE-CREEPAGE-001"],
+        "tags": ["爬电距离", "打火", "耐压", "隔离", "安规"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "电池保护失效/单点失效导致过充、鼓包或起火",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-SAFE-BATTERY",
+        "code": "BATTERY_PROTECTION_FAIL",
+        "category": "安规/电池",
+        "severity": "error",
+        "symptom": "电池过充/过放/外部短路时保护不动作或误动作，电池鼓包/起火/漏液；GB 31241/UN38.3 测试失败，或运输/认证被拒。",
+        "rootCause": "保护阈值设置错误、MOS/保护 IC 单点失效无二级防护、电芯证书与 BOM 不符、运输样品状态与量产不一致、充电器与 BMS 配合不当。",
+        "detection": "保护功能测试（过充/过放/短路/温度）；滥用测试；电池报告核对；失效分析（MOS/IC 失效）；运输报告与 BOM 一致性检查。",
+        "prevention": [
+          "按电芯 datasheet 设定保护阈值并验证",
+          "加二级保护（二级 IC/保险丝/PTC）覆盖 MOS/IC 单点失效",
+          "充电器与 BMS 联合验证，防误保护/不起保护",
+          "电池/电芯证书型号与 BOM/整机条件一致",
+          "UN38.3 按最终出货状态送样并保留测试摘要"
+        ],
+        "refs": ["docs/knowledge/pcb/11-safety-certification.md", "PCB-RULE-SAFE-BATTERY-001", "docs/knowledge/pcb/09-reliability-derating.md"],
+        "tags": ["电池", "过充", "BMS", "GB 31241", "UN38.3", "二级保护"]
+      }
+    }
+  ]
+}

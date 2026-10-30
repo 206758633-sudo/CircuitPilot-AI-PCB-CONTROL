@@ -2,6 +2,7 @@ import { BRIDGE_PORTS } from './config.mjs';
 import { LAYER_IDS, isEdaCopperLayerCount } from './engineering/layers.mjs';
 import { BOARD_OUTLINE_HELP, assertPrimitiveLayerSupports, milToMm, rectPolygonSource, OUTLINE_LINE_WIDTH_MIL } from './engineering/eda-primitives.mjs';
 import { EdaJobStore, cancelJobCode, isJobId, listJobsCode, normalizeJobSnapshot, pollJobCode, sessionCode, startJobCode } from './engineering/eda-jobs.mjs';
+import { padClearanceRadiusMil, padConservativeRadiusMil } from './pad-geometry.mjs';
 
 /**
  * 每条命令的默认传输超时。改造前这里对所有命令一律 8s，导致真实板上的 DRC、
@@ -95,7 +96,7 @@ return {opened:false,tried};`,
   'schematic.components': {
     permission: 'read', description: '读取当前原理图全部元件及引脚',
     signature: 'SCH_PrimitiveComponent.getAll/getAllPinsByPrimitiveId',
-    code: 'const components = (await eda.sch_PrimitiveComponent.getAll()) || []; const pins = {}; for (const item of components) { const id = item.primitiveId || item.id; if (id) pins[id] = (await eda.sch_PrimitiveComponent.getAllPinsByPrimitiveId(id)) || []; } return { components, pins };',
+    code: 'const components = (await eda.sch_PrimitiveComponent.getAll()) || []; const pins = {}; for (const item of components) { const id = item.primitiveId || item.id; if (id) pins[id] = (await eda.sch_PrimitiveComponent.getAllPinsByPrimitiveId(id)) || []; } const resolved = components.map((item) => ({ ...item, resolvedValue: item?.otherProperty?.Value ?? null, resolvedSupplierId: item?.supplierId ?? null })); return { components: resolved, pins };',
   },
   /**
    * 只读"器件"（componentType=part）：R2 同步要比较的是**器件数**，
@@ -128,11 +129,24 @@ return {opened:false,tried};`,
     signature: 'SYS_FileManager.getDocumentSource()', code: 'return await eda.sys_FileManager.getDocumentSource();',
   },
   'document.source.restore': {
-    timeoutMs: 60_000, longRunning: 'document-lifecycle', permission: 'write', description: '从已批准快照恢复当前文档源码（重建整份文档，含铺铜填充，耗时以十秒计）',
-    signature: 'SYS_FileManager.setDocumentSource(source)', buildCode: ({ source }) => `return await eda.sys_FileManager.setDocumentSource(${JSON.stringify(source)});`,
+    timeoutMs: 60_000, longRunning: 'document-lifecycle', permission: 'write', description: '从已批准快照恢复当前文档源码（重建整份文档，含铺铜填充，耗时以十秒计）。可选 expectedDocumentUuid：写前校验当前激活文档，避免把源码写到用户正在看的其它文档上',
+    signature: 'SYS_FileManager.setDocumentSource(source)',
+    /**
+     * 真机教训：`SYS_FileManager.setDocumentSource` 作用在"当前激活文档"上，且会返回 false 却已经写入。
+     * 传 expectedDocumentUuid 时先比对激活文档，不一致直接失败，绝不跨文档写入。
+     */
+    buildCode: ({ source, expectedDocumentUuid }) => {
+      const expected = typeof expectedDocumentUuid === 'string' ? expectedDocumentUuid : '';
+      const guard = expected
+        ? `const active=await eda.dmt_SelectControl.getCurrentDocumentInfo();
+if(!active||active.uuid!==${JSON.stringify(expected)}){throw Object.assign(new Error(${JSON.stringify('源码恢复目标文档不一致：当前 ')} + (active&&active.uuid||'null') + ${JSON.stringify('，预期 ' + expected)}),{code:'EDA_SOURCE_RESTORE_TARGET_MISMATCH'});}
+`
+        : '';
+      return `${guard}return await eda.sys_FileManager.setDocumentSource(${JSON.stringify(source)});`;
+    },
   },
   'schematic.component.create': {
-    permission: 'write', description: '放置一个已确认库身份的原理图元件',
+    permission: 'write', timeoutMs: 120_000, longRunning: 'document-lifecycle', description: '放置一个已确认库身份的原理图元件（库解析+落图较慢，才给到 120s）',
     signature: 'SCH_PrimitiveComponent.create(component,x,y,...)',
     buildCode: ({ component, x, y, subPartName = '', rotation = 0, mirror = false, addIntoBom = true, addIntoPcb = true }) => `return await eda.sch_PrimitiveComponent.create(${JSON.stringify(component)},${JSON.stringify(x)},${JSON.stringify(y)},${JSON.stringify(subPartName)},${JSON.stringify(rotation)},${JSON.stringify(mirror)},${JSON.stringify(addIntoBom)},${JSON.stringify(addIntoPcb)});`,
   },
@@ -277,7 +291,18 @@ return {opened:false,tried};`,
       const settled=Object.fromEntries(entries);const readErrors=entries.filter(([,item])=>!item.ok).map(([name,item])=>({name,error:item.error}));
       return {document:settled.document.value||null,layers:settled.layers.value||[],nets:settled.nets.value||[],components:settled.components.value||[],lines:settled.lines.value||[],vias:settled.vias.value||[],pours:settled.pours.value||[],regions:settled.regions.value||[],texts:settled.texts.value||[],readErrors};`,
   },
-  'pcb.layers.read': { permission: 'read', description: '读取PCB层列表', signature: 'PCB_Layer.getAllLayers()', code: 'const items=(await eda.pcb_Layer.getAllLayers())||[];return items.map(item=>({id:item.id,name:item.name,type:item.type,color:item.color,locked:item.locked,layerStatus:item.layerStatus,transparency:item.transparency}));' },
+  'pcb.layers.read': {
+    permission: 'read',
+    description: '读取PCB层列表（含 enabled/configuredCount 归一化：EDA 会把全部理论层都列出来，只有 layerStatus===1 是本板启用层）',
+    signature: 'PCB_Layer.getAllLayers() + PCB_Layer.getTheNumberOfCopperLayers()',
+    // 真机缺陷（第 58 轮）：上层模块拿"全部理论层"当"可用铜层"，4 层板被规划到不存在的 17/29 层。
+    // 这里在桥层就归一化，避免每个上位模块重复踩：enabled=layerStatus===1，configuredCount=实际铜层数。
+    code: `const items=(await eda.pcb_Layer.getAllLayers())||[];
+const normalized=items.map((item)=>({id:item.id,name:item.name,type:item.type,color:item.color,locked:item.locked,layerStatus:item.layerStatus===undefined?null:item.layerStatus,enabled:item.layerStatus===1,transparency:item.transparency}));
+const enabledCopper=normalized.filter((item)=>item.enabled&&/SIGNAL|COPPER|铜箔|顶层|底层|内层/i.test(String(item.type||'')+' '+String(item.name||''))).map((item)=>item.id);
+let configuredCount=null; try{ configuredCount=await eda.pcb_Layer.getTheNumberOfCopperLayers(); }catch(caught){ configuredCount=null; }
+return {layers:normalized,enabledCopperIds:enabledCopper,configuredCount};`,
+  },
   'pcb.layers.copperCount': { permission: 'read', description: '读取PCB铜箔层数', signature: 'PCB_Layer.getTheNumberOfCopperLayers()', code: 'return await eda.pcb_Layer.getTheNumberOfCopperLayers();' },
   'pcb.layers.setCount': { permission: 'write', longRunning: 'document-lifecycle', description: '设置PCB铜箔层数（官方Beta；新建PCB默认2层）', signature: 'PCB_Layer.setTheNumberOfCopperLayers(n)', buildCode: ({ layers }) => `const ok=await eda.pcb_Layer.setTheNumberOfCopperLayers(${JSON.stringify(layers)});if(ok!==true)throw new Error('PCB_LAYER_COUNT_FAILED');return ok;` },
   'pcb.nets.read': { permission: 'read', description: '读取PCB网络列表', signature: 'PCB_Net.getAllNets()', code: 'return await eda.pcb_Net.getAllNets();' },
@@ -286,9 +311,52 @@ return {opened:false,tried};`,
   'pcb.vias.read': { permission: 'read', description: '读取PCB过孔图元ID', signature: 'PCB_PrimitiveVia.getAllPrimitiveId()', code: 'return await eda.pcb_PrimitiveVia.getAllPrimitiveId();' },
   'pcb.pours.read': { permission: 'read', description: '读取PCB覆铜图元ID', signature: 'PCB_PrimitivePour.getAllPrimitiveId()', code: 'return await eda.pcb_PrimitivePour.getAllPrimitiveId();' },
   // A11：读回覆铜属性（网络/层/名称），用于"新建后读回断言"，不能只看数量。
-  'pcb.pours.detail': { permission: 'read', description: '读取PCB覆铜详情（ID/网络/层/名称/优先级）', signature: 'PCB_PrimitivePour.getAll() + getState_*', code: `const pours=(await eda.pcb_PrimitivePour.getAll())||[];return pours.map(p=>({primitiveId:String(p.getState_PrimitiveId?.()||''),net:String(p.getState_Net?.()||''),layer:Number(p.getState_Layer?.()),pourName:String(p.getState_PourName?.()||''),pourPriority:Number(p.getState_PourPriority?.())}));` },
+  'pcb.pours.detail': { permission: 'read', description: '读取PCB覆铜详情（ID/网络/层/名称/优先级/包围盒）', signature: 'PCB_PrimitivePour.getAll() + getState_* + getPrimitivesBBox', code: `const toMm=(v)=>v*25.4/1000;
+const pours=(await eda.pcb_PrimitivePour.getAll())||[];
+const items=[];
+for(const pour of pours){
+  const id=String(pour.getState_PrimitiveId?.()||'');
+  let boundsMm=null;
+  try{ const box=await eda.pcb_Primitive.getPrimitivesBBox([id]); if(box) boundsMm={minXMm:toMm(box.minX),minYMm:toMm(box.minY),maxXMm:toMm(box.maxX),maxYMm:toMm(box.maxY)}; }catch(error){ boundsMm=null; }
+  items.push({primitiveId:id,net:String(pour.getState_Net?.()||''),layer:Number(pour.getState_Layer?.()),pourName:String(pour.getState_PourName?.()||''),pourPriority:Number(pour.getState_PourPriority?.()),boundsMm});
+}
+return items;` },
   'pcb.regions.read': { permission: 'read', description: '读取PCB区域图元ID', signature: 'PCB_PrimitiveRegion.getAllPrimitiveId()', code: 'return await eda.pcb_PrimitiveRegion.getAllPrimitiveId();' },
+  'pcb.regions.detail': { permission: 'read', description: '读取PCB区域/禁布详情（ID/层/规则类型/名称/线宽原值/包围盒/多边形来源）；真机 lineWidth 为原值、regionName 可能不暴露', signature: 'PCB_PrimitiveRegion.getAll() + getState_* + getPrimitivesBBox', code: `const toMm=(v)=>v*25.4/1000;
+const regions=(await eda.pcb_PrimitiveRegion.getAll())||[];
+const items=[];
+for(const region of regions){
+  const g=(name)=>{ try{ const method=region['getState_'+name]; return typeof method==='function'?method.call(region):undefined; }catch(error){ return undefined; } };
+  const id=String(g('PrimitiveId')||'');
+  const ruleType=g('RuleType');
+  let boundsMm=null;
+  try{ const box=await eda.pcb_Primitive.getPrimitivesBBox([id]); if(box) boundsMm={minXMm:toMm(box.minX),minYMm:toMm(box.minY),maxXMm:toMm(box.maxX),maxYMm:toMm(box.maxY)}; }catch(error){ boundsMm=null; }
+  let polygon=null, polygonError=null;
+  try{ const shape=region.getState_ComplexPolygon?.(); if(shape&&typeof shape.getSource==='function') polygon=shape.getSource()||null; }catch(error){ polygonError=String(error&&error.message||error).slice(0,160); }
+  items.push({primitiveId:id,layer:Number(g('Layer')),rules:Array.isArray(ruleType)?ruleType.map((value)=>Number(value)):[],regionName:g('RegionName')??null,lineWidth:Number(g('LineWidth'))||null,boundsMm,polygon,polygonError});
+}
+return {count:items.length,regions:items,ruleTypes:{NO_COMPONENTS:2,NO_WIRES:5,NO_FILLS:6,NO_POURS:7,NO_INNER_ELECTRICAL_LAYERS:8,FOLLOW_REGION_RULE:9},multiLayer:12};` },
   'pcb.texts.read': { permission: 'read', description: '读取PCB文字图元ID', signature: 'PCB_PrimitiveString.getAllPrimitiveId()', code: 'return await eda.pcb_PrimitiveString.getAllPrimitiveId();' },
+  'pcb.region.create': { timeoutMs: 20000, permission: 'write-beta', longRunning: 'write-with-readback', description: '创建PCB区域/禁布（官方Beta）；用于真机验证 regions.detail 的非空字段，测试后应删除', signature: 'PCB_MathPolygon.createComplexPolygon(source) + PCB_PrimitiveRegion.create(layer,cp,ruleType,regionName,lineWidth,lock)', buildCode: ({ layer = 12, originXMm = 0, originYMm = 0, widthMm, heightMm, ruleType = [7], regionName = 'CP_REGION', lineWidthMil = 10, primitiveLock = false }) => {
+    const source = rectPolygonSource({ originXMm, originYMm, widthMm, heightMm });
+    const expected = { minXMm: originXMm, minYMm: originYMm, maxXMm: originXMm + widthMm, maxYMm: originYMm + heightMm };
+    return `return (async()=>{const source=${JSON.stringify(source)};const cp=await eda.pcb_MathPolygon.createComplexPolygon(source);if(!cp)throw new Error('EDA_COMPLEX_POLYGON_REJECTED');const created=await eda.pcb_PrimitiveRegion.create(${JSON.stringify(layer)},cp,${JSON.stringify(ruleType)},${JSON.stringify(regionName)},${JSON.stringify(lineWidthMil)},${JSON.stringify(Boolean(primitiveLock))});if(!created)throw new Error('EDA_REGION_CREATE_FAILED');const id=String(created.primitiveId??created.getState_PrimitiveId?.()??'');if(!id)throw new Error('EDA_REGION_ID_MISSING');const bbox=await eda.pcb_Primitive.getPrimitivesBBox([id]);const mm=(value)=>value*25.4/1000;const boundsMm=bbox?{minXMm:mm(bbox.minX),minYMm:mm(bbox.minY),maxXMm:mm(bbox.maxX),maxYMm:mm(bbox.maxY)}:null;return {primitiveId:id,layer:created.layer??${JSON.stringify(layer)},source,boundsMm,expectedBoundsMm:${JSON.stringify(expected)},regionName:${JSON.stringify(regionName)},ruleType:${JSON.stringify(ruleType)}};})()`;
+  } },
+  'pcb.region.delete': { timeoutMs: 20000, permission: 'write-beta', longRunning: 'write-with-readback', description: '删除PCB区域（按图元ID）；用于真机验证后清理', signature: 'PCB_PrimitiveRegion.delete(primitiveIds)', buildCode: ({ primitiveIds = [] } = {}) => `const ids=${JSON.stringify((Array.isArray(primitiveIds)?primitiveIds:[]).map(String))};const ok=await eda.pcb_PrimitiveRegion.delete(ids);return {deleted:ok!==false,primitiveIds:ids};` },
+  'pcb.text.create': { timeoutMs: 20000, permission: 'write-beta', longRunning: 'write-with-readback', description: '创建PCB文字（官方Beta）；用于真机验证 texts.detail 的镜像/反显字段，测试后应删除', signature: 'PCB_PrimitiveString.create(layer,x,y,text,fontFamily,fontSize,lineWidth,alignMode,rotation,reverse,expansion,mirror,lock)', buildCode: ({ layer = 3, xMil, yMil, text, fontFamily = 'Arial', fontSizeMil = 40, lineWidthMil = 6, alignMode = 5, rotationDeg = 0, reverse = false, expansion = 0, mirror = false, primitiveLock = false }) => `return (async()=>{const created=await eda.pcb_PrimitiveString.create(${JSON.stringify(layer)},${JSON.stringify(xMil)},${JSON.stringify(yMil)},${JSON.stringify(text)},${JSON.stringify(fontFamily)},${JSON.stringify(fontSizeMil)},${JSON.stringify(lineWidthMil)},${JSON.stringify(alignMode)},${JSON.stringify(rotationDeg)},${JSON.stringify(Boolean(reverse))},${JSON.stringify(expansion)},${JSON.stringify(Boolean(mirror))},${JSON.stringify(Boolean(primitiveLock))});if(!created)throw new Error('EDA_TEXT_CREATE_FAILED');const id=String(created.primitiveId??created.getState_PrimitiveId?.()??'');if(!id)throw new Error('EDA_TEXT_ID_MISSING');return {primitiveId:id,layer:created.layer??${JSON.stringify(layer)},text:created.text??${JSON.stringify(text)},mirror:created.mirror??${JSON.stringify(Boolean(mirror))},reverse:created.reverse??${JSON.stringify(Boolean(reverse))}};})()` },
+  'pcb.text.delete': { timeoutMs: 20000, permission: 'write-beta', longRunning: 'write-with-readback', description: '删除PCB文字（按图元ID）；用于真机验证后清理', signature: 'PCB_PrimitiveString.delete(primitiveIds)', buildCode: ({ primitiveIds = [] } = {}) => `const ids=${JSON.stringify((Array.isArray(primitiveIds)?primitiveIds:[]).map(String))};const ok=await eda.pcb_PrimitiveString.delete(ids);return {deleted:ok!==false,primitiveIds:ids};` },
+  'pcb.texts.detail': { permission: 'read', description: '读取PCB文字详情（ID/层/文本/镜像/反显/旋转/字高/线宽/位置/包围盒），丝印镜像与丝印-焊盘检查用', signature: 'PCB_PrimitiveString.getAll() + getState_* + PCB_Primitive.getPrimitivesBBox', code: `const toMm=(v)=>v*25.4/1000;
+const texts=(await eda.pcb_PrimitiveString.getAll())||[];
+const items=[];
+for(const text of texts){
+  const g=(name)=>{ try{ const method=text['getState_'+name]; return typeof method==='function'?method.call(text):undefined; }catch(error){ return undefined; } };
+  const x=g('X'), y=g('Y');
+  const id=String(g('PrimitiveId')||'');
+  let boundsMm=null;
+  try{ const box=await eda.pcb_Primitive.getPrimitivesBBox([id]); if(box&&Number.isFinite(Number(box.minX))) boundsMm={minXMm:toMm(Number(box.minX)),minYMm:toMm(Number(box.minY)),maxXMm:toMm(Number(box.maxX)),maxYMm:toMm(Number(box.maxY))}; }catch(error){ boundsMm=null; }
+  items.push({primitiveId:id,layer:Number(g('Layer')),text:String(g('Text')||''),mirror:Boolean(g('Mirror')),reverse:Boolean(g('Reverse')),rotationDeg:Number(g('Rotation'))||0,fontSizeMil:Number(g('FontSize'))||null,lineWidthMil:Number(g('LineWidth'))||null,alignMode:g('AlignMode')??null,xMm:(x===null||x===undefined)?null:toMm(Number(x)),yMm:(y===null||y===undefined)?null:toMm(Number(y)),boundsMm});
+}
+return {count:items.length,texts:items};` },
   // 真机实测（2026-10-16）：嘉立创EDA 重启后停在首页、不恢复上次工程，
   // 于是 `project.current` 为 null → 运行时读不到 PCB → 所有 PCB 路由都被自己的护栏挡成 409。
   // 旧行为是把这一步推给用户手点，这不符合"AI 自主操作 EDA"。官方 `dmt_Project.openProject(uuid)` 可用。
@@ -310,8 +378,21 @@ return {opened:false,tried};`,
 const comps=(await eda.pcb_PrimitiveComponent.getAll())||[];
 const items=[];
 for(const item of comps){
-  let box=null;
-  try{ const b=await eda.pcb_Primitive.getPrimitivesBBox([item.primitiveId]); if(b) box={xMm:toMm(b.maxX-b.minX),yMm:toMm(b.maxY-b.minY),centerXMm:toMm((b.minX+b.maxX)/2),centerYMm:toMm((b.minY+b.maxY)/2)}; }catch(error){ box=null; }
+  let box=null; let rawBox=null;
+  try{ const b=await eda.pcb_Primitive.getPrimitivesBBox([item.primitiveId]); if(b){ rawBox=b; box={xMm:toMm(b.maxX-b.minX),yMm:toMm(b.maxY-b.minY),centerXMm:toMm((b.minX+b.maxX)/2),centerYMm:toMm((b.minY+b.maxY)/2)}; } }catch(error){ box=null; rawBox=null; }
+  // 真机实测（第 62 轮）：getPrimitivesBBox 返回的是**未旋转**的局部包围盒平移后的结果——
+  // 器件 rotation=90 时仍报告 26.2x19.0（物理上应为 19.0x26.2），导致布局复核把"旋转后明明
+  // 在板内"的器件判成出界。这里按 rotation 把局部包围盒绕器件原点旋转，读回才是真实物理包围盒。
+  const rotationDeg=Number(item.rotation)||0;
+  if(rawBox && Math.abs(rotationDeg%360)>1e-6){
+    const rad=rotationDeg*Math.PI/180, cos=Math.cos(rad), sin=Math.sin(rad);
+    const ox=toMm(item.x), oy=toMm(item.y);
+    const lx0=toMm(rawBox.minX)-ox, ly0=toMm(rawBox.minY)-oy, lx1=toMm(rawBox.maxX)-ox, ly1=toMm(rawBox.maxY)-oy;
+    const corners=[[lx0,ly0],[lx1,ly0],[lx1,ly1],[lx0,ly1]].map(([x,y])=>({x:ox+x*cos-y*sin,y:oy+x*sin+y*cos}));
+    const xs=corners.map((p)=>p.x), ys=corners.map((p)=>p.y);
+    const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+    box={xMm:maxX-minX,yMm:maxY-minY,centerXMm:(minX+maxX)/2,centerYMm:(minY+maxY)/2};
+  }
   items.push({
     primitiveId:item.primitiveId, designator:item.designator||null,
     xMm:toMm(item.x), yMm:toMm(item.y),
@@ -340,6 +421,18 @@ return { unit:'mm', componentCount:items.length, components:items, outlineCount:
   'pcb.source.read': { permission: 'sensitive-read', description: '读取当前PCB源码快照', signature: 'SYS_FileManager.getDocumentSource()', code: 'return await eda.sys_FileManager.getDocumentSource();' },
   'pcb.importChanges': { timeoutMs: 30000, longRunning: 'document-lifecycle', permission: 'write', description: '从同一Board关联原理图导入变更', signature: 'PCB_Document.importChanges(uuid?)', buildCode: ({ schematicUuid }) => `return await eda.pcb_Document.importChanges(${schematicUuid ? JSON.stringify(schematicUuid) : ''});` },
   'pcb.save': { timeoutMs: 30000, longRunning: 'persistence', permission: 'write', description: '保存当前PCB文档', signature: 'PCB_Document.save()', code: 'return await eda.pcb_Document.save();' },
+  'pcb.reload': { timeoutMs: 30000, longRunning: 'document-lifecycle', permission: 'write', description: '保存后重载当前PCB文档（关标签→按 UUID 重开）；必须显式传 saved:true 且此前已 pcb.save，否则拒绝执行以免丢未保存修改', signature: 'DMT_SelectControl.getCurrentDocumentInfo + DMT_EditorControl.closeDocument/openDocument/activateDocument', buildCode: ({ documentUuid = null, tabId = null, saved = false } = {}) => `if(${JSON.stringify(saved)}!==true)throw new Error('RELOAD_REQUIRES_SAVED');
+const info=await eda.dmt_SelectControl.getCurrentDocumentInfo();
+if(!info)throw new Error('DOCUMENT_INFO_UNAVAILABLE');
+const uuid=${JSON.stringify(documentUuid)}||info.uuid;
+const openTab=${JSON.stringify(tabId)}||info.tabId;
+const closed=openTab?Boolean(await eda.dmt_EditorControl.closeDocument(openTab)):false;
+const reopened=await eda.dmt_EditorControl.openDocument(uuid);
+let activated=false;
+if(reopened) activated=Boolean(await eda.dmt_EditorControl.activateDocument(reopened));
+const current=await eda.dmt_SelectControl.getCurrentDocumentInfo();
+return {closed,reopened,activated,previousTabId:openTab,documentUuid:uuid,current:current||null};` },
+  'pcb.rules.detail': { permission: 'read', description: '读取当前PCB完整规则配置（含网络类/线宽/间距等规则值），用于只读一致性核对', signature: 'PCB_Drc.getCurrentRuleConfiguration', code: 'const configuration=await eda.pcb_Drc.getCurrentRuleConfiguration();return {name:await eda.pcb_Drc.getCurrentRuleConfigurationName(),configuration:configuration||null};' },
   'pcb.component.modify': { permission: 'write-beta', description: '固定坐标修改PCB器件（官方Beta）', signature: 'PCB_PrimitiveComponent.modify(id,property)', buildCode: ({ primitiveId, property }) => `return await eda.pcb_PrimitiveComponent.modify(${JSON.stringify(primitiveId)},${JSON.stringify(property)});` },
   /**
    * 批量写回器件布局（位置/旋转）。**只改 x/y/rotation，不碰网络与封装关联**。
@@ -399,6 +492,32 @@ try{
     buildCode: ({ primitiveId }) => `return await eda.pcb_PrimitiveComponent.getAllPinsByPrimitiveId(${JSON.stringify(primitiveId)});`,
   },
   /**
+   * 读取 PCB 器件的焊盘网络（位号 / 焊盘号 / 网络）。
+   *
+   * 为什么需要独立命令：`pcb.copper.read` 只读"当前活动文档"，而原理图验收跑的时候
+   * 活动文档是原理图——直接调只会拿到空焊盘，于是"网表↔焊盘网络核对"变成空转
+   * （2026-10-22 真机：这一步当时静默跳过，验收照样 ready=true）。这里显式切 PCB、
+   * 读完再切回原文档，并回读确认是在 PCB 上下文取到的数据。
+   */
+  'pcb.pads.read': {
+    permission: 'read',
+    timeoutMs: 60_000,
+    description: '读取 PCB 全部器件焊盘（含位号/焊盘号/网络）：必要时切到 PCB 文档，读完切回原文档',
+    buildCode: ({ pcbUuid, restoreUuid = null }) => `const pcbUuid=${JSON.stringify(pcbUuid)};const restoreUuid=${JSON.stringify(restoreUuid)};
+const wait=(ms)=>new Promise((resolve)=>setTimeout(resolve,ms));
+if(!pcbUuid) return {ok:false,error:'PCB_UUID_REQUIRED'};
+const cur=await eda.dmt_SelectControl.getCurrentDocumentInfo().catch(()=>null);
+const switchedToPcb = !(cur && cur.documentType===3 && cur.uuid===pcbUuid);
+if(switchedToPcb){ const tab=await eda.dmt_EditorControl.openDocument(pcbUuid); await wait(2600); await eda.dmt_EditorControl.activateDocument(tab); await wait(2200); }
+const now=await eda.dmt_SelectControl.getCurrentDocumentInfo().catch(()=>null);
+if(!now || now.documentType!==3) return {ok:false,error:'PCB_NOT_ACTIVE',document:now?{type:now.documentType,uuid:now.uuid}:null};
+const components=(await eda.pcb_PrimitiveComponent.getAll())||[];
+const out=components.map((comp)=>({designator:String(comp.designator||''),footprint:comp.footprint?{uuid:comp.footprint.uuid,name:comp.footprint.name}:null,pads:(comp.pads||[]).map((pad)=>({padNumber:String(pad.padNumber||''),net:String(pad.net||'')}))}));
+const restoreTarget = restoreUuid || (cur && cur.uuid);
+if(switchedToPcb && restoreTarget){ try { const back=await eda.dmt_EditorControl.openDocument(restoreTarget); await wait(2600); await eda.dmt_EditorControl.activateDocument(back); await wait(1500); } catch(caught) {} }
+return {ok:true,count:out.length,components:out};`,
+  },
+  /**
    * 板面铜几何快照：走线 / 过孔 / 焊盘 一次读全（含网络与层）。
    * 合规布线器的输入必须是"同一时刻的一致快照"，逐条命令去读会读到互相错位的状态。
    * 取数同时兼容"属性式"与"getState_* 方法式"两种 EDA 对象形态，避免不同版本读空。
@@ -410,6 +529,10 @@ try{
     signature: 'PCB_PrimitiveLine.getAll() + PCB_PrimitiveVia.getAll() + PCB_PrimitiveComponent.getAllPinsByPrimitiveId',
     code: `const g=(o,name)=>{ if(o==null) return undefined; try{ if(o[name]!==undefined) return o[name]; const method=o['getState_'+name.charAt(0).toUpperCase()+name.slice(1)]; return typeof method==='function'?method.call(o):undefined; }catch(caught){ return undefined; } };
 const num=(value)=>{ const number=Number(value); return Number.isFinite(number)?number:0; };
+// 焊盘等效半径必须与模块内的 padClearanceRadiusMil 保持同一实现（见 runtime/pad-geometry.mjs）：
+// 旧代码在这里内联 Math.max(...)/2，把矩形焊盘按长边当直径，细间距器件会被算成焊盘互相重叠。
+const padRadius=${padClearanceRadiusMil.toString()};
+const padConservativeRadius=${padConservativeRadiusMil.toString()};
 const lines=((await eda.pcb_PrimitiveLine.getAll())||[]).map((item)=>({id:String(g(item,'primitiveId')||''),net:String(g(item,'net')||'').trim(),layer:num(g(item,'layer')),x1:num(g(item,'startX')),y1:num(g(item,'startY')),x2:num(g(item,'endX')),y2:num(g(item,'endY')),width:num(g(item,'lineWidth'))||10}));
 const vias=((await eda.pcb_PrimitiveVia.getAll())||[]).map((item)=>({id:String(g(item,'primitiveId')||''),net:String(g(item,'net')||'').trim(),x:num(g(item,'x')),y:num(g(item,'y')),outerDiameter:num(g(item,'diameter'))||24,hole:num(g(item,'holeDiameter'))||12}));
 const components=(await eda.pcb_PrimitiveComponent.getAll())||[];
@@ -420,11 +543,11 @@ for(const component of components){
   for(const pin of pins){
     const shape=g(pin,'pad');
     const sizes=Array.isArray(shape)?shape.slice(1).map(Number).filter((value)=>Number.isFinite(value)):[];
-    const radius=sizes.length?Math.max.apply(null,sizes)/2:5;
+    const radius=padRadius(sizes);
     const hole=g(pin,'hole');
     const holeSizes=Array.isArray(hole)?hole.slice(1).map(Number).filter((value)=>Number.isFinite(value)&&value>0):[];
     const layer=num(g(pin,'layer'));
-    pads.push({designator,pad:String(g(pin,'padNumber')||''),net:String(g(pin,'net')||'').trim(),layer,x:num(g(pin,'x')),y:num(g(pin,'y')),radius,holes:hole?1:0,holeDiameter:holeSizes.length?Math.max.apply(null,holeSizes):0,throughHole:layer===12||Boolean(hole)});
+    pads.push({designator,pad:String(g(pin,'padNumber')||''),net:String(g(pin,'net')||'').trim(),layer,x:num(g(pin,'x')),y:num(g(pin,'y')),radius,clearanceRadius:padConservativeRadius(sizes),shape:Array.isArray(shape)?shape.slice(0,6):null,holes:hole?1:0,holeDiameter:holeSizes.length?Math.max.apply(null,holeSizes):0,throughHole:layer===12||Boolean(hole)});
   }
 }
 return {lines,vias,pads,counts:{lines:lines.length,vias:vias.length,pads:pads.length,components:components.length}};`,
@@ -474,6 +597,23 @@ return {lines,vias,pads,counts:{lines:lines.length,vias:vias.length,pads:pads.le
   // A11 回滚：删除本次新建的覆铜（官方 delete(id)）。仍按 write 权限登记，调用方必须带写批准语义。
   'pcb.pour.delete': { timeoutMs: 20000, permission: 'write-beta', description: '删除指定PCB覆铜（回滚新建用）', signature: 'PCB_PrimitivePour.delete(id)', buildCode: ({ primitiveId }) => `const ok=await eda.pcb_PrimitivePour.delete(${JSON.stringify(primitiveId)});return {deleted:ok!==false,primitiveId:${JSON.stringify(primitiveId)}};` },
   'pcb.pour.deleteAdded': { timeoutMs: 30000, longRunning: 'write-with-readback', permission: 'write-beta', description: '半写回滚：按运行前快照删除本次新增的覆铜（差集，不碰既有覆铜）', buildCode: ({ existingIds = [] }) => `const before=new Set(${JSON.stringify((Array.isArray(existingIds)?existingIds:[]).map(String))});const pours=(await eda.pcb_PrimitivePour.getAll())||[];const added=[];for(const pour of pours){const id=String(pour.getState_PrimitiveId?.()||'');if(id&&!before.has(id))added.push(id);}const deleted=[];const failed=[];for(const id of added){try{const ok=await eda.pcb_PrimitivePour.delete(id);if(ok===false)failed.push({id,reason:'delete returned false'});else deleted.push(id);}catch(caught){failed.push({id,reason:String(caught&&caught.message||caught).slice(0,120)});}}return {added,deleted,failed,beforeCount:before.size,afterCount:((await eda.pcb_PrimitivePour.getAll())||[]).length};` },
+  /**
+   * 读取覆铜填充（第 62 轮，真实缺陷 D-36-1）：
+   * `PCB_PrimitivePour.rebuildCopperRegion()` 的返回值**不能**证明填充真的产出——
+   * 真机在灯板上调用 GND 覆铜的重建，返回的却是 +5V 覆铜的 Poured 对象，且 GND 覆铜没有任何填充；
+   * 旧实现只看"调用没报错"就报 rebuilt ok，于是 DRC 里 GND 18 个焊盘未连通却被当成已重建。
+   * 这个命令把"每个覆铜边框 → 实际填充片数"读出来，供运行时做 fail-closed 复核。
+   */
+  'pcb.poured.read': {
+    permission: 'read',
+    description: '读取每个覆铜边框实际产出的填充片数（判断重建是否真的填充，而不是只看调用返回）',
+    signature: 'PCB_PrimitivePour.getAll() + PCB_PrimitivePoured.getAll()',
+    buildCode: () => `const pours=(await eda.pcb_PrimitivePour.getAll())||[];
+const fills=(await eda.pcb_PrimitivePoured.getAll())||[];
+const byPour={};
+for(const fill of fills){const pid=String(fill.pourPrimitiveId??fill.primitiveId??'');const list=Array.isArray(fill.pourFills)?fill.pourFills:[];const filled=list.filter((item)=>item&&item.fill!==false).length;byPour[pid]=(byPour[pid]||0)+filled;}
+return pours.map((pour)=>({primitiveId:String(pour.primitiveId??''),net:pour.net??null,layer:pour.layer??null,pourName:pour.pourName??null,pourPriority:pour.pourPriority??0,filledFills:byPour[String(pour.primitiveId??'')]||0}));`,
+  },
   'pcb.pour.rebuild': { timeoutMs: 60000, longRunning: 'blocking-heavy', permission: 'write-beta', description: '重建已有PCB覆铜填充（布线后必做）', signature: 'PCB_PrimitivePour.rebuildCopperRegion()', buildCode: ({ primitiveIds = null } = {}) => `const only=${Array.isArray(primitiveIds) && primitiveIds.length ? JSON.stringify(primitiveIds) : 'null'};const pours=(await eda.pcb_PrimitivePour.getAll())||[];const items=[];for(const pour of pours){const id=String(pour.getState_PrimitiveId?.()||"");if(only&&only.indexOf(id)<0)continue;const poured=await pour.rebuildCopperRegion();items.push({primitiveId:id,ok:Boolean(poured)});}return {rebuilt:items.length,items};` },
   // 嘉立创EDA 原生自动布线是渲染进程里的长任务（真机实测 >120s），同步请求必被桥服务端 120s 掐断。
   // 所以这里**不 await**：受理即返回，随后用 pcb.lines.read / DRC 轮询判定是否完成。
@@ -629,7 +769,10 @@ function requireBoolean(value, field) {
 
 function validateArgs(commandId, args = {}) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) throw Object.assign(new Error('命令参数必须是对象'), { code: 'EDA_COMMAND_ARGS_INVALID' });
-  if (commandId === 'document.source.restore' && (typeof args.source !== 'string' || !args.source.length)) throw Object.assign(new Error('恢复源码不能为空'), { code: 'EDA_COMMAND_ARGS_INVALID' });
+  if (commandId === 'document.source.restore') {
+    if (typeof args.source !== 'string' || !args.source.length) throw Object.assign(new Error('恢复源码不能为空'), { code: 'EDA_COMMAND_ARGS_INVALID' });
+    if (args.expectedDocumentUuid !== undefined && (typeof args.expectedDocumentUuid !== 'string' || !args.expectedDocumentUuid.trim())) throw Object.assign(new Error('expectedDocumentUuid 必须是非空字符串'), { code: 'EDA_COMMAND_ARGS_INVALID' });
+  }
   if (commandId === 'workspace.create') {
     if (typeof args.friendlyName !== 'string' || !args.friendlyName.trim() || args.friendlyName.length > 120) throw Object.assign(new Error('工程名称长度必须为1至120个字符'), { code: 'EDA_COMMAND_ARGS_INVALID' });
     if (typeof args.projectName !== 'string' || !/^[A-Za-z0-9-]{1,80}$/.test(args.projectName)) throw Object.assign(new Error('工程内部名称只允许字母、数字和中划线'), { code: 'EDA_COMMAND_ARGS_INVALID' });
@@ -791,7 +934,15 @@ async function fetchJson(url, options = {}, timeoutMs = 900) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
+    let response;
+    try {
+      response = await fetch(url, { ...options, signal: controller.signal });
+    } catch (error) {
+      // 网络层失败：桥进程不在/端口没收/连接被拒绝。必须给稳定错误码，
+      // 否则上层只看到 "fetch failed"，无法区分"桥挂了"和"EDA 返回了错误"。
+      if (error?.name === 'AbortError') throw Object.assign(new Error('Bridge 请求超时（未在预算内返回）'), { code: 'BRIDGE_TIMEOUT', cause: error });
+      throw Object.assign(new Error(`Bridge 不可达（${String(error?.message || error)}）：桥进程可能已随 EDA 退出`), { code: 'BRIDGE_UNREACHABLE', cause: error });
+    }
     const text = await response.text();
     if (!response.ok) {
       let detail = '';
@@ -893,8 +1044,23 @@ export class BridgeClient {
   }
 
   async windows() {
+    // 真机演练（第 60 轮）：桥进程重启后，若此前有路由调用 discover() 恰好没发现桥
+    // （端口被置空），后续 windows() 会一直 BRIDGE_NOT_FOUND——而桥其实已经回来了。
+    // 读侧窗口列表是最常被打的入口，这里补一次惰性发现，与 _dispatchSerial 保持一致。
+    if (!this.port) await this.discover();
     const port = this.requirePort();
-    const data = await this.fetcher(`http://127.0.0.1:${port}/eda-windows`);
+    let data;
+    try {
+      data = await this.fetcher(`http://127.0.0.1:${port}/eda-windows`);
+    } catch (error) {
+      // 读取窗口时桥已退出/端口更换：必须清掉旧 port，否则后续 windows() 永远不再 discover，
+      // UI 会一直显示“桥不可达”直到重启 Runtime。读命令可以安全地下次重新发现。
+      if (error?.code === 'BRIDGE_UNREACHABLE' || error?.code === 'BRIDGE_TIMEOUT') {
+        this.port = null;
+        this.selectedWindowId = null;
+      }
+      throw error;
+    }
     const windows = Array.isArray(data?.windows) ? data.windows : [];
     if (windows.length === 1) this.selectedWindowId = windows[0].windowId;
     if (windows.length === 0) this.selectedWindowId = null;
@@ -1013,7 +1179,7 @@ export class BridgeClient {
     // 惰性发现：运行时重启后第一次调用（尤其是没走 ensureEdaSession 的路由）会直接
     // BRIDGE_NOT_FOUND，而"桥明明活着"。这里补上自动发现，失败才是真失败。
     if (!this.port) await this.discover();
-    const port = this.requirePort();
+    let port = this.requirePort();
     const windows = await this.windows();
     if (windows.selectionRequired) throw Object.assign(new Error('检测到多个EDA窗口，请先选择目标窗口'), { code: 'EDA_WINDOW_SELECTION_REQUIRED' });
     if (!this.selectedWindowId) throw Object.assign(new Error('没有已连接的EDA窗口'), { code: 'EDA_WINDOW_NOT_CONNECTED' });
@@ -1031,9 +1197,18 @@ export class BridgeClient {
     const retryable = command.permission === 'read' || command.permission === 'validate';
     // 真机实测到的两种瞬时失败都要重试：桥随机 500，以及桥慢到打满命令预算（AbortError，code 20）。
     // 只对读/校验类命令重试；写命令一次也不重试（重试可能造成 EDA 里的第二次创建）。
-    const transient = (error) => error?.code === 'BRIDGE_HTTP_ERROR'
+    const transient = (error) => error?.code === 'BRIDGE_HTTP_ERROR' || error?.code === 'BRIDGE_UNREACHABLE' || error?.code === 'BRIDGE_TIMEOUT'
       || error?.code === 20 || error?.name === 'AbortError' || error?.name === 'TimeoutError'
       || error?.code === 'EDA_REQUEST_ABANDONED';
+    /** 桥挂了（EDA 退出/重启）：重新发现端口；发现到新端口就重试同一条读命令。 */
+    const reconnect = async () => {
+      const previous = this.port;
+      const match = await this.discover().catch(() => null);
+      if (!match || !this.port) return false;
+      port = this.port;
+      if (previous !== this.port) this.logger?.warn?.(`[bridge] 桥端口变化 ${previous ?? 'none'} → ${this.port}，已重新连接`);
+      return true;
+    };
     const maxAttempts = retryable ? 3 : 1;
     let payload;
     let lastError = null;
@@ -1045,6 +1220,14 @@ export class BridgeClient {
       } catch (error) {
         lastError = error;
         if (!retryable || !transient(error) || attempt === maxAttempts) break;
+        // 桥不可达时先尝试重新发现（EDA 重启后端口可能变化/桥进程已重启），再重试同一条读命令。
+        if (error?.code === 'BRIDGE_UNREACHABLE' || error?.code === 'BRIDGE_TIMEOUT') {
+          const reconnected = await reconnect();
+          if (!reconnected) {
+            this.logger?.warn?.(`[bridge] 读命令 ${commandId} 第 ${attempt} 次遇到桥不可达，且重新发现失败（${error.message}）`);
+            break;
+          }
+        }
         this.logger?.warn?.(`[bridge] 读命令 ${commandId} 第 ${attempt} 次遇到瞬时错误（${error.message}），300ms 后重试`);
         await new Promise((resolve) => setTimeout(resolve, 300));
       }

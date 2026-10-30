@@ -4,17 +4,57 @@ import { CheckCircle2, Command, Search, X } from 'lucide-react';
 import { Button, IconButton } from './ui';
 import type { ToastMessage } from '../types';
 
-export function Modal({ open, onClose, title, eyebrow, children, footer, width = '560px' }: { open: boolean; onClose: () => void; title: string; eyebrow?: string; children: ReactNode; footer?: ReactNode; width?: string }) {
+const FOCUSABLE = 'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex=\"-1\"])';
+
+/**
+ * D9 键盘可达性：对话框打开后把焦点移入、Tab/Shift+Tab 在框内循环、Escape 关闭、
+ * 关闭后把焦点还给打开它的元素。之前只有 Escape，焦点会留在背后的页面上（Tab 能跑出去）。
+ * jsdom 里 offsetParent 恒为 null，因此这里不用可见性过滤，只跳过 disabled/hidden。
+ */
+function useDialogFocus(open: boolean, ref: React.RefObject<HTMLElement>, onClose: () => void) {
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusables = () => {
+      const node = ref.current;
+      if (!node) return [] as HTMLElement[];
+      return Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((element) => !element.hasAttribute('hidden'));
+    };
+    const frame = requestAnimationFrame(() => {
+      const node = ref.current;
+      if (!node) return;
+      const first = focusables()[0];
+      (first ?? node).focus();
+    });
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); onClose(); return; }
+      if (event.key !== 'Tab') return;
+      const node = ref.current;
+      if (!node) return;
+      const list = focusables();
+      if (!list.length) { event.preventDefault(); node.focus(); return; }
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !node.contains(active))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (active === last || !node.contains(active))) { event.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', onKey);
+      if (previous && typeof previous.focus === 'function') previous.focus();
+    };
+  }, [open, onClose, ref]);
+}
+
+export function Modal({ open, onClose, title, eyebrow, children, footer, width = '560px' }: { open: boolean; onClose: () => void; title: string; eyebrow?: string; children: ReactNode; footer?: ReactNode; width?: string }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(open, dialogRef, onClose);
   if (!open) return null;
   return createPortal(
     <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal" style={{ maxWidth: width }} role="dialog" aria-modal="true" aria-label={title}>
+      <section ref={dialogRef} tabIndex={-1} className="modal" style={{ maxWidth: width }} role="dialog" aria-modal="true" aria-label={title}>
         <header className="modal__header"><div>{eyebrow && <div className="eyebrow">{eyebrow}</div>}<h2>{title}</h2></div><IconButton label="关闭对话框" onClick={onClose}><X size={18} /></IconButton></header>
         <div className="modal__body">{children}</div>
         {footer && <footer className="modal__footer">{footer}</footer>}
@@ -24,16 +64,12 @@ export function Modal({ open, onClose, title, eyebrow, children, footer, width =
 }
 
 export function Drawer({ open, onClose, title, eyebrow, children, footer }: { open: boolean; onClose: () => void; title: string; eyebrow?: string; children: ReactNode; footer?: ReactNode }) {
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(open, dialogRef, onClose);
   if (!open) return null;
   return createPortal(
     <div className="overlay overlay--drawer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label={title}>
+      <aside ref={dialogRef} tabIndex={-1} className="drawer" role="dialog" aria-modal="true" aria-label={title}>
         <header className="modal__header"><div>{eyebrow && <div className="eyebrow">{eyebrow}</div>}<h2>{title}</h2></div><IconButton label="关闭抽屉" onClick={onClose}><X size={18} /></IconButton></header>
         <div className="drawer__body">{children}</div>{footer && <footer className="modal__footer">{footer}</footer>}
       </aside>

@@ -1,12 +1,18 @@
 export type PageId =
+  | 'overview'
+  | 'design'
   | 'projects'
   | 'requirements'
   | 'assets'
   | 'ai'
   | 'eda'
+  | 'automation'
+  | 'placement'
   | 'validation'
+  | 'knowledge'
   | 'versions'
-  | 'settings';
+  | 'settings'
+  | 'proposal';
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 export type RequirementStatus = 'confirmed' | 'suggested' | 'missing' | 'conflict';
@@ -24,7 +30,8 @@ export type TaskStatus =
   | 'failed'
   | 'cancelled';
 
-export type ProjectStage = '概念' | '原理图' | 'PCB布局' | '验证' | '归档';
+/** D5：项目阶段与 stageMachine 的 8 阶段 canonical 值一致（旧记录的 'PCB布局' 由 stageOfProjectStage 映射）。 */
+export type ProjectStage = '概念' | '需求' | '选型' | '原理图' | 'PCB' | '验证' | '生产' | '归档';
 
 /**
  * 当前项目在嘉立创EDA中绑定的设计身份。
@@ -40,6 +47,16 @@ export interface EdaWorkspaceBinding {
   schematicStatus: 'empty' | 'generated';
   tabId?: string;
   activated?: boolean;
+  /**
+   * D5：受控写入证据（只有 Runtime 回读成功才写；用于阶段机 UI 预检，**不代替** Runtime 账本/执行记录）。
+   * 旧项目没有这些字段 = 未验证，阶段机不认。
+   */
+  schematicExecutedAt?: string;
+  schematicExecutionId?: string;
+  netlistExecutedAt?: string;
+  netlistExecutionId?: string;
+  pcbPlacementExecutedAt?: string;
+  pcbPlacementApprovalId?: string;
 }
 
 export interface Project {
@@ -169,6 +186,10 @@ export interface AiTask {
   simulateFailure: boolean;
   error?: string;
   progress: number;
+  /** 输入变化导致旧批准失效的记录：说明是哪个触发器、何时失效，避免"看起来还批准着"。 */
+  invalidation?: { trigger: 'requirement' | 'component' | 'asset' | 'project' | 'eda' | 'code'; reason: string; at: string };
+  /** C4：批准时绑定的环境快照（EDA 目标指纹 / Runtime 版本）；任一漂移都会自动标废。 */
+  boundEnv?: { edaFingerprint: string | null; runtimeVersion: string | null; at: string };
 }
 
 export type ChatMessageStatus = 'sending' | 'complete' | 'error';
@@ -197,6 +218,9 @@ export interface ChatMessage {
   questions?: string[];
   suggestions?: RequirementSuggestion[];
   bomDraft?: BomDraft;
+  /** P1-10：Runtime 从已审核知识库检索到的引用（只读证据，点击可回查条目 id）。 */
+  citations?: Array<{ id: string; title?: string; trust?: string; review?: string; citation?: string }>;
+  knowledgeNote?: string | null;
   errorCode?: string;
   attachments?: Array<{ id: string; name: string; mime: string; size: number; kind: 'image' | 'text' }>;
 }
@@ -238,6 +262,9 @@ export interface EdaState {
   writePaused: boolean;
   diagnostics: DiagnosticItem[];
   commandLogs: CommandLog[];
+  /** C4：最近一次真实读回的 EDA 目标指纹（窗口+项目+文档+内容），用于前端提前发现旧批准失效。 */
+  targetFingerprint: string | null;
+  lastContextAt?: string | null;
 }
 
 export interface EdaWindow {
@@ -270,6 +297,9 @@ export interface SimpleBoardPlanResult {
 export interface DesignApproval {
   token: string;
   planHash: string;
+  /** P0-1：批准令牌同时绑定的来源页语义计划哈希与编译计划哈希。 */
+  semanticPlanHash?: string | null;
+  compiledPlanHash?: string | null;
   targetFingerprint: string;
   windowId: string;
   steps: string[];
@@ -282,6 +312,9 @@ export interface DesignExecution {
   id: string;
   state: DesignExecutionState;
   planHash: string;
+  /** P0-1：执行记录携带的来源双哈希，可与批准令牌/账本逐条核对。 */
+  semanticPlanHash?: string | null;
+  compiledPlanHash?: string | null;
   targetFingerprint: string;
   events: Array<{ at: string; stage: string; status: string; detail: Record<string, unknown> }>;
   snapshot: { id: string; digest: string; size: number } | null;
@@ -303,6 +336,21 @@ export interface PcbCapabilities {
   items: PcbCapability[];
 }
 
+/**
+ * 同步验收结果。真机边界（第 20–23 轮）：PCB 新增器件的公开 API 不存在，
+ * 落板必须由 EDA 原生能力完成；CircuitPilot 负责判定差异并验收，绝不放行未清零的差异。
+ */
+export interface PcbSyncVerification {
+  schematicCount: number;
+  pcbCount: number;
+  matched: string[];
+  missing: string[];
+  extra: string[];
+  unannotated: string[];
+  ready: boolean;
+  guide: string;
+}
+
 export interface PcbContext {
   apiVersion: 1;
   windowId: string;
@@ -317,6 +365,8 @@ export interface PcbContext {
 
 export interface PcbExecution extends Omit<DesignExecution, 'readback'> {
   readback: { sourceDigest: string; targetFingerprint: string; componentCount: number | null; lineCount: number | null; viaCount: number | null; pourCount: number | null } | null;
+  /** P0-2：计划声明了期望位号时的同步生效证据（缺件即失败回滚；成功时记录实际数量）。 */
+  syncCheck?: { expected: number | null; actual: number; missing: string[]; passed: boolean; reason?: string } | null;
 }
 
 export interface ProductionFinding { code: string; message: string; path: string; severity: 'blocking' | 'warning' }
@@ -334,7 +384,12 @@ export interface ProductionInspection {
   manifest: {
     manifestHash: string;
     projectId: string;
+    projectName?: string;
     documentId: string;
+    sourceDigest?: string;
+    semanticPlanHash?: string;
+    compiledPlanHash?: string;
+    executionId?: string;
     files: Array<{ name: string; size: number; sha256: string; kind: string }>;
     checks: Array<{ id: string; passed: boolean; message: string; manualReview?: boolean }>;
     contentValidation: { passed: boolean; findings: ProductionFinding[]; bomRefCount: number; cplRefCount: number };
@@ -345,6 +400,68 @@ export interface ProductionInspection {
   productionReleased: boolean;
   blockers: string[];
 }
+/** Runtime 日志事件（C3 事件时间线；只存在于本次进程内存，重启清空——这是日志不是账本）。 */
+export interface RuntimeEvent {
+  timestamp: string;
+  level: string;
+  module: string;
+  message: string;
+  data?: unknown;
+}
+
+/** 统一批准账本（计划/写板/放行共用哈希链）：只含审计事实，不含令牌原文。 */
+export interface ApprovalLedgerEntry {
+  index: number;
+  at: string;
+  scope: 'plan' | 'write' | 'release';
+  action: string;
+  approvalId: string | null;
+  bindings: Record<string, unknown>;
+  note: string;
+  prevHash: string;
+  entryHash: string;
+}
+
+export interface ApprovalLedgerSnapshot {
+  entries: ApprovalLedgerEntry[];
+  summary: { total: number; byScope: Record<string, number>; byAction: Record<string, number> };
+  chain: { ok: boolean; brokenAt: number | null; reason: string };
+  loadError: string | null;
+}
+
+/** 在线价格/库存证据（查询时刻快照；unknown 表示没证据，不是 0 元）。 */
+export interface SupplyPricingEvidence {
+  kind: string;
+  schemaVersion?: number;
+  source?: string;
+  sourceLabel?: string;
+  checkedAt?: string | null;
+  freshnessKnown: boolean;
+  entries: Array<{ lcsc: string; status: string; price: number | null; currency: string | null; stock: number | null; checkedAt?: string | null; priceBreaks?: unknown[]; url?: string }>;
+  unknownEntries: Array<{ lcsc: string | null; status: string; reason?: string; detail?: string | null }>;
+  summary: { requested: number; priced: number; unknown: number };
+}
+
+/** 执行历史摘要（原理图/PCB 共用）：来自落盘状态，重启后仍在。 */
+export interface ExecutionHistoryItem {
+  kind: 'schematic' | 'pcb';
+  id: string;
+  state: string;
+  planHash: string;
+  createdAt: string | null;
+  eventCount: number;
+  error?: { code: string; message: string } | null;
+  drc?: { passed: boolean; findings: number | null } | null;
+  createdPrimitiveIds?: number;
+  progress?: { completed: number; total: number } | null;
+}
+
+export interface ExecutionHistoryList {
+  ok: boolean;
+  executions: ExecutionHistoryItem[];
+  persistenceError: { code: string; message: string } | null;
+}
+
 export interface ProductionReadiness {
   ready: boolean;
   orderEnabled: false;
@@ -377,9 +494,72 @@ export interface EngineeringAnalysis {
   layout: { passed: boolean; findings: EngineeringFinding[]; placements: unknown[]; deterministic: boolean };
   silkscreen: { passed: boolean; findings: EngineeringFinding[]; labels: unknown[] };
   simulationJobs: Array<{ jobHash: string; executable: false; reason: string }>;
+  /** 传入 input.layoutRules 时才有的 PCBA 布局规则审计段 */
+  layoutRules?: LayoutRuleAudit | null;
+  releaseReady?: boolean;
   humanReviewRequired: true;
   officialDrcRequired: true;
   onlineDfmRequired: true;
+}
+
+
+/** PCBA 布局规则引擎（runtime/engineering/layout-rules.mjs）的输出类型 */
+export type LayoutRuleStatus = 'PASS' | 'FAIL' | 'REVIEW' | 'NA';
+export type LayoutRuleLevel = '硬门禁' | '推荐';
+export interface LayoutRuleResult {
+  id: string;
+  group: string;
+  groupName: string;
+  level: LayoutRuleLevel;
+  name: string;
+  value: string;
+  basis: string;
+  status: LayoutRuleStatus;
+  message: string;
+  evidence: Record<string, unknown> | null;
+  /** REVIEW 规则由哪些已通过门禁的外部证据覆盖（不代表引擎已验证） */
+  coveredBy: string[];
+}
+export interface LayoutRuleGate { id: string; status: LayoutRuleStatus; message: string; evidence: Record<string, unknown> | null }
+export interface LayoutRuleAuditSummary {
+  total: number;
+  PASS: number;
+  FAIL: number;
+  REVIEW: number;
+  NA: number;
+  blockingFailures: number;
+  warningFailures: number;
+  byGroup: Record<string, { PASS: number; FAIL: number; REVIEW: number; NA: number; total: number }>;
+}
+export interface LayoutRuleAudit {
+  kind: 'pcba-layout-rule-audit';
+  schemaVersion: number;
+  packVersion: string;
+  packHash: string;
+  board: { widthMm: number | null; heightMm: number | null; thicknessMm: number | null };
+  rules: LayoutRuleResult[];
+  gates: LayoutRuleGate[];
+  gatesSummary: Record<string, LayoutRuleStatus>;
+  redLines: Array<{ key: string; hit: boolean | null }>;
+  summary: LayoutRuleAuditSummary;
+  findings: EngineeringFinding[];
+  passed: boolean;
+  releaseReady: boolean;
+  uncoveredReviews: number;
+  humanReviewRequired: true;
+  officialDrcRequired: true;
+  policy: string;
+  auditHash: string;
+}
+export interface LayoutRulePackSummary {
+  version: string;
+  total: number;
+  counts: Record<string, number>;
+  levels: Record<string, number>;
+  hash: string;
+  groups: Array<{ id: string; name: string; count: number }>;
+  documents: Record<string, string>;
+  policy: { reviewIsNotPass: boolean; officialDrcRequired: boolean; valueSource: string };
 }
 
 export type RuntimeMode = 'demo' | 'real_read_only' | 'controlled_write';
@@ -396,9 +576,42 @@ export type ApiProviderId =
   | 'gemini_api'
   | 'xai_api'
   | 'groq_api'
-  | 'mistral_api';
+  | 'mistral_api'
+  | 'ark_api'
+  | 'qianfan_api'
+  | 'custom_api';
 
-export type ProviderId = 'demo' | AccountProviderId | ApiProviderId;
+/**
+ * Provider ID 保留内置字面量补全，同时允许 Runtime 上报的注册表 id（自定义模型 API）。
+ * 自定义 Provider 由 runtime/customProviders.mjs 校验，前端不重复做白名单，只在表单里镜像校验规则。
+ */
+export type ProviderId = 'demo' | AccountProviderId | ApiProviderId | (string & {});
+
+/** 自定义模型 API 的协议适配方式：OpenAI Chat Completions / Anthropic Messages。 */
+export type CustomProviderProtocol = 'openai' | 'anthropic';
+
+/** 模型目录中的一条模型（与 runtime/customProviders.mjs#validateCustomProvider 的归一化结果一致）。 */
+export interface CustomModelConfig {
+  id: string;
+  label?: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  input: Array<'text' | 'image'>;
+  reasoning: boolean;
+}
+
+/** 自定义 Provider 配置；不含任何密钥字段（Key 只落 macOS 钥匙串）。 */
+export interface CustomProviderConfig {
+  id: string;
+  label: string;
+  protocol: CustomProviderProtocol;
+  baseUrl: string;
+  models: CustomModelConfig[];
+  createdAt?: string;
+  updatedAt?: string;
+  configured?: boolean;
+  ready?: boolean;
+}
 
 export interface ProviderSummary {
   id: Exclude<ProviderId, 'demo'>;
@@ -407,6 +620,17 @@ export interface ProviderSummary {
   installed?: boolean;
   authenticated?: boolean;
   configured?: boolean;
+  /** 自定义 API：URL 由用户在设置里填写，没有固定平台地址。 */
+  custom?: boolean;
+  /**
+   * 注册表里的自定义 Provider（可在「自定义模型 API」页签编辑）。
+   * 内置 custom_api 只有 custom 而没有 editable，前端据此区分“快捷自定义槽”与“注册表 Provider”。
+   */
+  editable?: boolean;
+  /** editable Provider 的协议、地址与模型目录摘要（由 Runtime 上报，无密钥字段）。 */
+  protocol?: CustomProviderProtocol;
+  baseUrl?: string;
+  models?: CustomModelConfig[];
   ready: boolean;
   version?: string;
   status?: string;
@@ -450,6 +674,29 @@ export interface ValidationCheck {
   status: 'pass' | 'warn' | 'fail' | 'running' | 'idle';
   count: number;
   findings: Finding[];
+  /** 数据来源：demo=模拟适配器；runtime=本机运行时真实计算；official=EDA 原生报告；manual=人工登记。 */
+  source?: 'demo' | 'runtime' | 'official' | 'manual';
+  /**
+   * P0-3：官方检查必须绑定项目与证据，否则切项目会串证据、KPI 会把 Demo/种子当真实。
+   * 种子/演示记录没有 projectId（或 source!=='official'），一律不计入真实覆盖与阶段门禁。
+   */
+  projectId?: string;
+  updatedAt?: string;
+  evidence?: {
+    engine: 'ERC' | 'DRC';
+    /** EDA 原生报告的 digest（落盘证据摘要），用于"这条结论对应哪份证据"。 */
+    digest?: string | null;
+    path?: string | null;
+    jobId?: string | null;
+    /**
+     * 复审 2026-10-29 P1-1/P1-14：官方结论必须能回答"这是哪次执行、哪份计划"的结果。
+     * 修复前只记 digest/path，审计里无法把 DRC 结论与 PCB 执行记录、语义/编译计划哈希对上。
+     * 取不到真实值时为 null（不猜），阶段门禁仍只认来源与项目绑定。
+     */
+    executionId?: string | null;
+    planHash?: string | null;
+    compiledPlanHash?: string | null;
+  };
 }
 
 export interface VersionItem {
@@ -498,6 +745,25 @@ export interface IssueHandlingEvent {
   actor: string;
 }
 
+export interface ChatTranscriptEntry { role: 'user' | 'assistant'; content: string; at: string; }
+export interface ChatTranscript {
+  sessionId: string;
+  messages: ChatTranscriptEntry[];
+  updatedAt: string | null;
+  persisted: boolean;
+}
+export interface FailureDiagnosis {
+  source: IssueRecord['source'];
+  severity: IssueRecord['severity'];
+  code: string;
+  summary: string;
+  detail: string;
+  fingerprint: string;
+  context: Record<string, string>;
+  suggestedAction: string;
+  repair: { page: PageId; label: string } | null;
+  known: boolean;
+}
 export interface IssueRecord {
   id: string;
   fingerprint: string;
@@ -517,6 +783,14 @@ export interface IssueRecord {
 
 export interface SettingsState {
   provider: ProviderId;
+  /** 第三方供应商平台的自定义 OpenAI 兼容 Base URL（可选，空 = 用平台默认）。 */
+  baseUrl: string;
+  /**
+   * S1 联网检索（可选字段：旧版本状态没有这两个字段，一律按“关闭/自动”处理，避免迁移成本）。
+   * 开启后 AI 才能查询公网 datasheet/器件资料；每次请求仍由客户端显式带 allowResearch 放行。
+   */
+  researchEnabled?: boolean;
+  researchProvider?: 'auto' | 'duckduckgo' | 'bing';
   onboardingComplete: boolean;
   model: string;
   budget: number;
@@ -525,7 +799,119 @@ export interface SettingsState {
   autoSave: boolean;
   confirmExport: boolean;
   writePaused: boolean;
+  /**
+   * P0-5：会话级写暂停的 UI 镜像（Runtime `writeGate.sessionPaused`）。
+   * 与 writePaused 并列但不落 Runtime 全局门禁：EDA 页开关只影响当前会话。
+   */
+  sessionPaused?: boolean;
   providerReady: boolean;
+}
+
+/**
+ * P0-8：Runtime 侧全局写暂停状态（权威）。
+ * `settings.writePaused` 只是它的 UI 镜像；脚本/curl 也只能被 Runtime 这份状态拦住。
+ */
+export interface WriteGateState {
+  paused: boolean;
+  reason: string | null;
+  actor: string | null;
+  updatedAt: string | null;
+  version: number;
+  file: string;
+  loadError?: string;
+  /**
+   * 复审 2026-10-29 P0-5：会话级暂停（scope='session'，由 EDA 页开关设置）。
+   * 服务端会持久化该标志（重启后仍有效），UI 必须以 GET/POST 返回的 gate 为准镜像。
+   * 旧 Runtime 没有该字段时按 false 处理。
+   */
+  sessionPaused?: boolean;
+  sessionReason?: string | null;
+  scope?: 'global' | 'session';
+}
+
+/** `POST /api/write-gate` 请求体：scope 决定改全局还是本会话（会话级不落盘）。 */
+export interface WriteGatePatch {
+  paused: boolean;
+  scope?: 'global' | 'session';
+  reason?: string | null;
+  actor?: string;
+}
+
+/** Runtime `/api/validation-state` 的权威副本（`state.validations` 与项目状态分开存）。 */
+/**
+ * P0-4（复审 2026-10-29）：PCB 安全写锁的 UI 投影（服务端 `writeLockStatus()`）。
+ * `safetyLocked=true` 表示上次回滚失败、Runtime 主动锁死 PCB 写入（409 PCB_WRITE_LOCKED），
+ * 只有人工确认现场后显式解除；重启/stale 规则都不会自动解。
+ */
+export interface PcbWriteLockState {
+  safetyLocked: boolean;
+  safetyLock: unknown;
+  lease: unknown;
+  path: string | null;
+  file: unknown;
+}
+
+/** `POST /api/pcb/write-lock/release` 的返回：`released=false` 时必须把 reason 如实告诉用户。 */
+export interface PcbWriteLockReleaseResult {
+  released: boolean;
+  reason?: string;
+  operator?: string;
+  note?: string;
+  previous?: unknown;
+}
+
+export interface ValidationStatePayload {
+  validations: ValidationCheck[];
+}
+
+export interface ValidationStateResponse {
+  ok: true;
+  state: ValidationStatePayload;
+  savedAt: string | null;
+  truncated?: number;
+  total?: number;
+}
+
+/** `POST /api/eda/gates/collect` 落盘的一条证据（与服务端 gates-evidence.mjs 的 saved[] 对齐）。 */
+export interface GateEvidenceSaved {
+  kind: string;
+  digest: string;
+  path: string;
+  verdict?: string | null;
+  subject?: unknown;
+}
+
+/**
+ * `POST /api/eda/gates/collect`：六门取证结果。
+ * `saved` = 本次真正落盘的证据；`missing`/`skipped` = 仍缺的输入（不得用"没报错"冒充已取证）。
+ */
+export interface GatesCollectResult {
+  ok: boolean;
+  saved: GateEvidenceSaved[];
+  missing: Array<{ kind: string; reason: string; code?: string | null }>;
+  skipped?: Array<{ kind: string; reason: string }>;
+  report?: PcbGateReport | null;
+  /** 取证汇总（saved/missing/producedKinds/missingKinds/complete），与门禁裁决 report 分开。 */
+  evidenceReport?: { complete?: boolean; producedKinds?: string[]; missingKinds?: string[]; blockedKinds?: string[]; savedCount?: number; missingCount?: number; note?: string } | null;
+  evidenceRefs?: GateEvidenceRef[];
+}
+
+/** `GET/POST /api/research/config`：联网检索开关的 Runtime 权威副本。 */
+export interface ResearchConfig {
+  enabled: boolean;
+  updatedAt: string | null;
+  actor?: string | null;
+  version?: number;
+  loadError?: string;
+}
+
+/** C1：跨设备恢复的最小业务状态（Runtime `/api/project-state` 的权威副本形状）。 */
+export interface BusinessState {
+  projects: Project[];
+  activeProjectId: string;
+  requirements: Requirement[];
+  components: ComponentItem[];
+  assets: FileAsset[];
 }
 
 export interface AppState {
@@ -572,6 +958,7 @@ export type AppAction =
   | { type: 'RESET_CHAT'; sessionId: string }
   | { type: 'SET_EDA'; eda: EdaState }
   | { type: 'PATCH_EDA'; patch: Partial<EdaState> }
+  | { type: 'CHECK_ENV_DRIFT'; edaFingerprint?: string | null; runtimeVersion?: string | null }
   | { type: 'ADD_COMMAND_LOG'; log: CommandLog }
   | { type: 'SET_VALIDATIONS'; validations: ValidationCheck[] }
   | { type: 'UPDATE_VALIDATION'; validation: ValidationCheck }
@@ -581,8 +968,17 @@ export type AppAction =
   | { type: 'REPORT_ISSUE'; issue: IssueRecord }
   | { type: 'UPDATE_ISSUE'; id: string; status: IssueStatus; note: string }
   | { type: 'SET_SETTINGS'; settings: SettingsState }
+  | { type: 'SET_WRITE_PAUSED'; paused: boolean }
+  /** P0-5：Runtime 写门禁镜像（全局暂停 + 本会话暂停）；只由 Runtime 返回驱动，不在本地臆造。 */
+  | { type: 'SET_WRITE_GATE'; paused: boolean; sessionPaused: boolean }
   | { type: 'PATCH_RUNTIME'; patch: Partial<RuntimeState> }
   | { type: 'BOOTSTRAP_RUNTIME'; patch: Partial<RuntimeState>; preferredProvider?: ProviderSummary }
+  | { type: 'HYDRATE_BUSINESS_STATE'; state: BusinessState }
+  /** C1：从 Runtime 恢复版本/修改/审计的权威副本（换机器/清缓存后仍可追溯）。 */
+  | { type: 'HYDRATE_TRACE_STATE'; versions: VersionItem[]; changes: ChangeLogEntry[]; audit: AuditEvent[] }
+  | { type: 'HYDRATE_ISSUES'; issues: IssueRecord[] }
+  /** P0-1：从 Runtime 恢复验证结果（官方 ERC/DRC 证据不再只活在浏览器 localStorage）。 */
+  | { type: 'HYDRATE_VALIDATIONS'; validations: ValidationCheck[] }
   | { type: 'RESET_DEMO'; state: AppState };
 
 export interface ToastMessage {
@@ -590,4 +986,840 @@ export interface ToastMessage {
   title: string;
   message: string;
   tone: Tone;
+}
+
+
+/* ---------------------------------------------------------------- 布局微调与下单前闸门 */
+
+/** 布局相关的发现项：sev 为 blocking 时必须修，unknown 表示"没读到"（同样不许放行）。 */
+export interface PlacementFinding {
+  code: string;
+  severity: 'blocking' | 'warning' | 'info' | 'unknown';
+  message: string;
+  field?: string | null;
+}
+
+export interface PlacementPoint { x: number; y: number }
+
+export interface PlacementOutline {
+  points: PlacementPoint[];
+  source: Array<number | string>;
+  closed: boolean;
+}
+
+/** R5：功能分区 / 器件区域约束，单位 mm。 */
+export interface PlacementRegionMm { xMinMm: number; yMinMm: number; xMaxMm: number; yMaxMm: number }
+
+/** R6：分区图（块 → 区域 → 成员）；区域可为推导值（regionDerived=true）。 */
+export interface PlacementBlockMapEntry {
+  id: string;
+  name: string;
+  refs: string[];
+  priority?: number;
+  region: PlacementRegionMm | null;
+  regionDerived: boolean;
+  areaMm2: number | null;
+  componentAreaMm2: number;
+  utilization: number | null;
+  memberCount?: number;
+  knownMemberCount?: number;
+  unpositionedMemberCount?: number;
+}
+
+export interface PlacementCoordinate { xMm: number; yMm: number; rotationDeg: number }
+
+export interface PlacementItem {
+  ref: string;
+  primitiveId: string | null;
+  xMm: number;
+  yMm: number;
+  rotationDeg: number;
+  side: 'top' | 'bottom';
+  widthMm?: number | null;
+  heightMm?: number | null;
+  current?: PlacementCoordinate | null;
+  partnerCount?: number;
+  /** R5：该器件被约束在的功能分区区域（未启用分区时为 null）。 */
+  regionMm?: PlacementRegionMm | null;
+}
+
+export interface PlacementVerification {
+  ok: boolean;
+  blockingCount: number;
+  checkedCount: number;
+  findings: PlacementFinding[];
+}
+
+export interface PlacementDiffRow {
+  ref: string;
+  status: 'moved' | 'new' | 'unchanged';
+  from: PlacementCoordinate | null;
+  to: PlacementCoordinate | null;
+  deltaXMm?: number;
+  deltaYMm?: number;
+  deltaRotationDeg?: number;
+  distanceMm?: number;
+}
+
+export interface LayoutSupplementRule {
+  id: string;
+  title: string;
+  status: 'PASS' | 'FAIL' | 'REVIEW' | 'NA';
+  message: string;
+  evidence?: unknown;
+}
+
+export interface LayoutSupplementAudit {
+  kind: 'pcba-layout-supplement-audit';
+  rules: LayoutSupplementRule[];
+  summary: { total: number; PASS: number; FAIL: number; REVIEW: number; NA: number; blockingFailures: number };
+  passed: boolean;
+  releaseReady: boolean;
+}
+
+/** A9：布局规则审计（128 条规则里与布局几何相关部分）的真实结论。 */
+export interface LayoutAuditSummary {
+  ok: boolean;
+  evidenceGapFailures: number;
+  auditHash: string;
+  summary: { total: number; PASS: number; FAIL: number; REVIEW: number; NA: number; blockingFailures: number; warningFailures: number };
+  blockingFailures: number;
+  warningFailures: number;
+  review: number;
+  passed: number;
+  releaseReady: boolean;
+  blocking: Array<{ ruleId: string | null; title: string | null; message: string | null; evidence?: unknown }>;
+  evidenceGaps: Array<{ ruleId: string | null; title: string | null; message: string | null }>;
+  gates: Record<string, unknown>;
+  /** P2：独立补充规则族（热/PDN/高速/爬电/外壳/EMC），不改变 128 条规则包。 */
+  supplements?: LayoutSupplementAudit;
+  supplementFailures?: number;
+  inputSummary: { board: { widthMm: number | null; heightMm: number | null; outlineClosed: boolean }; components: number; silkTexts?: number | null; decouplingPairs?: number | null };
+}
+
+export interface PlacementPlanResult {
+  ok: boolean;
+  source?: string;
+  openedPcb?: { opened: boolean; tabId?: string } | null;
+  outline: PlacementOutline;
+  componentCount: number;
+  unknownSize: string[];
+  affinity: { netCount: number; topPairs: Array<[string, number]> };
+  plan: {
+    ok: boolean;
+    placements: PlacementItem[];
+    unplaced: Array<{ ref?: string; reason?: string }>;
+    findings: PlacementFinding[];
+    stats: { placedCount: number; unplacedCount: number; gridMm: number; edgeClearanceMm: number; spacingMm: number; utilization: number; usableBounds?: Record<string, number> };
+  };
+  verification: PlacementVerification;
+  currentVerification: PlacementVerification;
+  diff: { rows: PlacementDiffRow[]; movedCount: number; newCount: number; unchangedCount: number };
+  /** R6：分区/区域布局图（块 → 区域 → 成员）。没有 blocks 时为空数组，不会 undefined。 */
+  blockMap?: PlacementBlockMapEntry[];
+  /** R3–R6：功能分区执行结果（blockMap 的别名 + 校验发现项，便于 UI 同时展示“图”和“为什么没生效”）。 */
+  blocks?: { ok: boolean; blockMap: PlacementBlockMapEntry[]; findings: PlacementFinding[] };
+  /** A9：布局规则审计结论（证据不足的项单独计数，不冒充违规）。 */
+  layoutAudit?: LayoutAuditSummary;
+  /** autoDrc=true 时的自动 DRC 采集结果；失败不阻断布局，只让 GATE-02 保持 REVIEW。 */
+  drcAuto?: { requested: boolean; used: boolean; error: string | null };
+}
+
+export interface PlacementWritebackUpdate {
+  ref: string;
+  primitiveId: string;
+  fromMm: PlacementCoordinate;
+  toMm: PlacementCoordinate;
+  deltaMm: number;
+  deltaRotationDeg: number;
+}
+
+export interface PlacementWritebackResult {
+  ok: boolean;
+  applied: boolean;
+  /** 运行时不代用户保存：改动只在 EDA 内存里，必须由人在 EDA 中确认并保存。 */
+  saved: boolean;
+  dryRun: boolean;
+  updates: PlacementWritebackUpdate[];
+  skipped: Array<{ ref: string; reason: string }>;
+  missing: Array<{ ref: string; reason: string }>;
+  steps: Array<{ step: string; ok?: boolean; [key: string]: unknown }>;
+  findings: PlacementFinding[];
+  verified: PlacementVerification | null;
+  rollback: { attempted?: boolean; ok?: boolean; manualCoordinates?: Array<{ ref: string; xMil: number; yMil: number; rotationDeg: number }> } | null;
+  summary?: unknown;
+  /** A9：写回前实际跑过的规则审计（被硬门禁拒绝时异常 details 里也有）。 */
+  layoutAudit?: LayoutAuditSummary;
+  drcAuto?: { requested: boolean; used: boolean; error: string | null };
+}
+
+export type ReleaseGateStatus = 'pass' | 'warn' | 'blocked' | 'unknown';
+
+export interface ReleaseGateFinding { code: string; message: string; field?: string | null }
+
+export interface ReleaseGateSection {
+  id: string;
+  title: string;
+  status: ReleaseGateStatus;
+  blockingCount: number;
+  evidence: Record<string, unknown> | null;
+  findings: PlacementFinding[];
+}
+
+/** 产出裁决：门禁没通过就只能出草稿；正式命名一律拒绝（规则实现在 runtime/production-release.mjs）。 */
+export interface ProductionOutputDecision {
+  kind: 'production-output-decision';
+  requested: 'draft' | 'final';
+  allowed: boolean;
+  outputClass: 'draft' | 'final' | null;
+  code?: string;
+  message?: string;
+  blockers: string[];
+  fix?: string[];
+  staleArtifacts?: string[];
+  exampleNames?: string[];
+  draftNaming?: string;
+  naming?: { suffix: string };
+  warning?: string;
+  ticket?: string | null;
+  humanSignoffRequired: boolean;
+  gate: { verdict: string | null; ready: boolean; fingerprint: string | null; blockerCodes: string[] };
+}
+
+/** B8：不可变发布版本（归档记录，创建后无更新/删除接口）。 */
+export interface ReleaseArchiveEvidenceFile {
+  role: string;
+  path: string;
+  bytes: number | null;
+  sha256: string | null;
+  error?: string;
+}
+
+export interface ReleaseArchiveSummary {
+  releaseId: string;
+  createdAt: string;
+  binding: { planHash: string | null; manifestHash: string | null; reviewHash: string | null; pcbUuid: string | null };
+  verdict: string | null;
+  files: number;
+  verification: { verified: boolean; problems: string[] };
+}
+
+export interface ReleaseArchiveRecord {
+  schemaVersion: number;
+  kind: string;
+  releaseId: string;
+  createdAt: string;
+  immutable: boolean;
+  binding: {
+    planHash: string | null;
+    compiledPlanHash: string | null;
+    pcbUuid: string | null;
+    pcbExecutionId: string | null;
+    reviewHash: string | null;
+    manifestHash: string | null;
+    gateFingerprint: string | null;
+    decisionFingerprint: string | null;
+  };
+  gate: { ready: boolean; verdict: string | null; blockers: Array<{ code: string; message: string }>; warnings: Array<{ code: string; message: string }>; gates: Array<{ id: string; status: string; blockingCount: number }> };
+  releaseDecision: { ready: boolean; verdict: string; blockedBy: string[]; gates: Array<{ id: string; scope: string; status: string; passed: boolean }>; evidence: Record<string, unknown> | null };
+  evidence: { artifactsDir: string | null; files: ReleaseArchiveEvidenceFile[] };
+  notes: string | null;
+  archiveHash: string;
+  filePath: string;
+  verification: { verified: boolean; problems: string[] };
+}
+
+export interface ReleaseGateReport {
+  kind: 'fabrication-release-gate';
+  schemaVersion: number;
+  generatedAt: string;
+  ready: boolean;
+  verdict: 'blocked' | 'ready-with-warnings' | 'ready-to-order';
+  blockers: ReleaseGateFinding[];
+  warnings: ReleaseGateFinding[];
+  gates: ReleaseGateSection[];
+  fingerprint: { sha256: string; parts: unknown };
+  /** 下单这件事永远需要人签字：机器只负责把证据摆全。 */
+  humanSignoffRequired: boolean;
+  /** 能不能出正式生产文件的裁决（运行时装在报告里，界面直接显示，不自己再推导一遍）。 */
+  outputDecision?: ProductionOutputDecision;
+  /** 统一裁决：本地门禁 + DFM/终审人工证据；界面只显示这一条结论。 */
+  releaseDecision?: ReleaseDecision;
+}
+
+/** DRC 报告（落盘证据里的核心负载；字段与 runtime/drc.mjs 的归一化输出对齐）。 */
+export interface DrcReportItem {
+  errorType?: string | null;
+  signature?: string | null;
+  instanceKey?: string | null;
+  objects?: Array<{ type?: string }>;
+  [key: string]: unknown;
+}
+export interface DrcReport {
+  ok?: boolean;
+  items: DrcReportItem[];
+  reportedCount?: number | null;
+  itemCount?: number | null;
+  truncated?: boolean;
+  byErrorType?: Record<string, number>;
+  byRule?: Record<string, number>;
+  byLayer?: Record<string, number>;
+  countsConsistent?: boolean | null;
+  [key: string]: unknown;
+}
+export interface DrcEvidenceEntry {
+  schemaVersion: number;
+  kind: 'drc-report';
+  savedAt: string;
+  digest: string;
+  path: string;
+  fingerprint: Record<string, string | null>;
+  note?: string | null;
+  payload: {
+    report: DrcReport;
+    classification?: Record<string, unknown> | null;
+    jobId?: string | null;
+    pcbUuid?: string | null;
+  };
+}
+export interface ErcCounts { fatal: number; error: number; warning: number; info: number; total: number; }
+/** 第 60 轮：ERC 明细来源——`ui-dom` = 从 EDA 检查面板抓到逐条；`aggregate` = 只有聚合计数。 */
+export type ErcDetailSource = 'ui-dom' | 'aggregate';
+/** ERC 逐条明细抓取的元数据。`ok=false` 时 `reason` 是运行时如实给出的失败原因（不伪造明细）。 */
+export interface ErcDetailMeta {
+  ok: boolean;
+  source?: ErcDetailSource | string | null;
+  reason?: string | null;
+  counts?: Record<string, unknown> | null;
+  targetBefore?: Record<string, string | null> | null;
+  targetAfter?: Record<string, string | null> | null;
+}
+export interface ErcFinding {
+  id: string;
+  severity: 'fatal' | 'error' | 'warning' | 'info';
+  code: string;
+  title: string;
+  object: string;
+  detail: string;
+  suggestion: string;
+  /** A13：逐条结构化修复建议（不自动改图；autoFixable 恒为 false，电气意图需人确认）。 */
+  repair?: {
+    kind: 'pwr-flag' | 'no-connect' | 'no-connect-review' | 'net-flag' | 'manual';
+    label: string;
+    risk: 'low' | 'medium' | 'high';
+    autoFixable: boolean;
+    requiresHumanConfirm: boolean;
+    steps: string[];
+    verify: string;
+    suggestedCommand?: { command: string; needs: string[]; note: string };
+    blockedReason?: string;
+  };
+  aggregate: boolean;
+  count: number;
+  exempted?: boolean;
+  exemptionReason?: string;
+}
+export interface ErcReport {
+  schemaVersion: number;
+  ran: boolean;
+  aggregateOnly: boolean;
+  detailAvailable: boolean;
+  counts: ErcCounts;
+  openCounts?: ErcCounts;
+  findings: ErcFinding[];
+  groups: Array<{ type: string; count: number; detailAvailable: boolean }>;
+  digest: string;
+  exemptions?: Array<{ code: string; object: string | null; reason: string }>;
+  invalidExemptions?: Array<{ index: number; code: string | null; problems: string[] }>;
+  repairSummary?: { kinds: Record<string, number>; autoFixable: number; requiresHuman: number; total: number };
+  /** 第 60 轮：本次 ERC 实际检查的原理图 documentUuid（多板工程必须能回答“查的是哪一页”）。 */
+  documentUuid?: string | null;
+  /** 第 60 轮：逐条明细来源；缺省表示运行时没有标注（旧版证据），不等于有逐条明细。 */
+  detailSource?: ErcDetailSource | string | null;
+  /** `ui-dom` 明细抓取计数与未覆盖级别（部分明细），仅作如实展示。 */
+  detailCounts?: {
+    fatal?: number;
+    error?: number;
+    warning?: number;
+    info?: number;
+    total?: number;
+    partial?: Record<string, { detailed: number; expected: number }>;
+  } | null;
+}
+export interface ErcEvidenceEntry {
+  schemaVersion: number;
+  kind: 'schematic-erc';
+  savedAt: string;
+  digest: string;
+  path: string;
+  fingerprint: Record<string, string | null>;
+  note?: string | null;
+  payload: {
+    report: ErcReport;
+    exemptionFile?: { path?: string; exists?: boolean; invalid?: unknown[] };
+    /** 第 60 轮：明细抓取结果（成功含 source/counts；失败含 reason），用于诚实展示“为什么没有逐条”。 */
+    ercDetail?: ErcDetailMeta | null;
+  };
+}
+export interface ErcConvergenceSummary {
+  ran: boolean;
+  aggregateOnly: boolean;
+  detailAvailable: boolean;
+  counts: ErcCounts;
+  errorsOpen: number;
+  warningsOpen: number;
+  exempted: number;
+  invalidExemptions: number;
+  digest: string;
+}
+export interface DfmEvidenceEntry {
+  schemaVersion: number;
+  kind: 'dfm-evidence';
+  savedAt: string;
+  digest: string;
+  path: string;
+  fingerprint: Record<string, string | null>;
+  payload: {
+    passed: boolean;
+    operator: string;
+    source: string;
+    conclusion: string;
+    url: string | null;
+    artifacts: Array<Record<string, unknown>>;
+    uploadedAt: string;
+  };
+}
+export interface SignoffEvidenceEntry {
+  schemaVersion: number;
+  kind: 'signoff';
+  savedAt: string;
+  digest: string;
+  path: string;
+  fingerprint: Record<string, string | null>;
+  payload: {
+    passed: boolean;
+    operator: string;
+    planHash: string | null;
+    manifestHash: string;
+    conclusion: string;
+    roles: Array<{ role: string; name: string; conclusion: string; signedAt: string }>;
+  };
+}
+
+/** 统一放行决策（runtime/release-decision.mjs）：本地门禁 + 人工证据只有一条结论。 */
+export interface ReleaseDecisionGate {
+  id: string;
+  scope: 'local' | 'manual';
+  title: string;
+  status: string;
+  passed: boolean;
+  reason: string | null;
+  evidence: Record<string, unknown> | null;
+}
+export interface ReleaseDecision {
+  schemaVersion: number;
+  kind: 'release-decision';
+  generatedAt: string;
+  ready: boolean;
+  orderEnabled: false;
+  humanSignoffRequired: true;
+  verdict: 'ready' | 'ready-with-warnings' | 'blocked';
+  gates: ReleaseDecisionGate[];
+  blockedBy: string[];
+  reason: string;
+  evidence: { gateFingerprint: unknown; dfm: unknown; signoff: unknown };
+  fingerprint: string;
+}
+
+/** 生产文件导出结果：`exported` 是布尔（成不成），`files` 是确实落盘的文件。 */
+export interface ProductionExportFile { kind: string; name: string; path: string; bytes: number; sha256: string; chunks?: number | null; edaName?: string | null }
+export interface ProductionExportVerification {
+  id?: string; title?: string; status?: 'pass' | 'fail' | 'unknown';
+  blockingCount?: number; note?: string | null;
+  findings?: Array<{ code: string; severity: string; message: string }>;
+  waived?: Array<{ code: string; message: string; why: string }>;
+  evidence?: Record<string, unknown>;
+}
+export interface ProductionExportResult extends ProductionOutputDecision {
+  exported: boolean;
+  /** 服务端统一裁决（本地门禁 + 落盘人工证据），导出被拒时给出 blockedBy。 */
+  releaseDecision?: ReleaseDecision;
+  /** B1/B4：本次导出与人工签核的物料清单绑定核对结果（provided/recomputed/signoff 三值对照）。 */
+  manifestBinding?: {
+    requested: 'draft' | 'final';
+    providedManifestHash: string | null;
+    recomputedManifestHash: string | null;
+    signoffManifestHash: string | null;
+    boundManifestHash: string | null;
+    ok: boolean;
+    code?: string;
+    message?: string;
+  };
+  ok?: boolean;
+  code?: string;
+  message?: string;
+  files?: ProductionExportFile[];
+  wrote?: string[];
+  outDir?: string | null;
+  manifest?: { outputClass: 'draft' | 'final'; released: boolean; decisionTicket?: string | null; manifestPath?: string; manifestSha256?: string; verification?: ProductionExportVerification | null };
+}
+
+/** 板厂下单参数卡：实测事实 + 下单参数 + 一致性结论（规则实现在 runtime/fabrication-order.mjs）。 */
+export interface FabricationOrderFinding { code: string; severity: 'blocking' | 'unknown' | 'warning'; message: string; field: string | null }
+export interface FabricationOrderCard {
+  kind: 'fabrication-order-card';
+  generatedAt: string;
+  readyToOrder: boolean;
+  nextStep: string;
+  parameters: { layers: number | null; sizeMm: { x: number; y: number } | null; thicknessMm: number; copperWeightOz: number; surfaceFinish: string; impedanceControl: boolean; quantity: number; panelize: boolean; soldermaskColor: string; leadTimeDays: number | null };
+  derived: { sizeMm: { x: number; y: number } | null; copperLayerCount: number | null; componentCount: number | null; netCount: number | null; drcMustFixCount: number | null; drcItemCount: number | null; impedanceNets: Array<{ name: string | null; impedanceOhm: number | null }> };
+  capability: { provenance: string; note?: string; maxSizeMm?: { x: number; y: number } };
+  files: Array<{ kind: string | null; name: string | null; path: string | null; bytes: number | null; draft: boolean }>;
+  price: { status: 'known' | 'unknown'; amount?: number; currency?: string; source?: string; reason?: string };
+  findings: FabricationOrderFinding[];
+  assumptions: Array<{ field: string; value: unknown; why: string }>;
+  counts: { blocking: number; unknown: number; warning: number };
+  humanSignoffRequired: boolean;
+  /** B3：供应链价格/库存摘要（有证据时由运行时汇入；缺证据不出现，不猜总价）。 */
+  supplySummary?: {
+    known: boolean;
+    pricedCount: number;
+    unknownCount: number;
+    totalKnownAmount: number | null;
+    currency: string | null;
+    outOfStock: Array<{ lcsc: string; stock: number; price: number | null }>;
+    stockUnknown: Array<{ lcsc: string; reason: string }>;
+    checkedAt: string | null;
+    ageHours: number | null;
+    stale: boolean | null;
+    staleAfterHours?: number;
+    findings: Array<{ code: string; severity: string; message: string }>;
+  };
+}
+
+/** E3/R10：下单参数卡人工确认证据（系统不代下单、不代付）。 */
+export interface OrderConfirmationPayload {
+  operator: string;
+  note: string | null;
+  paymentManual: true;
+  acknowledged: { orderExecutedBySystem: false; paymentExecutedBySystem: false; humanExecutor: string };
+  card: {
+    generatedAt: string | null;
+    readyToOrder: true;
+    counts: FabricationOrderCard['counts'] | null;
+    parameters: FabricationOrderCard['parameters'] | null;
+    price: FabricationOrderCard['price'] | null;
+    humanSignoffRequired: boolean;
+    files: Array<{ kind: string | null; name: string | null; draft: boolean }>;
+  };
+  source?: string;
+  confirmedAt?: string;
+}
+
+/** 原理图自动修复：预演（dryRun）或受控写入 + 网表复核 + 立刻重跑验收的结果。 */
+export interface SchematicRepairDevice {
+  id?: string;
+  mpn?: string | null;
+  net: string;
+  otherNet: string;
+  valueOhm?: number;
+  position?: { x: number; y: number };
+}
+
+export interface SchematicRepairReport {
+  dryRun: boolean;
+  skipped?: boolean;
+  skippedReason?: 'ALREADY_SATISFIED' | 'NOTHING_TO_DO' | string;
+  devices?: SchematicRepairDevice[];
+  plan?: {
+    ok: boolean;
+    operations: Array<{ type: string; repairId?: string; expectedNet?: string; pinIndex?: number; args?: Record<string, unknown> }>;
+    satisfied?: Array<{ id?: string; designator?: string; value?: string | null; part?: string | null; why?: string }>;
+    expectedGain: Record<string, number>;
+    findings?: Array<{ severity: string; code: string; message: string }>;
+  };
+  applied?: {
+    createdPins: string[];
+    diff: { ok: boolean; gained: Record<string, string[]>; missing: unknown[]; unexpected: unknown[]; identityComplete: boolean };
+    events: Array<{ step: string; status: string; [key: string]: unknown }>;
+  };
+  acceptance?: {
+    ready: boolean;
+    netlist: { components: number; nets: number; pins: number; namedPins: number; meta?: { sha256?: string | null } | null } | null;
+    designChecks?: {
+      ok: boolean;
+      summary: { total: number; passed: number; failed: number; notRun: number; notApplicable: number; simulated: boolean };
+      results: Array<{ id: string; title: string; status: string; spec?: unknown; measured?: unknown; defect?: unknown; recommendation?: string | null }>;
+    } | null;
+    findings: Array<{ code: string; severity: string; message: string; field?: string | null }>;
+  };
+}
+
+/** 叠层（铜层）只读信息：层号、名称、类型（SIGNAL=铜层，SILKSCREEN/SOLDERMASK 等非铜层）。 */
+export interface PcbLayerInfo {
+  id: number;
+  name: string;
+  type: string;
+  color?: string;
+  locked?: boolean;
+  layerStatus?: string;
+  transparency?: number;
+}
+
+export interface PcbLayerStack {
+  copperCount: number;
+  count: number;
+  layers: PcbLayerInfo[];
+}
+
+/** 叠层写入结果（服务端写后读回校验 + 取证 + 保存状态，绝不凭 setCount 返回值声称成功）。 */
+export interface PcbLayerStackChange {
+  ok: boolean;
+  changed: boolean;
+  copperLayers: number;
+  before: { copperCount: number; layers: PcbLayerInfo[] };
+  after: { copperCount: number; layers: PcbLayerInfo[] };
+  verification: { expectedLayerIds: number[]; matched: boolean };
+  saved: boolean;
+}
+
+/** 覆铜详情（布线收尾/半写回滚时的只读快照）。 */
+export interface PcbPourInfo {
+  primitiveId: string;
+  net: string;
+  layer: number;
+  pourName: string;
+  pourPriority: number;
+}
+
+// ---------------------------------------------------------------- W5/W6 门禁与知识库（前端视图类型）
+
+export interface GateReason { code: string; severity: 'error' | 'warning' | 'info' | 'blocking' | 'unknown'; message: string }
+export interface PcbGateResult { id: string; name: string; purpose: string; requiredKinds: string[]; verdict: 'pass' | 'blocked' | 'unknown' | 'not-implemented'; implemented?: boolean; evidenceDigests: string[]; missing: string[]; reasons: GateReason[] }
+export interface PcbGateReport { verdict: 'pass' | 'blocked' | 'unknown'; targetPcbUuid: string | null; gates: PcbGateResult[]; blockedGates: string[]; unknownGates: string[]; notImplementedGates?: string[] }
+export interface GateEvidenceRef { kind: string; digest: string; path: string; savedAt: string }
+/** P0-9：门禁建议只来自 approved + 未过期的知识条目；每条都带 review/trust 与 citation。 */
+export interface KnowledgeGateAdvice {
+  knowledgeId: string;
+  title: string;
+  kind: string | null;
+  trust: string | null;
+  review: string;
+  gateId: string;
+  gateName: string | null;
+  reasonCode: string;
+  excerpt: string;
+  citation: string;
+}
+export interface KnowledgeGateAdviceResult {
+  suggested: KnowledgeGateAdvice[];
+  considered: Array<{ gateId: string; code: string }>;
+  used: number;
+  unusableSkipped: number;
+  note: string | null;
+}
+export interface GateSignoffRecord { schemaVersion: number; kind: string; pcbUuid: string; decision: 'approve' | 'reject'; signedBy: string; note: string; gateVerdict: string; reportDigest: string; signedAt: string }
+export interface KnowledgeEntryView { id: string; kind: string; title: string; payload: Record<string, unknown>; provenance: Record<string, unknown>; trust: string; review: { state: string; reviewedBy?: string | null; reviewedAt?: string | null }; entityKey?: string | null; createdAt: string; updatedAt: string; expired?: boolean; digest?: string }
+export interface KnowledgeHealth { total: number; byKind: Record<string, number>; coverage: number; approved: number; candidates: number; expired: number; expiredRate: number; conflictKeys: number; conflictRate: number; hitRate: number; generatedAt: string }
+export interface KnowledgeReviewQueueView { candidates: Array<{ id: string; kind: string; title: string; trust: string; entityKey?: string | null; createdAt: string }>; candidateCount: number; conflicts: Array<{ entityKey: string; conflicts: number; ids: string[] }>; conflictCount: number; expired: Array<{ id: string; title: string; expiredAt?: string | null }>; expiredCount: number; generatedAt: string }
+export interface ApprovalLedgerView { entries: Array<{ index: number; at: string; scope: string; action: string; approvalId?: string | null; bindings?: Record<string, unknown>; note?: string }>; summary: { total: number; byScope: Record<string, number>; byAction: Record<string, number> }; chain: { ok: boolean; brokenAt: number | null; reason: string }; loadError?: string | null }
+
+export interface KnowledgeAgentRunSummary {
+  reason: string;
+  ok: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  badcases: { created: number; duplicates: number; candidates: number } | null;
+  web: { created: number; failed: number; collectors: number } | null;
+  maintenance: { pendingReview: number; expired: number; conflicts: number; evidencePath?: string | null } | null;
+  failed: Array<{ task: string; code?: string | null; failed?: number }>;
+}
+export interface KnowledgeAgentSchedulerStatus {
+  enabled: boolean;
+  intervalMs: number;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  running: boolean;
+  lastResult: KnowledgeAgentRunSummary | null;
+  history: Array<{ at: string; reason: string; ok: boolean; badcases: number | null; web: number | null; pendingReview: number | null }>;
+  corruptState: boolean;
+}
+export interface KnowledgeAgentManagerStatus {
+  totals: { total: number; candidates: number; approved: number; expired: number; coverage: number };
+  badcases: { count: number; pendingReview: number };
+  webCollectors: number;
+  evidenceRoot: string | null;
+}
+export interface KnowledgeRetroCandidate { kind: string; title: string; id: string; entityKey?: string | null; created: boolean }
+export interface KnowledgeRetroRunResult {
+  agent: string; version: string; ok: boolean;
+  projectId: string | null; boardId: string | null; pcbUuid: string | null;
+  startedAt: string; finishedAt: string;
+  facts: { evidenceKinds: string[]; defects: number; warnings: number; changes: number; hasRelease: boolean; hasGates: boolean };
+  lessons: { accepted: number; byKind: { failure: number; rule: number; module: number } };
+  candidates: KnowledgeRetroCandidate[];
+  errors: Array<{ kind: string; title: string; code: string; message: string }>;
+  summary: { total: number; created: number; duplicates: number };
+  evidencePath: string | null;
+}
+export interface KnowledgeRetroMergeCandidate { entityKey: string; code: string; projects: string[]; occurrences: number; id: string; created: boolean }
+export interface KnowledgeRetroMergeResult {
+  ok: boolean; scanned: number; minProjects: number; groups: number; created: number; duplicates: number;
+  candidates: KnowledgeRetroMergeCandidate[]; generatedAt: string; code?: string; message?: string;
+}
+export interface ExperienceBundlePreview {
+  kind: string; schemaVersion: number; createdAt: string; bundleSha256: string; bytes: number;
+  projectKeyHash: string | null; defects: number; lessons: number; redaction: Record<string, string>;
+}
+export type ExperienceBundle = Record<string, unknown> & { bundleSha256: string };
+export interface KnowledgeRetroDraft {
+  provider: string | null; model: string | null;
+  lessons: Array<Record<string, unknown>>;
+  problems: Array<{ index: number; code: string; message: string }>;
+  facts: { defects: number; evidenceKinds: string[]; evidenceDigests: string[] };
+  note: string;
+}
+export interface KnowledgeRetroMaintenance {
+  ok: boolean; pendingReview?: number; conflicts?: number; expired?: number; staleCandidates?: number; evidencePath?: string | null; code?: string; message?: string;
+}
+export interface KnowledgeRetroStatus {
+  agent: string; version: string; readOnly: boolean; writes: string[]; never: string[];
+  lastRun: { at: string; projectId: string | null; ok: boolean; created: number; duplicates: number; defects: number; lessons: number; code: string | null } | null;
+  totals: { runs: number; created: number };
+  evidenceKinds: string[]; lessonKinds: string[];
+}
+export interface KnowledgeAgentCycle {
+  startedAt: string;
+  finishedAt: string;
+  tasks: string[];
+  ok: boolean;
+  badcases?: { ok: boolean; created?: number; duplicates?: number; candidates?: number; scanned?: number; code?: string; message?: string } | null;
+  web?: { ok: boolean; created?: number; failed?: unknown[]; collectors?: number; code?: string; message?: string } | null;
+  maintenance?: { ok: boolean; pendingReview?: number; expired?: { count: number }; conflicts?: { count: number }; evidencePath?: string; code?: string; message?: string } | null;
+}
+
+export interface RagStatus {
+  built: boolean;
+  docs: number;
+  chunks: number;
+  terms: number;
+  dims: number;
+  builtAt: string | null;
+  corpusDigest: string | null;
+  file: string | null;
+  loadError: { code: string; message: string } | null;
+  corpus: { knowledge: number; docs: number; skipped: number; truncated: boolean } | null;
+  lastQueryAt: string | null;
+}
+export interface RagHit {
+  chunkId: string;
+  docId: string;
+  title: string;
+  heading: string;
+  kind: string;
+  path: string | null;
+  knowledgeId: string | null;
+  text: string;
+  score: number;
+  bm25: number;
+  cosine: number;
+  provenance: Record<string, unknown> | null;
+  meta: Record<string, unknown>;
+}
+export interface RagQueryResult { query: string; results: RagHit[]; total: number; mode: string }
+export interface RagRebuildResult { docs: number; chunks: number; terms: number; reason: string; corpus: { knowledge: number; docs: number; skipped: number; truncated: boolean } | null; file: string | null }
+
+/**
+ * Agent 接入（契约 `docs/agent/agent-contract.md` §1）：Runtime 落盘令牌的**只读投影**。
+ * 安全口径：永不包含令牌原文；`available=false` 时 `reason` 说明缺失/损坏/权限过宽。
+ */
+export interface AgentTokenStatus {
+  available: boolean;
+  /** 令牌文件绝对路径（默认 ~/Library/Application Support/CircuitPilot/agent-token.json）。 */
+  file: string;
+  /** 令牌名称（MVP 固定 dsh-plugin）。 */
+  name: string;
+  /** 授权范围：read / plan / execute。 */
+  scopes: string[];
+  /** 令牌创建时间（ISO 字符串，服务端生成时写入）。 */
+  createdAt: string;
+  /** 不可用原因（文件不存在/JSON 损坏/权限过宽），可用时不返回。 */
+  reason?: string;
+  /** 轮换接口返回时带 true（表示这是刚生成的新令牌）。 */
+  rotated?: boolean;
+}
+
+/**
+ * 审计链完整性（task-26 Runtime 契约）：`/api/agent/status` 的 `auditIntegrity` 或
+ * `/api/agent/audit` 的 `integrity`。只读展示——UI 不提供修复/清空入口，异常时要求保留现场。
+ *
+ * - `chain`：empty（无审计记录）/ ok（哈希链完整）/ broken（链断裂或被改写）/ legacy（含旧格式行）
+ * - `verified`：本轮是否真正做过链校验（服务端可能给布尔或已验证行数，UI 两种都如实显示）
+ * - `legacy`：是否存在旧格式行（服务端可能给布尔或行数，UI 两种都如实显示）
+ * - `badLines`：解析/校验失败的行数；`firstBadSeq` 用于定位首个异常行
+ */
+export interface AuditIntegrity {
+  ok: boolean;
+  chain: 'empty' | 'ok' | 'broken' | 'legacy';
+  verified: boolean | number;
+  legacy: boolean | number;
+  badLines: number;
+  /** 审计链头锚点是否已建立（旧审计兼容时可能为 false）。 */
+  anchored?: boolean;
+  headSeq?: number | null;
+  headHash?: string | null;
+  firstBadSeq?: number;
+  reason?: string;
+}
+
+
+
+/** `GET /api/agent/approvals`：已签发但尚未使用/撤销/过期的计划批准（只读，不含 token）。 */
+export interface AgentPendingApproval {
+  approvalId: string;
+  kind: 'design' | 'pcb';
+  scope: string;
+  bindings: Record<string, unknown>;
+  note?: string;
+  /** 服务端 Unix 毫秒时间戳。 */
+  issuedAt: number;
+  expiresAt: number;
+}
+
+/** `GET /api/agent/plan-requests`：计划级人工审查请求（只读/决策；不含任何 approval token）。 */
+export type AgentPlanRequestStatus = 'pending' | 'approved' | 'rejected' | 'consumed';
+export interface AgentPlanRequest {
+  requestId: string;
+  kind: 'design' | 'pcb';
+  planHash: string;
+  targetFingerprint: string;
+  windowId: string;
+  projectId?: string | null;
+  documentUuid?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  risks: string[];
+  missing: string[];
+  status: AgentPlanRequestStatus;
+  /** 服务端 Unix 毫秒时间戳。 */
+  createdAt: number;
+  expiresAt: number;
+  decidedAt?: number | null;
+  consumedAt?: number | null;
+  decisionNote?: string | null;
+}
+
+/** `GET /api/agent/audit` 的单条审计：谁（actor）用什么方法/路径调了什么、结果如何。 */
+export interface AgentAuditEvent {
+  at: string;
+  kind: string;
+  actor: string;
+  method?: string;
+  path?: string;
+  outcome?: string;
+  tool?: string;
+  target?: string;
+  planHash?: string | null;
+  executionId?: string | null;
+  detail?: string | null;
 }

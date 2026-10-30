@@ -19,6 +19,11 @@ export const ROUTING_DEFAULTS = Object.freeze({
   viaHoleMil: 12,
   viaInPadOuterDiameterMil: 8,
   viaInPadHoleMil: 4,
+  // 盘中孔的焊盘间距判据（真机实测校准，第 34 轮）：EDA 官方 DRC 对"盘中孔 vs 相邻焊盘"
+  // 并不按 0.2mm/8mil 外的通用间距算——实测 0.5mm 间距器件里 8/4mil 盘中孔到相邻焊盘 9.8mil
+  // 完全无违规。若继续用 clearanceMil(12) 复核，会把大量合法盘中孔方案判死（BAT_ADC 11.55mil 被拒）。
+  // 这里显式降到 6mil（0.15mm，细间距工艺的常规孔到铜间距），并保留 EDA 真机 DRC 作为最终裁判。
+  viaInPadPadClearanceMil: 6,
   throughHoleLayer: 12,
   gridMil: 4,
   viaCost: 40,
@@ -31,6 +36,12 @@ export const ROUTING_DEFAULTS = Object.freeze({
   contactTolMil: 1,
   maxConnections: 24,
 });
+
+/** 桥的 pcb.save 可能返回 true，也可能返回 { result: true } / { result: { saved: true } }；三种都必须认。 */
+const saveConfirmed = (value) => {
+  const unwrapped = value && typeof value === 'object' && 'result' in value ? value.result : value;
+  return unwrapped === true || unwrapped?.saved === true;
+};
 
 const num = (value) => {
   const number = Number(value);
@@ -57,6 +68,10 @@ export function normalizeGeometry(input) {
     return {
       designator: String(pad.designator ?? ''), pad: String(pad.pad ?? ''), net: String(pad.net ?? '').trim(),
       layer, x: num(pad.x), y: num(pad.y), radius: num(pad.radius) || 5,
+      // 间距校验/障碍建模用"外接圆半径"（矩形焊盘半对角线），连通性接触判定仍用内切半径。
+      // 真机 D-31-5：内切半径把矩形焊盘算小 → 斜穿角落的走线规划认为合规、真机 DRC 报 SMD Pad to Track。
+      clearanceRadius: Math.max(num(pad.clearanceRadius) || num(pad.radius) || 5, num(pad.radius) || 5),
+      shape: Array.isArray(pad.shape) ? pad.shape.slice(0, 6) : null,
       holes, holeDiameter: num(pad.holeDiameter),
       // 层 12 = 多层/通孔：这类焊盘在内层同样占位，必须按"所有层"处理，否则内层走线会横穿它们
       throughHole: pad.throughHole === true || layer === ROUTING_DEFAULTS.throughHoleLayer || holes > 0,
@@ -106,7 +121,9 @@ export function analyzeNetConnectivity(geometryInput, { contactTolMil = ROUTING_
   geometry.vias.forEach((via) => { if (via.net) items.push({ kind: 'via', net: via.net, ref: via, layer: null }); });
 
   const contact = (a, b) => {
-    if (a.kind === 'pad' && b.kind === 'line') return a.layer === b.layer && pointSegmentDistance(a.ref.x, a.ref.y, b.ref) <= b.ref.width / 2 + contactTolMil;
+    // 通孔焊盘（THT/连接器）在**所有铜层**都导电：内层走线接到它也算连通。
+    // 真机第 33 轮：这里只看 pad.layer==12，会把这些焊盘判成永远孤立（内层布线复核永远"未连通"）。
+    if (a.kind === 'pad' && b.kind === 'line') return (a.ref.throughHole === true || a.layer === b.layer) && pointSegmentDistance(a.ref.x, a.ref.y, b.ref) <= b.ref.width / 2 + contactTolMil;
     if (a.kind === 'line' && b.kind === 'pad') return contact(b, a);
     if (a.kind === 'pad' && b.kind === 'via') return Math.hypot(a.ref.x - b.ref.x, a.ref.y - b.ref.y) <= b.ref.outerDiameter / 2 + contactTolMil;
     if (a.kind === 'via' && b.kind === 'pad') return contact(b, a);
@@ -355,8 +372,9 @@ function buildGrid({ geometry, layers, cell, padRadiusForTrace, width, viaOuterD
   });
   geometry.pads.forEach((pad) => {
     if (pad.net && pad.net === excludeNet) return;
-    // 通孔焊盘（层 12 / 带孔）在整个板厚上都占位；槽孔按最大孔径保守取值
-    const copperRadius = Math.max(pad.radius, (pad.holeDiameter || 0) / 2);
+    // 通孔焊盘（层 12 / 带孔）在整个板厚上都占位；槽孔按最大孔径保守取值。
+    // 间距障碍用**保守半径**（矩形外接圆），否则 A* 会贴着矩形焊盘角落走、真机 DRC 报错。
+    const copperRadius = Math.max(pad.clearanceRadius || pad.radius, (pad.holeDiameter || 0) / 2);
     const traceRadius = copperRadius + width / 2 + clearance;
     const viaRadius = copperRadius + viaOuterDiameter / 2 + clearance + viaExtra;
     const targets = pad.throughHole ? layers : [pad.layer];
@@ -660,7 +678,7 @@ export function verifyRoutingPlan({ plan, geometry: geometryInput, options = {} 
   let minGapMil = Infinity;
   const note = (gap) => { minGapMil = Math.min(minGapMil, gap); };
   const push = (entry) => { if (entry.gapMil < clearance - 0.01) violations.push(entry); };
-  const padRadius = (pad) => Math.max(pad.radius, (pad.holeDiameter || 0) / 2);
+  const padRadius = (pad) => Math.max(pad.clearanceRadius || pad.radius, (pad.holeDiameter || 0) / 2);
 
   // 计划对象统一成几何项：线（带层与线宽）+ 过孔（带自己的孔径）
   const plannedLines = [];
@@ -701,8 +719,11 @@ export function verifyRoutingPlan({ plan, geometry: geometryInput, options = {} 
     for (const pad of geometry.pads) {
       if (pad.net === item.net) continue;
       if (!pad.throughHole && item.viaInPad && pad.layer !== 1) continue;
-      const gap = Math.hypot(pad.x - item.x, pad.y - item.y) - padRadius(pad) - item.outerDiameter / 2; note(gap);
-      push({ kind: item.viaInPad ? 'via-in-pad-to-pad' : 'via-to-pad', net: item.net, other: `${pad.designator}.${pad.pad}`, gapMil: Number(gap.toFixed(2)) });
+      // 盘中孔用"内切半径"和更严的实测判据；普通过孔用保守外接半径。
+      const effectivePadRadius = item.viaInPad ? Math.max(pad.radius, (pad.holeDiameter || 0) / 2) : padRadius(pad);
+      const gap = Math.hypot(pad.x - item.x, pad.y - item.y) - effectivePadRadius - item.outerDiameter / 2; note(gap);
+      const limit = item.viaInPad ? (settings.viaInPadPadClearanceMil ?? settings.clearanceMil) : clearance;
+      if (gap < limit - 0.01) violations.push({ kind: item.viaInPad ? 'via-in-pad-to-pad' : 'via-to-pad', net: item.net, other: `${pad.designator}.${pad.pad}`, gapMil: Number(gap.toFixed(2)) });
     }
     for (const line of geometry.lines) {
       if (line.net === item.net) continue;
@@ -769,23 +790,34 @@ export async function applyRoutingPlan({ execute, plan, geometry: geometryInput,
   }
   if (dryRun) return { ok: true, dryRun: true, verification, executed: 0, saved: false };
 
+  // 写前快照（第 31 轮真机缺陷 D-31-4）：回滚必须按"快照差集"删，不能只依赖创建返回的图元 ID——
+  // 真机出现过创建响应没有 ID 的情况，那批铜回滚不掉，残留自检还报 0。
+  let beforeSnapshot = null;
+  try { beforeSnapshot = normalizeGeometry((await execute('pcb.copper.read', {}, {}))?.result ?? {}); } catch { beforeSnapshot = null; }
   const written = [];
   const idOf = (result) => String(result?.result?.primitiveId ?? result?.result?.id ?? result?.primitiveId ?? result?.id ?? '');
   try {
+    // 写入顺序必须先过孔后走线（真机第 33 轮缺陷）：EDA 的连通图只在"新图元创建"时把新对象
+    // 接到已存在的铜上，**不会回头重算先前图元**。先画走线再补过孔，走线仍被判"与同网其它对象断开"
+    // （DRC Connection Error/Track），布线写回必被 DRC 守卫回滚。所以先建全部过孔，再建走线。
     for (const route of routes) {
       if (route.viaInPad) {
         // 盘中孔：0.25mm 焊盘里只能放细孔（工艺豁免项，必须在发布说明里写明树脂塞孔/电镀填平）
         const created = await execute('pcb.via.create', { net: route.net, x: route.from.x, y: route.from.y, holeDiameter: settings.viaInPadHoleMil, diameter: settings.viaInPadOuterDiameterMil }, { allowWrite: true });
         written.push({ kind: 'via', id: idOf(created), net: route.net, x: route.from.x, y: route.from.y });
-      }
-      for (const segment of route.segments) {
-        const created = await execute('pcb.line.create', { net: route.net, layer: segment.layer, startX: segment.x1, startY: segment.y1, endX: segment.x2, endY: segment.y2, lineWidth: settings.widthMil, primitiveLock: false }, { allowWrite: true });
         if (settings.writeSpacingMs > 0) await new Promise((resolve) => setTimeout(resolve, settings.writeSpacingMs));
-        written.push({ kind: 'line', id: idOf(created), net: route.net, layer: segment.layer, x: segment.x1, y: segment.y1, x2: segment.x2, y2: segment.y2 });
       }
       for (const via of route.vias) {
         const created = await execute('pcb.via.create', { net: route.net, x: via.x, y: via.y, holeDiameter: via.holeDiameter ?? settings.viaHoleMil, diameter: via.diameter ?? settings.viaOuterDiameterMil }, { allowWrite: true });
         written.push({ kind: 'via', id: idOf(created), net: route.net, x: via.x, y: via.y });
+        if (settings.writeSpacingMs > 0) await new Promise((resolve) => setTimeout(resolve, settings.writeSpacingMs));
+      }
+    }
+    for (const route of routes) {
+      for (const segment of route.segments) {
+        const created = await execute('pcb.line.create', { net: route.net, layer: segment.layer, startX: segment.x1, startY: segment.y1, endX: segment.x2, endY: segment.y2, lineWidth: settings.widthMil, primitiveLock: false }, { allowWrite: true });
+        if (settings.writeSpacingMs > 0) await new Promise((resolve) => setTimeout(resolve, settings.writeSpacingMs));
+        written.push({ kind: 'line', id: idOf(created), net: route.net, layer: segment.layer, x: segment.x1, y: segment.y1, x2: segment.x2, y2: segment.y2 });
       }
     }
     // 回读必须"等到 EDA 真的落盘"，并且**按图元ID**核对（几何匹配会把"少写一个"吞掉）。
@@ -822,14 +854,8 @@ export async function applyRoutingPlan({ execute, plan, geometry: geometryInput,
       if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, Number(settings.readbackSettleMs) || 300));
     }
     if (missing.length) {
-      await rollback(execute, written, after);
-      let residual = [];
-      try {
-        const check = normalizeGeometry((await execute('pcb.copper.read', {}, {}))?.result ?? {});
-        const alive = new Set([...check.lines, ...check.vias].map((item) => String(item.id ?? '')));
-        residual = written.filter((item) => item.id && alive.has(String(item.id))).map((item) => item.id);
-        if (residual.length) await rollback(execute, written.filter((item) => residual.includes(item.id)), check);
-      } catch { /* 回滚校验失败不掩盖原始错误，但会在 residual 里如实体现 */ }
+      const rollbackResult = await rollback(execute, written, { before: beforeSnapshot });
+      const residual = rollbackResult.residual ?? [];
       throw Object.assign(new Error(`写入后回读比对失败：${missing.length} 个对象在板上找不到（${missing.map((item) => item.kind).join('/')}），已回滚（残留 ${residual.length}）`), {
         code: 'ROUTING_READBACK_MISMATCH',
         missing: missing.length,
@@ -839,13 +865,17 @@ export async function applyRoutingPlan({ execute, plan, geometry: geometryInput,
     }
     let saved = false;
     if (save) {
-      await execute('pcb.save', {}, { allowWrite: true });
+      const saveOutcome = await execute('pcb.save', {}, { allowWrite: true });
+      // UI 复审 2026-10-29 新发现：修复前不看返回值，EDA 没确认落盘也显示“并已保存”。
+      if (!saveConfirmed(saveOutcome)) {
+        throw Object.assign(new Error('布线已写入但 pcb.save 未确认落盘（EDA 返回非 true）：不能报告“已保存”'), { code: 'PCB_SAVE_UNCONFIRMED' });
+      }
       saved = true;
     }
     return { ok: true, dryRun: false, executed: written.length, saved, verification, written: written.map((item) => ({ kind: item.kind, net: item.net, id: item.id })) };
   } catch (error) {
-    if (!error?.code || error.code === 'EDA_WRITE_BLOCKED' || error.code === 'BRIDGE_HTTP_ERROR') {
-      try { await rollback(execute, written, normalizeGeometry(geometryInput)); } catch { /* 回滚失败不再掩盖原始错误 */ }
+    if (!error?.code || error.code === 'EDA_WRITE_BLOCKED' || error.code === 'BRIDGE_HTTP_ERROR' || error.code === 'PCB_SAVE_UNCONFIRMED') {
+      try { await rollback(execute, written, { before: beforeSnapshot }); } catch { /* 回滚失败不再掩盖原始错误 */ }
     }
     throw error;
   }
@@ -860,46 +890,138 @@ export async function applyRoutingPlan({ execute, plan, geometry: geometryInput,
  * 回滚一批布线对象（按图元ID删除）。用途：上一批写入被真机 DRC 判为不合规时，把铜干净地撤掉再重算。
  * 删除后必须回读确认"确实没了"，否则回滚就是假的。返回 { removed, residual }。
  */
-export async function rollbackRouting({ execute, items }) {
+export async function rollbackRouting({ execute, items, before = null }) {
   if (typeof execute !== 'function') throw Object.assign(new Error('缺少 execute'), { code: 'ROUTING_EXECUTE_REQUIRED' });
   const list = (Array.isArray(items) ? items : []).filter((item) => item && item.id);
-  if (!list.length) throw Object.assign(new Error('缺少要回滚的对象'), { code: 'ROUTING_ROLLBACK_ARGS_INVALID' });
-  const lineIds = list.filter((item) => item.kind === 'line').map((item) => item.id);
-  const viaIds = list.filter((item) => item.kind === 'via').map((item) => item.id);
+  const snap = before && typeof before === 'object' ? before : null;
+  let lineIds = list.filter((item) => item.kind === 'line').map((item) => item.id);
+  let viaIds = list.filter((item) => item.kind === 'via').map((item) => item.id);
+  // 有写前快照时以"当前铜 − 写前铜"为准：创建响应缺 ID 的铜也能被找出来删掉。
+  if (snap) {
+    const beforeIds = new Set([...(snap.lines ?? []), ...(snap.vias ?? [])].map((item) => String(item.id ?? '')).filter(Boolean));
+    try {
+      const current = (await execute('pcb.copper.read', {}))?.result ?? {};
+      for (const line of current.lines ?? []) {
+        const id = String(line.id ?? '');
+        if (id && !beforeIds.has(id)) lineIds.push(id);
+      }
+      for (const via of current.vias ?? []) {
+        const id = String(via.id ?? '');
+        if (id && !beforeIds.has(id)) viaIds.push(id);
+      }
+    } catch { /* 读不到当前铜就退回按 ID 回滚 */ }
+  }
+  lineIds = [...new Set(lineIds.filter(Boolean))];
+  viaIds = [...new Set(viaIds.filter(Boolean))];
+  if (!lineIds.length && !viaIds.length) throw Object.assign(new Error('缺少要回滚的对象'), { code: 'ROUTING_ROLLBACK_ARGS_INVALID' });
   if (lineIds.length) await execute('pcb.lines.delete', { primitiveIds: lineIds }, { allowWrite: true });
   if (viaIds.length) await execute('pcb.vias.delete', { primitiveIds: viaIds }, { allowWrite: true });
   const current = (await execute('pcb.copper.read', {}))?.result ?? {};
   const alive = new Set([...(current.lines ?? []), ...(current.vias ?? [])].map((item) => String(item.id ?? '')));
-  const residual = list.filter((item) => alive.has(String(item.id))).map((item) => item.id);
-  return { removed: list.length - residual.length, residual };
+  const residual = [...lineIds, ...viaIds].filter((id) => alive.has(String(id)));
+  return { removed: lineIds.length + viaIds.length - residual.length, residual };
 }
 
-export async function finishRouting({ execute, rebuildPours = true, save = true }) {
+export async function finishRouting({ execute, rebuildPours = true, save = true, maxFillAttempts = 2 }) {
   if (typeof execute !== 'function') throw Object.assign(new Error('缺少 execute'), { code: 'ROUTING_EXECUTE_REQUIRED' });
-  const result = { ok: true, pours: null, saved: false };
+  /**
+   * 第 62 轮真机缺陷 D-36-1：`rebuildCopperRegion()` 的返回值不能证明"填充真的产出"。
+   * 灯板上对 GND 覆铜调用重建，返回的却是 +5V 覆铜的 Poured 对象，GND 覆铜没有任何填充，
+   * 旧实现却报 `rebuilt ok` → DRC 里 18 个 GND 焊盘未连通被当成"已重建"。
+   * 修法：重建后读 `pcb.poured.read`（每个覆铜边框的实际填充片数）做 fail-closed 复核；
+   * 仍有覆铜没填充就重试一次，仍失败则**不保存**并如实报错——绝不产出"看似重建、实际没填充"的板。
+   */
+  const result = { ok: true, pours: null, fills: null, poursFilled: null, unfilledPours: [], fillAttempts: 0, saved: false };
+  const readFills = async () => {
+    try {
+      const state = await execute('pcb.poured.read', {}, {});
+      const list = Array.isArray(state?.result) ? state.result : (Array.isArray(state) ? state : []);
+      return Array.isArray(list) ? list : null;
+    } catch {
+      return null; // 读不到填充 = 不知道，不能假装通过
+    }
+  };
   if (rebuildPours) {
-    const rebuilt = await execute('pcb.pour.rebuild', {}, { allowWrite: true });
-    result.pours = rebuilt?.result ?? rebuilt;
+    let fills = null;
+    for (let attempt = 1; attempt <= Math.max(1, Number(maxFillAttempts) || 1); attempt += 1) {
+      result.fillAttempts = attempt;
+      const rebuilt = await execute('pcb.pour.rebuild', {}, { allowWrite: true });
+      result.pours = rebuilt?.result ?? rebuilt;
+      fills = await readFills();
+      if (!fills) break;
+      result.fills = fills;
+      const unfilled = fills.filter((pour) => Number(pour.filledFills ?? 0) < 1);
+      if (unfilled.length === 0) break;
+      if (attempt >= Math.max(1, Number(maxFillAttempts) || 1)) {
+        result.ok = false;
+        result.poursFilled = false;
+        result.unfilledPours = unfilled.map((pour) => ({ primitiveId: pour.primitiveId ?? null, net: pour.net ?? null, layer: pour.layer ?? null, filledFills: Number(pour.filledFills ?? 0) }));
+        result.error = {
+          code: 'PCB_POUR_FILL_INCOMPLETE',
+          message: `覆铜重建后仍无填充：${result.unfilledPours.map((pour) => `${pour.net ?? '?'}@${pour.layer ?? '?'}`).join('、')}；为避免产出"看似重建、实际未填充"的板，本次不保存`,
+        };
+      }
+    }
+    if (!fills) {
+      /**
+       * P0-4 fail-closed：读不到填充 = 不知道有没有填充。
+       * 旧实现在这里 break 后仍保持 ok:true 并照常保存，等于把"未知"当"通过"；
+       * 现在明确失败且不保存，由 UI 显示原因（PCB_POUR_FILL_UNKNOWN）。
+       */
+      result.ok = false;
+      result.poursFilled = null;
+      result.error = {
+        code: 'PCB_POUR_FILL_UNKNOWN',
+        message: '覆铜重建后无法读取填充数据（pcb.poured.read 失败）：不能证明覆铜已填充，本次不保存',
+      };
+    } else {
+      result.poursFilled = fills.length === 0 ? null : fills.every((pour) => Number(pour.filledFills ?? 0) > 0);
+    }
   }
-  if (save) {
-    await execute('pcb.save', {}, { allowWrite: true });
-    result.saved = true;
+  if (save && result.ok) {
+    const saveOutcome = await execute('pcb.save', {}, { allowWrite: true });
+    // 修复前这里无条件 saved=true；save 失败时 UI 仍显示“覆铜已重建并保存”，属于假保存。
+    if (saveConfirmed(saveOutcome)) {
+      result.saved = true;
+    } else {
+      result.ok = false;
+      result.saved = false;
+      result.error = { code: 'PCB_SAVE_UNCONFIRMED', message: '覆铜已重建但 pcb.save 未确认落盘（EDA 返回非 true）：不能报告“已保存”' };
+    }
   }
   return result;
 }
 
-async function rollback(execute, written, current) {
+async function rollback(execute, written, context = {}) {
+  const before = context?.before ?? null;
+  // 先读当前板面：回滚的对象集 = 当前铜 − 写前铜。这个口径不依赖创建响应是否带 ID。
+  let current = null;
+  try { current = normalizeGeometry((await execute('pcb.copper.read', {}, {}))?.result ?? {}); } catch { current = null; }
   const lineIds = [];
   const viaIds = [];
-  for (const item of written) {
-    if (item.id) { (item.kind === 'line' ? lineIds : viaIds).push(item.id); continue; }
-    // 没有图元ID时退回几何匹配（真机出现过创建响应缺ID，不能因此不删）
-    if (item.kind === 'line') {
-      const match = (current?.lines ?? []).find((line) => line.layer === item.layer && Math.abs(line.x1 - item.x) <= 1 && Math.abs(line.y1 - item.y) <= 1 && Math.abs(line.x2 - item.x2) <= 1 && Math.abs(line.y2 - item.y2) <= 1 && line.id);
-      if (match?.id) lineIds.push(match.id);
-    } else {
-      const match = (current?.vias ?? []).find((via) => Math.abs(via.x - item.x) <= 1 && Math.abs(via.y - item.y) <= 1 && via.id);
-      if (match?.id) viaIds.push(match.id);
+  const seen = new Set();
+  if (before) {
+    const beforeIds = new Set([...(before.lines ?? []), ...(before.vias ?? [])].map((item) => String(item.id ?? '')).filter(Boolean));
+    for (const item of [...(current?.lines ?? []), ...(current?.vias ?? [])]) {
+      const id = String(item.id ?? '');
+      if (!id || beforeIds.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      const isVia = (current?.vias ?? []).includes(item);
+      (isVia ? viaIds : lineIds).push(id);
+    }
+  }
+  if (!before || (!lineIds.length && !viaIds.length)) {
+    // 兜底（无写前快照）：按 written 的候选 ID / 几何匹配凑删除清单
+    for (const item of written) {
+      const id = String(item.id ?? '');
+      if (id) { (item.kind === 'line' ? lineIds : viaIds).push(id); continue; }
+      if (item.kind === 'line') {
+        const match = (current?.lines ?? []).find((line) => line.layer === item.layer && Math.abs(line.x1 - item.x) <= 1 && Math.abs(line.y1 - item.y) <= 1 && Math.abs(line.x2 - item.x2) <= 1 && Math.abs(line.y2 - item.y2) <= 1 && line.id);
+        if (match?.id) lineIds.push(String(match.id));
+      } else {
+        const match = (current?.vias ?? []).find((via) => Math.abs(via.x - item.x) <= 1 && Math.abs(via.y - item.y) <= 1 && via.id);
+        if (match?.id) viaIds.push(String(match.id));
+      }
     }
   }
   const aliveIds = async (ids) => {
@@ -908,12 +1030,11 @@ async function rollback(execute, written, current) {
       const after = normalizeGeometry((await execute('pcb.copper.read', {}, {}))?.result ?? {});
       const alive = new Set([...after.lines, ...after.vias].map((item) => String(item.id ?? '')));
       return ids.filter((id) => alive.has(String(id)));
-    } catch { return []; }
+    } catch { return ids; } // 读不到就按"可能还在"报，绝不把未知当 0
   };
-  if (lineIds.length) await execute('pcb.lines.delete', { primitiveIds: lineIds.filter(Boolean) }, { allowWrite: true });
-  if (viaIds.length) await execute('pcb.vias.delete', { primitiveIds: viaIds.filter(Boolean) }, { allowWrite: true });
-  // 真机实测：批量删除会静默失败（报告"已回滚"，板上却留着对象）。
-  // 因此删完必须回读确认，删不掉的逐个重试，最后把仍存活的如实交给调用方。
+  if (lineIds.length) await execute('pcb.lines.delete', { primitiveIds: [...new Set(lineIds)].filter(Boolean) }, { allowWrite: true });
+  if (viaIds.length) await execute('pcb.vias.delete', { primitiveIds: [...new Set(viaIds)].filter(Boolean) }, { allowWrite: true });
+  // 真机：批量删除会静默失败（报告"已回滚"，板上却留着对象）→ 删完必须回读确认并逐个重试。
   let residual = await aliveIds([...lineIds, ...viaIds]);
   for (const id of residual) {
     const commandId = lineIds.includes(id) ? 'pcb.lines.delete' : 'pcb.vias.delete';

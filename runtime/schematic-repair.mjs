@@ -14,6 +14,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { planNetPortLabels } from './schematic-layout.mjs';
 
 export const REPAIR_CODES = {
   SNAPSHOT_EMPTY: 'REPAIR_SNAPSHOT_EMPTY',
@@ -355,16 +356,36 @@ export async function applySchematicRepair({ execute, unwrap = (value) => value?
       event('component.pins', 'passed', { repairId: created.repairId, designator: component.designator, pins: resolved.length });
     }
 
-    // 阶段 C：端口落在刚读回的引脚坐标上——端口即网络名，不需要导线
+    // 阶段 C：端口落在刚读回的引脚坐标上——端口即网络名，不需要导线。
+    // 朝向不再固定 0（R1：全朝右会把网络标签压在元件符号上）：用 planner 的同一套逻辑，
+    // 按"引脚相对元件主体的朝外方向"+ 4 方向碰撞打分算 rotation。坐标、朝向都来自刚读回的引脚与元件，不猜。
+    const primitiveIdByRepair = new Map(createdPrimitives.map((item) => [item.repairId, item.primitiveId]));
+    const portOperations = [];
     for (const operation of plan.operations.filter((item) => item.type === 'netPort.create')) {
       const pins = pinsByRepair.get(operation.repairId) || [];
       const pin = pins[operation.pinIndex ?? 0];
       if (!pin) await rollback(REPAIR_CODES.PORT_CREATE_FAILED, `${operation.repairId} 找不到可挂接 ${operation.args.net} 的引脚`);
-      const result = unwrap(await execute('schematic.netPort.create', { ...operation.args, x: pin.x, y: pin.y }, { allowWrite: true }));
+      const component = componentById.get(primitiveIdByRepair.get(operation.repairId)) || null;
+      portOperations.push({
+        ...operation,
+        args: { ...operation.args, x: pin.x, y: pin.y },
+        componentPrimitiveId: idOf(component),
+        pinNumber: pin.pinNumber,
+      });
+    }
+    // 既有网络端口也要算障碍：重复修复/多次运行时，新标签不能叠在已画好的标签上。
+    const existingLabels = (data.components || [])
+      .filter((item) => String(item?.componentType || '').toLowerCase() === 'netport')
+      .map((item) => ({ net: item.net, x: Number(item.x), y: Number(item.y), rotation: item.rotation }));
+    const labelPlan = planNetPortLabels({ operations: portOperations, components: data.components || [], pinsByComponent: data.pins || {}, existingLabels });
+    if (labelPlan.findings.length) event('netPort.labels', 'planned', { adjusted: labelPlan.labels.filter((item) => item.source === 'collision').length, findings: labelPlan.findings.length });
+    for (const [operationIndex, operation] of labelPlan.operations.entries()) {
+      // 端口落在刚读回的引脚坐标上；rotation 用 planner 按读回引脚算出的值（读不到锚点时才回退原值）
+      const result = unwrap(await execute('schematic.netPort.create', operation.args, { allowWrite: true }));
       const primitiveId = result?.primitiveId || result?.id;
       if (!primitiveId) await rollback(REPAIR_CODES.PORT_CREATE_FAILED, `${operation.repairId} 创建网络端口 ${operation.args.net} 失败`);
       createdPortIds.push(primitiveId);
-      event('netPort.create', 'passed', { repairId: operation.repairId, net: operation.args.net, x: pin.x, y: pin.y, primitiveId });
+      event('netPort.create', 'passed', { repairId: operation.repairId, net: operation.args.net, x: operation.args.x, y: operation.args.y, rotation: operation.args.rotation, label: labelPlan.labels[operationIndex]?.source ?? null, primitiveId });
     }
 
     // 阶段 D：先保存再复核——保存前的网表看不到新图元（真机实测）
@@ -401,7 +422,7 @@ export async function applySchematicRepair({ execute, unwrap = (value) => value?
     event('netlist.verify', 'passed', { gained: Object.keys(diff.gained), identityComplete });
     const persistedDiff = save ? diffRepairNetlist({ before, after: await readNetlist(), expectedGain: plan.expectedGain, createdPins: identityPins, identityComplete }) : null;
     if (persistedDiff) event('netlist.persisted', persistedDiff.ok ? 'passed' : 'failed', persistedDiff.ok ? {} : { unexpected: persistedDiff.unexpected });
-    return { ok: true, dryRun: false, saved: save, snapshot: { digest: snapshot.digest, size: snapshot.size }, createdPins, createdPrimitives, createdPortIds, diff, persisted: persistedDiff, events };
+    return { ok: true, dryRun: false, saved: save, snapshot: { digest: snapshot.digest, size: snapshot.size }, createdPins, createdPrimitives, createdPortIds, portLabels: labelPlan.labels, diff, persisted: persistedDiff, events };
   } catch (error) {
     if (error?.rolledBack) throw error;
     event('failed', 'error', { message: String(error?.message || error).slice(0, 200) });

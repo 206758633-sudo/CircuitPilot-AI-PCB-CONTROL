@@ -16,6 +16,7 @@ import { createHash } from 'node:crypto';
 import { checkConstraints } from './constraints.mjs';
 import { DRC_CODES, classifyDrcItems } from './drc.mjs';
 import { decideProductionOutput } from './production-release.mjs';
+import { assertEvidenceEnvelope } from './evidence-contract.mjs';
 
 export const RELEASE_CODES = {
   ENGINEERING_BLOCKED: 'RELEASE_ENGINEERING_BLOCKED',
@@ -45,7 +46,12 @@ export const RELEASE_CODES = {
   SCHEMATIC_EVIDENCE_MISSING: 'RELEASE_SCHEMATIC_EVIDENCE_MISSING',
   SIMULATION_NOT_RUN: 'RELEASE_SIMULATION_NOT_RUN',
   SIMULATION_FAILED: 'RELEASE_SIMULATION_FAILED',
+  SIMULATION_EVIDENCE_INVALID: 'RELEASE_SIMULATION_EVIDENCE_INVALID',
+  SIMULATION_EVIDENCE_UNBOUND: 'RELEASE_SIMULATION_EVIDENCE_UNBOUND',
+  SIMULATION_COVERAGE_PARTIAL: 'RELEASE_SIMULATION_COVERAGE_PARTIAL',
   DRC_EVIDENCE_MISSING: 'RELEASE_DRC_EVIDENCE_MISSING',
+  DRC_EVIDENCE_UNBOUND: 'RELEASE_DRC_EVIDENCE_UNBOUND',
+  DRC_EVIDENCE_PCB_MISMATCH: 'RELEASE_DRC_EVIDENCE_PCB_MISMATCH',
   DRC_UNEXPLAINED: 'RELEASE_DRC_UNEXPLAINED',
   DRC_EXEMPTED: 'RELEASE_DRC_EXEMPTED',
   DRC_EXEMPTION_INVALID: 'RELEASE_DRC_EXEMPTION_INVALID',
@@ -65,6 +71,13 @@ export const RELEASE_CODES = {
   RELEASE_READY: 'RELEASE_READY',
   RELEASE_WITH_WARNINGS: 'RELEASE_READY_WITH_WARNINGS',
   RELEASE_BLOCKED: 'RELEASE_BLOCKED',
+  // W5-02：G2 网表一致性 / G3 规则证据接入下单门禁
+  NETLIST_EVIDENCE_MISSING: 'RELEASE_NETLIST_EVIDENCE_MISSING',
+  NETLIST_EVIDENCE_UNBOUND: 'RELEASE_NETLIST_EVIDENCE_UNBOUND',
+  NETLIST_BLOCKED: 'RELEASE_NETLIST_BLOCKED',
+  RULES_EVIDENCE_MISSING: 'RELEASE_RULES_EVIDENCE_MISSING',
+  RULES_EVIDENCE_UNBOUND: 'RELEASE_RULES_EVIDENCE_UNBOUND',
+  RULES_BLOCKED: 'RELEASE_RULES_BLOCKED',
 };
 
 const round = (value, digits = 3) => (Number.isFinite(value) ? Number(value.toFixed(digits)) : null);
@@ -179,6 +192,17 @@ export function gateSimulation({ acceptance } = {}) {
   const checks = acceptance.designChecks || null;
   const simulation = acceptance.simulation || null;
   const findings = [];
+  /**
+   * 第 61 轮：调用方可以显式喂"本机落盘的 SPICE 证据"（body.acceptanceExtraOptions.simulationEvidence）。
+   * 服务端会先做 fail-closed 校验（可读 / kind / 绑定 / 新鲜度 / 数值）；没通过时把原因装进
+   * simulation.invalid 传到这里 —— 必须报**具体原因**，不能降级成笼统的 NOT_RUN
+   * （"证据不可用"和"没跑仿真"是两件事，混在一起会让人误以为补跑就能过）。
+   */
+  if (simulation?.invalid === true) {
+    const code = typeof simulation.code === 'string' && simulation.code ? simulation.code : RELEASE_CODES.SIMULATION_EVIDENCE_INVALID;
+    findings.push(unknown(code, simulation.reason || '仿真证据未通过服务端校验（原因未提供）'));
+    return gate('simulation', '仿真验收', findings, { simulated: false, invalid: true, code, reason: simulation.reason ?? null, evidencePath: simulation.evidencePath ?? null, binding: simulation.binding ?? null });
+  }
   if (!checks && !simulation) return gate('simulation', '仿真验收', [unknown(RELEASE_CODES.SIMULATION_NOT_RUN, '既没有 EDA 侧仿真证据、也没有设计检查点结论：这不是"仿真通过"，是"没有仿真"')]);
   if (checks) {
     const summary = checks.summary || {};
@@ -192,12 +216,52 @@ export function gateSimulation({ acceptance } = {}) {
       findings.push(finding(RELEASE_CODES.GATE_PASSED, 'info', `设计检查点仿真通过 ${summary.passed}/${summary.total}（覆盖范围仅限这些检查点，不等于全电路仿真）`));
     }
   } else {
-    findings.push(finding(RELEASE_CODES.GATE_PASSED, 'info', `EDA 侧仿真证据在（证据哈希 ${String(simulation.evidenceHash).slice(0, 12)}）；但覆盖范围以 EDA 导出的网表为准`));
+    // 仿真证据可能来自两个真实来源：① EDA 导出的 SPICE 网表 + 求解器；② 验收时引用本机已落盘的
+    // spice-simulation 证据（EDA 导不出网表、但曾用外部网表真实跑过求解器）。两者都必须如实标注来源与覆盖范围，
+    // 不能把"外部网表跑的关键电路仿真"说成"全电路仿真"。
+    const hash = String(simulation.evidenceHash ?? '').slice(0, 12);
+    const source = simulation.source ? `来源 ${simulation.source}` : '来源 EDA 导出网表';
+    const scope = simulation.scopeNote ? `；覆盖范围：${simulation.scopeNote}` : '；覆盖范围以 EDA 导出的网表为准';
+    if (simulation.partial === true) {
+      /**
+       * 第 61 轮：真实 ngspice 证据只覆盖关键子电路（T3：USB-C VBUS→IP2312→VBAT 等），
+       * EDA 侧整板 SPICE 网表导不出 ⇒ 这不能算"仿真通过"。已消费 ≠ 通过：
+       * 如实 unknown 并说明还缺什么，避免"看到文件就算通过"的假 PASS。
+       */
+      const bindingNote = simulation.binding?.netlistSha256MatchedLive === true
+        ? `；已与当前实时导出网表绑定（sha256 ${String(simulation.netlist?.sha256 ?? '').slice(0, 12)}）`
+        : '';
+      findings.push(unknown(RELEASE_CODES.SIMULATION_COVERAGE_PARTIAL, `仿真证据已消费（证据哈希 ${hash}，${source}）${scope}${bindingNote}；但覆盖范围仅关键子电路、整板 SPICE 模型仍缺失：这不是整板仿真通过`));
+    } else {
+      findings.push(finding(RELEASE_CODES.GATE_PASSED, 'info', `仿真证据在（证据哈希 ${hash}，${source}）${scope}`));
+    }
   }
-  return gate('simulation', '仿真验收', findings, { simulated: Boolean(checks?.summary?.simulated || simulation), summary: checks?.summary ?? null, scopeNote: '设计检查点仿真不等于全电路仿真' });
+  return gate('simulation', '仿真验收', findings, {
+    simulated: Boolean(checks?.summary?.simulated || simulation),
+    summary: checks?.summary ?? null,
+    source: simulation?.source ?? null,
+    scopeNote: simulation?.scopeNote ?? '设计检查点仿真不等于全电路仿真',
+    // 自证字段：放行报告必须能回答"到底消费了哪份证据、绑没绑上、覆盖多少"。
+    evidencePath: simulation?.evidencePath ?? null,
+    evidenceHash: simulation?.evidenceHash ?? null,
+    partial: simulation?.partial === true,
+    coverage: simulation?.coverage ?? null,
+    binding: simulation?.binding ?? null,
+  });
 }
 
-export function gateDrc({ report, exemptions = [] } = {}) {
+/**
+ * DRC 闸门。
+ *
+ * 第 61 轮新增 `targetPcbUuid`：DRC 证据必须能证明"这份报告属于当前这块 PCB"。
+ * 真机踩到过最新 DRC 证据 pcbUuid=5d632dde… 与当前板 5595e77c… 不一致 —— 直接喂给闸门
+ * 会把"另一块板/上一版板 DRC 干净"读成"当前板 DRC 干净"，这是最危险的假 PASS。
+ * 绑定策略（fail-closed）：
+ *   - 给了 targetPcbUuid 且证据带 pcbUuid：不一致 → blocking（RELEASE_DRC_EVIDENCE_PCB_MISMATCH）；
+ *   - 给了 targetPcbUuid 但证据没有 pcbUuid：无法确认归属 → unknown（RELEASE_DRC_EVIDENCE_UNBOUND）；
+ *   - 没给 targetPcbUuid（如直接调用本函数的单测/离线报告）：保持旧行为，能判则判、不宣称绑定。
+ */
+export function gateDrc({ report, exemptions = [], targetPcbUuid = null } = {}) {
   const normalized = report && report.items ? report : null;
   if (!normalized) return gate('drc', 'DRC 校验', [unknown(RELEASE_CODES.DRC_EVIDENCE_MISSING, '没有 DRC 报告：不知道布线是否满足规则，不能下单')]);
   if (normalized.ok === false) return gate('drc', 'DRC 校验', [finding(RELEASE_CODES.DRC_EVIDENCE_MISSING, 'blocking', `DRC 报告不可用：${normalized.message || normalized.code}`)]);
@@ -213,6 +277,24 @@ export function gateDrc({ report, exemptions = [] } = {}) {
     else if (invalidExemptionCodes.includes(item.code)) findings.push(finding(RELEASE_CODES.DRC_EXEMPTION_INVALID, 'blocking', item.message, item.field ?? null));
     else if (item.code === DRC_CODES.EXEMPTION_UNUSED) findings.push(finding(RELEASE_CODES.DRC_EXEMPTION_UNUSED, 'warning', item.message, item.field ?? null));
     else if (item.severity === 'blocking') findings.push(finding(RELEASE_CODES.DRC_UNEXPLAINED, 'blocking', item.message, item.field ?? null));
+  }
+  // 证据绑定校验（第 61 轮）：见上方 gateDrc 注释。错误/未知都会改变 status（blocked/unknown），
+  // 绝不允许"另一块板的干净 DRC"被读成"当前板没问题"。
+  const bindingSource = normalized.binding && typeof normalized.binding === 'object' ? normalized.binding : null;
+  const evidencePcbUuid = String(bindingSource?.pcbUuid ?? normalized.pcbUuid ?? normalized.fingerprint?.pcbUuid ?? '').trim() || null;
+  const targetPcb = typeof targetPcbUuid === 'string' && targetPcbUuid.trim() ? targetPcbUuid.trim() : null;
+  const bindingInfo = { targetPcbUuid: targetPcb, evidencePcbUuid, matched: null, projectUuid: bindingSource?.projectUuid ?? null, savedAt: bindingSource?.savedAt ?? null, digest: bindingSource?.digest ?? normalized.digest ?? null };
+  if (targetPcb) {
+    if (!evidencePcbUuid) {
+      bindingInfo.matched = false;
+      findings.push(unknown(RELEASE_CODES.DRC_EVIDENCE_UNBOUND, `DRC 证据没有 pcbUuid，无法确认它属于当前 PCB ${targetPcb}：不能把无法归属的报告当作当前板结论`));
+    } else if (evidencePcbUuid !== targetPcb) {
+      bindingInfo.matched = false;
+      findings.push(finding(RELEASE_CODES.DRC_EVIDENCE_PCB_MISMATCH, 'blocking', `DRC 证据属于 PCB ${evidencePcbUuid}，当前目标是 ${targetPcb}：这是另一块板/上一版板的报告，不能当作当前板 DRC 结论`, 'drc'));
+    } else {
+      bindingInfo.matched = true;
+      findings.push(finding(RELEASE_CODES.GATE_PASSED, 'info', `DRC 证据已绑定当前 PCB ${targetPcb}`, 'drc'));
+    }
   }
   const summary = classified.summary || {};
   if (Number(summary.unexplained) > 0 && !findings.some((item) => item.code === RELEASE_CODES.DRC_UNEXPLAINED)) findings.push(finding(RELEASE_CODES.DRC_UNEXPLAINED, 'blocking', `还有 ${summary.unexplained} 条 DRC 问题未被解释或豁免`));
@@ -230,7 +312,7 @@ export function gateDrc({ report, exemptions = [] } = {}) {
     itemsWithObjects: drcItems.filter((i) => Array.isArray(i?.objects)).length,
     normalization: normalized.normalization || 'walk',
   };
-  return gate('drc', 'DRC 校验', findings, { summary, mustFix: summary.mustFix ?? null, countsConsistent: normalized.countsConsistent ?? null, diag });
+  return gate('drc', 'DRC 校验', findings, { summary, mustFix: summary.mustFix ?? null, countsConsistent: normalized.countsConsistent ?? null, diag, binding: bindingInfo });
 }
 
 export function gatePlacement({ placementVerification, writeback = null, userConfirmed = false } = {}) {
@@ -341,6 +423,7 @@ export function gateArtifacts({ artifacts = [], design = {}, draftPathsReplaced 
     if (xKey && yKey && live.size) {
       const toleranceMm = Number.isFinite(Number(design.coordinateToleranceMm)) ? Number(design.coordinateToleranceMm) : 0.05;
       const mismatched = [];
+      const bases = new Set();
       for (const row of rows) {
         const ref = normalizeRef(row.Designator);
         const observed = live.get(ref);
@@ -348,11 +431,25 @@ export function gateArtifacts({ artifacts = [], design = {}, draftPathsReplaced 
         const xMm = Number.parseFloat(String(row[xKey] || '').replace(/[^\d.+-]/g, ''));
         const yMm = Number.parseFloat(String(row[yKey] || '').replace(/[^\d.+-]/g, ''));
         if (!Number.isFinite(xMm) || !Number.isFinite(yMm)) { mismatched.push(`${ref}(坐标解析不出)`); continue; }
-        const errorMm = Math.hypot(xMm - Number(observed.xMm), yMm - Number(observed.yMm));
+        // 坐标基准修正（真机第 57 轮）：EDA 导出的 CPL 里 Mid X/Y 是**器件原点**，
+        // 而 design.placement 的 xMm/yMm 是**包围盒中心**（非对称封装可差几毫米）。
+        // 原实现只拿中心比，会对 USB/座子/模组等非对称封装稳定误报 CPL 坐标不一致。
+        // 现在两套基准都试，取最小误差，并在证据里记下用的是哪套基准。
+        const candidates = [{ basis: 'center', x: Number(observed.xMm), y: Number(observed.yMm) }];
+        if (Number.isFinite(Number(observed.originXMm)) && Number.isFinite(Number(observed.originYMm))) {
+          candidates.push({ basis: 'origin', x: Number(observed.originXMm), y: Number(observed.originYMm) });
+        }
+        let best = candidates[0];
+        let errorMm = Math.hypot(xMm - best.x, yMm - best.y);
+        for (const candidate of candidates.slice(1)) {
+          const candidateError = Math.hypot(xMm - candidate.x, yMm - candidate.y);
+          if (candidateError < errorMm) { errorMm = candidateError; best = candidate; }
+        }
         if (errorMm > toleranceMm) mismatched.push(`${ref}(偏差 ${round(errorMm, 3)}mm)`);
+        else bases.add(best.basis);
       }
       if (mismatched.length) findings.push(finding(RELEASE_CODES.CPL_COORD_MISMATCH, 'blocking', `CPL 坐标与实机读回不一致：${mismatched.slice(0, 6).join('、')}${mismatched.length > 6 ? ' …' : ''}`, 'cpl'));
-      else findings.push(finding(RELEASE_CODES.GATE_PASSED, 'info', `CPL 坐标与实机读回一致（${rows.length} 个位号，容差 ${toleranceMm}mm）`));
+      else findings.push(finding(RELEASE_CODES.GATE_PASSED, 'info', `CPL 坐标与实机读回一致（${rows.length} 个位号，容差 ${toleranceMm}mm，基准 ${[...bases].join('/') || 'center'}）`));
     }
     if (rotationKey === undefined) findings.push(unknown(RELEASE_CODES.CPL_COORD_MISMATCH, 'CPL 里找不到 Rotation 列：无法确认贴装角度'));
   }
@@ -489,17 +586,55 @@ export function gateEngineering({ analysis = null, layoutAudit = null, exemption
   });
 }
 
-export function gateFabricationRelease({ acceptance = null, drcReport = null, exemptions = [], placementVerification = null, writeback = null, userConfirmed = false, artifacts = [], design = {}, draftPathsReplaced = [], pricing = null, constraints = [], designFacts = null, engineering = null, layoutAudit = null, engineeringExemptions = [], generatedAt = new Date().toISOString() } = {}) {
+/** 统一契约证据的绑定校验：没有 pcbUuid 或与目标不一致 → unknown（无法归属的证据不算当前板结论）。 */
+function evidenceBinding(envelope, targetPcbUuid, kind, codes) {
+  const evidencePcb = String(envelope?.fingerprint?.pcbUuid ?? '').trim() || null;
+  const target = typeof targetPcbUuid === 'string' && targetPcbUuid.trim() ? targetPcbUuid.trim() : null;
+  if (!target) return { findings: [], info: { targetPcbUuid: null, evidencePcbUuid: evidencePcb, matched: null } };
+  if (!evidencePcb) return { findings: [unknown(codes.missing || codes.unbound, `${kind} 证据没有 pcbUuid，无法确认它属于当前 PCB ${target}：不能把无法归属的报告当作当前板结论`)], info: { targetPcbUuid: target, evidencePcbUuid: null, matched: false } };
+  if (evidencePcb !== target) return { findings: [finding(codes.unbound, 'blocking', `${kind} 证据属于 PCB ${evidencePcb}，当前目标是 ${target}：这是另一块板/上一版板的证据`, kind)], info: { targetPcbUuid: target, evidencePcbUuid: evidencePcb, matched: false } };
+  return { findings: [], info: { targetPcbUuid: target, evidencePcbUuid: evidencePcb, matched: true } };
+}
+
+/** W5-02 G2：网表一致性证据（意图 ↔ 实际逐 pin diff）。缺失/不可归属/阻断都不得放行。 */
+export function gateNetlistEvidence({ envelope = null, targetPcbUuid = null } = {}) {
+  if (!envelope) return gate('netlist', '网表一致性', [unknown(RELEASE_CODES.NETLIST_EVIDENCE_MISSING, '没有网表 diff 证据：无法确认实际连线符合设计意图，不能下单')], { verdict: null });
+  let validated;
+  try { validated = assertEvidenceEnvelope(envelope); } catch (error) { return gate('netlist', '网表一致性', [finding(RELEASE_CODES.NETLIST_EVIDENCE_MISSING, 'blocking', `网表证据不符合统一证据契约：${String(error?.message || error).slice(0, 200)}`)], { verdict: null }); }
+  const binding = evidenceBinding(validated, targetPcbUuid, 'netlist-diff', { missing: RELEASE_CODES.NETLIST_EVIDENCE_UNBOUND, unbound: RELEASE_CODES.NETLIST_EVIDENCE_UNBOUND });
+  const findings = [...binding.findings];
+  if (validated.verdict === 'blocked') findings.push(finding(RELEASE_CODES.NETLIST_BLOCKED, 'blocking', `网表 diff 阻断：${validated.findings.filter((item) => item.severity === 'error').length} 条错误（GND 空网/网络缺失/引脚错接/悬空等）`));
+  else if (validated.verdict === 'unknown') findings.push(unknown(RELEASE_CODES.NETLIST_EVIDENCE_MISSING, validated.blockedReason || '网表证据为 unknown：无法据此放行'));
+  else findings.push(finding(RELEASE_CODES.GATE_PASSED, 'info', '网表 diff 通过'));
+  return gate('netlist', '网表一致性', findings, { verdict: validated.verdict, counts: validated.counts, digest: validated.digest, binding: binding.info });
+}
+
+/** W5-02 G3：规则证据（ERC/DRC）。缺失/不可归属/阻断都不得放行。 */
+export function gateRulesEvidence({ envelope = null, targetPcbUuid = null } = {}) {
+  if (!envelope) return gate('rules', 'ERC/DRC 规则', [unknown(RELEASE_CODES.RULES_EVIDENCE_MISSING, '没有规则证据（ERC/DRC）：不知道电气与布线规则是否满足，不能下单')], { verdict: null });
+  let validated;
+  try { validated = assertEvidenceEnvelope(envelope); } catch (error) { return gate('rules', 'ERC/DRC 规则', [finding(RELEASE_CODES.RULES_EVIDENCE_MISSING, 'blocking', `规则证据不符合统一证据契约：${String(error?.message || error).slice(0, 200)}`)], { verdict: null }); }
+  const binding = evidenceBinding(validated, targetPcbUuid, 'rules', { missing: RELEASE_CODES.RULES_EVIDENCE_UNBOUND, unbound: RELEASE_CODES.RULES_EVIDENCE_UNBOUND });
+  const findings = [...binding.findings];
+  if (validated.verdict === 'blocked') findings.push(finding(RELEASE_CODES.RULES_BLOCKED, 'blocking', `规则检查阻断：${validated.findings.filter((item) => item.severity === 'error').length} 条错误未处理`));
+  else if (validated.verdict === 'unknown') findings.push(unknown(RELEASE_CODES.RULES_EVIDENCE_MISSING, validated.blockedReason || '规则证据为 unknown：无法据此放行'));
+  else findings.push(finding(RELEASE_CODES.GATE_PASSED, 'info', 'ERC/DRC 规则通过'));
+  return gate('rules', 'ERC/DRC 规则', findings, { verdict: validated.verdict, counts: validated.counts, digest: validated.digest, binding: binding.info });
+}
+
+export function gateFabricationRelease({ acceptance = null, drcReport = null, exemptions = [], placementVerification = null, writeback = null, userConfirmed = false, artifacts = [], design = {}, draftPathsReplaced = [], pricing = null, constraints = [], designFacts = null, engineering = null, layoutAudit = null, engineeringExemptions = [], targetPcbUuid = null, simulationEvidence = null, netlistEvidence = null, rulesEvidence = null, generatedAt = new Date().toISOString() } = {}) {
   if (!design || typeof design !== 'object') design = {};
   const gates = [
     gateSchematic({ acceptance }),
     gateSimulation({ acceptance }),
-    gateDrc({ report: drcReport, exemptions }),
+    gateDrc({ report: drcReport, exemptions, targetPcbUuid }),
     gatePlacement({ placementVerification, writeback, userConfirmed }),
     gateArtifacts({ artifacts, design, draftPathsReplaced }),
     gateSupply({ bom: artifacts.find((artifact) => artifact?.kind === 'bom') || null, pricing }),
     gateConstraints({ constraints, designFacts }),
     gateEngineering({ analysis: engineering, layoutAudit, exemptions: engineeringExemptions }),
+    // 只有调用方提供网表/规则证据时才纳入（旧调用方保持原行为）；提供了一类缺失另一类 → fail-closed。
+    ...(netlistEvidence || rulesEvidence ? [gateNetlistEvidence({ envelope: netlistEvidence, targetPcbUuid }), gateRulesEvidence({ envelope: rulesEvidence, targetPcbUuid })] : []),
   ];
   const findings = gates.flatMap((item) => item.findings);
   const blocking = findings.filter((item) => item.severity === 'blocking' || item.severity === 'unknown');
@@ -519,14 +654,18 @@ export function gateFabricationRelease({ acceptance = null, drcReport = null, ex
     warnings: warnings.map((item) => ({ code: item.code, message: item.message, field: item.field ?? null })),
     gates: gates.map((item) => ({ id: item.id, title: item.title, status: item.status, blockingCount: item.blockingCount, evidence: item.evidence, findings: item.findings })),
     fingerprint,
+    /** 证据接线自证（第 61 轮）：放行报告必须能回答"这份 DRC 绑的是哪块板、消费了哪份仿真证据"。 */
+    evidenceBinding: { targetPcbUuid: targetPcbUuid ?? null, simulation: simulationEvidence ?? null, netlist: netlistEvidence?.digest ?? null, rules: rulesEvidence?.digest ?? null },
     /** 下单这件事永远需要人签字：机器只能把"能不能"的证据摆出来 */
     humanSignoffRequired: true,
   };
   /**
    * 产出决策直接挂在报告里：它就是"能不能出正式生产文件"的答案。
    * 放在这里而不是让界面各算一遍，是为了只有一处规则——界面/脚本/未来导出器都读同一份结论。
+   * 必须把 `draftPathsReplaced` 原样传进来：否则门禁已承认"本次正式导出会覆盖自产草稿"，
+   * 报告里的 outputDecision 却仍按未替换裁决 → 按钮永远显示"有草稿文件不能用"（P0-6）。
    */
-  report.outputDecision = decideProductionOutput({ gate: report, requested: 'final', artifacts });
+  report.outputDecision = decideProductionOutput({ gate: report, requested: 'final', artifacts, draftPathsReplaced });
   return report;
 }
 

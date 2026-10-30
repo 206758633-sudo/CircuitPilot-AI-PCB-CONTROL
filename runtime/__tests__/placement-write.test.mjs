@@ -74,7 +74,8 @@ test('写回成功：mm→mil 换算正确、逐项回读比对通过、未保�
   assert.ok(result.findings.some((finding) => finding.code === PLACEMENT_WRITE_CODES.APPLIED));
   assert.equal(result.rollback, null);
   assert.match(result.snapshotHash, /^[a-f0-9]{64}$/);
-  assert.deepEqual(result.steps.map((step) => step.step), ['snapshot', 'apply', 'readback', 'verify']);
+  assert.deepEqual(result.steps.map((step) => step.step), ['snapshot', 'apply', 'readback', 'verify', 'pad-outline']);
+  assert.ok(result.padOutline, '写回后必须做焊盘级板框复核（D-33-1）');
 });
 
 test('回读与目标不符 → 自动回滚到原坐标并回读证明还原', async () => {

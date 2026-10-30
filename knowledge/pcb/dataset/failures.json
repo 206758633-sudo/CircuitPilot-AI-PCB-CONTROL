@@ -1,0 +1,3121 @@
+{
+  "version": "1.3.0",
+  "generatedAt": "2026-10-28T12:25:25.164Z",
+  "domain": "pcb-failure-modes",
+  "notes": "失败模式知识用于设计评审/DFM/调试时快速定位；2026-10-23 新增来自 Espressif/TI 官方应用报告的真实故障模式，具体判定以 EDA/实测/失效分析为准。",
+  "entries": [
+    {
+      "kind": "failure",
+      "title": "立碑（Tombstoning）：小封装电容/电阻一端翘起",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-TOMBSTONE",
+        "code": "TOMBSTONE",
+        "category": "焊接/DFM",
+        "severity": "error",
+        "symptom": "回流焊后 0402/0603 阻容一端离开焊盘竖起，电路开路或参数异常。",
+        "rootCause": "两端焊盘润湿/热容不一致、锡膏量不均、贴装偏移、接地铜箔散热不均、器件端子可焊性差异。",
+        "detection": "AOI/目检；电阻电容两端电压/阻值测量；X-Ray（必要时）。",
+        "prevention": [
+          "两端焊盘对称、走线/铜皮平衡散热",
+          "锡膏钢网开孔对称、厚度受控",
+          "高散热端加 thermal relief 或调整钢网",
+          "按器件推荐焊盘设计"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/06-dfm-manufacturing.md"
+        ],
+        "tags": [
+          "立碑",
+          "tombstone",
+          "回流焊",
+          "阻容"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "冷焊/虚焊：焊点发暗、润湿不良、时通时断",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-COLD-JOINT",
+        "code": "COLD_JOINT",
+        "category": "焊接/可靠性",
+        "severity": "error",
+        "symptom": "焊点表面发暗/粗糙、器件轻推会动、通电时好时坏。",
+        "rootCause": "回流温度曲线不足、焊盘氧化/污染、锡膏过期、器件可焊性差、散热过大导致局部未熔。",
+        "detection": "目检/AOI；轻推/镊子测试；必要时切片或 X-Ray。",
+        "prevention": [
+          "按锡膏与器件要求做回流曲线",
+          "焊盘表面处理与储存受控",
+          "大铜/散热焊盘调整曲线或钢网",
+          "来料可焊性抽检"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/06-dfm-manufacturing.md"
+        ],
+        "tags": [
+          "冷焊",
+          "虚焊",
+          "回流曲线",
+          "可靠性"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "连锡/桥接：细间距引脚之间短路",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-BRIDGE",
+        "code": "SOLDER_BRIDGE",
+        "category": "焊接/DFM",
+        "severity": "error",
+        "symptom": "相邻引脚/焊盘之间短路，电源对地或信号互短。",
+        "rootCause": "锡膏量过多、钢网开孔过大、阻焊桥不足、贴装偏移、回流润湿过度。",
+        "detection": "AOI/目检、万用表通断、X-Ray。",
+        "prevention": [
+          "细间距器件用 1:1 焊盘开窗、控制锡膏量",
+          "保留足够阻焊桥",
+          "按器件推荐钢网厚度/开孔",
+          "首件 AOI"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/01-design-rules.md"
+        ],
+        "tags": [
+          "连锡",
+          "桥接",
+          "阻焊桥",
+          "细间距"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "ESD 损伤：接口芯片击穿、间歇性失效",
+      "doc": "docs/knowledge/pcb/05-emc-esd-thermal.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-ESD-DAMAGE",
+        "code": "ESD_DAMAGE",
+        "category": "ESD/可靠性",
+        "severity": "error",
+        "symptom": "插拔线缆/接触接口后芯片损坏、通信异常或漏电流增大，显微镜下可见击穿孔洞。",
+        "rootCause": "接口无 ESD 器件或器件结电容/钳位不匹配；ESD 器件离连接器远、地回路长导致残压高；生产/装配过程无静电防护。",
+        "detection": "IEC 61000-4-2 测试；失效分析（开封/显微）；对比良品漏电流。",
+        "prevention": [
+          "接口加合适 TVS/ESD 阵列并靠连接器",
+          "地端短宽多孔",
+          "生产环节防静电（工位/包装/人员）",
+          "选低电容器件保护高速线"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/05-emc-esd-thermal.md"
+        ],
+        "tags": [
+          "ESD",
+          "TVS",
+          "接口",
+          "失效分析"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "CMOS 闩锁（Latch-up）：上电/干扰后大电流锁死",
+      "doc": "docs/knowledge/schematic/05-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-LATCHUP",
+        "code": "LATCH_UP",
+        "category": "可靠性/保护",
+        "severity": "error",
+        "symptom": "芯片在上电瞬间或受到过压/负压尖峰后进入大电流状态，断电重启才能恢复，严重时永久损坏。",
+        "rootCause": "IO 电压超过 VDD 或低于 GND、上电时序导致体二极管导通、电源/地反弹超过绝对最大额定；缺少限流。",
+        "detection": "复现上电时序/注入尖峰；测芯片电流与温度；失效分析定位闩锁点。",
+        "prevention": [
+          "严格保证 IO≤VDD+0.3V",
+          "上电时序控制（先电源后 IO）",
+          "加限流/钳位与 TVS",
+          "避免热插拔瞬间负压"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/05-protection.md"
+        ],
+        "tags": [
+          "闩锁",
+          "Latch-up",
+          "上电时序",
+          "过压"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "使能/BOOT 引脚悬空：不启动或工作模式异常",
+      "doc": "docs/knowledge/schematic/03-mcu-minimal-system.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-FLOATING-EN",
+        "code": "EN_BOOT_FLOATING",
+        "category": "数字/最小系统",
+        "severity": "error",
+        "symptom": "MCU 不运行/反复复位、电源不输出或输出异常；批量中部分板工作部分不工作。",
+        "rootCause": "EN/BOOT0/模式脚悬空，上电时电平不确定；漏画上下拉或电阻虚焊。",
+        "detection": "测上电瞬间引脚电平；原理图/PCB 网络检查；对比良品。",
+        "prevention": [
+          "EN/BOOT 按 datasheet 加上拉/下拉",
+          "关键配置脚加测试点",
+          "原理图评审检查悬空引脚清单"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/03-mcu-minimal-system.md"
+        ],
+        "tags": [
+          "使能",
+          "BOOT",
+          "悬空",
+          "启动"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "去耦缺失/过远：电源纹波大、随机复位、EMI 超标",
+      "doc": "docs/knowledge/pcb/04-power-integrity-decoupling.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-MISSING-DECOUP",
+        "code": "DECOUPLING_MISSING",
+        "category": "电源完整性",
+        "severity": "warning",
+        "symptom": "电源纹波/噪声大、MCU 偶发复位、ADC 精度差、EMI 测试超标。",
+        "rootCause": "去耦电容缺失、容值不足或离引脚太远；电源-地回路面积大；地平面不完整。",
+        "detection": "示波器测电源纹波（20MHz 带宽/地弹簧）；近场探头定位噪声；PDN 分析。",
+        "prevention": [
+          "每电源引脚 0.1µF 近端去耦",
+          "大电容+小电容组合",
+          "电源/地平面紧耦合",
+          "关键芯片背面放置去耦"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/04-power-integrity-decoupling.md"
+        ],
+        "tags": [
+          "去耦",
+          "纹波",
+          "复位",
+          "EMI"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "地环路/地分割错误：噪声耦合与共模干扰",
+      "doc": "docs/knowledge/pcb/03-placement-routing.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-GND-LOOP",
+        "code": "GROUND_LOOP",
+        "category": "接地/EMC",
+        "severity": "warning",
+        "symptom": "模拟信号噪声大、通信误码、音频底噪/嗡声、EMC 共模辐射超标。",
+        "rootCause": "多点接地形成地环路；模拟/数字地分割不当；信号跨分割导致回流绕行；屏蔽层两端接地形成环路。",
+        "detection": "地电流/地电压测量；近场探头；断开/单点接地对比试验。",
+        "prevention": [
+          "优先完整地平面",
+          "模拟/数字分区不分割地",
+          "关键信号不跨分割",
+          "屏蔽/机壳地按单点或电容连接"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/03-placement-routing.md"
+        ],
+        "tags": [
+          "地环路",
+          "地分割",
+          "共模",
+          "模拟噪声"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "串扰：并行长走线导致误触发/眼图恶化",
+      "doc": "docs/knowledge/pcb/03-placement-routing.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CROSSTALK",
+        "code": "CROSSTALK",
+        "category": "信号完整性",
+        "severity": "warning",
+        "symptom": "相邻信号出现毛刺、通信误码、ADC 采样串扰；眼图闭合。",
+        "rootCause": "长距离并行、间距不足、参考平面不完整、上升沿过快、返回路径不连续。",
+        "detection": "示波器对比/眼图；误码率测试；近场扫描。",
+        "prevention": [
+          "敏感线拉开 ≥3W 间距或加地线隔离",
+          "缩短并行长度、避免长 stub",
+          "保证参考平面连续",
+          "降低边沿速率/串阻"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/03-placement-routing.md"
+        ],
+        "tags": [
+          "串扰",
+          "信号完整性",
+          "眼图",
+          "3W"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "阻抗失配/跨分割：反射、振铃、USB 枚举失败",
+      "doc": "docs/knowledge/pcb/02-stackup-impedance.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-IMPEDANCE-MISMATCH",
+        "code": "IMPEDANCE_MISMATCH",
+        "category": "信号完整性",
+        "severity": "warning",
+        "symptom": "高速接口不稳定、眼图差、USB/以太网偶发断连；TDR 波形有明显台阶。",
+        "rootCause": "线宽/叠层未按阻抗计算、跨参考平面分割、过孔/连接器阻抗不连续、差分对不等长。",
+        "detection": "TDR 测试；眼图；误码率；阻抗测试条。",
+        "prevention": [
+          "按叠层计算阻抗并出计算单",
+          "关键线同层、不跨分割",
+          "过孔/连接器处补偿",
+          "差分等长"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/02-stackup-impedance.md"
+        ],
+        "tags": [
+          "阻抗",
+          "TDR",
+          "眼图",
+          "跨分割"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "EMI 辐射超标：开关电源/时钟/线缆天线化",
+      "doc": "docs/knowledge/pcb/05-emc-esd-thermal.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-EMI-FAIL",
+        "code": "EMI_FAIL",
+        "category": "EMC",
+        "severity": "warning",
+        "symptom": "CE/FCC 辐射发射测试在特定频点超标；附近设备受干扰。",
+        "rootCause": "开关节点/高频环路面积大、时钟/高速线靠近板边或线缆、回流不连续、滤波不足。",
+        "detection": "EMI 预测试/近场探头定位；频谱分析；对比改板前后。",
+        "prevention": [
+          "缩小功率环路与开关节点铜皮",
+          "接口滤波+屏蔽",
+          "时钟/高速线包地、远离板边",
+          "完整地平面与缝合孔"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/05-emc-esd-thermal.md"
+        ],
+        "tags": [
+          "EMI",
+          "辐射",
+          "开关电源",
+          "滤波"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "热失控/过热保护：功率器件结温超限",
+      "doc": "docs/knowledge/pcb/05-emc-esd-thermal.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-THERMAL-RUNAWAY",
+        "code": "THERMAL_RUNAWAY",
+        "category": "热/可靠性",
+        "severity": "error",
+        "symptom": "功率器件/电感/充电 IC 发热严重，效率下降、热保护反复触发甚至烧毁。",
+        "rootCause": "功耗估算不足、散热铜面积/过孔不足、环境温度高、开关损耗大、电感 DCR 大。",
+        "detection": "热像仪/热电偶测 Tj；效率测量；热设计复核（Tj=Ta+θja·P）。",
+        "prevention": [
+          "按实际铜面积/风道估算 θja",
+          "散热焊盘打孔阵列+大铜",
+          "降额设计（Tj 裕量 ≥20°C）",
+          "必要时加散热器/风扇"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/05-emc-esd-thermal.md"
+        ],
+        "tags": [
+          "热失控",
+          "结温",
+          "散热",
+          "降额"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "USB-C CC 电阻错误：C-to-C 线不供电/充不了电",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-USBC-CC",
+        "code": "USBC_CC_WRONG",
+        "category": "接口/USB-C",
+        "severity": "error",
+        "symptom": "用 A-to-C 线能供电，换成 C-to-C 线后完全不上电或只能小电流。",
+        "rootCause": "Sink 端 CC1/CC2 未各接 5.1kΩ 下拉；误用 10k、并联共用、只接一路或做成 Source 的 Rp。",
+        "detection": "万用表测 CC 对地电阻；用 C-to-C 线实测 VBUS；检查原理图 CC 网络。",
+        "prevention": [
+          "CC1/CC2 各一只 5.1kΩ±1% 到 GND",
+          "不要把 CC 与 D+/D- 混接",
+          "用 C 口充电器做兼容性测试"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/04-interfaces.md"
+        ],
+        "tags": [
+          "USB-C",
+          "CC",
+          "5.1k",
+          "受电"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "晶振不起振/频偏：负载电容或布局错误",
+      "doc": "docs/knowledge/components/06-crystals-oscillators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CRYSTAL",
+        "code": "CRYSTAL_FAIL",
+        "category": "时钟",
+        "severity": "error",
+        "symptom": "MCU 不启动、时钟频率偏差大、USB/串口通信不稳定。",
+        "rootCause": "负载电容与晶振 CL 不匹配、走线过长/不对称、晶振 ESR 过高、驱动电平不足、助焊剂残留漏电。",
+        "detection": "示波器/频率计测 OSC 输出；换已知良好晶振对比；清洗后复测。",
+        "prevention": [
+          "按 CL 计算负载电容",
+          "晶振靠近 MCU、走线短对称",
+          "下方净空/包地",
+          "装配后清洗与烘干"
+        ],
+        "refs": [
+          "docs/knowledge/components/06-crystals-oscillators.md"
+        ],
+        "tags": [
+          "晶振",
+          "起振",
+          "负载电容",
+          "频偏"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "TVS 选型/极性错误：保护失效或影响信号",
+      "doc": "docs/knowledge/schematic/05-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-TVS-WRONG",
+        "code": "TVS_WRONG",
+        "category": "保护/ESD",
+        "severity": "error",
+        "symptom": "ESD 后芯片仍损坏；或高速信号眼图变差、通信距离缩短；或 TVS 自身发热短路。",
+        "rootCause": "钳位电压高于后级耐压、单向/双向用错、结电容过大、工作电压选低导致漏电、TVS 接反。",
+        "detection": "ESD/浪涌测试；眼图；漏电流测量；对照 datasheet 核算 VCL/结电容。",
+        "prevention": [
+          "VCL < 后级绝对最大额定并留裕量",
+          "高速线选低电容",
+          "双向用于差分/交流",
+          "按工作电压与浪涌等级选型"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/05-protection.md"
+        ],
+        "tags": [
+          "TVS",
+          "钳位",
+          "结电容",
+          "ESD"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "电源反接烧板：无防护或防护器件选型不当",
+      "doc": "docs/knowledge/schematic/05-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-REVERSE-POLARITY",
+        "code": "REVERSE_POLARITY",
+        "category": "保护/电源",
+        "severity": "error",
+        "symptom": "电池/电源接反后板子不工作、冒烟、芯片击穿。",
+        "rootCause": "无防反接；肖特基压降/电流不足；P-MOS 栅极无钳位导致 Vgs 超限；连接器无防呆。",
+        "detection": "目检/测输入对地阻抗；失效分析定位烧毁点；反接试验。",
+        "prevention": [
+          "输入加 P-MOS 防反接或理想二极管",
+          "连接器防呆/丝印标识",
+          "栅极加稳压管限制 Vgs",
+          "保险丝/PTC 兜底"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/05-protection.md"
+        ],
+        "tags": [
+          "反接",
+          "防呆",
+          "P-MOS",
+          "烧板"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "封装/引脚映射错误：符号与实物不一致",
+      "doc": "docs/knowledge/components/07-lcsc-quickref-footprint.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-FOOTPRINT",
+        "code": "FOOTPRINT_MISMATCH",
+        "category": "库/封装",
+        "severity": "error",
+        "symptom": "器件焊不上、引脚功能错位、上电即损坏；同一料号不同批次封装不同。",
+        "rootCause": "符号引脚号与封装焊盘号不对应、封装选错（同 MPN 不同 package）、SOT-23 等封装引脚定义不统一、3D/丝印方向错。",
+        "detection": "对照 datasheet 逐脚核对；首件目检/通断；Librarian 三源核验。",
+        "prevention": [
+          "建立符号-封装-焊盘映射核验流程",
+          "关键器件首件核对引脚功能",
+          "料号与封装绑定版本管理",
+          "同 MPN 多封装时在 BOM 明确 package"
+        ],
+        "refs": [
+          "docs/knowledge/components/07-lcsc-quickref-footprint.md"
+        ],
+        "tags": [
+          "封装",
+          "引脚",
+          "符号",
+          "三源核验"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "载流不足烧线/过孔熔断",
+      "doc": "docs/knowledge/pcb/01-design-rules.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CURRENT-BURN",
+        "code": "CURRENT_OVERLOAD",
+        "category": "布线/载流",
+        "severity": "error",
+        "symptom": "大电流回路走线/过孔发黑、开路；电源压降大导致负载复位。",
+        "rootCause": "线宽/铜厚/过孔数量不足、内层载流能力被低估、连接器额定电流不足、浪涌电流未考虑。",
+        "detection": "测压降/温升；红外热像；检查烧毁点；按峰值电流复算。",
+        "prevention": [
+          "按 IPC-2152 计算并按峰值电流降额",
+          "大电流多过孔/加宽/开窗加锡",
+          "连接器与保险丝额定电流核对",
+          "上电浪涌单独考虑"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/01-design-rules.md"
+        ],
+        "tags": [
+          "载流",
+          "过孔",
+          "烧线",
+          "压降"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "MLCC 直流偏压降容：实际容值远低于标称",
+      "doc": "docs/knowledge/components/01-passives.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-DC-BIAS",
+        "code": "MLCC_DC_BIAS",
+        "category": "元件/电源",
+        "severity": "warning",
+        "symptom": "电源纹波比预期大、瞬态跌落、环路不稳定；拆下电容测量容值正常，实际工作电压下容量不足。",
+        "rootCause": "X5R/X7R 高容值小封装电容在直流偏压下容值显著下降（可达 50% 以上），按标称值设计导致余量不足。",
+        "detection": "查 datasheet 的 DC bias 曲线；LCR 在偏压下测容值；实测纹波/瞬态。",
+        "prevention": [
+          "按实际偏压下的有效容值设计",
+          "高容值位置选更大封装/更高耐压",
+          "关键储能留 2 倍以上余量",
+          "优先 C0G（小容值）"
+        ],
+        "refs": [
+          "docs/knowledge/components/01-passives.md"
+        ],
+        "tags": [
+          "MLCC",
+          "偏压",
+          "降容",
+          "电源"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "酸角/残铜：蚀刻不良导致细线开路或短路",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-ACID-TRAP",
+        "code": "ACID_TRAP",
+        "category": "制造/蚀刻",
+        "severity": "warning",
+        "symptom": "细线在锐角/孤岛处过蚀刻开路，或残留铜造成短路；批量不良率升高。",
+        "rootCause": "走线锐角、孤岛铜、大面积无网络铜、线宽/间距接近板厂极限。",
+        "detection": "AOI/飞针测试；目检残铜；切片。",
+        "prevention": [
+          "避免锐角（≥90°，推荐 45°/圆弧）",
+          "删除孤岛铜或接地",
+          "线宽/间距留工艺余量",
+          "拼板/铺铜让板厂做 DFM 检查"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/06-dfm-manufacturing.md"
+        ],
+        "tags": [
+          "酸角",
+          "蚀刻",
+          "残铜",
+          "DFM"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "焊盘/过孔漏锡：via-in-pad 未塞孔导致虚焊",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-VIA-IN-PAD",
+        "code": "VIA_IN_PAD_LEAK",
+        "category": "制造/BGA",
+        "severity": "error",
+        "symptom": "BGA/QFN 焊盘锡量不足、空洞率高、虚焊；X-Ray 可见焊球吸走锡膏。",
+        "rootCause": "焊盘内过孔未塞孔/未填平，回流时锡膏被过孔吸走；过孔与焊盘重叠。",
+        "detection": "X-Ray/AOI；切片；焊点强度测试。",
+        "prevention": [
+          "via-in-pad 必须塞孔+电镀填平",
+          "过孔移出焊盘或盖油",
+          "钢网开孔与过孔位置协同设计",
+          "与板厂确认塞孔工艺"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/06-dfm-manufacturing.md"
+        ],
+        "tags": [
+          "via-in-pad",
+          "塞孔",
+          "BGA",
+          "虚焊"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "板翘/分层：铜分布不均与吸潮导致",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-WARP",
+        "code": "BOARD_WARP",
+        "category": "制造/可靠性",
+        "severity": "warning",
+        "symptom": "板子弯曲/扭曲，贴片偏移、BGA 虚焊；回流后分层起泡。",
+        "rootCause": "铜分布不均、叠层不对称、板厚/拼板不合理、板材吸潮、回流曲线过快。",
+        "detection": "平面度测量；目检分层；X-Ray/切片。",
+        "prevention": [
+          "铜平衡与叠层对称",
+          "按板材要求烘烤去潮",
+          "合理拼板与板厚",
+          "回流曲线按板材/板厚调整"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/06-dfm-manufacturing.md"
+        ],
+        "tags": [
+          "板翘",
+          "分层",
+          "铜平衡",
+          "吸潮"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "VIA_STUB：高速链路在特定频率插入损耗尖峰、眼图闭合/误码，速率越高",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-VIA-STUB",
+        "code": "VIA_STUB",
+        "category": "高速/过孔",
+        "symptom": "高速链路在特定频率插入损耗尖峰、眼图闭合/误码，速率越高越明显。",
+        "rootCause": "通孔未背钻形成 stub，stub 在 λ/4 附近谐振；或盲埋孔叠构不合理导致残桩过长。",
+        "detection": "TDR/VNA 看 stub 谐振与回损；切片测残桩长度；眼图/BER 对比。",
+        "prevention": [
+          "高速过孔用盲孔/埋孔或背钻",
+          "背钻深度按叠层与残桩上限设计",
+          "连接器/BGA 区域优先短 stub 结构",
+          "仿真确认 stub 容限"
+        ],
+        "severity": "error",
+        "refs": [
+          "docs/knowledge/pcb/07-multilayer-highspeed.md"
+        ],
+        "tags": [
+          "stub",
+          "背钻",
+          "过孔",
+          "高速"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "CAF：高温高湿/偏压后层间绝缘电阻下降甚至短路，孔间/层间漏电",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CAF",
+        "code": "CAF",
+        "category": "制造/可靠性",
+        "symptom": "高温高湿/偏压后层间绝缘电阻下降甚至短路，孔间/层间漏电。",
+        "rootCause": "玻纤/树脂界面在湿气+偏压下形成导电阳极丝（CAF）；钻孔毛刺/树脂沾污/压合填胶不足加速。",
+        "detection": "CAF/HAST 测试；高温高湿偏压绝缘电阻；切片看孔壁/填胶；失效分析。",
+        "prevention": [
+          "选抗 CAF 板材与工艺",
+          "优化钻孔参数、去钻污/清洁",
+          "控制压合与吸湿",
+          "孔到铜/纤维间距足够",
+          "按等级做 CAF 测试"
+        ],
+        "severity": "error",
+        "refs": [
+          "docs/knowledge/pcb/07-multilayer-highspeed.md"
+        ],
+        "tags": [
+          "CAF",
+          "可靠性",
+          "压合",
+          "绝缘"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "PLANE_RESONANCE：特定频率辐射超标/功能异常，频谱出现离散谐振峰，板越大越",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PLANE-RESONANCE",
+        "code": "PLANE_RESONANCE",
+        "category": "电源完整性/EMC",
+        "symptom": "特定频率辐射超标/功能异常，频谱出现离散谐振峰，板越大越明显。",
+        "rootCause": "电源/地平面形成腔体谐振，在谐振频率放大噪声并边缘辐射；平面分割/缝合不足。",
+        "detection": "VNA 测平面阻抗；近场/远场扫描；频谱找谐振峰；PI/SI 仿真对比。",
+        "prevention": [
+          "评估平面腔体谐振",
+          "加缝合电容/分割/阻尼",
+          "谐振点避开关键时钟谐波",
+          "平面成对并控制尺寸"
+        ],
+        "severity": "warning",
+        "refs": [
+          "docs/knowledge/pcb/07-multilayer-highspeed.md"
+        ],
+        "tags": [
+          "腔体谐振",
+          "平面",
+          "EMC",
+          "电源完整性"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "WEAVE_SKEW：高速差分眼图抖动/对内偏斜随位置周期性变化，TDR 相位",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-WEAVE-SKEW",
+        "code": "WEAVE_SKEW",
+        "category": "高速/材料",
+        "symptom": "高速差分眼图抖动/对内偏斜随位置周期性变化，TDR 相位波动。",
+        "rootCause": "FR-4 玻纤布与树脂 Dk 不同，差分两根线分别压在玻纤束/树脂区，传播速度不一致。",
+        "detection": "TDR/相位测量；眼图抖动；材料/玻纤布类型核对；与布线角度对比。",
+        "prevention": [
+          "高速差分 10° 斜角布线",
+          "选低 Dk/低 Df 或 spread glass 材料",
+          "展宽走线/调整线宽",
+          "仿真与实测对内偏斜"
+        ],
+        "severity": "warning",
+        "refs": [
+          "docs/knowledge/pcb/07-multilayer-highspeed.md"
+        ],
+        "tags": [
+          "玻璃纤维",
+          "weave",
+          "偏斜",
+          "高速"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "CAP_DISTANCE：负载瞬变时电源跌落/复位/误码；去耦看似‘有电容’但高频效果",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CAP-DISTANCE",
+        "code": "CAP_DISTANCE",
+        "category": "布局/电源完整性",
+        "symptom": "负载瞬变时电源跌落/复位/误码；去耦看似‘有电容’但高频效果差；EMI 偏高。",
+        "rootCause": "去耦电容离电源引脚太远、地过孔少/远，回路电感大，ΔV=L·di/dt 超标；或电容与引脚之间有长走线/菊花链。",
+        "detection": "量测电容到引脚距离/过孔；负载瞬变测 VDD 跌落；近场扫描；与 datasheet 推荐布局对比。",
+        "prevention": [
+          "0.1µF 电容≤2mm、地过孔≤1mm（经验）",
+          "电源先经电容再到引脚",
+          "每端至少 1 个过孔",
+          "大容量体电容靠入口"
+        ],
+        "severity": "error",
+        "refs": [
+          "docs/knowledge/pcb/08-component-placement.md"
+        ],
+        "tags": [
+          "去耦",
+          "回路电感",
+          "布局",
+          "电源完整性"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "CONNECTOR_STRESS：连接器焊点开裂/PCB 板弯/插拔后接触不良；跌落/振动后失",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CONNECTOR-STRESS",
+        "code": "CONNECTOR_STRESS",
+        "category": "布局/机械",
+        "symptom": "连接器焊点开裂/PCB 板弯/插拔后接触不良；跌落/振动后失效。",
+        "rootCause": "连接器布置在板边受力区/分板应力区，无补强/固定脚；插拔力直接传到焊点；与外壳错位产生侧向力。",
+        "detection": "插拔力/振动/跌落测试；焊点检查/切片；3D 装配；首件装配。",
+        "prevention": [
+          "连接器靠边、开口朝外、与外壳 3D 对齐",
+          "大插拔力连接器加固定脚/补强",
+          "避开分板应力区",
+          "焊盘/过孔按受力加固"
+        ],
+        "severity": "warning",
+        "refs": [
+          "docs/knowledge/pcb/08-component-placement.md"
+        ],
+        "tags": [
+          "连接器",
+          "机械应力",
+          "焊点开裂",
+          "装配"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "THERMAL_SENSOR：温度/湿度读数偏高或漂移，补偿失效；整机老化后偏差增大。",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-THERMAL-SENSOR",
+        "code": "THERMAL_SENSOR",
+        "category": "布局/热",
+        "symptom": "温度/湿度读数偏高或漂移，补偿失效；整机老化后偏差增大。",
+        "rootCause": "传感器离 MCU/DC-DC/LDO/连接器太近，或下方大面积铜导热；外壳热质量/通风不良。",
+        "detection": "与标准温湿度计对比；热像仪看板面温度；整机老化漂移；热隔离结构检查。",
+        "prevention": [
+          "传感器靠板边/通风处、远离热源",
+          "下方热隔离/开窗按 datasheet",
+          "外壳开透气孔",
+          "出厂温度校准"
+        ],
+        "severity": "warning",
+        "refs": [
+          "docs/knowledge/pcb/08-component-placement.md"
+        ],
+        "tags": [
+          "传感器",
+          "热耦合",
+          "热隔离",
+          "漂移"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "ERC 告警被批量忽略或无依据豁免，真问题流到试产",
+      "doc": "docs/knowledge/schematic/06-erc-review-checklist.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-ERC-WAIVED",
+        "code": "ERC_WAIVED_WITHOUT_EVIDENCE",
+        "category": "原理图/ERC",
+        "severity": "error",
+        "symptom": "ERC 报告显示大量 warning 被“全部忽略”，评审仍放行；试产出现悬空使能、输出冲突、电源脚未供等本可提前发现的问题。",
+        "rootCause": "没有 ERC 台账与豁免依据要求；告警文本不统一导致误判；评审只看 PDF 不看 ERC/网表；进度压力下批量忽略。",
+        "detection": "抽查豁免条目是否附 datasheet 页码/计算/测试；核对 ERC 报告版本与原理图版本；复审历史问题单。",
+        "prevention": [
+          "每条告警三态归属并留痕",
+          "豁免必须有理由/依据/批准人/失效条件",
+          "ERC 报告与原理图版本绑定归档",
+          "放行门禁把“未归属告警=0”设为硬条件"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/06-erc-review-checklist.md",
+          "SCH-RULE-ERC-001"
+        ],
+        "tags": [
+          "ERC",
+          "豁免",
+          "假通过",
+          "评审"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "同名/别名网络隐式短接，ERC 通过但功能异常",
+      "doc": "docs/knowledge/schematic/01-conventions.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-NET-ALIAS",
+        "code": "NET_ALIAS_SHORT",
+        "category": "原理图/规范",
+        "severity": "error",
+        "symptom": "两个本不应相连的网络因同名标签/电源符号被短接，ERC 仅报 warning 或被忽略；上电后电源域互灌、IO 对打或功能异常。",
+        "rootCause": "跨页依赖同名隐式连接；电源符号与网络标签混用；复制粘贴模块后未改网络名；不同电压域复用同一电源符号。",
+        "detection": "导出网表检查网络成员是否跨页异常；ERC 同名/多标签告警逐条处理；上电测域间电压与电流。",
+        "prevention": [
+          "跨页用层次端口/登记过的全局标签",
+          "电源符号属性显式设网络名且一压一符号",
+          "复制模块后强制重命名检查",
+          "评审把“网络别名=0”作为门禁"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/01-conventions.md",
+          "SCH-RULE-NET-002"
+        ],
+        "tags": [
+          "同名网络",
+          "隐式短接",
+          "电源域",
+          "网表"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "评审无证据/未签字放行，问题在试产才暴露",
+      "doc": "docs/knowledge/checklists/schematic-review.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-REVIEW-EVIDENCE-MISSING",
+        "code": "REVIEW_WITHOUT_EVIDENCE",
+        "category": "评审/门禁",
+        "severity": "error",
+        "symptom": "评审记录只有“已评审/OK”，没有问题单编号、证据与签字；投板后出现封装错、测试点缺失、版本不一致等本应在评审拦下的问题。",
+        "rootCause": "评审被当成形式；检查项无证据要求；问题单不闭环；版本/文件未绑定。",
+        "detection": "抽查评审记录的证据完整率；核对问题单关闭证据；对比评审版本与实际投板版本。",
+        "prevention": [
+          "每条检查项要求证据（位号/网络/计算/datasheet 页码）",
+          "问题单编号+责任人+关闭证据",
+          "评审签字与文件版本/哈希绑定",
+          "未关闭阻断项不得放行"
+        ],
+        "refs": [
+          "docs/knowledge/checklists/schematic-review.md",
+          "PCB-MOD-REVIEW-SCHEMATIC",
+          "SCH-RULE-REVIEW-001"
+        ],
+        "tags": [
+          "评审",
+          "证据",
+          "放行",
+          "门禁"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "原理图/BOM/PCB 版本漂移，板子与文件不一致",
+      "doc": "docs/knowledge/schematic/01-conventions.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-VERSION-DRIFT",
+        "code": "DOC_VERSION_DRIFT",
+        "category": "原理图/规范",
+        "severity": "error",
+        "symptom": "原理图已改但 PCB/BOM 未同步，或发版后又在源文件上改；产线/返修按旧版执行，出现错料、错封装、测试失败。",
+        "rootCause": "三件套独立保存、无版本映射表；变更无 ECO；发版与归档不同步；位号跨版本复用。",
+        "detection": "对比文件版本字段与映射表；网表 vs PCB 网络/位号数量；抽查变更位号在 PCB/BOM 的同步。",
+        "prevention": [
+          "维护版本映射表并随发版签字",
+          "每次变更打 ECO 并列出影响文件",
+          "发版同时归档 PDF/BOM/网表/Gerber",
+          "删除位号不复用或显式声明释放"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/01-conventions.md",
+          "SCH-RULE-VERSION-001"
+        ],
+        "tags": [
+          "版本漂移",
+          "ECO",
+          "BOM",
+          "受控文件"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "电感饱和：大电流下感量崩塌导致掉压/复位",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-IND-SAT",
+        "code": "IND_SAT",
+        "category": "磁性/电源",
+        "severity": "error",
+        "symptom": "大电流/启动瞬间输出电压跌落、MCU 复位、电感啸叫或过热；满载纹波异常增大。",
+        "rootCause": "电感 Isat 余量不足，峰值电流（含纹波、启动、堵转冲击）超过饱和点，感量骤降使纹波与峰值电流正反馈上升。",
+        "detection": "电流探头/分流电阻测电感峰值电流与波形；满载+启动工况测输出电压；热成像测电感温升；对照 datasheet 的 Isat 定义。",
+        "prevention": [
+          "按 I_peak ≤0.8×Isat 选型（含冲击电流）",
+          "按拓扑公式与 IC 推荐值复核 L",
+          "满载+启动工况实测峰值电流与温升",
+          "选屏蔽型/更大尺寸或更高 Isat 型号"
+        ],
+        "refs": [
+          "docs/knowledge/components/08-inductors-ferrites-fuses.md"
+        ],
+        "tags": [
+          "电感",
+          "饱和",
+          "掉压复位",
+          "DC-DC"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "保险丝 I²t 失配：上电误断或短路不动作",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-FUSE-I2T",
+        "code": "FUSE_I2T",
+        "category": "保护/安规",
+        "severity": "error",
+        "symptom": "上电/热插拔/电机启动时保险丝随机熔断；或真实短路时保险丝不动作导致后级烧毁。",
+        "rootCause": "I²t 与浪涌/启动电流不匹配（余量过小误断，或额度过大不动作）；未按环境温度降额；额定电压/分断能力不足。",
+        "detection": "测浪涌/启动电流波形并积分 I²t；对照 datasheet 的 I²t/温度降额/分断能力；短路测试验证动作时间。",
+        "prevention": [
+          "I²t_surge ≤20%~30%×I²t_fuse",
+          "I_op ≤0.75×I_rated 并按温度降额",
+          "使用 DC 额定电压且分断能力足够的型号",
+          "与 TVS/后级耐压做保护配合"
+        ],
+        "refs": [
+          "docs/knowledge/components/08-inductors-ferrites-fuses.md"
+        ],
+        "tags": [
+          "保险丝",
+          "I²t",
+          "浪涌",
+          "误断"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "I2C 传感器通信失败/总线锁死",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-SENSOR-I2C",
+        "code": "SENSOR_I2C",
+        "category": "传感器/通信",
+        "severity": "error",
+        "symptom": "传感器上电无应答、读数时有时无、总线锁死（SDA 被拉低）；多传感器系统中部分器件失效。",
+        "rootCause": "I2C 上拉过大/总线电容超限导致上升沿过慢；地址冲突；电平不匹配；从机时钟拉伸未处理；总线无 ESD/滤波。",
+        "detection": "示波器测 SCL/SDA 上升时间、低电平与 ACK；扫描地址；估算总线电容；长线/多器件复现。",
+        "prevention": [
+          "按总线电容计算上拉并满足 t_r",
+          "地址表核对无冲突",
+          "5V/3.3V 之间加电平转换",
+          "加 I2C 缓冲/多路开关与 ESD 保护",
+          "软件加超时与总线复位"
+        ],
+        "refs": [
+          "docs/knowledge/components/09-sensors-actuators.md"
+        ],
+        "tags": [
+          "I2C",
+          "传感器",
+          "上拉",
+          "地址冲突"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "感性负载反电动势击穿驱动/干扰 MCU",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-INDUCTIVE-KICKBACK",
+        "code": "INDUCTIVE_KICKBACK",
+        "category": "执行器/驱动",
+        "severity": "error",
+        "symptom": "继电器/电机/电磁阀关断瞬间驱动管击穿、MCU 复位或死机；长期使用后驱动失效。",
+        "rootCause": "感性负载无续流通路或续流回路过长；驱动管耐压/SOA 不足；地弹通过公共地干扰 MCU。",
+        "detection": "示波器用高压差分探头测关断尖峰电压；检查续流二极管位置与回路面积；负载动作时监测 MCU 复位/ADC。",
+        "prevention": [
+          "线圈并续流二极管且贴负载端子",
+          "驱动管耐压 ≥2×电源电压并核 SOA",
+          "续流回路面积最小化",
+          "功率地与信号地单点汇合"
+        ],
+        "refs": [
+          "docs/knowledge/components/09-sensors-actuators.md"
+        ],
+        "tags": [
+          "续流",
+          "反电动势",
+          "驱动管",
+          "地弹"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "ESD 保护布局不当：TVS 有但后级仍被击穿",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-ESD-LAYOUT",
+        "code": "ESD_LAYOUT",
+        "category": "接口/ESD",
+        "severity": "error",
+        "symptom": "ESD 测试后接口 IC 损坏/功能异常；TVS 看似存在但未起保护作用；EMC 认证 ESD 项不通过。",
+        "rootCause": "保护器件离连接器远、地回路长导致残压升高；TVS 放在保险丝前；被保护走线在器件后分叉；保护地与信号地乱连。",
+        "detection": "按 IEC 61000-4-2 打 ESD，用高压差分探头测被保护节点残压；Layout 检查保护器件位置、地过孔与 stub 长度。",
+        "prevention": [
+          "保护器件紧靠连接器、先打后过",
+          "地脚多过孔短接保护地",
+          "TVS 放在保险丝之后",
+          "保护地与信号地单点/电容连接"
+        ],
+        "refs": [
+          "docs/knowledge/components/10-interface-protection.md"
+        ],
+        "tags": [
+          "ESD",
+          "TVS",
+          "布局",
+          "残压"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "保护器件结电容过大破坏高速信号",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-ESD-CAP",
+        "code": "ESD_CAP",
+        "category": "接口/信号完整性",
+        "severity": "warning",
+        "symptom": "加 ESD 保护后高速接口眼图闭合、误码或枚举失败；插损增大、TDR 出现阻抗跌落。",
+        "rootCause": "TVS/ESD 阵列结电容过大或多级并联叠加形成容性负载；保护器件分支 stub 过长；差分对内失配。",
+        "detection": "加保护前后眼图/插损/TDR 对比；datasheet Cj 与信号速率比对；测量差分对内偏斜。",
+        "prevention": [
+          "按速率选 Cj（USB 2.0 约 ≤1~2pF 量级，更高速率约 ≤0.5pF 量级，按 datasheet）",
+          "每线只放一颗低电容器件",
+          "差分对成对、分支短、不换层",
+          "加保护后复测眼图/插损"
+        ],
+        "refs": [
+          "docs/knowledge/components/10-interface-protection.md"
+        ],
+        "tags": [
+          "ESD",
+          "结电容",
+          "信号完整性",
+          "眼图"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "降额不足导致高温满载过热/寿命不足",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-REL-DERATE-OVER",
+        "code": "DERATE_OVER",
+        "category": "可靠性/降额",
+        "severity": "error",
+        "symptom": "量产高温/满载时电源器件过热、效率下降、寿命不足，甚至烧毁；现场失效率高于预测，返修集中在同一器件位置。",
+        "rootCause": "降额不足（功率/电压/结温裕量小）、热设计差（铜皮/过孔不足）、BOM 换料未复算应力比、任务剖面未取最恶劣工况。",
+        "detection": "降额表复算；热像仪/热电偶测壳温并反推结温；高温满载老化；失效分析（烧毁位置/金相/电迁移）。",
+        "prevention": [
+          "投板前 100% 关键器件算应力比并签核超限项",
+          "按最恶劣任务剖面选型，高温区再降额",
+          "热布局/热过孔/铜皮按功耗设计并实测验证",
+          "换料必须复算应力比并走 ECO",
+          "量产做高温满载抽测与 ORT"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/09-reliability-derating.md",
+          "PCB-RULE-REL-DERATING-001",
+          "PCB-RULE-THERMAL-001"
+        ],
+        "tags": [
+          "降额",
+          "过热",
+          "结温",
+          "失效",
+          "换料"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "温度循环后焊点疲劳开裂（BGA/QFN/大铜面）",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-REL-THERMAL-FATIGUE",
+        "code": "THERMAL_FATIGUE",
+        "category": "可靠性/热循环",
+        "severity": "error",
+        "symptom": "温度循环/开关机循环后 BGA/QFN/大铜面/连接器焊点开裂，出现间歇失效、开路或参数漂移；切片可见沿焊点界面的裂纹。",
+        "rootCause": "CTE 失配 + ΔT 大 + 循环次数超寿命 + 焊点应力集中（大铜面/散热焊盘/过孔/连接器受力）；布局/焊盘/工艺不当加剧。",
+        "detection": "按 IPC-9701 做热循环并在线监测；切片/染色/CT 扫描看裂纹；X-ray 对裂纹有限；失效板做电测定位。",
+        "prevention": [
+          "按最恶劣 ΔT/循环数用 Coffin-Manson 估算寿命",
+          "BGA/QFN/大铜面/连接器焊点纳入热循环评估",
+          "布局避免大热质量与刚性约束叠加，连接器加补强",
+          "按 datasheet 设计焊盘/散热过孔/阻焊",
+          "新工艺/新板厂做热循环验证"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/09-reliability-derating.md",
+          "PCB-RULE-REL-THERMALCYCLE-001",
+          "docs/knowledge/pcb/07-multilayer-highspeed.md"
+        ],
+        "tags": [
+          "焊点疲劳",
+          "热循环",
+          "BGA",
+          "CTE",
+          "开裂"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "离子污染/湿热偏压导致绝缘劣化与电化学迁移",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-REL-CONTAM",
+        "code": "IONIC_CONTAM",
+        "category": "可靠性/污染",
+        "severity": "warning",
+        "symptom": "湿热/偏压后绝缘电阻下降、漏电增大、出现电化学迁移/枝晶甚至短路；清洗不良批次集中出现，干燥后可能暂时恢复。",
+        "rootCause": "助焊剂残留/离子污染、清洗不彻底、三防涂覆不良（针孔/边缘未覆盖）、湿热环境+偏压、表面处理不当。",
+        "detection": "离子污染度测试（ROSE）；SIR/THB/HAST；绝缘电阻监测；显微/EDS 分析枝晶与腐蚀产物。",
+        "prevention": [
+          "按工艺要求清洗并做离子污染度抽测",
+          "高湿/高可靠产品做三防涂覆并验证覆盖率/厚度",
+          "湿热试验含偏压与在线监测",
+          "布局加大间距/避免露铜，必要时开槽",
+          "来料/助焊剂/清洗液变更做验证"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/09-reliability-derating.md",
+          "PCB-RULE-REL-ENV-001",
+          "PCB-RULE-ML-CAF-001"
+        ],
+        "tags": [
+          "离子污染",
+          "电化学迁移",
+          "SIR",
+          "THB",
+          "绝缘电阻"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "ICT 误判/接触不良导致良品被判不良",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-TEST-ICT-FALSE",
+        "code": "ICT_FALSE_CALL",
+        "category": "可测试性/ICT",
+        "severity": "warning",
+        "symptom": "ICT 把良品判为不良、复测通过；或读数漂移/时好时坏；产线误判率升高，返修与报废成本上升。",
+        "rootCause": "测试盘氧化/污染/助焊剂残留、探针磨损/压力不足、治具偏位、程序判据过严、GND 回路不足、并联网络未 guarding。",
+        "detection": "标准板/标准电阻日常校验；接触电阻抽测；误判分类统计；复测对比；探针更换记录。",
+        "prevention": [
+          "测试盘开窗露铜并规定清洁/点检周期",
+          "探针按寿命更换，治具防呆与导向到位",
+          "程序判据按器件公差与测量系统能力设定",
+          "GND 测试点均匀分布，并联网络用 guarding",
+          "误判率/漏判率分开统计并做趋势"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/10-testability-production-test.md",
+          "PCB-RULE-TEST-COVERAGE-001",
+          "PCB-RULE-TESTPOINT-001"
+        ],
+        "tags": [
+          "ICT",
+          "误判",
+          "接触不良",
+          "探针",
+          "治具"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "测试覆盖缺口导致不良流出到客户",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-TEST-COVERAGE-GAP",
+        "code": "TEST_COVERAGE_GAP",
+        "category": "可测试性/覆盖率",
+        "severity": "error",
+        "symptom": "量产 ICT/FCT 全通过，但现场出现开路/错件/功能失效；追溯发现该网络无测试点、未被程序覆盖或测试资产与 BOM 版本不一致。",
+        "rootCause": "DFT 介入晚、覆盖率无门禁、关键网络未加测试点、缺陷谱未分层、程序/治具/BOM 版本漂移。",
+        "detection": "可测网络覆盖率差集；缺陷谱×测试层矩阵；现场失效回溯测试记录；试产漏判分析；版本一致性核对。",
+        "prevention": [
+          "原理图/布局冻结前做 DFT 评审并设覆盖率门禁",
+          "关键网络 100% 可测，缺口列替代手段",
+          "建立缺陷谱×测试层矩阵，确保每类缺陷有手段",
+          "测试程序/治具/固件/BOM 同版本基线，ECO 同步",
+          "小批量试产验证覆盖率与漏判率"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/10-testability-production-test.md",
+          "PCB-RULE-TEST-COVERAGE-001",
+          "PCB-RULE-BOM-001"
+        ],
+        "tags": [
+          "覆盖率",
+          "漏判",
+          "DFT",
+          "版本漂移",
+          "流出"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "边界扫描链断裂/不可测，高密度互连失去覆盖",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-TEST-BSCAN-CHAIN",
+        "code": "BSCAN_CHAIN_FAIL",
+        "category": "可测试性/边界扫描",
+        "severity": "warning",
+        "symptom": "JTAG 链路无法连通、IDCODE 读错或互连测试失败；BGA 互连无法验证，量产只能靠 FCT 或漏检，返修定位困难。",
+        "rootCause": "TAP 引脚悬空/上下拉错误、链路过长/TCK 过快、电平/参考电压不匹配、BSDL 与器件版本不符、AC 耦合链路未用 1149.6、TAP 无 ESD 保护。",
+        "detection": "IDCODE/链路连通测试；示波器看 TCK/TDO 波形；BSDL 版本核对；覆盖率报告；扫描程序试产验证。",
+        "prevention": [
+          "TAP 走线短、分支少、参考地完整",
+          "未用 TAP 引脚按 datasheet 上拉/下拉，不悬空",
+          "链路长度/TCK 频率满足时序，必要时多链/缓冲",
+          "BSDL 版本与 BOM 器件一致并随 ECO 更新",
+          "AC 耦合/差分链路按 IEEE 1149.6 评估"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/10-testability-production-test.md",
+          "PCB-RULE-TEST-BSCAN-001"
+        ],
+        "tags": [
+          "边界扫描",
+          "JTAG",
+          "TAP",
+          "BSDL",
+          "链路"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "爬电距离不足/隔离带被跨越导致打火与耐压击穿",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-SAFE-CREEPAGE",
+        "code": "CREEPAGE_FLASHOVER",
+        "category": "安规/间距",
+        "severity": "error",
+        "symptom": "高压/市电区在潮湿/污染/瞬态下爬电打火、绝缘电阻下降、耐压击穿，严重时碳化短路/起火；认证耐压项失败或现场出现漏电麻手。",
+        "rootCause": "间距按经验值而非标准表、污染等级/材料组/海拔未声明、隔离带被走线/铺铜跨越、开槽/涂覆不符合标准条件、表面污染/助焊剂残留。",
+        "detection": "间距实测（含阻焊下铜）；耐压/绝缘电阻；湿热后复测；失效分析（碳化路径/枝晶）；认证预评估。",
+        "prevention": [
+          "跨接清单逐项按标准表计算爬电/间隙并留裕量",
+          "声明污染等级/材料组/过压类别/海拔并留证据",
+          "隔离带所有层 keepout，禁止走线/铺铜",
+          "开槽/加强筋/涂覆按标准条件设计并验证",
+          "认证前做耐压/绝缘电阻预测试"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/11-safety-certification.md",
+          "PCB-RULE-SAFE-CREEPAGE-001",
+          "PCB-RULE-CREEPAGE-001"
+        ],
+        "tags": [
+          "爬电距离",
+          "打火",
+          "耐压",
+          "隔离",
+          "安规"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "电池保护失效/单点失效导致过充、鼓包或起火",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-SAFE-BATTERY",
+        "code": "BATTERY_PROTECTION_FAIL",
+        "category": "安规/电池",
+        "severity": "error",
+        "symptom": "电池过充/过放/外部短路时保护不动作或误动作，电池鼓包/起火/漏液；GB 31241/UN38.3 测试失败，或运输/认证被拒。",
+        "rootCause": "保护阈值设置错误、MOS/保护 IC 单点失效无二级防护、电芯证书与 BOM 不符、运输样品状态与量产不一致、充电器与 BMS 配合不当。",
+        "detection": "保护功能测试（过充/过放/短路/温度）；滥用测试；电池报告核对；失效分析（MOS/IC 失效）；运输报告与 BOM 一致性检查。",
+        "prevention": [
+          "按电芯 datasheet 设定保护阈值并验证",
+          "加二级保护（二级 IC/保险丝/PTC）覆盖 MOS/IC 单点失效",
+          "充电器与 BMS 联合验证，防误保护/不起保护",
+          "电池/电芯证书型号与 BOM/整机条件一致",
+          "UN38.3 按最终出货状态送样并保留测试摘要"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/11-safety-certification.md",
+          "PCB-RULE-SAFE-BATTERY-001",
+          "docs/knowledge/pcb/09-reliability-derating.md"
+        ],
+        "tags": [
+          "电池",
+          "过充",
+          "BMS",
+          "GB 31241",
+          "UN38.3",
+          "二级保护"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "停产断供导致停线与被迫改板：EOL/LTB 未提前预警",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "failureId": "CMP-FAIL-SC-001",
+        "code": "SC_EOL_STOPLINE",
+        "category": "供应链/生命周期",
+        "severity": "error",
+        "symptom": "量产中某器件突然无法采购，交期无限延长或价格暴涨；产线停线、交期违约；被迫紧急改板/改料并重新认证。",
+        "rootCause": "BOM 未维护生命周期状态与来源；未订阅 PCN/EOL 通知；错过 LTB 窗口；关键件单点且无替代料与库存计划。",
+        "detection": "核对原厂/代理生命周期页面与 PCN 记录；检查 BOM 状态字段与数据日期；对比交期台账与历史；检查是否有单点无替代器件。",
+        "prevention": [
+          "BOM 每行维护生命周期状态/来源/日期并设 TTL",
+          "订阅并闭环处理 PCN/PDN/EOL 通知",
+          "关键件双供或已批准替代料，单点清单清零或带风险批准",
+          "LTB 前按剩余需求+安全库存+验证期用量备料",
+          "季度复盘断供事件并更新风险清单"
+        ],
+        "refs": [
+          "docs/knowledge/components/11-supply-chain.md"
+        ],
+        "tags": [
+          "EOL",
+          "断供",
+          "停线",
+          "改板",
+          "LTB"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "非授权渠道假货/翻新料导致批量早期失效",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "failureId": "CMP-FAIL-SC-002",
+        "code": "SC_COUNTERFEIT",
+        "category": "供应链/来料",
+        "severity": "error",
+        "symptom": "量产/老化阶段出现批量早期失效、参数漂移、温循后失效；失效分析发现丝印打磨、日期码异常、内部结构/芯片与正品不符。",
+        "rootCause": "从灰色渠道采购；来料无真伪鉴别与批次追溯；关键器件未限制授权来源；价格导向压过渠道合规。",
+        "detection": "渠道审计；外观/丝印/日期码一致性检查；X-ray、开盖、电参数曲线与温度特性对比；批次失效率统计；追溯供应商与采购单。",
+        "prevention": [
+          "关键器件只从原厂/授权代理/可信目录商采购",
+          "AVL 与采购渠道审计，灰色渠道来料加严鉴别",
+          "关键料抽检做 X-ray/开盖/参数曲线",
+          "批次追溯与异常批次隔离",
+          "建立假货案例库并培训采购/IQC"
+        ],
+        "refs": [
+          "docs/knowledge/components/11-supply-chain.md"
+        ],
+        "tags": [
+          "假货",
+          "翻新料",
+          "灰色渠道",
+          "来料检验",
+          "早期失效"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "符号/封装 pin map 不一致导致反装、直通或整批报废",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-LIB-001",
+        "code": "LIB_PINMAP",
+        "category": "元件库/封装",
+        "severity": "error",
+        "symptom": "首件或批量出现器件反装、电源与地短路、上电直通烧板、功能异常但原理图“看起来正确”；返修时发现封装焊盘号与符号引脚号不对应。",
+        "rootCause": "建库未按 datasheet 逐脚核对；符号引脚号与封装焊盘号不一致；Pin 1 认错；极性器件方向建反；第三方库未核验直接使用。",
+        "detection": "三源核对表（符号/封装/datasheet）；首件万用表通断与体二极管测试；AOI 方向检查；对比 datasheet pin map 截图；失效分析定位到具体引脚。",
+        "prevention": [
+          "建库按 datasheet Pin Configuration/Package Drawing 逐脚核对",
+          "符号引脚号=焊盘号=datasheet pin map，Pin 1 三处一致",
+          "高风险封装双人复核 + 首件验证",
+          "极性器件额外核对方向并在丝印标注",
+          "第三方库引入前抽检并登记来源"
+        ],
+        "refs": [
+          "docs/knowledge/components/12-library-management.md"
+        ],
+        "tags": [
+          "pin map",
+          "反装",
+          "直通",
+          "Pin1",
+          "首件",
+          "三源核验"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "焊盘不符合 IPC-7351/器件公差导致立碑、桥连、虚焊",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-LIB-002",
+        "code": "LIB_LANDPATTERN",
+        "category": "元件库/焊盘",
+        "severity": "error",
+        "symptom": "回流后小封装立碑/偏移、细间距桥连、焊点强度不足或虚焊；同一封装在不同板/批次良率波动；返修困难。",
+        "rootCause": "焊盘尺寸套用“通用封装”未按 IPC-7351 与引脚公差计算；外延过大/过小；阻焊开窗与钢网不匹配；EPAD 过孔未塞孔漏锡。",
+        "detection": "焊盘尺寸与 IPC-7351 计算表对比；SPI/AOI 统计立碑/桥连/锡量；切片与推力测试；X-ray 看空洞与漏锡；对照 datasheet 推荐 land pattern。",
+        "prevention": [
+          "按 IPC-7351 密度等级与引脚公差计算焊盘并留计算记录",
+          "连接器/功率器件优先采用 datasheet 推荐 land pattern",
+          "同板同封装族统一密度等级",
+          "EPAD 过孔塞孔，钢网开孔按面积比设计",
+          "首件 AOI/SPI/切片验证后固化库版本"
+        ],
+        "refs": [
+          "docs/knowledge/components/12-library-management.md"
+        ],
+        "tags": [
+          "IPC-7351",
+          "焊盘",
+          "立碑",
+          "桥连",
+          "虚焊",
+          "钢网"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "柔性板弯折区铜箔疲劳裂纹：电阻增大/开路",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-FLEX-TRACE-CRACK",
+        "code": "FLEX-TRACE-CRACK",
+        "category": "柔性板/失效",
+        "severity": "error",
+        "symptom": "FPC 经过多次弯折或装配后，弯折区走线电阻增大、间歇开路，严重时完全断开；切片可见铜箔沿晶界裂纹。",
+        "rootCause": "弯折半径小于材料允许值、走线平行弯折线、弯折区有宽度突变/过孔、使用 ED 铜、覆盖膜/胶层缺陷、装配拉扯。",
+        "detection": "弯折寿命试验监测电阻；通断/飞针测试；显微/切片看裂纹；失效位置与弯折线对照。",
+        "prevention": [
+          "增大弯折半径，按总厚 20–100 倍起步（动态，需实测）",
+          "走线垂直弯折线，圆弧过渡，禁止宽度突变",
+          "动态区用 RA 铜，弯折区禁过孔/焊盘/器件",
+          "覆盖膜全覆，开窗桥宽足够",
+          "装配工装限位，避免手工拉扯"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/12-flex-rigid-flex.md",
+          "KP-PCB-262",
+          "KP-PCB-263",
+          "KP-PCB-264"
+        ],
+        "tags": [
+          "柔性板",
+          "铜裂",
+          "弯折",
+          "疲劳",
+          "开路"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "柔性板分层/起泡：PI 与胶层或覆盖膜分离",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-FLEX-DELAM",
+        "code": "FLEX-DELAM",
+        "category": "柔性板/失效",
+        "severity": "error",
+        "symptom": "FPC 表面起泡、发白、覆盖膜起翘，严重时铜箔与基材分离；回流/高温高湿后更明显。",
+        "rootCause": "材料吸湿未烘烤、压合参数不当、覆盖膜/胶层污染、补强与基材 CTE 不匹配、弯折应力集中、存储环境超标。",
+        "detection": "外观/显微镜；C-SAM/超声；切片；高温高湿/回流后复检；剥离强度测试。",
+        "prevention": [
+          "按 MSL/材料要求存储与烘烤（J-STD-033）",
+          "控制压合温度/压力/时间，按板厂工艺",
+          "覆盖膜/补强前清洁，避免污染",
+          "补强边缘圆角，避免跨弯折线",
+          "来料检验与供应商 8D"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/12-flex-rigid-flex.md",
+          "KP-PCB-258",
+          "KP-PCB-265",
+          "KP-PCB-277"
+        ],
+        "tags": [
+          "柔性板",
+          "分层",
+          "起泡",
+          "覆盖膜",
+          "吸湿"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "BGA 焊球空洞超标：强度/导热下降，热循环开裂",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PKG-BGA-VOID",
+        "code": "BGA-VOID",
+        "category": "封装/焊接失效",
+        "severity": "error",
+        "symptom": "X-ray 显示 BGA 焊球内空洞面积超限或集中在焊盘界面，焊点强度/导热下降，热循环后开裂/开路。",
+        "rootCause": "焊膏助焊剂挥发不畅、回流曲线不当、焊盘/焊球氧化、盘中孔未填平、钢网开窗/焊膏量不当、MSL 受潮。",
+        "detection": "X-ray 2D/3D 逐球统计空洞面积与位置；切片确认界面空洞；热循环/跌落验证。",
+        "prevention": [
+          "优化回流曲线（预热/均温/液相时间）",
+          "焊盘/焊球清洁，控制 MSL 与烘烤",
+          "盘中孔塞孔电镀填平",
+          "钢网开窗/焊膏量按计算，QFN 散热焊盘网格开窗",
+          "来料检验与供应商协同"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/13-package-assembly-rework.md",
+          "KP-PCB-287",
+          "KP-PCB-294",
+          "KP-PCB-306"
+        ],
+        "tags": [
+          "BGA",
+          "空洞",
+          "X-ray",
+          "回流",
+          "焊点"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "枕头效应（Head-in-Pillow）：焊球与焊膏未熔合，X-ray 难发现",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PKG-HOP",
+        "code": "HEAD-IN-PILLOW",
+        "category": "封装/焊接失效",
+        "severity": "error",
+        "symptom": "BGA 功能间歇失效/开路，X-ray 可能显示正常；切片/染色可见焊球坐在焊膏上但未形成冶金结合，界面有缝隙。",
+        "rootCause": "封装/PCB 回流翘曲、焊膏量不足、回流温度/时间不足、焊球氧化、MSL 受潮、支撑/夹具不当。",
+        "detection": "切片/染色渗透；热循环后电测；翘曲测量（shadow moiré）；回流曲线复核；X-ray 3D 辅助。",
+        "prevention": [
+          "控制来料翘曲与 MSL/烘烤",
+          "优化回流曲线（峰值/液相时间）",
+          "保证焊膏量与钢网开窗",
+          "必要时氮气/助焊剂/支撑治具",
+          "高风险 BGA 做切片抽检"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/13-package-assembly-rework.md",
+          "KP-PCB-288",
+          "KP-PCB-292",
+          "KP-PCB-294"
+        ],
+        "tags": [
+          "BGA",
+          "枕头效应",
+          "HoP",
+          "翘曲",
+          "回流"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "焊盘坑裂（Pad Cratering）：焊盘从树脂拔出，板弯/返修后开路",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PKG-PAD-CRATER",
+        "code": "PAD-CRATERING",
+        "category": "封装/焊接失效",
+        "severity": "error",
+        "symptom": "板弯/跌落/返修后焊点开路，切片/染色可见焊盘连同树脂从 PCB 拔出形成坑状，焊球本身可能完好。",
+        "rootCause": "无铅焊点强度高使应力传到焊盘/树脂界面；焊盘小、树脂/玻纤差、板弯大、返修次数多、分板/螺钉应力。",
+        "detection": "染色渗透+拉拔；切片；IST；板弯测试；失效位置与受力点对照。",
+        "prevention": [
+          "优化焊盘（NSMD/尺寸按 IPC-7351）",
+          "减少板弯：支撑/拼板/低应力分板",
+          "控制返修次数与温度",
+          "高可靠产品做 IST/热循环验证",
+          "连接器/螺钉受力区远离小焊盘"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/13-package-assembly-rework.md",
+          "KP-PCB-291",
+          "KP-PCB-299",
+          "KP-PCB-303"
+        ],
+        "tags": [
+          "坑裂",
+          "pad cratering",
+          "板弯",
+          "返修",
+          "无铅"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "高速链路阻抗失配：TDR 过冲/回损超标、眼图闭合",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-HS-IMPEDANCE",
+        "code": "HS-IMPEDANCE-MISMATCH",
+        "category": "高速/信号完整性",
+        "severity": "error",
+        "symptom": "TDR 显示阻抗偏离目标（过冲/下陷），VNA 回损超标，眼图闭合/误码率升高，协议一致性失败。",
+        "rootCause": "叠层/线宽计算错误、参考平面不连续/跨分割、AC 电容/ESD 焊盘过大、过孔反焊盘不当、连接器阻抗不匹配、阻焊/蚀刻偏差。",
+        "detection": "TDR 逐段测阻抗；VNA 回损/插损；眼图/BER；与仿真对比；切片测线宽/介质厚度。",
+        "prevention": [
+          "按协议/板厂计算书设计线宽/叠层",
+          "参考平面连续，跨分割 = 0",
+          "AC 电容/ESD 焊盘按阻抗优化",
+          "过孔反焊盘/换层加地孔",
+          "加阻抗测试条并 TDR 验收"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/14-high-speed-protocols.md",
+          "KP-PCB-309",
+          "KP-PCB-312",
+          "KP-PCB-327",
+          "KP-PCB-328"
+        ],
+        "tags": [
+          "阻抗",
+          "TDR",
+          "回损",
+          "眼图",
+          "跨分割"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "高速通道损耗超预算：插损过大、眼图闭合/降速",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-HS-LOSS",
+        "code": "HS-LOSS-BUDGET",
+        "category": "高速/信号完整性",
+        "severity": "error",
+        "symptom": "长链路/高损耗材料下插损超标，眼图幅度/张开度不足，链路降速、误码或训练失败。",
+        "rootCause": "板材 Df 高、走线过长、铜粗糙度大、过孔 stub 长、连接器/线缆损耗大、AC 电容/ESD 器件损耗、叠层设计不当。",
+        "detection": "VNA 插损/回损；眼图/BER；通道损耗预算与实际对比；仿真-实测相关性；TDR 看反射。",
+        "prevention": [
+          "按速率/长度选低损耗板材（Df 按 datasheet）",
+          "缩短走线、减少过孔/连接器",
+          "背钻/盲埋孔控制 stub",
+          "低损耗连接器/线缆/AC 电容",
+          "做完整通道损耗预算并留余量"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/14-high-speed-protocols.md",
+          "KP-PCB-309",
+          "KP-PCB-327",
+          "KP-PCB-329",
+          "KP-PCB-337"
+        ],
+        "tags": [
+          "插损",
+          "损耗预算",
+          "眼图",
+          "低损耗材料",
+          "背钻"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "高速差分对串扰超标：噪声底抬高、眼图恶化",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-HS-CROSSTALK",
+        "code": "HS-CROSSTALK",
+        "category": "高速/信号完整性",
+        "severity": "error",
+        "symptom": "相邻高速对/并行总线之间近端/远端串扰超标，噪声底抬高、眼图闭合、误码率升高。",
+        "rootCause": "差分对间距不足、长距离平行、参考平面不完整、连接器引脚分配不当、过孔密集耦合、地屏蔽不足。",
+        "detection": "SI 仿真串扰；VNA 近端/远端串扰；眼图/BER；近场扫描；协议一致性。",
+        "prevention": [
+          "差分对间距 ≥3W（底线）/5W（更稳），按预算复核",
+          "高速对之间加地线/地孔隔离",
+          "避免长距离平行，正交布线",
+          "连接器引脚分配隔开高速对",
+          "参考平面完整，过孔区域加地孔"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/14-high-speed-protocols.md",
+          "KP-PCB-338",
+          "KP-PCB-328",
+          "KP-PCB-325"
+        ],
+        "tags": [
+          "串扰",
+          "crosstalk",
+          "3W",
+          "眼图",
+          "连接器"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "ADC 采样建立不足：读数偏低且随源阻抗/通道切换变化",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-ADC-SETTLE",
+        "code": "ADC_SETTLE",
+        "category": "模拟/采样",
+        "severity": "error",
+        "symptom": "ADC 读数系统性偏低，随源阻抗、采样率、通道切换变化；高阻源通道偏差更大，通道间出现串扰。",
+        "rootCause": "采样时间不足以让采样电容建立到 0.5 LSB；源阻抗/串阻过大或未加缓冲；mux 切换后未留建立时间。",
+        "detection": "同一输入在不同采样时间/采样率下对比读数；切换相邻通道看串扰；与高精度表对比；用短路/已知源测试。",
+        "prevention": [
+          "按 t ≥ (Rsource+Rsw)×Csh×ln(2^(N+1)) 校核并留 2 倍余量",
+          "源阻抗 >1kΩ 时加缓冲运放",
+          "提高采样时间、降低采样率或降低源阻抗",
+          "通道切换后丢弃首次采样（仅作辅助，不能替代硬件建立）"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/08-analog-signal-chain.md",
+          "docs/knowledge/schematic/07-analog-audio.md"
+        ],
+        "tags": [
+          "ADC",
+          "采样",
+          "建立时间",
+          "源阻抗",
+          "读数偏低"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "运放容性负载振荡：持续振荡或阶跃严重振铃",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-OPAMP-OSC",
+        "code": "OPAMP_OSC",
+        "category": "模拟/运放",
+        "severity": "error",
+        "symptom": "运放输出持续振荡或阶跃严重振铃；ADC 读数抖动/噪声异常；某些容性负载或长线条件下才出现。",
+        "rootCause": "容性负载与输出阻抗形成附加极点，相位裕度不足；反馈网络/噪声增益不当；无隔离电阻或补偿。",
+        "detection": "示波器看输出（空载/带载）；小信号阶跃测过冲/振铃；扫频看闭环峰化；换不同容性负载复测。",
+        "prevention": [
+          "输出串 10~100Ω 隔离电阻或按 datasheet 补偿",
+          "校核噪声增益/反馈电容，相位裕度 ≥45°（推荐 ≥60°）",
+          "限制容性负载或加缓冲器",
+          "缩短反馈走线、避免长线直接挂输出"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/08-analog-signal-chain.md"
+        ],
+        "tags": [
+          "运放",
+          "振荡",
+          "容性负载",
+          "相位裕度"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "基准噪声/去耦缺失：ADC 码值跳动、有效位数下降",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-REF-NOISE",
+        "code": "REF_NOISE",
+        "category": "模拟/基准",
+        "severity": "warning",
+        "symptom": "ADC 码值随机跳动、有效位数下降；基准脚有开关频率纹波；校准后仍无法达到目标精度。",
+        "rootCause": "基准去耦不足或走线过长；基准与 VDDA 共用脏电源；基准噪声/温漂未入预算；多点负载共阻抗调制。",
+        "detection": "示波器 AC 耦合测 VREF 纹波（限制带宽）；短路输入测噪声底；对比不同电源/数字状态；6.5 位表测基准值与温漂。",
+        "prevention": [
+          "基准独立去耦 100nF+1~10µF（按 datasheet）",
+          "VDDA 用磁珠/LC 隔离，基准远离开关节点",
+          "基准与 ADC 短走线/开尔文，多点负载星形引出",
+          "做基准误差预算并配套满量程校准"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/08-analog-signal-chain.md",
+          "docs/knowledge/schematic/07-analog-audio.md"
+        ],
+        "tags": [
+          "基准",
+          "噪声",
+          "VREF",
+          "去耦",
+          "ENOB"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "I2C 传感器总线异常：无响应、地址冲突、时好时坏",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-SENSOR-BUS",
+        "code": "SENSOR_BUS",
+        "category": "总线/I2C",
+        "severity": "error",
+        "symptom": "I2C 传感器无响应或时好时坏；扫描不到地址或读到别的器件；高低温、负载变化时通信失败。",
+        "rootCause": "上拉过大导致上升沿慢；地址冲突或地址脚悬空；总线电容超限；中断脚悬空；电源/复位时序不满足 tPU。",
+        "detection": "I2C 扫描与地址分配表对照；示波器测上升时间与高电平；逐器件单独通信；测总线电容；抓上电时序。",
+        "prevention": [
+          "按 Rp(min)/Rp(max) 计算上拉并留余量",
+          "地址引脚明确设置并维护分配表，冲突用分路器",
+          "总线电容 ≤400pF，长线用缓冲器/中继器",
+          "中断开漏必上拉并配置唤醒，未用中断脚定电平",
+          "按 datasheet 上电延时 tPU 后再访问"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/09-sensors-actuators.md",
+          "docs/knowledge/schematic/04-interfaces.md"
+        ],
+        "tags": [
+          "I2C",
+          "传感器",
+          "地址冲突",
+          "上拉",
+          "通信失败"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "感性执行器续流缺失：关断尖峰击穿驱动管",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-MOTOR-FLYBACK",
+        "code": "MOTOR_FLYBACK",
+        "category": "执行器/驱动",
+        "severity": "error",
+        "symptom": "电机/继电器/电磁阀关断瞬间驱动管击穿或 H 桥炸管；母线出现高压尖峰；反复动作后失效。",
+        "rootCause": "感性负载关断无续流路径或续流不足；V=L·di/dt 尖峰超过驱动管耐压；再生能量无钳位；栅极默认态错误。",
+        "detection": "示波器测关断尖峰（注意探头耐压）；测母线电压；反复开关复现；检查续流二极管方向与位置。",
+        "prevention": [
+          "线圈/电机端子反并联续流二极管/RC/压敏",
+          "母线加 TVS 或制动电阻钳位再生能量",
+          "驱动管耐压留 ≥20% 余量",
+          "栅极/基极下拉保证默认关断"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/09-sensors-actuators.md",
+          "docs/knowledge/schematic/05-protection.md"
+        ],
+        "tags": [
+          "续流",
+          "感性负载",
+          "H桥",
+          "击穿",
+          "再生能量"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "编码器脉冲丢失/多计：高速运行时位置漂移",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-ENCODER-MISCOUNT",
+        "code": "ENCODER_MISCOUNT",
+        "category": "接口/脉冲",
+        "severity": "warning",
+        "symptom": "编码器计数丢失或多计、位置漂移；高速或电机运行时更明显，低速正常。",
+        "rootCause": "输入滤波过强吃掉窄脉冲；接收器/光耦带宽不足；上拉过大边沿慢；中断延迟；噪声被当成脉冲。",
+        "detection": "信号发生器扫频到 f_max 看计数；电机运行对比理论计数；示波器测脉宽与边沿；近场探头找噪声。",
+        "prevention": [
+          "按 f_max=(RPM/60)×PPR×4 校核并留 2~5 倍带宽",
+          "施密特整形 + 合适 RC（fc ≥ 2~5×f_max）",
+          "优先硬件编码器接口/定时器计数",
+          "屏蔽双绞、远离电机功率线"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/09-sensors-actuators.md",
+          "docs/knowledge/schematic/04-interfaces.md"
+        ],
+        "tags": [
+          "编码器",
+          "脉冲",
+          "计数",
+          "滤波",
+          "失步"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "充电热耗超限：结温过高、热调节导致充不满",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-CHARGE-THERMAL",
+        "code": "CHARGE_THERMAL",
+        "category": "电源/电池",
+        "severity": "error",
+        "symptom": "充电 IC 过热/热调节导致充电变慢或反复暂停；高温环境下充不满；封装/PCB 发黄；长期可靠性下降。",
+        "rootCause": "线性充电压差×电流的热耗超出封装 θJA 能力；散热焊盘/铜皮不足；高温环境未降流；CC/终止参数与电芯不匹配。",
+        "detection": "满载充电测温升/热像；45°C 环境测充电电流；核对 P=(Vin−Vbat)×I 与 θJA；看热调节是否频繁触发。",
+        "prevention": [
+          "按 Tj=Ta+P×θJA 校核并留余量",
+          "散热焊盘打过孔阵列并加铜皮（PCB-RULE-THERMAL-001）",
+          "压差/电流大时改开关充电方案",
+          "实现 JEITA 高温降流/停止"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/10-battery-bms.md",
+          "docs/knowledge/schematic/02-power-architecture.md"
+        ],
+        "tags": [
+          "充电",
+          "热耗",
+          "结温",
+          "JEITA",
+          "降额"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "BMS 保护拒动/误动：阈值、双 MOS 与断线检测失效",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-BMS-PROTECT-MISS",
+        "code": "BMS_PROTECT_MISS",
+        "category": "电源/电池保护",
+        "severity": "error",
+        "symptom": "过充/过放/短路时保护不动作或误动作；电池鼓包/发热；正常大电流启动时误保护；多串某节电压异常未被发现。",
+        "rootCause": "保护阈值/延时与电芯规格不匹配；保护 IC 精度余量未留；采样线断线或共阻抗串扰；双 MOS 接法/体二极管方向错误；二次保护 I²t 不协调。",
+        "detection": "逐项触发 OVP/UVP/OCP/SCP/OTP 记录阈值/延时；断开采样线测断线检测；满载/启动浪涌测误保护；短路测试看动作顺序。",
+        "prevention": [
+          "阈值/延时按电芯规格并留保护 IC 精度余量",
+          "双 MOS 背靠背并核对体二极管方向",
+          "采样开尔文、均衡与采样走线分离",
+          "一次/二次保护 I²t 协调",
+          "断线检测 + 软件相邻节电压交叉校验"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/10-battery-bms.md",
+          "docs/knowledge/schematic/05-protection.md"
+        ],
+        "tags": [
+          "BMS",
+          "保护",
+          "OVP",
+          "断线",
+          "双MOS",
+          "I2t"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "天线净空被铜/电池破坏导致失谐与效率下降",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-RF-001",
+        "code": "ANTENNA_KEEPOUT_VIOLATION",
+        "category": "射频/天线",
+        "severity": "error",
+        "symptom": "无线通信距离明显变短、发射功率正常但 TRP/效率偏低、S11 谐振点偏移；不同整机（含电池/外壳）表现差异大。",
+        "rootCause": "天线 keepout 内存在铜箔/走线/过孔/电池/金属结构件，或外壳含金属涂层/高介电材料，改变了天线输入阻抗与辐射环境。",
+        "detection": "VNA 测天线 S11 与谐振点；暗室测 TRP/TIS/效率；对比裸板与整机；检查 keepout 内铜与器件。",
+        "prevention": [
+          "按天线 datasheet 在布局中画 keepout 并设为禁布区",
+          "电池/喇叭/屏蔽罩/金属件远离天线，结构评审确认",
+          "外壳材料与涂层要求写入结构规格并做整机验证",
+          "量产后换天线/换外壳走 ECO 并复测 RF"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/11-rf-antenna.md",
+          "SCH-RULE-RF-001",
+          "SCH-MOD-RF-002"
+        ],
+        "tags": [
+          "天线净空",
+          "失谐",
+          "TRP",
+          "整机",
+          "效率"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "RF 走线参考地不连续导致回波损耗恶化",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-RF-002",
+        "code": "RF_REFERENCE_DISCONTINUITY",
+        "category": "射频/传输线",
+        "severity": "error",
+        "symptom": "S11 在目标频段达不到指标、插损偏大、辐射杂散或方向图异常；同一设计换布局后表现不同。",
+        "rootCause": "RF 走线跨越分割地/电源缺口、参考地不连续、换层无伴随地过孔、地过孔稀疏，导致回流绕行与阻抗突变。",
+        "detection": "VNA 测 S11/S21；TDR 测阻抗连续性；目检参考地/地过孔；近场扫描定位辐射热点。",
+        "prevention": [
+          "RF 走线下方保持完整参考地，不跨分割",
+          "换层伴随地过孔；地过孔间距 ≤λ/20（按仿真复核）",
+          "50Ω 线宽按实际叠层用阻抗工具计算",
+          "布局评审把参考地连续性列为检查项"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/11-rf-antenna.md",
+          "SCH-RULE-RF-002",
+          "SCH-MOD-RF-001"
+        ],
+        "tags": [
+          "参考地",
+          "回波损耗",
+          "阻抗",
+          "地过孔",
+          "RF走线"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "匹配元件 SRF 不足导致高次谐波泄漏与失配",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-RF-003",
+        "code": "MATCHING_SRF_INSUFFICIENT",
+        "category": "射频/匹配网络",
+        "severity": "warning",
+        "symptom": "目标频段匹配看似正常但谐波/杂散超标、插损偏大；更换批次元件后 S11 与认证结果波动。",
+        "rootCause": "匹配电感/电容自谐振频率接近或低于工作频率，元件呈容性/感性反转；或容差/精度不足导致量产匹配点离散。",
+        "detection": "查元件 datasheet 的 SRF/Q 曲线；VNA 扫宽频段看谐波处阻抗；频谱仪测谐波/杂散；换批次抽测 S11。",
+        "prevention": [
+          "选 SRF ≥2~3×工作频率的 RF 专用元件",
+          "电容用 C0G/NP0，电感按 Q/饱和电流选型",
+          "匹配网络预留 π 型调试位",
+          "BOM 标注精度与 SRF，换料走 ECO 并复测"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/11-rf-antenna.md",
+          "SCH-RULE-RF-003",
+          "SCH-MOD-RF-003"
+        ],
+        "tags": [
+          "SRF",
+          "匹配元件",
+          "谐波",
+          "容差",
+          "认证"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "多相 Buck 不均流导致单相过热失效",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-PWR-001",
+        "code": "MULTIPHASE_CURRENT_IMBALANCE",
+        "category": "电源/多相拓扑",
+        "severity": "error",
+        "symptom": "满载时某一相电感/开关管温度明显高于其他相，长期运行后该相先失效；输出纹波比设计值大。",
+        "rootCause": "均流未配置或参数错误、各相电感/开关管/驱动参数不一致、布局不对称导致寄生/采样偏差、某相采样走线受干扰。",
+        "detection": "满载/半载测各相电流（电流探头/分流电阻）与温升；示波器看各相驱动相位；热像仪找热点；对比设计均流目标。",
+        "prevention": [
+          "按控制器 datasheet 配置均流并验证",
+          "各相功率级参数一致、布局对称",
+          "均流/采样走线等长并远离干扰源",
+          "量产后抽测各相电流/温升，换料走 ECO"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/12-power-topologies.md",
+          "SCH-RULE-PWR-001",
+          "SCH-MOD-PWR-003"
+        ],
+        "tags": [
+          "多相",
+          "不均流",
+          "过热",
+          "均流",
+          "温升"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "热插拔未限流导致母线跌落与连接器烧蚀",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-PWR-002",
+        "code": "HOTSWAP_INRUSH_EXCESS",
+        "category": "电源/热插拔",
+        "severity": "error",
+        "symptom": "板卡插入瞬间母线电压跌落、其他负载复位；连接器针脚发黑/烧蚀；热插拔 MOSFET 反复失效。",
+        "rootCause": "负载电容大且无软启动/限流，Iinrush=C×dV/dt 远超母线/连接器能力；MOSFET SOA 不足；连接器针序未先接地。",
+        "detection": "带电插拔时示波器测母线电压/启动电流；电流探头测浪涌；检查连接器与 MOSFET 温升/外观；反复插拔复现。",
+        "prevention": [
+          "加热插拔控制器/eFuse 限流与 dV/dt 软启动",
+          "按 SOA 选 MOSFET 并核算启动功耗",
+          "连接器长针地/短针电源，插拔瞬态加 TVS",
+          "插拔测试纳入量产抽检"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/12-power-topologies.md",
+          "SCH-RULE-PWR-002",
+          "SCH-MOD-PWR-004"
+        ],
+        "tags": [
+          "热插拔",
+          "浪涌",
+          "母线跌落",
+          "连接器",
+          "SOA"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "反激 RCD 钳位不足导致开关管过压击穿",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-PWR-003",
+        "code": "FLYBACK_CLAMP_INSUFFICIENT",
+        "category": "电源/隔离拓扑",
+        "severity": "error",
+        "symptom": "反激电源在满载/启动/短路时开关管 Vds 尖峰超过额定值，器件击穿；表现为无输出、保险丝断或反复炸管。",
+        "rootCause": "漏感能量未被 RCD/有源钳位有效吸收、钳位电压设计过低、变压器漏感过大、开关管 Vds 余量不足或布局寄生大。",
+        "detection": "示波器测开关管 Vds 尖峰（满载/启动/短路）；测变压器漏感；检查 RCD 元件温度/损坏；核对 Vds 降额。",
+        "prevention": [
+          "按漏感能量 E=½×Llk×Ipk² 设计 RCD 钳位",
+          "开关管 Vds 应力含钳位+尖峰，留 ≥20% 余量",
+          "变压器规格书控制漏感并做进料检验",
+          "满载/短路/启动工况均验证 Vds 尖峰"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/12-power-topologies.md",
+          "SCH-MOD-PWR-002",
+          "SCH-RULE-PWR-003"
+        ],
+        "tags": [
+          "反激",
+          "RCD钳位",
+          "漏感",
+          "开关管",
+          "过压击穿"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "版本矩阵失配导致原理图/BOM/PCB 不一致",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-DOC-001",
+        "code": "VERSION_MATRIX_DRIFT",
+        "category": "文件/变更控制",
+        "severity": "error",
+        "symptom": "产线贴装与 BOM 不符、原理图有器件而 PCB 无封装、调试用错固件版本；返修/客诉时无法确定板卡版本组合。",
+        "rootCause": "变更未走 ECO、原理图/BOM/PCB 分开发布、旧版本被覆盖或未回收、版本矩阵未更新、外协使用旧文件。",
+        "detection": "发布前做网表↔BOM↔PCB 一致性校验；随机抽板按序列号反查版本组合；核对产线/外协实际使用文件；审计归档。",
+        "prevention": [
+          "所有变更走 ECO 并同步更新版本矩阵",
+          "发布前跑一致性校验并记录结果",
+          "旧版本归档只读并回收产线旧文件",
+          "定期文档审计，抽查版本一致性"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/13-documentation-eco.md",
+          "SCH-RULE-DOC-001",
+          "SCH-MOD-DOC-001"
+        ],
+        "tags": [
+          "版本矩阵",
+          "ECO",
+          "BOM",
+          "一致性",
+          "发布"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "替代料未评估导致参数差异与批量失效",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-DOC-002",
+        "code": "SUBSTITUTE_PART_UNASSESSED",
+        "category": "BOM/替代料",
+        "severity": "error",
+        "symptom": "换料后批量出现启动失败、纹波超标、温升异常、通信不稳或认证失败；问题与原设计验证结果不一致。",
+        "rootCause": "替代料仅对比了首页参数，忽略 ESR/饱和电流/温漂/介质/封装热阻/认证状态等差异，且未做小批验证。",
+        "detection": "对比替代料 datasheet 关键参数；小批复测电性能/热/EMC；检查 BOM AVL 与 ECO 记录；抽检产线料号。",
+        "prevention": [
+          "建立替代料评估表，逐项对比关键参数并附 datasheet 页码",
+          "关键替代料做小批验证（电性能/温升/EMC/可靠性）",
+          "替代关系写入 BOM AVL，换料走 ECO",
+          "产线抽检料号与 BOM 一致性"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/13-documentation-eco.md",
+          "SCH-RULE-DOC-002",
+          "SCH-MOD-DOC-001"
+        ],
+        "tags": [
+          "替代料",
+          "BOM",
+          "AVL",
+          "批量失效",
+          "参数差异"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "旋转器件包围盒未旋转导致布局被误判出界（真机 U1 rot90）",
+      "doc": "docs/knowledge/pcb/15-circuitpilot-recheck-truthfulness.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-BBOX-001",
+        "code": "BBOX_ROTATION_IGNORED",
+        "category": "布局/几何",
+        "severity": "error",
+        "symptom": "布局复核报告\"器件有 85 个角落在板框外、最大伸出 3.112mm\"，但 EDA 里器件明明在板内、DRC 0 items。",
+        "rootCause": "读回用 getPrimitivesBBox 得到的其实是未旋转局部包围盒（rot90 仍报 26.2×19.0），门禁按此计算四角/边采样 → 出界。",
+        "detection": "对比读回 bbox 与焊盘实际坐标范围（rot90 时宽高应互换）；检查 bbox 中心是否 = 原点 + 旋转偏移。",
+        "prevention": [
+          "读回时按 rotation 绕器件原点旋转局部框角点，重算 min/max 与中心",
+          "布局门禁与 DRC 结论交叉验证：DRC 0 却被判出界 → 先怀疑 bbox 读回",
+          "回归测试覆盖 rot0/rot90/rot270 与双面器件",
+          "尽量避免非必要旋转大器件（不影响功能时）"
+        ],
+        "refs": [
+          "PCB-RULE-CP-BBOX-002",
+          "evidence/main-relayout-and-routing-r40.json"
+        ],
+        "tags": [
+          "包围盒",
+          "旋转",
+          "误判",
+          "ESP32",
+          "布局"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "双面板正反面器件投影重叠被误判为实物碰撞",
+      "doc": "docs/knowledge/pcb/15-circuitpilot-recheck-truthfulness.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-2SIDE-002",
+        "code": "SIDE_AGNOSTIC_OVERLAP",
+        "category": "布局/双面贴装",
+        "severity": "error",
+        "symptom": "把 ESP32 放到 PCB 底层后，布局复核报它和顶层电容/连接器\"真实重叠 5.9–9.1mm\"，双面板永远无法通过复核。",
+        "rootCause": "重叠判定不区分 side（层），把 top 与 bottom 的投影重叠当成同一平面上的实物碰撞。",
+        "detection": "看重叠对是否全部是\"底面器件 vs 顶面器件\"；确认器件 layerSide。",
+        "prevention": [
+          "重叠判定按 side 分组（同面才比较），THT 按跨面单独处理",
+          "门禁组装 placements 时把 side 一路传下去（plan 与 gate 两条路径要一致）",
+          "单测覆盖\"正反面重叠不判碰撞、同面重叠照常阻断\""
+        ],
+        "refs": [
+          "PCB-RULE-CP-BBOX-002"
+        ],
+        "tags": [
+          "双面贴装",
+          "重叠误判",
+          "side",
+          "布局复核"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "覆铜重建\"假成功\"：读回 0 填充片却报成功并保存",
+      "doc": "docs/knowledge/pcb/16-fine-pitch-escape.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-POUR-003",
+        "code": "POUR_FILL_FALSE_SUCCESS",
+        "category": "覆铜/平面",
+        "severity": "error",
+        "symptom": "重建覆铜接口返回 ok/重建成功，但打开 PCB 看到 GND 覆铜没有填充（孤立铜皮），后续 DRC 出现大量未连通/间距异常。",
+        "rootCause": "pcb_PrimitivePour.rebuildCopperRegion() 返回真/返回了别的 poured 对象，旧实现只看返回值就报成功并保存；恢复的 Poured 可能属于另一块 pour，实际填充片数 0。",
+        "detection": "重建后用 pcb_PrimitivePour.getAll + pcb_PrimitivePoured.getAll 读回该 pour 对应网/层的实际填充片数；0 填充即失败。",
+        "prevention": [
+          "重建后必须读回实际填充片数（>0 才保存）",
+          "读回对象要核对 pour 身份（网/层/优先级），不能拿别的 pour 的填充冒充",
+          "0 填充必须失败且不保存，给 PCB_POUR_FILL_INCOMPLETE 之类结构化错误",
+          "保存后再次读回复核（保存也可能丢状态）"
+        ],
+        "refs": [
+          "PCB-RULE-CP-AUTO-001",
+          "evidence/led-finish-caps-r41.json"
+        ],
+        "tags": [
+          "覆铜",
+          "假成功",
+          "填充片数",
+          "D-36-1",
+          "保存"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "PCB 焊盘与原理图网名不一致（mismatchedPins）：netport 放错坐标致镜像网名",
+      "doc": "docs/knowledge/pcb/16-fine-pitch-escape.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-NETNAME-004",
+        "code": "PCB_PAD_NET_MISMATCH",
+        "category": "原理图/网表",
+        "severity": "error",
+        "symptom": "网表↔焊盘核对出现 mismatchedPins：LED 的 DO 焊盘网名与原理图网络不一致；部分网络悬空；DRC 连通性/ERC 报错但看不出原因。",
+        "rootCause": "原理图 netport 被放在错误坐标（DO 引脚 y=-95 的镜像位置），导入 PCB 后网名映射错位；NC（No-Connect）标记与 PCB 无网焊盘没有成对，导致\"漏连\"与\"故意不连\"无法区分。",
+        "detection": "导网表后逐焊盘比对网名；核对 netport 坐标是否落在对应引脚；检查 NC 标记数量与 PCB 无网焊盘数是否一致。",
+        "prevention": [
+          "netport 必须放在真实引脚端点（用引脚坐标回读定位，不手填坐标）",
+          "导入后跑网表↔焊盘一致性核对，mismatchedPins 必须 0",
+          "每个 NC 标记都要对应一个 PCB 无网焊盘，成对登记",
+          "改完原理图重新导网表 + 重导 PCB，不能只改一边"
+        ],
+        "refs": [
+          "PCB-RULE-CP-EVID-003"
+        ],
+        "tags": [
+          "网表",
+          "netport",
+          "mismatchedPins",
+          "NC",
+          "镜像坐标"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "机械要素创建三连败：create(no-arg)/create(args)/setDocumentSource 在 PCB 编辑器全部无效",
+      "doc": "docs/knowledge/pcb/17-circuitpilot-mechanical-capability-gaps.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-MECH-005",
+        "title": "机械要素创建三连败：create(no-arg)/create(args)/setDocumentSource 在 PCB 编辑器全部无效",
+        "category": "布局/机械",
+        "severity": "error",
+        "symptom": "按官方 api-types.d.ts 的 create():Promise<IPCB_PrimitivePad> 写脚本创建安装孔/禁布区/丝印，控制台只报\"无法创建焊盘图元，可能是传入的参数不正确\"，三种调用形态都失败；尝试整段替换 PCB 文档源码后 setDocumentSource 返回 false，重开后源码哈希不变。",
+        "rootCause": "3.2.186 版本该组 create API 未实现/未开放；setDocumentSource 仅对封装编辑器生效，PCB 编辑器会拒绝写入。",
+        "detection": "能力探针三步：①create() 无参 ②create(完整字段) ③setDocumentSource+save+重读哈希；任一步读回不成立即判失败。",
+        "prevention": [
+          "把\"API 存在\"与\"API 可用\"分开验证，先探针后规划",
+          "机械要素改走 GUI 人工放置，并记录操作人",
+          "把能力缺口写成 issue/知识条目，避免下一轮重复尝试"
+        ],
+        "refs": [
+          "PCB-RULE-CP-CAP-005"
+        ],
+        "tags": [
+          "create失败",
+          "setDocumentSource",
+          "能力边界",
+          "机械要素"
+        ],
+        "code": "PCB_MECH_CREATE_UNSUPPORTED"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "\"双板 DRC 0\"不等于设计完备：器件只有参考的 45%，去耦/保护/电源轨缺失被 DRC 掩盖",
+      "doc": "docs/knowledge/pcb/17-circuitpilot-mechanical-capability-gaps.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-BOM-006",
+        "title": "\"双板 DRC 0\"不等于设计完备：器件只有参考的 45%，去耦/保护/电源轨缺失被 DRC 掩盖",
+        "category": "BOM/选型",
+        "severity": "error",
+        "symptom": "我方主板 47 器件/灯板 24，DRC 0、布局复核 0 违规、3D/草稿产物齐全；但与参考工程对比后发现有 89 电容/46 电阻/18 IC 的参考设计，我方仅 18 电容/10 电阻/10 IC，且缺 2.8V/1.5V LDO、ESD 阵列、USB-UART/Hub、编解码器。",
+        "rootCause": "AI 以\"功能块覆盖 + DRC 0\"作为完成判据，没有把器件完备度/电源轨/保护网络纳入验收；PRD 未列 BOM 基线，导致简化设计被当成完成。",
+        "detection": "按\"器件名+位号前缀\"聚合双方 BOM 做差异表；检查关键电源轨（2V8/1V5/AVDD）、保护器件（ESD/TVS）、去耦数量。",
+        "prevention": [
+          "验收清单加入\"BOM 完备度对比\"与\"电源轨清单\"",
+          "DRC 0 只作为几何合规证据，不作为设计完成证据",
+          "补料走原理图→网表→PCB 全链并回归 ERC/DRC"
+        ],
+        "refs": [
+          "PCB-RULE-CP-BOM-007"
+        ],
+        "tags": [
+          "BOM差距",
+          "假完成",
+          "去耦",
+          "电源轨",
+          "DRC局限"
+        ],
+        "code": "PCB_BOM_COMPLETENESS_GAP"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "相机 FPC 只给 3V3：参考工程用 2.8V/1.5V LDO，供电轨缺失需 datasheet 确认",
+      "doc": "docs/knowledge/pcb/17-circuitpilot-mechanical-capability-gaps.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-RAIL-007",
+        "title": "相机 FPC 只给 3V3：参考工程用 2.8V/1.5V LDO，供电轨缺失需 datasheet 确认",
+        "category": "原理图/网表",
+        "severity": "warning",
+        "symptom": "我方 24P 相机 FPC（CAM_1..24）只有 +3V3/+5V 供电；参考工程有 ME6211C28M5G-N(2.8V) 与 ME6211C15M5G-N(1.5V) 两路 LDO 及 AVDD_2V8/DVP 相关网名。",
+        "rootCause": "设计阶段按\"模组自带稳压\"假设简化供电，未核对 OV5640 模组规格书与 FPC 引脚定义。",
+        "detection": "列出相机 FPC 每脚功能与电压域，与模组 datasheet/参考工程网名逐脚对照。",
+        "prevention": [
+          "连接器类需求先拿到引脚定义再设计",
+          "电源轨清单按\"负载-电压-电流-来源\"登记",
+          "无法确认时向产品提问，不自行假设"
+        ],
+        "refs": [
+          "PCB-RULE-CP-BOM-007"
+        ],
+        "tags": [
+          "相机供电",
+          "2V8",
+          "1V5",
+          "LDO",
+          "引脚定义"
+        ],
+        "code": "PCB_CAMERA_RAIL_MISSING"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "机械要素补齐被\"API 无创建能力 + GUI 不可自动点击\"双重卡住",
+      "doc": "docs/knowledge/pcb/18-four-layer-planes-mech-holes-and-research-limits.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-MECH-009",
+        "code": "PCB_MECH_GUI_NOT_AUTOMATABLE",
+        "title": "机械要素补齐被\"API 无创建能力 + GUI 不可自动点击\"双重卡住",
+        "category": "布局/机械",
+        "severity": "warning",
+        "symptom": "安装孔/禁布区/丝印文字创建：PrimitivePad/Region/String.create() 报\"参数不正确\"；无参 create()+setState_* 同错；setDocumentSource 追加 LINE/STRING 记录返回 false（仅同源替换 true）；GUI 放置菜单在 iframe 内由 canvas 绘制，CDP Input 与 System Events 坐标点击均无法打开菜单（body.innerText 无变化）。",
+        "rootCause": "插件 API 未开放机械图元创建；编辑器 UI 为 canvas 渲染且多窗口/多 Space 下坐标点击不可靠，缺少可编程的菜单/RPC 入口。",
+        "detection": "用同一段代码分别跑 create 三形态、setDocumentSource 追加/同源替换、CDP 点击与 System Events 点击，记录每次返回值与前后文本差异。",
+        "fix": "安装孔用大孔径镀铜 via 近似并标注；禁布/丝印写入\"人工 GUI 一次补齐清单\"（坐标+尺寸+层+文本），由操作员执行后回读核对。",
+        "prevention": [
+          "设计开始前先做\"图元创建能力探针\"并登记；把不可自动化的要素在计划里单独列为人工步骤，不排进自动完成项。"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/18-four-layer-planes-mech-holes-and-research-limits.md"
+        ],
+        "tags": [
+          "机械",
+          "GUI",
+          "能力边界"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "外部器件资料检索被沙箱 DNS 拦截：先记证据、再用工程推断，不能编造 datasheet 结论",
+      "doc": "docs/knowledge/pcb/18-four-layer-planes-mech-holes-and-research-limits.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-EGRESS-010",
+        "code": "PCB_WEB_EGRESS_BLOCKED",
+        "title": "外部器件资料检索被沙箱 DNS 拦截：先记证据、再用工程推断，不能编造 datasheet 结论",
+        "category": "流程/质量",
+        "severity": "warning",
+        "symptom": "web_search 无 API key；web_fetch 对 www.ovt.com / en.wikipedia.org 报非公网地址；curl 访问 Bing/DDG/Sparkfun/Mouser 均返回挑战页或 404；仅 raw.githubusercontent.com 可下载。",
+        "rootCause": "会话沙箱对公网 DNS 与部分域名做了限制，检索通道不可用。",
+        "detection": "对每个候选源记录 HTTP 状态/字节数/是否含目标关键词，保存为证据再下结论。",
+        "fix": "把\"检索受阻\"作为显式结论写进报告；用参考工程 BOM/网表 + 公开规格常识做工程推断，并标注\"待模组型号/FPC 定义确认\"。",
+        "prevention": [
+          "需要外部资料时先跑一次连通性探针（列出可用/不可用域名），再决定是否把该任务标为 blocked。"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/18-four-layer-planes-mech-holes-and-research-limits.md"
+        ],
+        "tags": [
+          "检索",
+          "沙箱",
+          "证据"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "相机 FPC 24 脚全接 MCU GPIO、电源/地脚缺失，与传感器真实引脚不符",
+      "doc": "docs/knowledge/pcb/19-camera-interface-gc0308-and-eda-netlist-edit-limits.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-CAM-011",
+        "code": "PCB_CAM_PINOUT_MISMATCH",
+        "title": "相机 FPC 24 脚全接 MCU GPIO、电源/地脚缺失，与传感器真实引脚不符",
+        "category": "总线/传感器",
+        "severity": "error",
+        "symptom": "连接器 1–24 脚全部是 CAM_1..CAM_24 单端网络接到 ESP32 GPIO，无 2V8/1V5/AVDD/AGND；对照验证工程 GC0308 的脚位定义（14=2V8、15=1V5、21=AVDD_2V8、23=AGND、10=GND）完全不符。",
+        "rootCause": "画图时把相机接口当成“24 根信号排线”，未先确认真实传感器型号与引脚；缺少“引脚定义核对”门禁，且验证工程未作为对标输入。",
+        "detection": "用 PAD_NET 还原我方与参考工程连接器逐脚网络并做表对比；检查电源/地脚数量；ERC/单脚网络检查；与模组引脚定义逐脚对照。",
+        "fix": "按 CAMERA-ECO-GC0308.md 重画：删除 5 个错接网络、按脚位接 GND/2V8/1V5/AVDD_2V8/AGND，补 2 路 LDO、0Ω 隔离、去耦与 I2C 上拉，重导网表并重布线。",
+        "prevention": [
+          "画接口前先从需求/验证工程确认型号与引脚表",
+          "把“连接器脚位对照表”作为原理图评审必查项",
+          "电源轨清单（每个外设需要几路电压/电流）先行",
+          "验证工程只做对标，不照抄其余部分"
+        ],
+        "refs": [
+          "CAMERA-ECO-GC0308.md",
+          "evidence/camera-module-gc0308-r48.json"
+        ],
+        "tags": [
+          "camera",
+          "pinout",
+          "gc0308",
+          "dvp"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "插件 API 无法新增原理图导线/器件，网表级整改不能自动落板",
+      "doc": "docs/knowledge/pcb/19-camera-interface-gc0308-and-eda-netlist-edit-limits.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-SCHAPI-012",
+        "code": "PCB_SCH_EDIT_API_UNAVAILABLE",
+        "title": "插件 API 无法新增原理图导线/器件，网表级整改不能自动落板",
+        "category": "流程/质量",
+        "severity": "warning",
+        "symptom": "sch_PrimitiveWire.create 抛“create failed!”（带 net、不带 net、flat/nested 坐标均失败）；sch_PrimitiveText.createNetLabel 不是函数；sch_PrimitiveComponent.createNetFlag 可成功；lib_Device.search 180s 超时并挂起桥。",
+        "rootCause": "EDA 3.2.186 插件 API 对原理图内容级写入做了限制（导线/器件创建未开放或仅内部可用），器件检索依赖网络且会话超时。",
+        "detection": "用最小探针分别测：导线创建、网络标签、网络标志、器件检索、封装源码写入；记录返回值/异常/超时与桥健康；再决定自动/人工。",
+        "fix": "将网表修改写成可执行 ECO（脚位表+电源链+BOM+验收），交人工 GUI 执行；或等官方补齐 API；或导出 epro2 修改后通过 importProjectByProjectFile(Existing Project) 回灌。",
+        "prevention": [
+          "任何“改原理图/改网表”任务先做能力探针，避免半途卡死",
+          "把 API 能力缺口作为显式风险记录到 issue 与报告",
+          "优先保证已有 PCB 不被半成品种坏：先备份再试"
+        ],
+        "refs": [
+          "CAMERA-ECO-GC0308.md",
+          "evidence/camera-eco-and-api-limits-r49.json"
+        ],
+        "tags": [
+          "eda-api",
+          "schematic",
+          "netlist"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "无线发射功率正常但距离短：RF 电源纹波/去耦不足",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-RF-RIPPLE",
+        "code": "RF_TX_RIPPLE",
+        "category": "RF/无线",
+        "severity": "error",
+        "symptom": "Wi-Fi/BLE 模组 TX 功率看起来接近目标，但通信距离短、EVM 差、吞吐不稳定；电源纹波在空载/小占空比下可能不明显。",
+        "rootCause": "PA 电源去耦不足/回路电感大，RF 发射脉冲电流在电源上产生纹波，调制 PA 工作点；或 10 µF/0.1 µF/LC 滤波位置不对、电源脚星形分支缺失。",
+        "detection": "在模组正常发射模式测电源纹波（ESP32 参考：MCS7@11n <80 mVpp、11b <120 mVpp）；查去耦位置/地孔/LC；测 EVM/TX power/吞吐；近场探头找电源耦合。",
+        "prevention": [
+          "RF 电源脚就近 10 µF + 0.1/1 µF",
+          "RF 电源脚加 LC/CLC 滤波",
+          "电源从入口星形分支，避免电源脚串扰",
+          "去耦地脚就近打孔，芯片底部地焊盘 ≥9 地孔",
+          "按 datasheet/参考设计校核电源线宽与地回流"
+        ],
+        "refs": [
+          "SRC-ESP32-HW",
+          "PCB-RULE-RF-PWR-001",
+          "PCB-RULE-PLACE-DECOUPLE-001"
+        ],
+        "tags": [
+          "RF",
+          "电源纹波",
+          "去耦",
+          "EVM",
+          "ESP32"
+        ],
+        "sources": [
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "来自 Espressif 官方典型布局问题与电源章节；阈值是 ESP32 参考值。"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "TX 正常但 RX 灵敏度低：晶振/时钟/高速线耦合到天线",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-RF-RX-COUPLING",
+        "code": "RF_RX_COUPLING",
+        "category": "RF/无线",
+        "severity": "error",
+        "symptom": "发射功率/EVM 正常，但接收灵敏度低、距离短；在某些信道/方向更明显。",
+        "rootCause": "晶振谐波、时钟、DDR/高速线、UART/USB 走线/过孔/测试点耦合到天线或 RF 走线；RF 与这些信号距离不足/参考地不完整。",
+        "detection": "近场探头扫描天线/RF 走线附近；查晶振/时钟/高速线/UART/USB 与 RF 的间距和交叉；对比断开干扰源后的 RX 灵敏度；整机吞吐/距离测试。",
+        "prevention": [
+          "RF 走线远离晶振/时钟/高速线/开关电源",
+          "UART/USB 走线/过孔/测试点远离天线并包地",
+          "RF 参考地完整、两侧地孔",
+          "天线按模组指南伸出板边/整机 15 mm 净空",
+          "必要时加屏蔽/滤波并实测"
+        ],
+        "refs": [
+          "SRC-ESP32-HW",
+          "PCB-RULE-RF-MODULE-001",
+          "PCB-RULE-RF-TRACE-002",
+          "PCB-RULE-PLACE-CRYSTAL-GAP-001"
+        ],
+        "tags": [
+          "RF",
+          "RX灵敏度",
+          "耦合",
+          "晶振",
+          "ESP32"
+        ],
+        "sources": [
+          "SRC-ESP32-HW"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "来自 Espressif 官方典型布局问题；具体耦合源需近场/实测定位。"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "USB ESD 测试失败：TVS 放远/ESD 路径换层/地回路长",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-USB-ESD",
+        "code": "USB_ESD_PATH",
+        "category": "ESD/可靠性",
+        "severity": "error",
+        "symptom": "USB 接口接触/空气放电后 PHY/SoC 复位、死机、端口损坏；或 ESD 测试残压超限。",
+        "rootCause": "TVS 离连接器远；ESD 源到 TVS 之间有过孔/长走线/分支；未保护走线经过 ESD 区域；TVS 地脚地回路长、没有地平面缝合。",
+        "detection": "画 ESD 源→TVS→地拓扑；查过孔/转角/未保护线；测 TVS 地脚到地平面阻抗；IEC 61000-4-2 实测残压/功能恢复。",
+        "prevention": [
+          "TVS 紧靠连接器，优先 flow-through",
+          "ESD 源到 TVS 不换层、不分支、转角 ≤45°/圆弧",
+          "ESD 区域禁止未保护走线",
+          "TVS 地脚旁 ≥1 地孔，地平面缝合",
+          "chassis 地靠近连接器/TVS 地"
+        ],
+        "refs": [
+          "SRC-TI-ESD",
+          "SRC-TI-USB",
+          "PCB-RULE-USB-ESD-001",
+          "PCB-RULE-ESD-GND-001"
+        ],
+        "tags": [
+          "USB",
+          "ESD",
+          "TVS",
+          "地回路",
+          "IEC61000-4-2"
+        ],
+        "sources": [
+          "SRC-TI-ESD",
+          "SRC-TI-USB"
+        ],
+        "evidenceLevel": "A",
+        "verificationNotes": "来自 TI ESD/高速布局指南；ESD 等级/判据按产品标准。"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "QFN 热焊盘空洞/浮件：钢网 1:1 + 过孔不塞",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-QFN-VOID",
+        "code": "QFN_THERMAL_VOID",
+        "category": "制造/DFM",
+        "severity": "error",
+        "symptom": "QFN/SON 热焊盘空洞率高、器件浮起/引脚开路、热阻偏高、返修困难。",
+        "rootCause": "热焊盘钢网 1:1 导致锡量过多/浮件；散热过孔不塞孔/不盖油导致吸锡；过孔间距/孔径不当；回流profile/锡膏活性不足。",
+        "detection": "X-Ray 热焊盘空洞面积；首件润湿/浮件/桥连；热阻/结温；切片。",
+        "prevention": [
+          "热焊盘钢网 50–70%，外围 1:1",
+          "散热过孔 1.0 mm 间距/0.3 mm 钻孔，塞孔或盖油",
+          "热焊盘与封装等大，clearance ≥0.2 mm",
+          "空洞 ≤50%，高功率按标准复核",
+          "按锡膏/板厂做回流 profile/DOE"
+        ],
+        "refs": [
+          "SRC-TI-QFN",
+          "PCB-RULE-THERM-QFN-001",
+          "PCB-RULE-MFG-STENCIL-001",
+          "SUP-TH-02"
+        ],
+        "tags": [
+          "QFN",
+          "热焊盘",
+          "空洞",
+          "钢网",
+          "DFM"
+        ],
+        "sources": [
+          "SRC-TI-QFN",
+          "SRC-SIERRA-THERMAL"
+        ],
+        "evidenceLevel": "A/B",
+        "verificationNotes": "来自 TI QFN/SON 应用报告；具体阈值按封装/工艺。"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "高压间距误判：把内层/涂覆/低海拔间隙当外层未涂覆",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CREEP-MIXUP",
+        "code": "CREEPAGE_CLEARANCE_MIXUP",
+        "category": "安规/高压",
+        "severity": "error",
+        "symptom": "高压区耐压/爬电测试失败、起痕/电化学迁移；或设计评审时用 0.2 mm 覆盖所有电压/层位。",
+        "rootCause": "把 IPC-2221 内层间隙用到外层、把涂覆值用到未涂覆、忽略海拔/污染等级/CTI；把 clearance 当 creepage；没有按标准原文/认证要求复核。",
+        "detection": "按网络电压/层位/涂覆/海拔/污染等级逐项核对；查 CTI/材料；耐压/绝缘电阻/湿热测试；安规评审。",
+        "prevention": [
+          "按电压/层位/涂覆/海拔分档取间隙",
+          "爬电另按 CTI/污染等级/海拔计算",
+          "安规数值回到标准原文/认证机构",
+          "必要时开槽/挡墙/三防漆",
+          "保留计算记录和测试证据"
+        ],
+        "refs": [
+          "SRC-SIERRA-IPC2221",
+          "SRC-SIERRA-CREEP",
+          "SRC-IPC-2221B",
+          "PCB-RULE-SAFE-CREEP-002",
+          "PCB-RULE-SAFE-CTI-001"
+        ],
+        "tags": [
+          "安规",
+          "爬电",
+          "间隙",
+          "CTI",
+          "高压"
+        ],
+        "sources": [
+          "SRC-SIERRA-IPC2221",
+          "SRC-SIERRA-CREEP",
+          "SRC-IPC-2221B"
+        ],
+        "evidenceLevel": "B",
+        "verificationNotes": "IPC 表为 Sierra 转述；正式安规必须按 IPC-2221B/IEC 60664-1 原文与认证机构。"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "自动布线子集模式会引入其他网络冲突或超时，未复核回滚会把板子写坏",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-ECO-014",
+        "code": "AUTOROUTE_SUBSET_UNCONTROLLED",
+        "category": "布线/流程",
+        "severity": "error",
+        "symptom": "autoRouting({nets:[单一网络]}) 实际把多个网络（含目标电源网）一起布线，No Connection 下降但产生 56 条 Safe Spacing，全部与同一 GND 对象冲突；部分调用 20 分钟超时被中断，已写入图元不回滚。",
+        "cause": "路由器会尝试连接被选网络沿线的其他网络（GND/电源），且大面积布线在桥内串行执行易超时；中断后已写入的部分走线不会自动回滚。",
+        "fix": "布线前备份并记录目标网络图元；布线后立即 DRC，一旦出现非目标网络错误或超时，删除本次新增 LINE/VIA 回滚；必要时把 GND/+3V3 加入 ignoreNets，或改为人工/GUI 布线。",
+        "prevention": [
+          "布线前备份并记录目标网络图元与快照",
+          "子集布线后立即 DRC，一旦出现非目标网络错误或超时，删除本次新增 LINE/VIA 回滚",
+          "可用“关闭未保存文档再重开”丢弃内存改动，再按 .epro2 快照逐条重建 LINE/VIA 恢复",
+          "真实工程禁止整板 autoRouting；建议人工/GUI 布线"
+        ],
+        "evidence": "artifacts/wardrobe-case/pm-run-20261022/PM-FULL-CHAIN-RUN-20261022.md §54",
+        "rootCause": "autoRouting 在子集模式下仍会尝试把沿线其他网络（GND/电源）纳入布线；长任务在桥内串行执行易超时，中断后已写图元不回滚。",
+        "detection": "布线后立即 DRC：出现非目标网络 Safe Spacing/短路，或调用超时后 DRC 报缺失/异常（注意 ratline 缓存会显示已删除图元的旧 id，需关闭重开文档后复测）。",
+        "refs": [
+          "artifacts/wardrobe-case/pm-run-20261022/PM-FULL-CHAIN-RUN-20261022.md#54"
+        ],
+        "tags": [
+          "自动布线",
+          "回滚",
+          "DRC",
+          "EDA"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "工程文件导出读到旧快照：页面内缓存变量未刷新",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-ECO-015",
+        "code": "PROJECT_EXPORT_STALE_CACHE",
+        "category": "文件/变更控制",
+        "severity": "warning",
+        "symptom": "ECO 后导出 .epro2 仍为 861,916 B 且记录数（724 LINE/250 PAD_NET/47 器件）与 ECO 前完全相同，误判为“改动未保存”。",
+        "cause": "导出脚本把 base64 结果缓存在页面 `window.__cpbk`，重跑时命中缓存返回旧工程快照；实际工程文件已更新。",
+        "fix": "每次导出使用新的缓存变量名或先置空；导出后用记录数/网表计数（如 2V8 焊盘数）比对，确认是当前快照。",
+        "prevention": [
+          "每次导出用新变量名或先置空；验收同时校验体积与关键计数（如 2V8/1V5/AVDD 焊盘数）。"
+        ],
+        "evidence": "artifacts/wardrobe-case/pm-run-20261022/evidence/backups/wardrobe-V2.0-AI-design-after-camera-sch-pcb-eco.epro2",
+        "rootCause": "导出脚本把 base64 结果缓存到页面 window 变量，重跑时未刷新，读到 ECO 前的旧工程快照。",
+        "detection": "导出文件体积与记录数（LINE/PAD_NET/COMPONENT）与 ECO 前一致；关键网络焊盘计数缺失。",
+        "refs": [
+          "artifacts/wardrobe-case/pm-run-20261022/evidence/backups/wardrobe-V2.0-AI-design-after-camera-sch-pcb-eco.epro2"
+        ],
+        "tags": [
+          "导出",
+          "快照",
+          "验收",
+          "工程文件"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "DRC 缓存把已删除图元/未重建覆铜判成间距错误，误导回滚与返工",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-ROUTE-016",
+        "code": "DRC_STALE_CACHE_MISLEADING",
+        "category": "布线/流程",
+        "severity": "error",
+        "symptom": "删除/新增走线或过孔后直接 DRC，面板报大量 Safe Spacing（如 56 条）或 No Connection 指向已不存在图元 id；据此回滚会误删正确布线，浪费数小时。",
+        "cause": "EDA 的 DRC/ratline 结果缓存旧图元；覆铜未重建时新走线还会被判成与覆铜冲突。",
+        "fix": "每次改动后：逐块 rebuildCopperRegion() → save() → closeDocument → openDocument → 再 pcb_Drc.check(false,false,true)；对象 id 查不到即视为缓存未刷新。",
+        "prevention": [
+          "布线/改网表后先重建覆铜再判 DRC",
+          "DRC 明细核对 obj1/obj2 是否为当前存在的图元 id",
+          "关闭重开文档作为最终验收步骤",
+          "保存后再导出 .epro2 回读几何计数做交叉验证"
+        ],
+        "evidence": "artifacts/wardrobe-case/pm-run-20261022/PM-FULL-CHAIN-RUN-20261022.md#56",
+        "rootCause": "DRC 与 ratline 使用图元缓存，图元增删与覆铜填充不同步；API 不强制自动失效。",
+        "detection": "DRC 明细对象 suffix 在当前 getAll() 结果中查不到；或同一改动两次 DRC 结果不一致。",
+        "refs": [
+          "artifacts/wardrobe-case/pm-run-20261022/PM-FULL-CHAIN-RUN-20261022.md#56"
+        ],
+        "tags": [
+          "DRC",
+          "缓存",
+          "覆铜",
+          "EDA",
+          "回滚"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "独立 NPTH 无铜焊盘创建成功但触发覆铜重建崩溃",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-MECH-017",
+        "code": "NPTH_STANDALONE_PAD_POUR_CRASH",
+        "category": "覆铜/平面",
+        "severity": "error",
+        "symptom": "pcb_PrimitivePad.create(12,'',x,y,0,['ELLIPSE',d,d],'',['ROUND',d],0,0,0,false,'NORMAL') 返回成功（焊盘数增加），但随后任意覆铜 rebuildCopperRegion() 抛 'Cannot read properties of undefined (reading length)'，4 块覆铜全失败。 补充：同一 API 不带 hole 参数时直接报“无法创建焊盘图元”，即只能创建“带孔独立焊盘”，而带孔独立焊盘必崩覆铜。",
+        "cause": "该 EDA 版本对不属于器件、且无金属化/无网络信息的独立焊盘，在覆铜避让计算中缺少预期字段（疑似读取 net 长度），导致异常。",
+        "fix": "删除独立焊盘后覆铜立即恢复；安装孔改用镀铜 via（hole=106.2mil, dia=122mil, net='') 近似，并在文档中标注非真 NPTH；真 NPTH 需人工 GUI 放置安装孔封装。",
+        "prevention": [
+          "机械孔不要用 pcb_PrimitivePad.create 独立创建",
+          "安装孔用 via 近似时必须在证据/报告标注金属化偏差",
+          "如需真 NPTH：人工放置安装孔封装或换 EDA 版本/官方修复"
+        ],
+        "evidence": "artifacts/wardrobe-case/pm-run-20261022/PM-FULL-CHAIN-RUN-20261022.md#56",
+        "rootCause": "3.2.186 覆铜引擎对独立悬空焊盘的字段校验缺陷。",
+        "detection": "创建独立焊盘后 rebuildCopperRegion 抛 'reading length'；删除该焊盘后恢复正常即为复现特征。",
+        "refs": [
+          "artifacts/wardrobe-case/pm-run-20261022/PM-FULL-CHAIN-RUN-20261022.md#56"
+        ],
+        "tags": [
+          "NPTH",
+          "覆铜",
+          "安装孔",
+          "EDA",
+          "异常"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "项目级 Netlist Error（Import Changes）在网表 0 差异时仍无法用 API 清除",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-GATE-018",
+        "code": "NETLIST_IMPORT_CHANGES_SNAPSHOT_STALE",
+        "category": "评审/门禁",
+        "severity": "warning",
+        "symptom": "pcb_Drc.check 报 1 条项目级 Netlist Error：Schematic Netlist vs PCB Netlist does not match（ruleName=Import Changes）；但用 getNetlistFile 双板对比为 53/53、24/24、0 pin diff，空文档也已清理。",
+        "cause": "EDA 的 Import Changes 校验用的是工程内保存的网表快照/缓存，不随插件 API 侧 edit+save 自动刷新；importChanges()（无参/传 sch uuid/传 project uuid）均返回 true 但快照不更新。",
+        "fix": "不要循环 importChanges/重建覆铜；用双板网表自证证明设计正确，把该条作为 EDA 侧缺陷记录并在门禁里如实列 blocker；需要消零时人工在 GUI 点 Import Changes 查看差异面板。",
+        "prevention": [
+          "每次 ECO 后同一会话内做双板 pinInfoMap 对比并存证",
+          "门禁结论引用自证 JSON，不把无法清除的缓存错误当设计错误",
+          "产品侧补：Import Changes 差异应可 API 读取"
+        ],
+        "rootCause": "EDA 的 Import Changes 校验使用工程内保存的网表快照，插件 API 的 edit+save 不刷新该快照；importChanges() 对该快照无实际作用。",
+        "detection": "pcb_Drc.check 中 errorType=Netlist Error、ruleName=Import Changes、obj1=Schematic Netlist、obj2=PCB Netlist；同时 getNetlistFile 双板对比 0 pin diff。",
+        "refs": [
+          "docs/knowledge/pcb/21-eda-api-eco-playbook.md §14",
+          "evidence/netlist-consistency-r54.json"
+        ],
+        "tags": [
+          "网表",
+          "门禁",
+          "EDA 缺陷"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "安装孔坐标取自包围盒而非实际板框多边形，4 个孔全在板外",
+      "doc": "docs/knowledge/pcb/21-eda-api-eco-playbook.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-CP-MECH-020",
+        "code": "MECH_COORDS_FROM_BBOX_OUTSIDE_OUTLINE",
+        "category": "布局/机械",
+        "severity": "error",
+        "symptom": "4 个 Ø2.7mm 孔放在 (157.5,157.5)/(2047.2,157.5)/(157.5,2283.5)/(2047.2,2283.5) mil，看似“四角内缩 4mm”，实际门禁报每孔 3-4 个角在板框外（最大伸出 13mm）。",
+        "cause": "板框是异形（圆顶+底部缺口），包围盒 0..2207.28 x 0..2434.76 mil 的四角并不在板内；早期按 56.1x61.8mm 矩形假设取坐标。",
+        "fix": "读板框多边形的真实点：pcb_PrimitivePolyline.getAll() 取 layer=11 的图元 → getState_Polygon().getSource()（[x0,y0,'L',x1,y1,...]）→ 做点在多边形内+点到边界距离判定，孔位应满足到边界 ≥2.3mm 且到铜皮 ≥1.8mm，并优先成对镜像布置。",
+        "prevention": [
+          "机械坐标必须用多边形而不是 bbox 校验",
+          "放置后用门禁 placement 子门复核四角是否在板内",
+          "需求未给孔位时不要自造 4 角孔（本板 P-M04 为磁吸安装）"
+        ],
+        "rootCause": "把板框当矩形，用 bbox 四角内缩取孔位；实际板框是圆顶+底部缺口的异形多边形。",
+        "detection": "门禁 RELEASE_PLACEMENT_NOT_VERIFIED 报每孔 3-4 个角在板框外；用 getState_Polygon().getSource() 做点在多边形内校验即可复现。",
+        "refs": [
+          "evidence/mech-npth-decision-r54.json",
+          "docs/knowledge/pcb/21-eda-api-eco-playbook.md §14"
+        ],
+        "tags": [
+          "机械",
+          "安装孔",
+          "板框",
+          "门禁"
+        ]
+      }
+    }
+  ]
+}

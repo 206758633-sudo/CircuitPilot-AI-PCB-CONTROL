@@ -1,0 +1,215 @@
+{
+ "artifact": "netlist-draft",
+ "status": "DRAFT-ENGINEERING-JUDGEMENT — 未经原理图验证，引脚级细节为工程判断，禁止当作已验证网表",
+ "board": "PCB1 2844799d86eeed27",
+ "bom_rows": 51,
+ "designators": 178,
+ "power_source_requirement": "+5V 必须来自 ETA9880 升压输出，不得由 Type-C VBUS 直供",
+ "nets": [
+  {
+   "name": "VBUS",
+   "kind": "power",
+   "source": "USB1 TYPEC-304-ACP16 VBUS",
+   "endpoints": [
+    "USB1.VBUS",
+    "D11",
+    "D12",
+    "D13",
+    "U4.CH340K.VBUS"
+   ],
+   "judgement": "pin-name-level; exact pad numbers = 工程判断"
+  },
+  {
+   "name": "VBAT",
+   "kind": "power",
+   "source": "CN1 WAFER-GH1.25-2PWB (battery +)",
+   "endpoints": [
+    "CN1.1",
+    "U3.DW01A.VDD",
+    "Q3.FS8205A",
+    "RT1"
+   ],
+   "judgement": "保护链路连接为工程判断，待原理图定稿"
+  },
+  {
+   "name": "GND",
+   "kind": "power",
+   "source": "common",
+   "endpoints": [
+    "ALL.GND"
+   ],
+   "judgement": "既有 14 条 GND 未连接之一，需全网合并"
+  },
+  {
+   "name": "+5V",
+   "kind": "power",
+   "source": "U2 ETA9880E8A VOUT (升压 5V/2A，需求冻结)",
+   "endpoints": [
+    "U2.VOUT",
+    "J7.1",
+    "LED5.VDD",
+    "LED7..LED10.VDD",
+    "U.NS4150B.VDD"
+   ],
+   "judgement": "源端=ETA9880 输出；原 Type-C VBUS 直供必须在②中移除（工程判断：原直供非需求）"
+  },
+  {
+   "name": "+3V3",
+   "kind": "power",
+   "source": "U7 ME6211C28M5G-N VOUT",
+   "endpoints": [
+    "U7.VOUT",
+    "U1.ESP32-3V3",
+    "U8.FPC.VDD",
+    "U.ES8311.VDD",
+    "U.ES7210.VDD",
+    "U.CH334F.VDD"
+   ],
+   "judgement": "供电分配为工程判断"
+  },
+  {
+   "name": "+1V5",
+   "kind": "power",
+   "source": "ME6211C15M5G-N (C53100) VOUT",
+   "endpoints": [
+    "U1.ESP32-core?"
+   ],
+   "judgement": "用途待定 = 工程判断（可能为电平/TX 域）"
+  },
+  {
+   "name": "USB_DM / USB_DP",
+   "kind": "usb",
+   "endpoints": [
+    "USB1.D-/D+",
+    "U4.CH340K.UD-/UD+",
+    "U5.CH334F.UP/DN"
+   ],
+   "judgement": "USB 拓扑为工程判断"
+  },
+  {
+   "name": "UART0_TXD / UART0_RXD",
+   "kind": "uart",
+   "endpoints": [
+    "U4.CH340K.TXD/RXD",
+    "U1.ESP32.U0TXD/U0RXD"
+   ],
+   "judgement": "ESP32 串口号 = 工程判断"
+  },
+  {
+   "name": "SPI_SCLK / MOSI / MISO / CS",
+   "kind": "spi",
+   "endpoints": [
+    "U1.ESP32.SPI*",
+    "扩展/测试点"
+   ],
+   "judgement": "SPI 具体挂载对象未定 = 工程判断"
+  },
+  {
+   "name": "I2C_SCL / SDA",
+   "kind": "i2c",
+   "endpoints": [
+    "U1.ESP32.I2C*",
+    "U.ES8311.SCL/SDA",
+    "U.ES7210.SCL/SDA",
+    "U8.FPC.SCCB"
+   ],
+   "judgement": "上拉/地址 = 工程判断"
+  },
+  {
+   "name": "I2S_BCLK / LRCK / SDATA",
+   "kind": "i2s",
+   "endpoints": [
+    "U1.ESP32.I2S*",
+    "U.ES8311.BCLK/LRCK/SDATA",
+    "U.ES7210.BCLK/LRCK/SDATA"
+   ],
+   "judgement": "主从关系 = 工程判断"
+  },
+  {
+   "name": "CAM_PCLK/VSYNC/HREF/D0-D7/XCLK/RST/PWDN",
+   "kind": "camera-dvp",
+   "endpoints": [
+    "U8.HX0.5-24PIN",
+    "U1.ESP32.GPIO*"
+   ],
+   "judgement": "OV2640 DVP 脚序 = 工程判断（BOM 中已标注 HX 连接器 pinout 为占位）"
+  },
+  {
+   "name": "SERVO_PWM",
+   "kind": "pwm",
+   "endpoints": [
+    "CN5.ZX-SH1.0-3PWT.SIG",
+    "U1.ESP32.GPIO*"
+   ],
+   "judgement": "PWM 通道 = 工程判断"
+  },
+  {
+   "name": "WS2812_DIN",
+   "kind": "led",
+   "endpoints": [
+    "U1.ESP32.GPIO*",
+    "U19.SN74LVC1T45.A"
+   ],
+   "judgement": "电平转换方向 = 工程判断"
+  },
+  {
+   "name": "WS2812_DOUT",
+   "kind": "led",
+   "endpoints": [
+    "U19.Y",
+    "LED5.DIN",
+    "LED7..LED10.DIN(链)"
+   ],
+   "judgement": "灯链顺序 = 工程判断"
+  },
+  {
+   "name": "BTN1 / BTN2",
+   "kind": "button",
+   "endpoints": [
+    "SW1.TS3425BA",
+    "SW3.TS3425BA",
+    "U1.ESP32.GPIO*"
+   ],
+   "judgement": "上下拉/消抖 = 工程判断"
+  },
+  {
+   "name": "PWR_KEY / SYS_EN",
+   "kind": "control",
+   "endpoints": [
+    "SW2.TS3425BA",
+    "Q4.AO3401A.G",
+    "U15.TPS61088.EN",
+    "U2.ETA9880.EN"
+   ],
+   "judgement": "长按软关机链路 = 工程判断"
+  },
+  {
+   "name": "AUD_SPK+ / AUD_SPK-",
+   "kind": "audio",
+   "endpoints": [
+    "U.NS4150B.OUT+/OUT-",
+    "J7.X9821WRS-02"
+   ],
+   "judgement": "扬声器接插件定义 = 工程判断"
+  },
+  {
+   "name": "MIC_IN",
+   "kind": "audio",
+   "endpoints": [
+    "MIC1.ZTS6216",
+    "U.ES7210.MICIN"
+   ],
+   "judgement": "MIC 偏置/增益 = 工程判断"
+  },
+  {
+   "name": "CHG_LED / STAT",
+   "kind": "status",
+   "endpoints": [
+    "U4.CH340K.STAT#?",
+    "D1",
+    "D2"
+   ],
+   "judgement": "状态指示 = 工程判断"
+  }
+ ]
+}

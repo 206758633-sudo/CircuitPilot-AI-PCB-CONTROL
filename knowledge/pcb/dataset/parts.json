@@ -1,0 +1,3334 @@
+{
+  "version": "1.3.0",
+  "generatedAt": "2026-10-28T12:25:25.164Z",
+  "domain": "pcb-components",
+  "notes": "料号来自公开常见选型与项目 BOM 参考，均不等于已核验；入库 trust=reference / candidate，使用前必须经 Librarian 三源核验（EDA 库/供应商/datasheet）。引脚定义以 datasheet 为准，本文件只记录常见封装与关键引脚。",
+  "entries": [
+    {
+      "kind": "part",
+      "title": "0402 10kΩ 1% 贴片电阻",
+      "doc": "docs/knowledge/components/01-passives.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C25744",
+        "lcscIdVerified": false,
+        "mpn": "0402WGF1002TCE",
+        "manufacturer": "UNI-ROYAL（厚声）",
+        "value": "10kΩ ±1%",
+        "footprint": "0402",
+        "category": "电阻",
+        "description": "通用上拉/下拉/分压电阻，1/16W 级别。上拉 10k 适合 I2C（低速）、复位、按键；高速 I2C 需按总线电容重算。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "R1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "R2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "精度 ±1%",
+          "额定功率约 1/16W（按 datasheet 降额）",
+          "工作温度 -55~+155°C 常见"
+        ],
+        "selectionNotes": [
+          "上拉/下拉优先 1% 精度",
+          "功率按实际功耗 ≤50% 额定降额",
+          "高压分压注意电阻耐压（0402 常见 50V）"
+        ],
+        "identityVerification": "LCSC 料号与封装需在立创商城/EDA 库核对；BOM 使用前走 Librarian 核验",
+        "tags": [
+          "电阻",
+          "0402",
+          "上拉",
+          "分压"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0603 10kΩ 1% 贴片电阻",
+      "doc": "docs/knowledge/components/01-passives.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C25804",
+        "lcscIdVerified": false,
+        "mpn": "0603WAF1002T5E",
+        "manufacturer": "UNI-ROYAL（厚声）",
+        "value": "10kΩ ±1%",
+        "footprint": "0603",
+        "category": "电阻",
+        "description": "0603 通用阻值，比 0402 功率与可焊性更好，适合手工打样与需要一定功耗的上拉/分压。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "R1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "R2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "精度 ±1%",
+          "额定功率约 1/10W",
+          "耐压通常高于 0402"
+        ],
+        "selectionNotes": [
+          "手工样机优先 0603/0805",
+          "空间受限再降 0402",
+          "功率按 datasheet 降额"
+        ],
+        "identityVerification": "料号待核验",
+        "tags": [
+          "电阻",
+          "0603",
+          "上拉"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0603 100nF 50V X7R 贴片电容",
+      "doc": "docs/knowledge/components/01-passives.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C14663",
+        "lcscIdVerified": false,
+        "mpn": "CC0603KRX7R9BB104",
+        "manufacturer": "Yageo（国巨）",
+        "value": "100nF ±10% 50V X7R",
+        "footprint": "0603",
+        "category": "电容",
+        "description": "经典 0.1µF 去耦电容，X7R 介质，容值随直流偏压/温度下降，实际有效容值按偏压曲线评估。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "50V 额定",
+          "X7R（-55~+125°C，±15%）",
+          "容值随直流偏压下降"
+        ],
+        "selectionNotes": [
+          "电机/电源附近建议 100V 或更大耐压",
+          "去耦靠近引脚，回路短",
+          "高容值 0402 注意偏压降容"
+        ],
+        "identityVerification": "料号待核验",
+        "tags": [
+          "电容",
+          "去耦",
+          "X7R",
+          "100nF"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0402 10µF 25V X5R 贴片电容",
+      "doc": "docs/knowledge/components/01-passives.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C15525",
+        "lcscIdVerified": false,
+        "mpn": "CL05A106MQ5NUNC",
+        "manufacturer": "Samsung（三星）",
+        "value": "10µF ±20% 25V X5R",
+        "footprint": "0402",
+        "category": "电容",
+        "description": "高容值 0402 陶瓷电容，用于电源输入/输出与局部储能；直流偏压下容值可能下降 30%~60%，必须按实际偏压评估。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "25V 额定",
+          "X5R（-55~+85°C，±15%）",
+          "容值偏压特性需查 datasheet 曲线"
+        ],
+        "selectionNotes": [
+          "DC-DC 输入/输出按纹波电流选",
+          "高容值小封装注意偏压降容与焊接应力",
+          "关键储能位置考虑 0805/1206"
+        ],
+        "identityVerification": "料号待核验",
+        "tags": [
+          "电容",
+          "10uF",
+          "X5R",
+          "偏压"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0805 10µF X5R 贴片电容",
+      "doc": "docs/knowledge/components/01-passives.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C15850",
+        "lcscIdVerified": false,
+        "mpn": "CL21A106KAYNNNE",
+        "manufacturer": "Samsung（三星）",
+        "value": "10µF X5R（耐压以规格书为准）",
+        "footprint": "0805",
+        "category": "电容",
+        "description": "0805 大容值陶瓷电容，直流偏压降容小于 0402 同容值，适合电源输入/输出滤波。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "X5R",
+          "额定电压需按规格书确认",
+          "适合 1A 级 DC-DC 滤波"
+        ],
+        "selectionNotes": [
+          "DC-DC 输出电容按纹波/瞬态计算",
+          "高容值陶瓷的压电效应可能产生啸叫",
+          "注意额定电压降额"
+        ],
+        "identityVerification": "料号与耐压待核验",
+        "tags": [
+          "电容",
+          "0805",
+          "10uF",
+          "DC-DC"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0402 22pF 50V C0G 贴片电容",
+      "doc": "docs/knowledge/components/06-crystals-oscillators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C1555",
+        "lcscIdVerified": false,
+        "mpn": "0402CG220J500NT",
+        "manufacturer": "风华高科",
+        "value": "22pF ±5% 50V C0G",
+        "footprint": "0402",
+        "category": "电容",
+        "description": "C0G/NP0 温度稳定电容，用于晶振负载电容、定时/滤波，容值几乎不随温度和偏压变化。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "C0G/NP0 温度系数 ±30ppm/°C",
+          "容值稳定，无直流偏压降容",
+          "精度 ±5%"
+        ],
+        "selectionNotes": [
+          "晶振负载电容必须用 C0G",
+          "按 CL 计算 C1/C2，留寄生电容余量",
+          "不用 X7R 代替（温漂大）"
+        ],
+        "identityVerification": "料号待核验",
+        "tags": [
+          "电容",
+          "C0G",
+          "晶振",
+          "负载电容"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0402 0Ω 跳线电阻",
+      "doc": "docs/knowledge/components/01-passives.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C17168",
+        "lcscIdVerified": false,
+        "mpn": "0402WGF0000TCE",
+        "manufacturer": "UNI-ROYAL（厚声）",
+        "value": "0Ω ±1%",
+        "footprint": "0402",
+        "category": "电阻",
+        "description": "0Ω 跳线，用于单点连接、跨接、可选配置与预留；实际有几十毫欧电阻与额定电流限制。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "R1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "R2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "额定电流按封装（0402 约 1A 级）",
+          "电阻约 10~50mΩ",
+          "不可当作大电流通路"
+        ],
+        "selectionNotes": [
+          "电源/大电流跨接改 0805/1206 或用铜皮",
+          "用于地连接时明确单点位置",
+          "预留 DNP 选项便于调试"
+        ],
+        "identityVerification": "料号待核验",
+        "tags": [
+          "电阻",
+          "0Ω",
+          "跳线",
+          "DNP"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "SS34 3A 40V 肖特基二极管（SMA）",
+      "doc": "docs/knowledge/components/02-diodes-tvs.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C8678",
+        "lcscIdVerified": false,
+        "mpn": "SS34",
+        "manufacturer": "MDD/通用",
+        "value": "3A 40V 肖特基",
+        "footprint": "SMA（DO-214AC）",
+        "category": "二极管",
+        "description": "低压降肖特基整流管，用于反接保护、续流、ORing；正向压降约 0.5V@3A，反向漏电随温度上升。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "K（阴极，色带）",
+            "type": "cathode"
+          },
+          {
+            "number": "2",
+            "name": "A（阳极）",
+            "type": "anode"
+          }
+        ],
+        "polarity": "有极性：色带为阴极",
+        "keyRatings": [
+          "VRRM 40V",
+          "IF 3A",
+          "VF 约 0.5V@3A",
+          "反向漏电随温度增大"
+        ],
+        "selectionNotes": [
+          "反接保护注意压降与发热",
+          "高压/高效率场合改用同步整流",
+          "反向漏电影响低功耗待机"
+        ],
+        "identityVerification": "料号待核验",
+        "tags": [
+          "二极管",
+          "肖特基",
+          "SS34",
+          "反接",
+          "续流"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "SS14 1A 40V 肖特基二极管（SMA）",
+      "doc": "docs/knowledge/components/02-diodes-tvs.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C2480",
+        "lcscIdVerified": false,
+        "mpn": "SS14",
+        "manufacturer": "MDD/通用",
+        "value": "1A 40V 肖特基",
+        "footprint": "SMA（DO-214AC）",
+        "category": "二极管",
+        "description": "小电流肖特基，适合信号级 ORing/续流/保护；1A 额定需降额使用。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "K（阴极，色带）",
+            "type": "cathode"
+          },
+          {
+            "number": "2",
+            "name": "A（阳极）",
+            "type": "anode"
+          }
+        ],
+        "polarity": "有极性：色带为阴极",
+        "keyRatings": [
+          "VRRM 40V",
+          "IF 1A",
+          "VF 约 0.5V@1A"
+        ],
+        "selectionNotes": [
+          "按实际电流降额（≤50%~70% 额定）",
+          "高温漏电按 datasheet 评估"
+        ],
+        "identityVerification": "料号待核验",
+        "tags": [
+          "二极管",
+          "肖特基",
+          "SS14"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "SMAJ5.0CA 双向 TVS（DO-214AA）",
+      "doc": "docs/knowledge/components/02-diodes-tvs.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C9900010931",
+        "lcscIdVerified": false,
+        "mpn": "SMAJ5.0CA",
+        "manufacturer": "通用",
+        "value": "5V 双向 TVS 400W",
+        "footprint": "DO-214AA（SMB）",
+        "category": "保护器件",
+        "description": "双向瞬态抑制二极管，用于 5V 电源/接口的 ESD 与浪涌防护；双向无极性，适合差分/交流信号。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "双向无极性",
+        "keyRatings": [
+          "反向工作电压 5V",
+          "峰值脉冲功率 400W（8/20µs）",
+          "钳位电压按 datasheet"
+        ],
+        "selectionNotes": [
+          "钳位电压必须低于后级绝对最大额定",
+          "电源 TVS 与保险丝/PTC 配合",
+          "高速信号注意结电容"
+        ],
+        "identityVerification": "BOM 参考料号，需核验具体厂家与钳位参数",
+        "tags": [
+          "TVS",
+          "ESD",
+          "浪涌",
+          "5V"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "双向 TVS 6V 低电容（DFN-2L）",
+      "doc": "docs/knowledge/components/02-diodes-tvs.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C9900011431",
+        "lcscIdVerified": false,
+        "mpn": "双向TVS 6V DFN-2L <0.5pF（BOM 描述）",
+        "manufacturer": "通用",
+        "value": "6V 双向低电容 TVS",
+        "footprint": "DFN-2L",
+        "category": "保护器件",
+        "description": "超低结电容双向 TVS，适合 USB/HDMI/天线等高速接口的 ESD 保护。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "双向无极性",
+        "keyRatings": [
+          "结电容 <0.5pF",
+          "工作电压约 6V",
+          "ESD 等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "高速差分线优先低电容",
+          "钳位电压与芯片耐压匹配",
+          "地回路短而宽"
+        ],
+        "identityVerification": "BOM 描述非标准料号，必须重新选型并核验 datasheet",
+        "tags": [
+          "TVS",
+          "低电容",
+          "ESD",
+          "USB"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "AMS1117-3.3 1A LDO（SOT-223）",
+      "doc": "docs/knowledge/components/04-power-ics.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C6186",
+        "lcscIdVerified": false,
+        "mpn": "AMS1117-3.3",
+        "manufacturer": "AMS/通用",
+        "value": "3.3V 1A LDO",
+        "footprint": "SOT-223",
+        "category": "电源 IC",
+        "description": "经典 3.3V 线性稳压器，压差较大（约 1.1V@1A），效率低、发热大；适合小电流或压差小的场景。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "GND/ADJ",
+            "type": "ground"
+          },
+          {
+            "number": "2",
+            "name": "VOUT",
+            "type": "power_out"
+          },
+          {
+            "number": "3",
+            "name": "VIN",
+            "type": "power_in"
+          },
+          {
+            "number": "4/tab",
+            "name": "VOUT（散热片）",
+            "type": "power_out"
+          }
+        ],
+        "polarity": "有极性（VIN/VOUT 不可反接）",
+        "keyRatings": [
+          "输出 3.3V ±1%~±2%",
+          "最大 1A（受热限制）",
+          "压差约 1.1V@1A",
+          "SOT-223 θja 约 60~100°C/W（按铜面积）"
+        ],
+        "selectionNotes": [
+          "功耗 P=(Vin−Vout)·Iout+Vin·Iq，必须核算结温",
+          "输入/输出加 10µF+0.1µF",
+          "5V→3.3V 大电流优先 Buck"
+        ],
+        "identityVerification": "料号待核验",
+        "tags": [
+          "LDO",
+          "AMS1117",
+          "3.3V",
+          "热耗"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "MT3608 升压 DC-DC（SOT-23-6）",
+      "doc": "docs/knowledge/components/04-power-ics.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C84817",
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：来自项目 BOM 且为常见料号，仍需 EDA 库/供应商复核",
+        "mpn": "MT3608",
+        "manufacturer": "Aerosemi/通用",
+        "value": "Boost 升压 2A 开关",
+        "footprint": "SOT-23-6",
+        "category": "电源 IC",
+        "description": "低成本升压转换器，输入 2~24V，输出最高约 28V，开关频率 1.2MHz；适合小功率升压。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "SW",
+            "type": "switch"
+          },
+          {
+            "number": "2",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "3",
+            "name": "FB",
+            "type": "feedback"
+          },
+          {
+            "number": "4",
+            "name": "EN",
+            "type": "enable"
+          },
+          {
+            "number": "5",
+            "name": "IN",
+            "type": "power_in"
+          },
+          {
+            "number": "6",
+            "name": "NC",
+            "type": "nc"
+          }
+        ],
+        "polarity": "有极性",
+        "keyRatings": [
+          "输入 2~24V",
+          "输出最高约 28V",
+          "开关电流 2A（峰值）",
+          "1.2MHz"
+        ],
+        "selectionNotes": [
+          "FB 0.6V 基准，Vout=0.6(1+R1/R2)",
+          "电感与二极管按峰值电流选",
+          "注意启动电流与输入限流"
+        ],
+        "identityVerification": "待核验：引脚定义需按 datasheet 复核",
+        "tags": [
+          "Boost",
+          "MT3608",
+          "升压",
+          "DC-DC"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "SY8089 同步 Buck（SOT-23-5）",
+      "doc": "docs/knowledge/components/04-power-ics.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C78988",
+        "lcscIdVerified": true,
+        "lcscIdVerificationNote": "来自项目 BOM，仍需 EDA 库/供应商复核",
+        "mpn": "SY8089AAAC",
+        "manufacturer": "Silergy（矽力杰）",
+        "value": "2A 同步 Buck",
+        "footprint": "SOT-23-5",
+        "category": "电源 IC",
+        "description": "小封装同步降压转换器，效率高、外围少，适合 5V→3.3V/1.8V 等低电压中等电流场景。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "EN",
+            "type": "enable"
+          },
+          {
+            "number": "2",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "3",
+            "name": "SW",
+            "type": "switch"
+          },
+          {
+            "number": "4",
+            "name": "VIN",
+            "type": "power_in"
+          },
+          {
+            "number": "5",
+            "name": "FB",
+            "type": "feedback"
+          }
+        ],
+        "polarity": "有极性",
+        "keyRatings": [
+          "输入 2.7~5.5V（按 datasheet）",
+          "输出电流 2A",
+          "同步整流",
+          "开关频率约 1.5MHz"
+        ],
+        "selectionNotes": [
+          "引脚顺序以 datasheet 为准",
+          "电感按纹波 20%~40% 选",
+          "输入/输出电容紧贴 IC"
+        ],
+        "identityVerification": "引脚定义待核验",
+        "tags": [
+          "Buck",
+          "SY8089",
+          "同步整流",
+          "DC-DC"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "TP4056 单节锂电线性充电（SOP-8）",
+      "doc": "docs/knowledge/components/04-power-ics.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C16581",
+        "lcscIdVerified": false,
+        "mpn": "TP4056",
+        "manufacturer": "NanJing Top Power（南京拓微）",
+        "value": "1A 线性锂电充电",
+        "footprint": "SOP-8",
+        "category": "电源 IC",
+        "description": "经典单节 4.2V 线性充电 IC，恒流恒压，带温度调节；发热较大，适合小电流或良好散热场景。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "TEMP",
+            "type": "input"
+          },
+          {
+            "number": "2",
+            "name": "PROG",
+            "type": "input"
+          },
+          {
+            "number": "3",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "4",
+            "name": "VCC",
+            "type": "power_in"
+          },
+          {
+            "number": "5",
+            "name": "BAT",
+            "type": "power_out"
+          },
+          {
+            "number": "6",
+            "name": "STDBY",
+            "type": "status"
+          },
+          {
+            "number": "7",
+            "name": "CHRG",
+            "type": "status"
+          },
+          {
+            "number": "8",
+            "name": "CE",
+            "type": "enable"
+          }
+        ],
+        "polarity": "有极性",
+        "keyRatings": [
+          "充电电压 4.2V ±1.5%",
+          "充电电流 Ibat=1200V/Rprog（典型公式）",
+          "线性充电，功耗=(Vin−Vbat)·I"
+        ],
+        "selectionNotes": [
+          "PROG 电阻计算充电电流",
+          "CE 高有效，接 VCC 或 MCU",
+          "TEMP 接 NTC 或 GND 禁用（按 datasheet）",
+          "散热不足时降低充电电流"
+        ],
+        "identityVerification": "待核验：料号与公式需按 datasheet 复核",
+        "tags": [
+          "充电",
+          "TP4056",
+          "锂电",
+          "线性"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "CH340C USB 转串口（SOP-16）",
+      "doc": "docs/knowledge/components/05-mcu-wireless-connectors.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C84681",
+        "lcscIdVerified": false,
+        "mpn": "CH340C",
+        "manufacturer": "WCH（沁恒）",
+        "value": "USB 转 UART",
+        "footprint": "SOP-16",
+        "category": "接口 IC",
+        "description": "常用 USB 转 TTL 串口桥，内置晶振（CH340C），用于调试/烧录；外围少、成本低。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "2",
+            "name": "TXD",
+            "type": "output"
+          },
+          {
+            "number": "3",
+            "name": "RXD",
+            "type": "input"
+          },
+          {
+            "number": "4",
+            "name": "V3",
+            "type": "power"
+          },
+          {
+            "number": "5",
+            "name": "UD+",
+            "type": "usb"
+          },
+          {
+            "number": "6",
+            "name": "UD-",
+            "type": "usb"
+          },
+          {
+            "number": "16",
+            "name": "VCC",
+            "type": "power_in"
+          }
+        ],
+        "polarity": "有极性",
+        "keyRatings": [
+          "USB 2.0 全速",
+          "内置晶振（C 版）",
+          "3.3V/5V 供电选项（按 datasheet）"
+        ],
+        "selectionNotes": [
+          "V3 需接 0.1µF（3.3V 模式）",
+          "UD+/UD- 加 ESD（低电容）",
+          "TXD/RXD 交叉连接目标",
+          "量产可用 CH340N/CH343 等替代，需核验封装"
+        ],
+        "identityVerification": "待核验：引脚定义需按 datasheet 复核",
+        "tags": [
+          "USB",
+          "UART",
+          "CH340",
+          "串口"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "STM32F103C8T6 MCU（LQFP-48）",
+      "doc": "docs/knowledge/components/05-mcu-wireless-connectors.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C8734",
+        "lcscIdVerified": false,
+        "mpn": "STM32F103C8T6",
+        "manufacturer": "STMicroelectronics（意法半导体）",
+        "value": "ARM Cortex-M3 72MHz 64KB Flash",
+        "footprint": "LQFP-48",
+        "category": "MCU",
+        "description": "经典 STM32F103 系列 MCU，外设丰富、资料多，适合通用控制；核心电源与 BOOT/晶振/调试口需正确处理。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "VBAT",
+            "type": "power"
+          },
+          {
+            "number": "2",
+            "name": "PC13",
+            "type": "io"
+          },
+          {
+            "number": "5",
+            "name": "PD0/OSC_IN",
+            "type": "clock"
+          },
+          {
+            "number": "6",
+            "name": "PD1/OSC_OUT",
+            "type": "clock"
+          },
+          {
+            "number": "7",
+            "name": "NRST",
+            "type": "reset"
+          },
+          {
+            "number": "8",
+            "name": "VSSA",
+            "type": "ground"
+          },
+          {
+            "number": "9",
+            "name": "VDDA",
+            "type": "power"
+          },
+          {
+            "number": "23",
+            "name": "VSS",
+            "type": "ground"
+          },
+          {
+            "number": "24",
+            "name": "VDD",
+            "type": "power"
+          },
+          {
+            "number": "34",
+            "name": "PA13/SWDIO",
+            "type": "debug"
+          },
+          {
+            "number": "37",
+            "name": "PA14/SWCLK",
+            "type": "debug"
+          },
+          {
+            "number": "44",
+            "name": "BOOT0",
+            "type": "boot"
+          }
+        ],
+        "polarity": "有极性",
+        "keyRatings": [
+          "2.0~3.6V 供电",
+          "72MHz",
+          "64KB Flash/20KB RAM",
+          "LQFP-48"
+        ],
+        "selectionNotes": [
+          "每个 VDD 0.1µF，VDDA 加磁珠+10µF+0.1µF",
+          "BOOT0 下拉（10k）默认从 Flash 启动",
+          "晶振 8MHz + 22pF（按 CL 计算）",
+          "SWD 口引出"
+        ],
+        "identityVerification": "待核验：引脚定义需按 ST datasheet 复核（本表仅列关键引脚）",
+        "tags": [
+          "MCU",
+          "STM32",
+          "LQFP48",
+          "最小系统"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "ESP32-S3-WROOM-1-N16R16V 无线模组",
+      "doc": "docs/knowledge/components/05-mcu-wireless-connectors.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C9900209383",
+        "lcscIdVerified": true,
+        "lcscIdVerificationNote": "来自项目 BOM，需核验模块型号与天线版本",
+        "mpn": "ESP32-S3-WROOM-1-N16R16V",
+        "manufacturer": "Espressif（乐鑫）",
+        "value": "Wi-Fi/BLE SoC 模组 16MB Flash/16MB PSRAM",
+        "footprint": "WROOM-1（40+ 焊盘）",
+        "category": "无线模组",
+        "description": "ESP32-S3 模组，集成 Wi-Fi/BLE 与天线；对电源、天线净空、BOOT 引脚和 USB/串口下载有明确要求。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "2",
+            "name": "3V3",
+            "type": "power_in"
+          },
+          {
+            "number": "3",
+            "name": "EN",
+            "type": "reset"
+          },
+          {
+            "number": "27",
+            "name": "IO0（BOOT）",
+            "type": "boot"
+          },
+          {
+            "number": "36",
+            "name": "TXD0/IO43",
+            "type": "uart"
+          },
+          {
+            "number": "37",
+            "name": "RXD0/IO44",
+            "type": "uart"
+          }
+        ],
+        "polarity": "有极性",
+        "keyRatings": [
+          "3.3V 供电（峰值电流大）",
+          "16MB Flash + 16MB PSRAM",
+          "天线净空按手册",
+          "EN 需 RC 复位与上拉"
+        ],
+        "selectionNotes": [
+          "电源需 ≥1A 余量与充足去耦",
+          "天线区净空、远离金属/电池",
+          "BOOT(IO0)/EN 上电时序正确",
+          "模组下方按手册铺铜/散热"
+        ],
+        "identityVerification": "模块封装/焊盘与天线版本需按乐鑫 datasheet 核验",
+        "tags": [
+          "ESP32-S3",
+          "Wi-Fi",
+          "BLE",
+          "模组",
+          "天线"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "AO3400A N-MOSFET（SOT-23）",
+      "doc": "docs/knowledge/components/03-transistors-mosfets.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C20917",
+        "lcscIdVerified": false,
+        "mpn": "AO3400A",
+        "manufacturer": "AOS/通用",
+        "value": "N-MOSFET 30V 5.7A",
+        "footprint": "SOT-23",
+        "category": "MOSFET",
+        "description": "低门槛 N-MOS，适合 3.3V/5V 电平直接驱动的小功率开关、LED 驱动、电平转换；Rds(on) 低。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "G（栅极）",
+            "type": "gate"
+          },
+          {
+            "number": "2",
+            "name": "S（源极）",
+            "type": "source"
+          },
+          {
+            "number": "3",
+            "name": "D（漏极）",
+            "type": "drain"
+          }
+        ],
+        "polarity": "有极性",
+        "keyRatings": [
+          "VDS 30V",
+          "ID 5.7A（受封装限制）",
+          "Rds(on) 约 28mΩ@Vgs=4.5V",
+          "Vgs(th) 约 1.1V"
+        ],
+        "selectionNotes": [
+          "栅极加 10k 下拉防悬空误导通",
+          "高边开关需自举/驱动",
+          "SOT-23 引脚定义各家可能不同，必须核验",
+          "散热按功耗评估"
+        ],
+        "identityVerification": "SOT-23 MOSFET 引脚定义不统一，必须按 datasheet 核验",
+        "tags": [
+          "MOSFET",
+          "N沟道",
+          "SOT-23",
+          "开关"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "2N7002 N-MOSFET（SOT-23）",
+      "doc": "docs/knowledge/components/03-transistors-mosfets.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C8545",
+        "lcscIdVerified": false,
+        "mpn": "2N7002",
+        "manufacturer": "通用",
+        "value": "N-MOSFET 60V 0.3A",
+        "footprint": "SOT-23",
+        "category": "MOSFET",
+        "description": "小信号 N-MOS，适合电平转换、小电流开关、LED/继电器驱动（需注意电流能力有限）。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "G（栅极）",
+            "type": "gate"
+          },
+          {
+            "number": "2",
+            "name": "S（源极）",
+            "type": "source"
+          },
+          {
+            "number": "3",
+            "name": "D（漏极）",
+            "type": "drain"
+          }
+        ],
+        "polarity": "有极性",
+        "keyRatings": [
+          "VDS 60V",
+          "ID 0.3A（连续）",
+          "Rds(on) 约 1.2Ω@Vgs=10V",
+          "Vgs(th) 1~2.5V"
+        ],
+        "selectionNotes": [
+          "只适合小电流",
+          "3.3V 驱动时 Rds(on) 明显变大",
+          "栅极下拉/串阻",
+          "引脚定义需核验"
+        ],
+        "identityVerification": "引脚定义需核验",
+        "tags": [
+          "MOSFET",
+          "2N7002",
+          "小信号"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "WS2812B-2020 内置驱动 RGB LED",
+      "doc": "docs/knowledge/components/02-diodes-tvs.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C965555",
+        "lcscIdVerified": true,
+        "lcscIdVerificationNote": "来自项目 BOM，需核验封装/极性",
+        "mpn": "WS2812B-2020",
+        "manufacturer": "Worldsemi（ worldsemi）",
+        "value": "RGB 可寻址 LED 2020",
+        "footprint": "2020",
+        "category": "LED/驱动",
+        "description": "内置驱动 IC 的可寻址 RGB LED，单线级联，5V 供电，每颗可独立设色。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "VDD",
+            "type": "power_in"
+          },
+          {
+            "number": "2",
+            "name": "DOUT",
+            "type": "output"
+          },
+          {
+            "number": "3",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "4",
+            "name": "DIN",
+            "type": "input"
+          }
+        ],
+        "polarity": "有极性（按 datasheet 标记）",
+        "keyRatings": [
+          "5V 供电",
+          "每通道约 20mA",
+          "数据 800kHz",
+          "VIH≈0.7×VDD"
+        ],
+        "selectionNotes": [
+          "3.3V 数据需电平提升/首颗处理",
+          "每颗就近 0.1µF 去耦",
+          "长灯串电源分段供电",
+          "注意散热与光衰"
+        ],
+        "identityVerification": "引脚顺序/极性需按 datasheet 核验",
+        "tags": [
+          "WS2812",
+          "RGB",
+          "LED",
+          "级联"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "USB Type-C 16P 母座（TYPEC-304-ACP16）",
+      "doc": "docs/knowledge/components/05-mcu-wireless-connectors.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C2982555",
+        "lcscIdVerified": true,
+        "lcscIdVerificationNote": "来自项目 BOM，需核验 16P 定义与板端朝向",
+        "mpn": "TYPEC-304-ACP16",
+        "manufacturer": "通用",
+        "value": "USB-C 16P 母座",
+        "footprint": "Type-C 16P SMD",
+        "category": "连接器",
+        "description": "16pin Type-C 母座，用于供电/数据；不支持 USB3 超高速（16P 无 SuperSpeed 对），CC 必须正确配置。",
+        "pins": [
+          {
+            "number": "A1/A12/B1/B12",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "A4/A9/B4/B9",
+            "name": "VBUS",
+            "type": "power"
+          },
+          {
+            "number": "A5",
+            "name": "CC1",
+            "type": "config"
+          },
+          {
+            "number": "B5",
+            "name": "CC2",
+            "type": "config"
+          },
+          {
+            "number": "A6/B6",
+            "name": "D+",
+            "type": "usb"
+          },
+          {
+            "number": "A7/B7",
+            "name": "D-",
+            "type": "usb"
+          },
+          {
+            "number": "A8/B8",
+            "name": "SBU1/SBU2",
+            "type": "usb"
+          },
+          {
+            "number": "SHELL",
+            "name": "屏蔽壳",
+            "type": "shield"
+          }
+        ],
+        "polarity": "有极性（正反插由 CC 检测）",
+        "keyRatings": [
+          "16pin（USB2.0）",
+          "VBUS 额定 5V/3A 常见（按连接器）",
+          "插拔寿命约 1 万次"
+        ],
+        "selectionNotes": [
+          "Sink 端 CC1/CC2 各 5.1k 下拉",
+          "VBUS/DP/DM 加 ESD",
+          "外壳接地/固定脚按 EMC 处理"
+        ],
+        "identityVerification": "封装尺寸/焊盘与引脚定义需核验",
+        "tags": [
+          "Type-C",
+          "16P",
+          "连接器",
+          "USB"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "32.768kHz 贴片晶振（3215 封装）",
+      "doc": "docs/knowledge/components/06-crystals-oscillators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "mpn": "Q13FC1350000400（Epson FC-135 系列参考）",
+        "manufacturer": "Epson（爱普生）/通用",
+        "value": "32.768kHz ±20ppm CL=12.5pF",
+        "footprint": "3215（3.2×1.5mm）",
+        "category": "晶振",
+        "description": "RTC 常用低频晶振，负载电容通常 6/7/12.5pF，需按 datasheet 的 CL 配电容。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "XTAL1",
+            "type": "clock"
+          },
+          {
+            "number": "2",
+            "name": "XTAL2",
+            "type": "clock"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "32.768kHz",
+          "频差 ±20ppm",
+          "CL 6~12.5pF（按型号）",
+          "ESR 约 50~70kΩ"
+        ],
+        "selectionNotes": [
+          "按 CL 计算 C1=C2=2(CL−Cstray)",
+          "RTC 走线远离噪声/热源",
+          "注意驱动电平与 ESR 匹配"
+        ],
+        "identityVerification": "待核验：具体型号/CL/ESR 必须以 datasheet 为准",
+        "tags": [
+          "晶振",
+          "32.768kHz",
+          "RTC",
+          "负载电容"
+        ],
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "8MHz 无源晶振（3225 封装）",
+      "doc": "docs/knowledge/components/06-crystals-oscillators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "mpn": "X32258MSB4SI（YXC 扬兴参考）",
+        "manufacturer": "YXC（扬兴）/通用",
+        "value": "8MHz ±10ppm CL=20pF",
+        "footprint": "3225（3.2×2.5mm）",
+        "category": "晶振",
+        "description": "MCU 主时钟常用 8MHz 晶振，按 IC 要求选 CL 与 ESR；USB/无线场景需注意频率精度。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "XTAL1",
+            "type": "clock"
+          },
+          {
+            "number": "2",
+            "name": "GND（部分型号）",
+            "type": "ground"
+          },
+          {
+            "number": "3",
+            "name": "XTAL2",
+            "type": "clock"
+          },
+          {
+            "number": "4",
+            "name": "GND（部分型号）",
+            "type": "ground"
+          }
+        ],
+        "polarity": "无极性（4 脚型号注意 1/3 为信号，2/4 接地）",
+        "keyRatings": [
+          "8MHz",
+          "频差 ±10~±30ppm",
+          "CL 常见 8/10/12/20pF",
+          "ESR 按 datasheet"
+        ],
+        "selectionNotes": [
+          "负载电容必须按 CL 计算",
+          "晶振靠近 MCU、走线短而对称",
+          "下方净空、包地"
+        ],
+        "identityVerification": "待核验：具体型号/CL/ESR/引脚定义必须以 datasheet 为准",
+        "tags": [
+          "晶振",
+          "8MHz",
+          "MCU",
+          "负载电容"
+        ],
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "P-MOSFET 防反接 FDZ451PZ",
+      "doc": "docs/knowledge/components/03-transistors-mosfets.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C3282062",
+        "lcscIdVerified": true,
+        "lcscIdVerificationNote": "来自项目 BOM，需核验封装与 Vgs 耐压",
+        "mpn": "FDZ451PZ",
+        "manufacturer": "onsemi（安森美）",
+        "value": "P-MOSFET -20V/-4A 级",
+        "footprint": "按 datasheet（SC-75/SOT-563 类小封装，待核验）",
+        "category": "MOSFET",
+        "description": "小封装 P-MOS，常用于输入防反接/负载开关；注意 Vgs 耐压与 Rds(on) 损耗。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "G（栅极）",
+            "type": "gate"
+          },
+          {
+            "number": "2",
+            "name": "S（源极）",
+            "type": "source"
+          },
+          {
+            "number": "3",
+            "name": "D（漏极）",
+            "type": "drain"
+          }
+        ],
+        "polarity": "有极性（P 沟道）",
+        "keyRatings": [
+          "VDS 约 -20V",
+          "ID 约 -4A（受封装限制）",
+          "Rds(on) 按 datasheet",
+          "Vgs 最大 ±8V 常见"
+        ],
+        "selectionNotes": [
+          "栅极加稳压管/电阻限制 Vgs",
+          "防反接接法：源极接输入、漏极接负载，栅极下拉",
+          "Rds(on) 损耗与散热评估"
+        ],
+        "identityVerification": "封装与引脚定义必须按 datasheet 核验",
+        "tags": [
+          "MOSFET",
+          "P沟道",
+          "防反接",
+          "负载开关"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "22µH 3×3 功率电感",
+      "doc": "docs/knowledge/components/01-passives.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C9900005316",
+        "lcscIdVerified": false,
+        "mpn": "22UH_3X3（BOM 通用描述）",
+        "manufacturer": "通用",
+        "value": "22µH 功率电感 3×3mm",
+        "footprint": "3×3mm 屏蔽功率电感",
+        "category": "电感",
+        "description": "DC-DC 用功率电感，需按饱和电流、直流电阻与温升选型；仅凭感值不足以判定可用。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（注意焊盘方向/屏蔽）",
+        "keyRatings": [
+          "感值 22µH",
+          "饱和电流 Isat 按型号",
+          "DCR 按型号",
+          "温升电流 Irms 按型号"
+        ],
+        "selectionNotes": [
+          "Isat 必须 >Iout+ΔI/2",
+          "DCR 影响效率与发热",
+          "屏蔽电感减少漏磁干扰",
+          "按开关频率选感值"
+        ],
+        "identityVerification": "BOM 描述非标准料号，必须重新选型并核验 datasheet",
+        "tags": [
+          "电感",
+          "功率电感",
+          "DC-DC",
+          "饱和电流"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "FPC 0.5mm 24P 翻盖下接连接器",
+      "doc": "docs/knowledge/components/05-mcu-wireless-connectors.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": "C9900013443",
+        "lcscIdVerified": false,
+        "mpn": "FPC 0.5mm 24P 翻盖下接（BOM 通用描述）",
+        "manufacturer": "通用",
+        "value": "FPC 连接器 0.5mm 24P",
+        "footprint": "SMD FPC 0.5mm 24P",
+        "category": "连接器",
+        "description": "FPC 排线连接器，注意接触方向（上接/下接）、翻盖/抽屉结构与补强板厚度。",
+        "pins": [
+          {
+            "number": "1-24",
+            "name": "信号",
+            "type": "signal"
+          },
+          {
+            "number": "FIX",
+            "name": "固定脚",
+            "type": "mechanical"
+          }
+        ],
+        "polarity": "有方向（上接/下接，金手指朝向）",
+        "keyRatings": [
+          "间距 0.5mm",
+          "24 pin",
+          "额定电流每 pin 约 0.3~0.5A",
+          "插拔寿命按规格"
+        ],
+        "selectionNotes": [
+          "核对 FPC 金手指面（同向/反向）",
+          "补强板与连接器高度匹配",
+          "高速信号注意 pin 序与地针分配",
+          "固定脚焊盘加固"
+        ],
+        "identityVerification": "BOM 描述非标准料号，必须按实物/图纸核验",
+        "tags": [
+          "FPC",
+          "连接器",
+          "0.5mm",
+          "排线"
+        ],
+        "lcscIdVerificationNote": "待核验：待 Librarian 三源核验（EDA 库/供应商/datasheet）"
+      }
+    },
+    {
+      "kind": "part",
+      "title": "4.7µH 6×6 屏蔽功率电感（VLS6045EX-4R7M）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "VLS6045EX-4R7M",
+        "manufacturer": "TDK",
+        "value": "4.7µH ±20% 级",
+        "footprint": "SMD 6.0×6.0×4.5mm（屏蔽）",
+        "category": "电感",
+        "description": "6×6 屏蔽型功率电感，常见于 1~3A 级 Buck/DC-DC 储能。Isat/Irms/DCR 须按 datasheet，选型按 I_peak ≤0.8×Isat 与温升双线复核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（按本体方向标识装配）",
+        "keyRatings": [
+          "感值 4.7µH 档（±20% 级，按 datasheet）",
+          "Isat/Irms/DCR 按 datasheet 复核",
+          "屏蔽结构，降低漏磁与邻近耦合"
+        ],
+        "selectionNotes": [
+          "先按 Buck 公式算 L，再核 Isat/Irms/DCR",
+          "I_peak ≤0.8×Isat（含启动/堵转冲击）",
+          "电感下方禁布区与反馈线避让按 datasheet"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "电感",
+          "功率电感",
+          "屏蔽",
+          "Buck",
+          "磁性元件"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "10µH 5×5 功率电感（SWPA5040S100MT）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SWPA5040S100MT",
+        "manufacturer": "Sunlord（顺络）",
+        "value": "10µH ±20% 级",
+        "footprint": "SMD 5.0×5.0×4.0mm",
+        "category": "电感",
+        "description": "5×5 通用功率电感档，适合中等电流 Buck/Boost。感值、Isat、Irms、DCR 均须按具体 datasheet 复核，不能按封装推断。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（按本体方向标识装配）",
+        "keyRatings": [
+          "感值 10µH 档（按 datasheet）",
+          "Isat/Irms/DCR 按 datasheet 复核",
+          "屏蔽型可选，按型号后缀确认"
+        ],
+        "selectionNotes": [
+          "按 fsw 与 ΔI 计算感值",
+          "峰值电流含纹波与冲击",
+          "DCR 铜损计入效率预算"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "电感",
+          "功率电感",
+          "Buck",
+          "磁性元件"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "22µH 3×3 小体积功率电感（VLS3015ET-220M）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "VLS3015ET-220M",
+        "manufacturer": "TDK",
+        "value": "22µH ±20% 级",
+        "footprint": "SMD 3.0×3.0×1.5mm",
+        "category": "电感",
+        "description": "3×3 小体积功率电感，适合小电流/空间受限的 DC-DC。小体积散热与饱和余量较小，必须按实际峰值电流与温升复核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（按本体方向标识装配）",
+        "keyRatings": [
+          "感值 22µH 档（按 datasheet）",
+          "小体积，Isat/Irms 余量需重点核对",
+          "DCR 按 datasheet，计入压降预算"
+        ],
+        "selectionNotes": [
+          "小电流 Buck/LDO 前级滤波可用",
+          "峰值电流不得接近 Isat",
+          "温升按满载实测复核"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "电感",
+          "功率电感",
+          "小体积",
+          "磁性元件"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0402 高频磁珠 600Ω@100MHz（BLM15AG601SN1D）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "BLM15AG601SN1D",
+        "manufacturer": "Murata（村田）",
+        "value": "600Ω@100MHz 档",
+        "footprint": "0402（1.0×0.5mm）",
+        "category": "磁珠",
+        "description": "0402 高频铁氧体磁珠，用于时钟/信号线/小电流电源线的高频噪声抑制。额定电流与直流偏置下的阻抗下降须按 datasheet 复核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "100MHz 阻抗 600Ω 档（按 datasheet）",
+          "额定电流/DCR 按 datasheet",
+          "直流偏置下阻抗下降需查曲线"
+        ],
+        "selectionNotes": [
+          "额定电流 ≥1.5×工作电流",
+          "DCR 压降计入信号/电源预算",
+          "低频滤波用 LC，不靠磁珠"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "磁珠",
+          "铁氧体",
+          "EMI",
+          "0402"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0603 大电流磁珠 120Ω@100MHz（BLM18PG121SN1D）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "BLM18PG121SN1D",
+        "manufacturer": "Murata（村田）",
+        "value": "120Ω@100MHz 档",
+        "footprint": "0603（1.6×0.8mm）",
+        "category": "磁珠",
+        "description": "0603 大电流系列磁珠，适合电源/接口线高频抑制。大电流下磁珠饱和会使阻抗大幅下降，必须按偏置曲线与额定电流选型。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "100MHz 阻抗 120Ω 档（按 datasheet）",
+          "大电流系列，额定电流按 datasheet",
+          "直流偏置降额曲线须核对"
+        ],
+        "selectionNotes": [
+          "工作电流下阻抗仍满足要求",
+          "DCR 压降 ≤电源轨 1% 量级（按预算）",
+          "大电流主电源优先功率电感"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "磁珠",
+          "大电流",
+          "EMI",
+          "0603"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "USB 2.0 共模电感 90Ω（DLW21SN900SQ2L）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "DLW21SN900SQ2L",
+        "manufacturer": "Murata（村田）",
+        "value": "共模阻抗 90Ω@100MHz 档",
+        "footprint": "0805 级（约 2.0×1.2mm）",
+        "category": "共模电感",
+        "description": "USB 2.0 差分线用共模电感，抑制共模噪声且差模插损低。差分对必须同层、等长、对称穿过器件，否则共模抑制会明显下降。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "线圈 A 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "线圈 A 端 2（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "3",
+            "name": "线圈 B 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "4",
+            "name": "线圈 B 端 2（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（差分对须对称布线）",
+        "keyRatings": [
+          "共模阻抗 90Ω@100MHz 档（按 datasheet）",
+          "额定电流/DCR 按 datasheet",
+          "差模插损低，适合 USB 2.0"
+        ],
+        "selectionNotes": [
+          "放在连接器与 ESD 保护之后、靠近入口",
+          "差分对不换层、不等长会降低共模抑制",
+          "额定电流按接口最大电流留余量"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "共模电感",
+          "USB",
+          "EMI",
+          "差分"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "CAN 总线共模电感（ACT45B-101-2P）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ACT45B-101-2P",
+        "manufacturer": "TDK",
+        "value": "共模电感量 100µH 级（按 datasheet）",
+        "footprint": "1812 级",
+        "category": "共模电感",
+        "description": "CAN 总线用共模电感，抑制总线共模噪声并提升抗扰度。电感量、额定电流、DCR 与总线速率/终端电阻须一起校核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "线圈 A 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "线圈 A 端 2（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "3",
+            "name": "线圈 B 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "4",
+            "name": "线圈 B 端 2（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（差分对须对称布线）",
+        "keyRatings": [
+          "共模电感量 100µH 级（按 datasheet）",
+          "额定电流按总线电流",
+          "需与终端电阻/共模电压配合"
+        ],
+        "selectionNotes": [
+          "CANH/CANL 对称穿过，避免换层",
+          "与 120Ω 终端、共模偏置一起核",
+          "工业场景配合隔离收发器"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "共模电感",
+          "CAN",
+          "总线",
+          "EMI"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "1A 1206 快断贴片保险丝（SF-1206F100-2）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SF-1206F100-2",
+        "manufacturer": "Bourns",
+        "value": "1A 快断（按 datasheet）",
+        "footprint": "1206",
+        "category": "保险丝",
+        "description": "1206 一次性快断保险丝，用于电源输入/电池输出过流与短路保护。额定电流须按 ≤0.75 降额，并核对 DC 额定电压、分断能力与 I²t。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "额定电流 1A 档，连续工作 ≤0.75×I_rated（25°C）",
+          "额定电压/分断能力按 datasheet（须 DC 额定）",
+          "I²t 与浪涌/启动电流匹配"
+        ],
+        "selectionNotes": [
+          "先算正常工作电流再反推额定值",
+          "环境温度升高按厂家曲线降额",
+          "与 TVS/后级耐压做保护配合"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "保险丝",
+          "过流保护",
+          "1206",
+          "安规"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0.5A 1812 PPTC 自恢复保险丝（MF-MSMF050-2）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "MF-MSMF050-2",
+        "manufacturer": "Bourns",
+        "value": "I_hold 0.5A 档（按 datasheet）",
+        "footprint": "1812",
+        "category": "PPTC",
+        "description": "1812 聚合物自恢复保险丝，用于 USB/电池输出等可恢复过流保护。I_hold 随环境温度下降，必须按最高工作温度降额选型。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "I_hold/I_trip 按 datasheet（25°C 定义）",
+          "最高环境温度下 I_hold 需 ≥1.2×工作电流",
+          "动作后漏电流/残余电阻按 datasheet"
+        ],
+        "selectionNotes": [
+          "温度降额曲线是选型关键",
+          "动作后需断电冷却恢复，不适合频繁自恢复",
+          "安全关键场景仍用一次性保险丝"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "PPTC",
+          "自恢复保险丝",
+          "过流保护",
+          "1812"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "10kΩ B=3380 NTC 热敏电阻（NCP15XH103F03RC）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "NCP15XH103F03RC",
+        "manufacturer": "Murata（村田）",
+        "value": "10kΩ ±1% B=3380 级",
+        "footprint": "0402（1.0×0.5mm）",
+        "category": "热敏电阻",
+        "description": "0402 NTC 测温热敏电阻，R25=10kΩ 档、B 值按 datasheet。分压电阻取 R25 附近灵敏度最高，须评估自热与引线电阻误差。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "R25 10kΩ 档、B 值按 datasheet",
+          "阻值精度/公差按 datasheet",
+          "自热系数/耗散系数按 datasheet"
+        ],
+        "selectionNotes": [
+          "分压 R_fix ≈ R25",
+          "限制测量电流降低自热",
+          "0/25/85°C 三点校准"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "NTC",
+          "热敏电阻",
+          "测温",
+          "0402"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "数字温湿度传感器（SHT30-DIS-B）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SHT30-DIS-B",
+        "manufacturer": "Sensirion",
+        "value": "±2%RH / ±0.2°C 级（按 datasheet）",
+        "footprint": "DFN-8 2.5×2.5×0.9mm",
+        "category": "传感器",
+        "description": "I2C 数字温湿度传感器，精度与响应处于消费/工业常用档。读数受传感器本体温度与腔体气流影响，开孔与远离热源比换型号更关键。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "SDA",
+            "type": "bidirectional"
+          },
+          {
+            "number": "2",
+            "name": "ADDR",
+            "type": "input"
+          },
+          {
+            "number": "3",
+            "name": "ALERT",
+            "type": "output"
+          },
+          {
+            "number": "4",
+            "name": "SCL",
+            "type": "input"
+          },
+          {
+            "number": "5",
+            "name": "VDD",
+            "type": "power_in"
+          },
+          {
+            "number": "6",
+            "name": "VSS",
+            "type": "ground"
+          },
+          {
+            "number": "7",
+            "name": "NC（按 datasheet）",
+            "type": "no_connect"
+          },
+          {
+            "number": "8",
+            "name": "NC（按 datasheet）",
+            "type": "no_connect"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "湿度精度 ±2%RH 级、温度 ±0.2°C 级（按 datasheet）",
+          "I2C 接口，供电范围按 datasheet",
+          "需开孔/透气膜保证气流"
+        ],
+        "selectionNotes": [
+          "远离 MCU/DC-DC/阳光等热源",
+          "外壳开孔+防尘透气膜",
+          "产测做两点校准并记录"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "温湿度",
+          "I2C",
+          "SHT30"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "数字压力传感器（BMP280）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "BMP280",
+        "manufacturer": "Bosch Sensortec",
+        "value": "300~1100hPa / ±1hPa 级（按 datasheet）",
+        "footprint": "LGA-8 2.0×2.5×0.95mm",
+        "category": "传感器",
+        "description": "数字气压/温度传感器，适合海拔/气压/室内环境测量。量程与过压按 datasheet，I2C/SPI 模式由 CSB 等引脚配置。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "2",
+            "name": "CSB",
+            "type": "input"
+          },
+          {
+            "number": "3",
+            "name": "SDI/SDA",
+            "type": "bidirectional"
+          },
+          {
+            "number": "4",
+            "name": "SCK/SCL",
+            "type": "input"
+          },
+          {
+            "number": "5",
+            "name": "SDO",
+            "type": "bidirectional"
+          },
+          {
+            "number": "6",
+            "name": "VDDIO",
+            "type": "power_in"
+          },
+          {
+            "number": "7",
+            "name": "GND（按 datasheet）",
+            "type": "ground"
+          },
+          {
+            "number": "8",
+            "name": "VDD",
+            "type": "power_in"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "压力量程 300~1100hPa 档（按 datasheet）",
+          "压力精度 ±1hPa 级（按 datasheet）",
+          "I2C/SPI 可选，按 CSB 配置"
+        ],
+        "selectionNotes": [
+          "量程按工作压力 1/3~2/3 选",
+          "开孔导压，避免胶/三防漆堵塞",
+          "校准零点与量程"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "压力",
+          "I2C",
+          "SPI"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "6 轴 IMU（MPU-6050）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "MPU-6050",
+        "manufacturer": "TDK InvenSense",
+        "value": "±2~16g / ±250~2000dps（按 datasheet）",
+        "footprint": "QFN-24 4×4mm",
+        "category": "传感器",
+        "description": "经典 6 轴消费级 IMU（3 轴加速度 + 3 轴陀螺），I2C 数字接口。零偏与灵敏度误差必须校准，安装应力与振动会直接污染输出。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "SDA",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "SCL",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "INT",
+            "type": "output"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "AD0",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VDD",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VDDIO",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "FSYNC",
+            "type": "input"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "加速度 ±2/4/8/16g 可选（按 datasheet）",
+          "角速度 ±250/500/1000/2000dps 可选",
+          "16bit 输出、I2C 接口（按 datasheet）"
+        ],
+        "selectionNotes": [
+          "六面静态校准后使用",
+          "远离板边/连接器受力点",
+          "ODR/滤波按应用带宽设置"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "IMU",
+          "6轴",
+          "MPU-6050"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "低噪声 6 轴 IMU（ICM-42688-P）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ICM-42688-P",
+        "manufacturer": "TDK InvenSense",
+        "value": "低噪声 6 轴档（按 datasheet）",
+        "footprint": "LGA-14 2.5×3.0mm",
+        "category": "传感器",
+        "description": "低噪声 6 轴 IMU，适合姿态/振动/运动检测。噪声密度、量程、ODR 与接口模式按 datasheet，安装与减震设计决定实际可用精度。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "VDD",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VDDIO",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "SCLK/SCL",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "SDI/SDA",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "SDO",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "CS",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "INT1/INT2",
+            "type": "output"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "低噪声密度档（按 datasheet）",
+          "SPI/I2C 接口，量程档位按 datasheet",
+          "内置滤波/ODR 配置按 datasheet"
+        ],
+        "selectionNotes": [
+          "按振动/姿态频段选 ODR 与滤波",
+          "六面校准+温度补偿",
+          "减震安装，避免 PCB 应力"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "IMU",
+          "低噪声",
+          "ICM-42688"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "霍尔开关（A3144EUA-T）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "A3144EUA-T",
+        "manufacturer": "Allegro MicroSystems",
+        "value": "单极霍尔开关（操作点几十 Gauss 级）",
+        "footprint": "TO-92（UA）",
+        "category": "传感器",
+        "description": "单极霍尔开关，磁场超过操作点输出翻转、低于释放点恢复。开漏输出需上拉，磁铁极性/气隙/磁滞必须按 datasheet 校核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "VCC",
+            "type": "power_in"
+          },
+          {
+            "number": "2",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "3",
+            "name": "OUT（开漏）",
+            "type": "output"
+          }
+        ],
+        "polarity": "有极性（VCC/GND 不可反接）",
+        "keyRatings": [
+          "单极开关型，操作点/释放点按 datasheet",
+          "开漏输出需上拉电阻",
+          "工作电压范围按 datasheet"
+        ],
+        "selectionNotes": [
+          "上拉 4.7k~10k（按电流/速率）",
+          "气隙按磁铁规格留余量",
+          "长线加 RC 与 ESD 保护"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "霍尔",
+          "开关型",
+          "磁路"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "槽型光电开关（ITR9608）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ITR9608",
+        "manufacturer": "Everlight（亿光）",
+        "value": "槽型对射光电（槽宽/响应按 datasheet）",
+        "footprint": "DIP-4 插件",
+        "category": "传感器",
+        "description": "槽型红外对射光电开关，用于限位/计数/到位检测。LED 需限流、接收侧需上拉/比较器，遮光结构与环境光是误触发主因。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "LED 阳极",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "LED 阴极",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "接收输出/集电极",
+            "type": "output"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "接收地/发射极",
+            "type": "ground"
+          }
+        ],
+        "polarity": "有极性（LED 与接收侧极性不可反接）",
+        "keyRatings": [
+          "槽宽/检测距离按 datasheet",
+          "LED 正向电流按 datasheet（常见 10~20mA 级）",
+          "响应时间按 datasheet"
+        ],
+        "selectionNotes": [
+          "LED 串限流电阻并留 20% 余量",
+          "结构加遮光筋避免漏光串扰",
+          "输出加施密特/软件去抖"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "光电",
+          "对射",
+          "限位"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "模拟 MEMS 麦克风（SPU0410LR5H-QB）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SPU0410LR5H-QB",
+        "manufacturer": "Knowles",
+        "value": "灵敏度 −38dBV/Pa 级、SNR 65dB 级（按 datasheet）",
+        "footprint": "LGA 3.76×3.00×1.10mm",
+        "category": "传感器",
+        "description": "模拟输出 MEMS 麦克风，适合语音采集。模拟小信号需隔直/偏置与 ADC 共模匹配，声孔密封与防尘网直接影响灵敏度。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "VDD",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "OUT",
+            "type": "output"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "灵敏度 −38dBV/Pa 级、SNR 65dB 级（按 datasheet）",
+          "AOP/功耗按 datasheet",
+          "声孔位置与密封按 datasheet 推荐"
+        ],
+        "selectionNotes": [
+          "隔直电容与 ADC 输入阻抗匹配",
+          "声孔正对外壳开孔、加防尘网",
+          "远离电源/振动源，差分/屏蔽走线"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "麦克风",
+          "MEMS",
+          "模拟"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "压电蜂鸣器 4kHz 12mm（PS1240P02BT）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "PS1240P02BT",
+        "manufacturer": "TDK",
+        "value": "压电无源蜂鸣器、谐振 4kHz 级（按 datasheet）",
+        "footprint": "插件 12.2mm 级",
+        "category": "执行器",
+        "description": "压电无源蜂鸣器，需外部方波驱动在谐振频率附近发声。不能直接加直流，驱动频率与占空比决定声压，声孔/腔体影响音量。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "正极（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "负极（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "有极性（引脚正负按 datasheet）",
+        "keyRatings": [
+          "谐振频率 4kHz 级（按 datasheet）",
+          "声压/驱动电压按 datasheet",
+          "容性负载，需方波驱动"
+        ],
+        "selectionNotes": [
+          "MCU PWM 方波驱动，频率取谐振点",
+          "占空比 50% 声压最大",
+          "串小电阻限流，避免长期直流"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "执行器",
+          "蜂鸣器",
+          "压电",
+          "无源"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "5V 信号继电器（G5V-1-DC5）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "G5V-1-DC5",
+        "manufacturer": "Omron（欧姆龙）",
+        "value": "5V 线圈 / 1A 级触点（按 datasheet）",
+        "footprint": "DIP-6",
+        "category": "执行器",
+        "description": "5V 信号继电器，用于小功率负载通断与隔离。线圈是感性负载必须续流，触点额定须按阻性/感性/灯负载降额。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "线圈 +",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "线圈 −",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "COM",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "NO",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "NC",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "NC/空脚（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "有极性（线圈极性/触点方向按 datasheet）",
+        "keyRatings": [
+          "线圈 5V 档，线圈电阻/电流按 datasheet",
+          "触点额定按负载类型降额",
+          "机械/电气寿命按 datasheet"
+        ],
+        "selectionNotes": [
+          "线圈并续流二极管（阴极接 VCC）",
+          "驱动管按线圈电流×1.5~2 选",
+          "触点侧加 RC/压敏吸收"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "执行器",
+          "继电器",
+          "线圈",
+          "续流"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "双路 H 桥电机驱动（DRV8833PWPR）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "DRV8833PWPR",
+        "manufacturer": "Texas Instruments",
+        "value": "双路 H 桥、1.5A/路 级（按 datasheet）",
+        "footprint": "TSSOP-16（PW）",
+        "category": "电机驱动",
+        "description": "双路低电压 H 桥电机驱动，适合小型直流电机/步进电机。堵转与启动电流、PWM 频率、续流与散热是选型关键。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "nSLEEP（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "2",
+            "name": "AIN1（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "3",
+            "name": "AIN2（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "4",
+            "name": "BIN1（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "5",
+            "name": "BIN2（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "6",
+            "name": "nFAULT（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "7",
+            "name": "BISEN（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "8",
+            "name": "BOUT2（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "9",
+            "name": "BOUT1（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "10",
+            "name": "VCP（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "11",
+            "name": "VM（按 datasheet）",
+            "type": "power_in"
+          },
+          {
+            "number": "12",
+            "name": "GND（按 datasheet）",
+            "type": "ground"
+          },
+          {
+            "number": "13",
+            "name": "AISEN（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "14",
+            "name": "AOUT1（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "15",
+            "name": "AOUT2（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "16",
+            "name": "VINT（按 datasheet）",
+            "type": "power_out"
+          }
+        ],
+        "polarity": "有极性（VM/GND 不可反接）",
+        "keyRatings": [
+          "每路 1.5A RMS 级（按 datasheet）",
+          "工作电压 2.7~10.8V 档（按 datasheet）",
+          "内置过流/过热保护（按 datasheet）"
+        ],
+        "selectionNotes": [
+          "按堵转/启动电流选驱动并留余量",
+          "PWM 频率建议 ≥20kHz 避开音频",
+          "电机端加高频电容与共模抑制 EMI"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "执行器",
+          "电机驱动",
+          "H桥",
+          "DRV8833"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "USB 2.0 ESD 保护阵列（USBLC6-2SC6）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "USBLC6-2SC6",
+        "manufacturer": "STMicroelectronics",
+        "value": "2 路 ESD、5V 档（按 datasheet）",
+        "footprint": "SOT-23-6",
+        "category": "ESD 保护",
+        "description": "USB 2.0 D+/D− 用双路 ESD 保护阵列，低电容、同时保护 VBUS 与数据线。必须紧靠连接器，地回路短而宽。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "I/O1",
+            "type": "bidirectional"
+          },
+          {
+            "number": "2",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "3",
+            "name": "I/O2",
+            "type": "bidirectional"
+          },
+          {
+            "number": "4",
+            "name": "I/O2（按 datasheet）",
+            "type": "bidirectional"
+          },
+          {
+            "number": "5",
+            "name": "VBUS",
+            "type": "power_in"
+          },
+          {
+            "number": "6",
+            "name": "I/O1（按 datasheet）",
+            "type": "bidirectional"
+          }
+        ],
+        "polarity": "有极性（VBUS/GND 不可反接）",
+        "keyRatings": [
+          "2 路 ESD，低电容 pF 级（按 datasheet）",
+          "VRWM 5V 档、VC 按 datasheet",
+          "IEC 61000-4-2 等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "放在 USB 连接器附近",
+          "差分对成对穿过，分支尽量短",
+          "地脚多过孔接保护地"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "ESD",
+          "TVS",
+          "USB",
+          "接口保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "4 通道低电容 ESD（TPD4E05U06）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "TPD4E05U06",
+        "manufacturer": "Texas Instruments",
+        "value": "4 通道、0.5pF 级（按 datasheet）",
+        "footprint": "USON-10（DQA，2.5×1.0mm）",
+        "category": "ESD 保护",
+        "description": "4 通道超低电容 ESD 保护，适合 USB/HDMI 等高速差分线。通道间参数匹配与布局对称决定信号完整性。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "I/O1",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O2",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O3",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O4",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          }
+        ],
+        "polarity": "无极性（按 pin map 接 I/O 与地）",
+        "keyRatings": [
+          "4 通道、0.5pF 级低电容（按 datasheet）",
+          "VRWM 5.5V 级档（按 datasheet）",
+          "IEC 61000-4-2 等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "差分对内通道成对使用",
+          "器件骑在走线上，分支短",
+          "GND 就近接保护地"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "ESD",
+          "低电容",
+          "高速接口",
+          "TVS阵列"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "4 通道 TVS 阵列（SRV05-4）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SRV05-4",
+        "manufacturer": "Semtech",
+        "value": "4 通道、5V 档（按 datasheet）",
+        "footprint": "SOT-23-6",
+        "category": "TVS",
+        "description": "4 路 TVS 阵列，用于多根低速/中速信号线的 ESD 与瞬态保护。结电容与钳位电压按信号速率/后级耐压复核。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "I/O1",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O2",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O3",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O4",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VCC/GND（按 datasheet）",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          }
+        ],
+        "polarity": "有极性（VCC/GND 按 pin map）",
+        "keyRatings": [
+          "4 路 I/O 保护、5V standoff 档",
+          "结电容 pF 级（按 datasheet）",
+          "ESD/浪涌等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "按信号电压选 VRWM",
+          "VC ≤后级绝对最大值×0.8",
+          "多路并联注意电容叠加"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "TVS",
+          "ESD",
+          "多路",
+          "接口保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "超低电容 4 通道 ESD（RClamp0524P）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "RClamp0524P",
+        "manufacturer": "Semtech",
+        "value": "4 通道、0.3pF 级（按 datasheet）",
+        "footprint": "SLP2510P8（DFN 10 脚）",
+        "category": "ESD 保护",
+        "description": "超低电容 4 通道 ESD 保护，用于高速差分/射频附近接口。器件寄生电容与分支长度对眼图/插损影响显著。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "I/O1",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O2",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O3",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O4",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          }
+        ],
+        "polarity": "无极性（按 pin map 接 I/O 与地）",
+        "keyRatings": [
+          "4 通道、0.3pF 级（按 datasheet）",
+          "VRWM 5V 档、VC 按 datasheet",
+          "IEC 61000-4-2 等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "超高速接口优先选此档",
+          "保护器件分支极短、地就近",
+          "加保护后复测眼图/插损"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "ESD",
+          "超低电容",
+          "高速",
+          "接口保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "单路 5V ESD 二极管（PESD5V0S1BA）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "PESD5V0S1BA",
+        "manufacturer": "Nexperia",
+        "value": "单路、5V 档（按 datasheet）",
+        "footprint": "SOD-323",
+        "category": "ESD 保护",
+        "description": "单路 5V ESD 保护二极管，适合按键/复位/单根 GPIO 等低速信号。单向/双向属性按型号后缀与 datasheet 确认。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "按 datasheet 确认单向/双向与极性",
+        "keyRatings": [
+          "VRWM 5V 档（按 datasheet）",
+          "结电容/钳位电压按 datasheet",
+          "ESD 等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "单根信号就近放置",
+          "低速线可用几 pF 级器件",
+          "地回路短、避免 stub"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "ESD",
+          "单路",
+          "SOD-323",
+          "GPIO"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "200W 5V 单向 TVS（SMF5.0A）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SMF5.0A",
+        "manufacturer": "Littelfuse",
+        "value": "5V standoff / 200W 级（按 datasheet）",
+        "footprint": "SOD-123FL",
+        "category": "TVS",
+        "description": "200W 级单向 TVS，用于电源/长线接口的 ESD 与浪涌钳位。VRWM 5V 档，必须核对 VC/IPP 与被保护器件耐压。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "阴极（色带）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "阳极",
+            "type": "passive"
+          }
+        ],
+        "polarity": "有极性（色带=阴极，单向）",
+        "keyRatings": [
+          "VRWM 5.0V 档、峰值功率 200W 级（按 datasheet）",
+          "VC/IPP 按 datasheet",
+          "单向，适用直流/单极性信号"
+        ],
+        "selectionNotes": [
+          "VRWM ≥1.1~1.2×最大工作电压",
+          "VC ≤后级绝对最大值×0.8",
+          "TVS 前必须有保险丝/PPTC"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "TVS",
+          "浪涌",
+          "单向",
+          "电源保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "共模滤波器 90Ω（ACM2012-900-2P）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ACM2012-900-2P",
+        "manufacturer": "TDK",
+        "value": "共模阻抗 90Ω@100MHz 级（按 datasheet）",
+        "footprint": "0805 级",
+        "category": "共模电感",
+        "description": "0805 级共模滤波器，用于 USB/通用差分接口的共模噪声抑制。差模插损低，但差分对布线不对称会抵消抑制效果。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "线圈 A 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "线圈 A 端 2（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "3",
+            "name": "线圈 B 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "4",
+            "name": "线圈 B 端 2（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（差分对须对称布线）",
+        "keyRatings": [
+          "共模阻抗 90Ω@100MHz 档（按 datasheet）",
+          "额定电流/DCR 按 datasheet",
+          "差模插损低"
+        ],
+        "selectionNotes": [
+          "放在 ESD 保护之后、进入板内前",
+          "差分对同层等长、不换层",
+          "额定电流按接口最大值留余量"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "共模电感",
+          "EMI",
+          "USB",
+          "滤波"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "双通道数字隔离器（ADuM1201ARZ）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ADuM1201ARZ",
+        "manufacturer": "Analog Devices",
+        "value": "2 通道、2.5kVrms 级（按 datasheet）",
+        "footprint": "SOIC-8",
+        "category": "隔离器",
+        "description": "双通道数字隔离器，替代光耦用于 UART/SPI/GPIO 隔离。需要两侧独立供电，隔离等级/速率/CMTI/默认输出按 datasheet。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "VDD1",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND1",
+            "type": "ground"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VIA",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VOA",
+            "type": "output"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VDD2",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND2",
+            "type": "ground"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VIB",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VOB",
+            "type": "output"
+          }
+        ],
+        "polarity": "有极性（两侧 VDD/GND 分开，不可反接）",
+        "keyRatings": [
+          "隔离等级 2.5kVrms 级（按 datasheet）",
+          "速率/传播延迟按 datasheet",
+          "CMTI 按 datasheet"
+        ],
+        "selectionNotes": [
+          "两侧电源/地完全分开",
+          "按总线速率留 2 倍余量",
+          "确认失效默认输出状态"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "隔离器",
+          "数字隔离",
+          "SOIC-8",
+          "接口保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "高速光耦（6N137）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "6N137",
+        "manufacturer": "Vishay/onsemi 等（通用型号）",
+        "value": "10Mbps 级、逻辑输出（按 datasheet）",
+        "footprint": "DIP-8/SOP-8",
+        "category": "光耦",
+        "description": "高速逻辑输出光耦，用于数字信号隔离与电平转换。CTR/阈值电流随温度与老化变化，LED 驱动与输出上拉须留余量。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "NC（按 datasheet）",
+            "type": "no_connect"
+          },
+          {
+            "number": "2",
+            "name": "LED 阳极",
+            "type": "passive"
+          },
+          {
+            "number": "3",
+            "name": "LED 阴极",
+            "type": "passive"
+          },
+          {
+            "number": "4",
+            "name": "NC（按 datasheet）",
+            "type": "no_connect"
+          },
+          {
+            "number": "5",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "6",
+            "name": "VO（开漏）",
+            "type": "output"
+          },
+          {
+            "number": "7",
+            "name": "VE（使能）",
+            "type": "input"
+          },
+          {
+            "number": "8",
+            "name": "VCC",
+            "type": "power_in"
+          }
+        ],
+        "polarity": "有极性（LED 与输出侧 VCC/GND 不可反接）",
+        "keyRatings": [
+          "速率 10Mbps 级（按 datasheet）",
+          "隔离电压按厂家规格（按 datasheet）",
+          "阈值电流/输出上拉按 datasheet"
+        ],
+        "selectionNotes": [
+          "LED 驱动电流按最坏 CTR 设计",
+          "输出开漏需上拉",
+          "高速线注意传播延迟/脉宽失真"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "光耦",
+          "隔离",
+          "高速",
+          "DIP-8"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "信号线 TBU 限流器（TBU-CA065-200-WH）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "TBU-CA065-200-WH",
+        "manufacturer": "Bourns",
+        "value": "200mA 级、650V 级（按 datasheet）",
+        "footprint": "DFN/SMD（按 datasheet）",
+        "category": "保护器件",
+        "description": "瞬态阻断单元（TBU），用于信号线的过流/浪涌限流，常与 TVS 配合构成二级保护。触发电流、峰值电压与动作时间按 datasheet。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "线路输入侧（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "线路输出侧（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "有极性（线路输入/输出侧按 datasheet）",
+        "keyRatings": [
+          "保持/触发电流 200mA 级（按 datasheet）",
+          "峰值电压 650V 级（按 datasheet）",
+          "动作时间/复位特性按 datasheet"
+        ],
+        "selectionNotes": [
+          "与 TVS/后级耐压配合使用",
+          "放在连接器与后级之间",
+          "注意正常信号电流/压降"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "TBU",
+          "过流保护",
+          "信号线",
+          "浪涌"
+        ]
+      }
+    }
+  ]
+}

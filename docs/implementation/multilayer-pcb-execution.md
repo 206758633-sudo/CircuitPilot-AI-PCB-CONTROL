@@ -223,6 +223,10 @@ USB（90Ω 差分，外层微带）+ SPI 时钟（内层 L2）的四层高速板
 | `GET /api/eda/pcb/layers` | 读铜层数 + 完整层表（`copperCount`、`layers[{id,name,type,layerStatus}]`）；读失败 `409 PCB_LAYER_COUNT_READ_FAILED` |
 | `POST /api/eda/pcb/layers` | body `{copperLayers, approvalIds, save=true}`：层数校验（2,4,…,32 偶数，`isEdaCopperLayerCount`）→ **消费 write 批准**（无批准 409 `AUTOMATION_APPROVAL_REQUIRED`）→ 读 before → `pcb.layers.setCount`（必须返回 true，否则 409 `PCB_LAYER_COUNT_SET_FAILED`）→ 读回校验（层数相等 + `copperLayerIds(n)` 每层存在且 type=SIGNAL，否则 409 `PCB_LAYER_COUNT_VERIFY_FAILED`，带 before/after/expectedLayerIds）→ 保存（`SAVE_FAILED`）→ 落 `pcb-layer-stack` 证据 |
 
+**前端入口（第 66 轮补口）**：`GET/POST /api/eda/pcb/layers` 已有 UI 消费者——EDA 执行页的「叠层与铜层数」面板（`src/components/LayerStackPanel.tsx`）：
+读当前铜层数/层列表 → 填目标层数（2,4,…,32）→ 签发一次性 write 批准 → 写 → 展示服务端写后读回校验（层数/铜层 id=SIGNAL）、before/after、保存状态与证据落盘结果；
+官方 Beta 能力提示"变更后必须人工复核叠层与设计规则"。布线收尾在「布局与布线」页签的 `RoutingWritePanel`（重建铺铜+保存，`POST /api/eda/pcb/routing/finish`），收尾后回读覆铜详情。
+
 - 证据类型 `pcb-layer-stack` 已登记进 `EVIDENCE_KINDS`（`runtime/evidence-store.mjs`），真机执行后
   落盘 `artifacts/evidence/pcb-layer-stack/*.json`。
 - 回归测试：`runtime/__tests__/pcb-layers-http.test.mjs`（5 用例：GET 读层 / 无批准拒绝且不写板 /

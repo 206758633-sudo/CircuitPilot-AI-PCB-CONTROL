@@ -1,0 +1,60 @@
+{
+ "ranAt": "2026-10-14T03:50:42.790Z",
+ "rows": [
+  {
+   "stage": "1 运行时",
+   "ok": true,
+   "detail": "ok=true pid="
+  },
+  {
+   "stage": "2 AI 设计链路可用性",
+   "ok": true,
+   "detail": "ready=true provider=codex_account auth=true version=codex-cli 0.161.0"
+  },
+  {
+   "stage": "2b AI 出设计（衣橱助手需求）",
+   "ok": true,
+   "detail": "HTTP OK，planning.ready=false，器件身份空=14 项缺失"
+  },
+  {
+   "stage": "3 立创商城匹配元件/封装",
+   "ok": true,
+   "detail": "抽 6 个料号命中 6/6（全量 58/58=100%，见 wardrobe-bom-lcsc-match.json）"
+  },
+  {
+   "stage": "4 原理图绘制+网表",
+   "ok": true,
+   "detail": "原理图器件 12 个（U1,U2,U3,U4,U5,U6…）| 原始条目 80"
+  },
+  {
+   "stage": "5 PCB 布局读/写",
+   "ok": true,
+   "detail": "PCB 器件 8 个（写回能力已验证过；落板需 EDA 点击）"
+  },
+  {
+   "stage": "6 原理图→PCB 落板",
+   "ok": false,
+   "detail": "ready=false 待上板=12 PCB=8 缺=R1,R2,R3,R4"
+  },
+  {
+   "stage": "7 DRC 检查",
+   "ok": true,
+   "detail": "drc/start HTTP=200"
+  },
+  {
+   "stage": "8 发布闸门（正式出货放行）",
+   "ok": false,
+   "detail": "ready=undefined 阻断=[]"
+  },
+  {
+   "stage": "9 正式生产文件导出",
+   "ok": false,
+   "detail": "allowed=undefined code=- outputClass=undefined"
+  },
+  {
+   "stage": "10 3D STEP 产物",
+   "ok": true,
+   "detail": "存在 10919025 字节，头 ISO-10303-21;"
+  }
+ ]
+}

@@ -193,3 +193,169 @@ describe('persistence fallback', () => {
     expect(migrated.projectChats['motor-node'].messages).toEqual([]);
   });
 });
+
+describe('C4 输入变化自动标废批准', () => {
+  const approvedTask = (state: ReturnType<typeof appReducer>) => ({
+    ...state,
+    task: {
+      ...state.task,
+      status: 'approved' as const,
+      planHash: 'approved-plan-hash',
+      steps: [{ id: 'step-1', title: '读取上下文', description: '读取真实 EDA 上下文', affected: ['eda'], selected: true, status: 'done' as const, risk: 'low' as const }],
+    },
+  });
+
+  it('需求更新后：已批准任务退回 planned，planHash 作废并记录 invalidation', () => {
+    const base = approvedTask(createSeedState());
+    const requirement = base.requirements[0];
+    const next = appReducer(base, { type: 'UPDATE_REQUIREMENT', requirement: { ...requirement, value: '3.3' } });
+    expect(next.task.status).toBe('planned');
+    expect(next.task.planHash.startsWith('invalidated-')).toBe(true);
+    expect(next.task.invalidation?.trigger).toBe('requirement');
+    expect(next.task.invalidation?.reason).toContain('需求');
+  });
+
+  it('器件变化同样标废；draft 状态不受影响（没有可失效的批准）', () => {
+    const base = approvedTask(createSeedState());
+    const component = base.components[0];
+    const next = appReducer(base, { type: 'UPDATE_COMPONENT', component: { ...component, value: '10k' } });
+    expect(next.task.invalidation?.trigger).toBe('component');
+
+    const draft = createSeedState();
+    expect(draft.task.status).toBe('draft');
+    const after = appReducer(draft, { type: 'ADD_ASSETS', assets: [] });
+    expect(after.task).toEqual(draft.task);
+  });
+
+  it('C1：服务端有业务状态时用服务端恢复（项目/需求/器件/资料整体替换）', () => {
+    const initial = createSeedState();
+    const project = { ...initial.projects[0], id: 'server-project', code: 'SRV-01', name: '服务端恢复项目' };
+    const next = appReducer(initial, {
+      type: 'HYDRATE_BUSINESS_STATE',
+      state: {
+        projects: [project],
+        activeProjectId: 'server-project',
+        requirements: [{ ...initial.requirements[0], id: 'server-req', name: '服务端需求' }],
+        components: [initial.components[0]],
+        assets: [],
+      },
+    });
+    expect(next.projects).toHaveLength(1);
+    expect(next.projects[0].id).toBe('server-project');
+    expect(next.activeProjectId).toBe('server-project');
+    expect(next.requirements[0].id).toBe('server-req');
+  });
+
+  it('C1：服务端为空时不覆盖本地项目（首次启动不清空用户正在编辑的内容）', () => {
+    const initial = createSeedState();
+    const next = appReducer(initial, {
+      type: 'HYDRATE_BUSINESS_STATE',
+      state: { projects: [], activeProjectId: '', requirements: [], components: [], assets: [] },
+    });
+    expect(next).toBe(initial);
+  });
+
+  it('C1：追溯三件套从 Runtime 恢复（版本/修改/审计整体替换）', () => {
+    const initial = createSeedState();
+    const next = appReducer(initial, {
+      type: 'HYDRATE_TRACE_STATE',
+      versions: [{ id: 'rv1', label: '服务端版本', kind: 'milestone', date: '2026-10-20', summary: 's', validationStatus: 'pass', requirements: 1, components: 1, designObjects: 1 }],
+      changes: [{ id: 'rc1', time: '2026-10-20', source: 'runtime', actor: 'runtime', action: 'persist', objectType: 'project', objectId: 'p1', summary: '服务端修改' }],
+      audit: [{ id: 'ra1', time: '2026-10-20', type: 'version', title: '服务端审计', detail: 'd', status: 'info' }],
+    });
+    expect(next.versions.map((item) => item.id)).toEqual(['rv1']);
+    expect(next.changes.map((item) => item.id)).toEqual(['rc1']);
+    expect(next.audit.map((item) => item.id)).toEqual(['ra1']);
+  });
+
+  it('C1：Runtime 追溯状态为空时不覆盖本地记录（首次启动不清空）', () => {
+    const initial = createSeedState();
+    const next = appReducer(initial, { type: 'HYDRATE_TRACE_STATE', versions: [], changes: [], audit: [] });
+    expect(next).toBe(initial);
+  });
+
+  it('C1：activeProjectId 指向不存在的项目时回退到第一个项目', () => {
+    const initial = createSeedState();
+    const project = { ...initial.projects[0], id: 'only-project' };
+    const next = appReducer(initial, {
+      type: 'HYDRATE_BUSINESS_STATE',
+      state: { projects: [project], activeProjectId: 'missing', requirements: [], components: [], assets: [] },
+    });
+    expect(next.activeProjectId).toBe('only-project');
+  });
+
+});
+
+describe('C4 EDA 指纹 / Runtime 版本漂移提前标废', () => {
+  const approvedWithEnv = (edaFingerprint = 'fp-aaaa-1111', runtimeVersion = '0.4.0') => {
+    const base = createSeedState();
+    const withEnv = appReducer(base, { type: 'PATCH_EDA', patch: { targetFingerprint: edaFingerprint } });
+    const withVersion = appReducer(withEnv, { type: 'PATCH_RUNTIME', patch: { reachable: true, serviceVersion: runtimeVersion } });
+    return appReducer(withVersion, { type: 'PATCH_TASK', patch: { status: 'approved', planHash: 'approved-hash', steps: [{ id: 's1', title: '计划', description: '读取', affected: ['eda'], selected: true, status: 'pending' as const, risk: 'low' as const }] } });
+  };
+
+  it('批准时绑定环境快照（EDA 指纹 + Runtime 版本）', () => {
+    const state = approvedWithEnv();
+    expect(state.task.boundEnv?.edaFingerprint).toBe('fp-aaaa-1111');
+    expect(state.task.boundEnv?.runtimeVersion).toBe('0.4.0');
+    expect(state.task.status).toBe('approved');
+  });
+
+  it('指纹未变不误伤；指纹变化后旧批准退回 planned 并记录 eda 触发器', () => {
+    const state = approvedWithEnv();
+    const same = appReducer(state, { type: 'CHECK_ENV_DRIFT', edaFingerprint: 'fp-aaaa-1111', runtimeVersion: '0.4.0' });
+    expect(same.task.status).toBe('approved');
+
+    const drifted = appReducer(state, { type: 'CHECK_ENV_DRIFT', edaFingerprint: 'fp-bbbb-2222', runtimeVersion: '0.4.0' });
+    expect(drifted.task.status).toBe('planned');
+    expect(drifted.task.planHash.startsWith('invalidated-')).toBe(true);
+    expect(drifted.task.invalidation?.trigger).toBe('eda');
+    expect(drifted.task.invalidation?.reason).toContain('指纹');
+    expect(drifted.task.invalidation?.reason).toContain('fp-bbbb-2222');
+  });
+
+  it('Runtime 版本变化标废为 code 触发器；无绑定快照的草稿不受影响', () => {
+    const state = approvedWithEnv();
+    const drifted = appReducer(state, { type: 'CHECK_ENV_DRIFT', edaFingerprint: 'fp-aaaa-1111', runtimeVersion: '0.4.1' });
+    expect(drifted.task.invalidation?.trigger).toBe('code');
+    expect(drifted.task.invalidation?.reason).toContain('Runtime 版本');
+
+    const draft = createSeedState();
+    const after = appReducer(draft, { type: 'CHECK_ENV_DRIFT', edaFingerprint: 'fp-x', runtimeVersion: '9.9.9' });
+    expect(after.task).toEqual(draft.task);
+  });
+});
+
+describe('P0-2/P1-3 复审 2026-10-29：验证记录持久化 + 写门禁镜像', () => {
+  const officialCheck = (state: ReturnType<typeof createSeedState>) => {
+    const base = state.validations[0];
+    return { ...base, id: 'official-erc', name: 'ERC', source: 'official' as const, projectId: state.projects[0].id, status: 'pass' as const, count: 0, findings: [] };
+  };
+
+  it('HYDRATE_VALIDATIONS 以 Runtime 记录为准（官方行带 projectId/source 原样恢复）', () => {
+    const initial = createSeedState();
+    const next = appReducer(initial, { type: 'HYDRATE_VALIDATIONS', validations: [officialCheck(initial)] });
+    const restored = next.validations.find((item) => item.id === 'official-erc');
+    expect(restored?.source).toBe('official');
+    expect(restored?.projectId).toBe(initial.projects[0].id);
+  });
+
+  it('Runtime 未返回记录时保留本地行（不把走查数据清空、也不伪造官方）', () => {
+    const initial = createSeedState();
+    const next = appReducer(initial, { type: 'HYDRATE_VALIDATIONS', validations: [] });
+    expect(next.validations.length).toBe(initial.validations.length);
+    expect(next.validations.some((item) => item.source === 'official')).toBe(false);
+  });
+
+  it('SET_WRITE_GATE 区分全局暂停与本会话暂停（会话解除不影响全局）', () => {
+    const initial = createSeedState();
+    const both = appReducer(initial, { type: 'SET_WRITE_GATE', paused: true, sessionPaused: true });
+    expect(both.settings.writePaused).toBe(true);
+    expect(both.settings.sessionPaused).toBe(true);
+    const sessionOnly = appReducer(both, { type: 'SET_WRITE_GATE', paused: false, sessionPaused: true });
+    expect(sessionOnly.settings.writePaused).toBe(false);
+    expect(sessionOnly.settings.sessionPaused).toBe(true);
+    const resumed = appReducer(sessionOnly, { type: 'SET_WRITE_GATE', paused: false, sessionPaused: false });
+    expect(resumed.settings.sessionPaused).toBe(false);
+  });
+});

@@ -70,3 +70,13 @@ describe('invalidateTaskApproval', () => {
     expect(next.status).not.toBe('approved');
   });
 });
+
+describe('invalidateTaskApproval 失效上下文', () => {
+  it('记录触发器与原因（C4 自动标废要给用户可读解释）', () => {
+    const state = createSeedState();
+    const task = { ...state.task, status: 'approved' as const, steps: [{ id: 's1', title: 'step', description: 'desc', affected: ['U1'], selected: true, status: 'approved' as const, risk: 'low' as const }] };
+    const next = invalidateTaskApproval(task, {}, 1700000000000, { trigger: 'component', reason: '器件清单变化' });
+    expect(next.invalidation).toEqual({ trigger: 'component', reason: '器件清单变化', at: new Date(1700000000000).toISOString() });
+    expect(next.planHash.startsWith('invalidated-')).toBe(true);
+  });
+});

@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
-import { LoaderCircle } from 'lucide-react';
+import { Check, Copy, LoaderCircle } from 'lucide-react';
 import type { Tone } from '../types';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -80,7 +81,7 @@ export function SelectField({ label, hint, children, className = '', ...props }:
 
 export function Toggle({ checked, onChange, label, description, disabled }: { checked: boolean; onChange: (checked: boolean) => void; label: string; description?: string; disabled?: boolean }) {
   return (
-    <button type="button" className="toggle-row" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} disabled={disabled}>
+    <button type="button" className="toggle-row" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} disabled={disabled} title={disabled ? description : undefined}>
       <span className="toggle-row__copy"><strong>{label}</strong>{description && <small>{description}</small>}</span>
       <span className={`switch ${checked ? 'is-on' : ''}`} aria-hidden><span /></span>
     </button>
@@ -107,4 +108,60 @@ export function SegmentedTabs({ items, value, onChange, label }: { items: Array<
 
 export function TableFrame({ children, label }: { children: ReactNode; label: string }) {
   return <div className="table-wrap" role="region" aria-label={label} tabIndex={0}>{children}</div>;
+}
+
+interface CopyValueProps {
+  value: string;
+  label: string;
+  /** 界面展示内容，默认展示完整 value；长路径建议传完整值让 CSS 折行。 */
+  display?: ReactNode;
+  className?: string;
+}
+
+/**
+ * 长路径 / 哈希 / Job ID 的只读值：等宽展示 + 一键复制。
+ * 复制失败不静默：立即回退到 textarea + execCommand，再失败才提示不可复制（aria-live 告知）。
+ */
+export function CopyValue({ value, label, display, className = '' }: CopyValueProps) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
+
+  const copy = async () => {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(value);
+      ok = true;
+    } catch {
+      try {
+        const area = document.createElement('textarea');
+        area.value = value;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(area);
+      } catch {
+        ok = false;
+      }
+    }
+    setState(ok ? 'copied' : 'failed');
+    window.setTimeout(() => setState('idle'), ok ? 1600 : 2600);
+  };
+
+  return (
+    <span className={`copy-value ${className}`.trim()}>
+      <code title={value} className="copy-value__text">{display ?? value}</code>
+      <button
+        type="button"
+        className={`copy-value__button ${state === 'copied' ? 'is-copied' : ''} ${state === 'failed' ? 'is-failed' : ''}`}
+        onClick={() => void copy()}
+        aria-label={`复制${label}`}
+        title={state === 'copied' ? '已复制' : state === 'failed' ? '复制失败，请手动选择文本' : `复制${label}`}
+      >
+        {state === 'copied' ? <Check size={13} /> : <Copy size={13} />}
+      </button>
+      <span className="visually-hidden" role="status" aria-live="polite">{state === 'copied' ? `${label}已复制` : state === 'failed' ? `${label}复制失败` : ''}</span>
+    </span>
+  );
 }

@@ -1,0 +1,180 @@
+{
+  "kind": "agent-rollback-drill-incident",
+  "at": "2026-10-30T03:08:52.263168+00:00",
+  "title": "非创建变更 + 整档 source.restore 回滚演练失败（C1 0.01mm）",
+  "status": "ROLLBACK_FAILED_SURFACE_RECOVERED_SOURCE_DIGEST_MISMATCH_LOCK_RELEASED",
+  "userApproved": true,
+  "approval": {
+    "approvalId": "05e9ebbfac3ee185",
+    "planHash": "c0b54846600520cbea48ba7aec789ea6ed59144c3612829c6f7f7a0d3f87dafe",
+    "approvedAt": null
+  },
+  "target": {
+    "projectId": "project-1790610000001",
+    "projectName": "衣橱助手V2.0 测试板",
+    "pcbUuid": "5595e77cead09682",
+    "windowId": "0a54ded2-92cb-4981-ba1d-d255575c357f",
+    "targetFingerprintBefore": "1b77a3f34a5511de69338849d5a7ea0224f56c66f428111db9e364c7af1df596",
+    "targetFingerprintAfter": "9e77b81595da33f1b025c903b80ec9cb2b85220678e9ef25417505be7416e13c"
+  },
+  "execution": {
+    "id": "84c220b7-fdbf-4847-85f9-faa3951b04ce",
+    "jobId": "job_2da0a163-216b-4843-9252-715de7f9ebb7",
+    "state": "rollback_failed",
+    "error": {
+      "code": "EDA_REQUEST_ABANDONED",
+      "message": "EDA调用已被派发但未在上限内返回（15000ms），渲染进程里可能仍在执行"
+    },
+    "rollbackError": {
+      "code": "PCB_ROLLBACK_VERIFY_FAILED",
+      "message": "PCB恢复后的源码摘要不匹配"
+    },
+    "rollbackScope": "stage",
+    "snapshotRestored": false,
+    "rollbackFailed": true,
+    "snapshot": {
+      "digest": "ec2ba51e62d849bd230aa15a49d21d210a38099458d12adb5f0b41978f58033f",
+      "size": 543623
+    },
+    "currentSource": {
+      "digest": "6664e2033fa3cba71bde82d1cd0544f7ae7a92ecdf16fc507ec804515c388f4e",
+      "size": 543623,
+      "rawSha256": "1e98a0d5a3064bcadd8b822e5bc92a91fdaa3dd5ab096e66910c487f818b2f44"
+    },
+    "progress": {
+      "completed": 1,
+      "total": 4
+    },
+    "events": {
+      "baselineDrcCount": 1,
+      "c1ModifyPassed": true,
+      "secondOperationAbandoned": true,
+      "rollbackAttempted": true,
+      "rollbackVerified": false
+    }
+  },
+  "boardComparison": {
+    "componentsBefore": 53,
+    "componentsAfter": 53,
+    "linesBefore": 773,
+    "linesAfter": 773,
+    "viasBefore": 117,
+    "viasAfter": 117,
+    "poursBefore": 4,
+    "poursAfter": 4,
+    "outlineBefore": 1,
+    "outlineAfter": 1,
+    "placementDiffCount": 0,
+    "c1Before": {
+      "xMm": 45.999999439999996,
+      "yMm": 10.00000032,
+      "rotationDeg": 0
+    },
+    "c1After": {
+      "xMm": 45.999999439999996,
+      "yMm": 10.00000032,
+      "rotationDeg": 0
+    },
+    "surfaceReadbackIdentical": true
+  },
+  "postDrillDrc": {
+    "requestId": "req-20261030-post-drill-drc-1",
+    "jobId": "job_e82524e1-5bc8-41bb-b6d6-30b654db961f",
+    "itemCount": 1,
+    "ready": false,
+    "finding": "Netlist Error / Import Changes（与演练前已知的 1 条 EDA 快照错误同类）",
+    "evidence": {
+      "kind": "drc-report",
+      "ref": "/Users/jescochen/Library/Application Support/com.circuitpilot.desktop/state/evidence/drc-report/drc-report-2026-10-30T03-08-18-431Z-4a3b4d5c2fc9.json",
+      "digest": "4a3b4d5c2fc9d8396052886abd4f10507dd80f14a3717e1a9b85b3aff82b0a93"
+    }
+  },
+  "writeLock": {
+    "safetyLocked": true,
+    "lockedAt": "2026-10-30T03:04:18.831Z",
+    "executionId": "84c220b7-fdbf-4847-85f9-faa3951b04ce",
+    "code": "PCB_ROLLBACK_VERIFY_FAILED",
+    "message": "PCB恢复后的源码摘要不匹配",
+    "scope": "stage",
+    "released": true,
+    "releasedAt": "2026-10-30T03:18:00Z",
+    "releaseApprovedByUser": true,
+    "releaseNote": "用户明确批准释放；接受语义恢复，sourceDigest 未回到快照已记录为未解释缺口"
+  },
+  "recovery": {
+    "attempted": true,
+    "required": "人工撤销/恢复后再释放安全写锁",
+    "knownOption": "EasyEDA GUI Cmd+Z 回到演练前状态并保存；需要用户明确批准后执行，且必须重新核对 sourceDigest == ec2ba51e... 与 DRC",
+    "userChoice": "manual EasyEDA Cmd+Z, then read-only re-verification",
+    "recoveryPending": true,
+    "doNotReleaseSafetyLockUntil": "sourceDigest re-check + surface counts + DRC + explicit user approval",
+    "method": "manual EasyEDA Cmd+Z x2, no save",
+    "steps": [
+      {
+        "step": 1,
+        "sourceDigest": "86321b9b63154a4285d7d36bc07b22abbf1d1d07a3b8654aa7ff8249c4212feb",
+        "c1Mm": [
+          46.00999942,
+          10.00000032
+        ],
+        "interpretation": "中间状态：C1 仍为 46.01mm"
+      },
+      {
+        "step": 2,
+        "sourceDigest": "ade564e0a14a3e30ea621dff0b5e9aa29d0973a91e805845916e9352be760cef",
+        "c1Mm": [
+          45.99999944,
+          10.00000032
+        ],
+        "interpretation": "C1 与表面状态回到演练前；sourceDigest 仍不等于快照 ec2ba51e…"
+      }
+    ],
+    "currentState": {
+      "sourceDigest": "ade564e0a14a3e30ea621dff0b5e9aa29d0973a91e805845916e9352be760cef",
+      "sourceDigestMatchesSnapshot": false,
+      "components": 53,
+      "lines": 773,
+      "vias": 117,
+      "pours": 4,
+      "outline": 1,
+      "placementDiffCount": 0,
+      "c1Mm": [
+        45.99999944,
+        10.00000032
+      ],
+      "drcItemCount": 1,
+      "drcNote": "仍为已知 Netlist Error / Import Changes",
+      "safetyLocked": true,
+      "saved": true,
+      "savedAt": null,
+      "savedDigest": "ade564e0a14a3e30ea621dff0b5e9aa29d0973a91e805845916e9352be760cef"
+    },
+    "conclusion": "两次 Cmd+Z 并保存后，几何/表面/DRC 与演练前一致；sourceDigest 仍为 ade564e0…，未回到快照 ec2ba51e…。用户明确批准接受语义恢复并释放安全锁；摘要差异保留为未解释缺口，不能宣称摘要级回滚成功。",
+    "safetyLockReleased": true,
+    "postRecoveryDrc": "1 item, same known Netlist Error / Import Changes"
+  },
+  "noClaims": [
+    "这不是回滚成功证据",
+    "未证明 source.restore 字节级/摘要级可靠",
+    "未释放安全写锁",
+    "失败后没有自动重试或再次写盘",
+    "无生产导出/签核/订单"
+  ],
+  "productFinding": [
+    "整档 source.restore 在本机 EasyEDA 3.2.x/实验适配器组合下再次出现 sourceDigest 不匹配，失败关闭逻辑与安全锁按设计生效",
+    "表面回读（C1 位置、53 器件、773 线、117 过孔、4 铺铜、1 板框）与演练前完全一致，但不能据此宣称整档恢复成功；摘要不一致必须由证据裁决",
+    "EDA_REQUEST_ABANDONED 说明无效目标的写调用在渲染进程挂起超过 15s；禁止对同类失败自动重试"
+  ],
+  "postRecoveryDrc": {
+    "requestId": "req-20261030-post-recovery-drc-1",
+    "jobId": "job_39b6564b-c5f5-4727-930e-7fac1a7f9834",
+    "itemCount": 1,
+    "ready": false,
+    "finding": "Netlist Error / Import Changes（与演练前已知的 1 条 EDA 快照错误同类）",
+    "evidence": {
+      "kind": "drc-report",
+      "ref": "/Users/[REDACTED_USER]/Library/Application Support/com.circuitpilot.desktop/state/evidence/drc-report/drc-report-2026-10-30T03-17-53-781Z-db05a939e47a.json",
+      "digest": "db05a939e47ade97f7c96ead44da8fa4c02e4bf50868d147a64ae7ac84ae2a9f"
+    }
+  }
+}

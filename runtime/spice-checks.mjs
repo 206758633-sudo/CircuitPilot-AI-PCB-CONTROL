@@ -81,14 +81,42 @@ export function i2cPullupCheck({ vddV = 3.3, pullupOhm = null, busNets = ['SDA',
 
 /** 从语义计划/网表里推断该跑哪些检查、以及设计现状（哪些器件缺失）。 */
 export function checksFromDesign({ nets = [], components = [], rails = { vddV: 3.3, vbusV: 5 } } = {}) {
-  const netNames = nets.map((net) => String(net?.name ?? net?.net ?? net).toUpperCase());
-  const ccNets = ['CC1', 'CC2'].filter((name) => netNames.includes(name));
-  const busNets = ['SDA', 'SCL'].filter((name) => netNames.includes(name));
-  const resistorRefs = components.filter((component) => /^R\d+/i.test(String(component?.designator || component?.ref || '')));
-  const hasRd = resistorRefs.length > 0;
+  const netNames = nets.map((net) => String(net?.name ?? net?.net ?? net));
+  /**
+   * 网名匹配按**后缀**而不是全等：真机板子上的 USB-C CC 网络叫 `USB_CC1`/`USB_CC2`
+   * （不是 `CC1`/`CC2`），全等匹配会让"设计里明明有 CC 网络"变成"这项检查不适用"，
+   * 于是仿真门禁永远只能给出"没有仿真"——这是匹配口径把真电路判没了。
+   */
+  const pins = components.flatMap((component) => (Array.isArray(component?.pins) ? component.pins : [])
+    .filter((pin) => pin?.net)
+    .map((pin) => ({ designator: String(component?.designator ?? ''), part: String(component?.part ?? ''), net: String(pin.net), pin: String(pin.pin ?? pin?.number ?? '') })));
+  const ccNets = netNames.filter((name) => /(?:^|_)CC[12]$/i.test(name));
+  const busNets = netNames.filter((name) => /(?:^|_)(SDA|SCL)$/i.test(name));
+  const isGround = (name) => /^(?:GND|AGND|DGND|PGND|GNDA|GNDD|SGND|VSS|0V?)(?:\d+)?$/i.test(String(name || ''));
+  const isResistor = (designator) => /^R\d+/i.test(String(designator || ''));
+  /**
+   * Rd 是否存在：按**真实连通性**判定——某颗电阻的两个引脚分别落在 CC 网络与 GND 上。
+   * 不能用"板上有电阻"这种近似：那会让缺 Rd 的真实缺陷被别的电阻掩盖成 pass。
+   */
+  const rdByNet = {};
+  for (const net of ccNets) {
+    const candidates = [...new Set(pins.filter((pin) => pin.net === net && isResistor(pin.designator)).map((pin) => pin.designator))];
+    for (const designator of candidates) {
+      const own = pins.filter((pin) => pin.designator === designator);
+      const otherPin = own.find((pin) => pin.net !== net);
+      if (otherPin && isGround(otherPin.net)) {
+        rdByNet[net] = { designator, part: own[0]?.part || null };
+        break;
+      }
+    }
+  }
+  const hasRd = ccNets.length > 0 && ccNets.every((net) => Boolean(rdByNet[net]));
+  const resistorRefs = components.filter((component) => isResistor(component?.designator || component?.ref));
   const pullupOhm = resistorRefs.length > 1 ? 4_700 : null;
+  const rdDetail = ccNets.map((net) => `${net}→${rdByNet[net] ? `${rdByNet[net].designator}${rdByNet[net].part ? `(${rdByNet[net].part})` : ''}` : '（无）'}`);
+  const ccCheck = ccRdCheck({ vbusV: rails.vbusV, ccNets, hasRd });
   return [
-    ccRdCheck({ vbusV: rails.vbusV, ccNets, hasRd }),
+    { ...ccCheck, note: [ccCheck.note, ccNets.length ? `CC 网络匹配：${rdDetail.join('、')}；Rd 按 5.1kΩ 建模` : null].filter(Boolean).join('；') || null },
     i2cPullupCheck({ vddV: rails.vddV, busNets, pullupOhm }),
   ];
 }

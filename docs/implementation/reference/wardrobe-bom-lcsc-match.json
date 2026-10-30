@@ -1,0 +1,590 @@
+{
+ "kind": "circuitpilot-lcsc-replication-test",
+ "source": "价格-BOM_衣橱助手_V1.0",
+ "total": 58,
+ "matched": 58,
+ "matchRate": 1,
+ "failed": [],
+ "results": [
+  {
+   "no": "1",
+   "qty": 7,
+   "value": "10uF",
+   "mfr": "SAMSUNG(三星)",
+   "lcsc": "C315248",
+   "ok": true,
+   "device": "{\"uuid\":\"a11f6c289f8749789ba2bdc217fb187b\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "2",
+   "qty": 1,
+   "value": "10uF",
+   "mfr": "SAMSUNG(三星)",
+   "lcsc": "C96446",
+   "ok": true,
+   "device": "{\"uuid\":\"2c0b8c28991349ce9fd1ddf484d5b92d\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "3",
+   "qty": 13,
+   "value": "100nF",
+   "mfr": "SAMSUNG(三星)",
+   "lcsc": "C1525",
+   "ok": true,
+   "device": "{\"uuid\":\"87bb635d0b2f489a9f60e7cd225beb3c\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "4",
+   "qty": 27,
+   "value": "1uF",
+   "mfr": "SAMSUNG(三星)",
+   "lcsc": "C52923",
+   "ok": true,
+   "device": "{\"uuid\":\"992c7b7e1330424dbc2a0bbf52aedab3\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "5",
+   "qty": 2,
+   "value": "4.7uF",
+   "mfr": "SAMSUNG(三星)",
+   "lcsc": "C23733",
+   "ok": true,
+   "device": "{\"uuid\":\"653936b2266047f3aaef045cb8add38a\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "6",
+   "qty": 3,
+   "value": "10uF",
+   "mfr": "SAMSUNG(三星)",
+   "lcsc": "C15525",
+   "ok": true,
+   "device": "{\"uuid\":\"8fc1b66c312c42fbaa07a9acaed84b5b\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "7",
+   "qty": 2,
+   "value": "22uF",
+   "mfr": "HRE(芯声)",
+   "lcsc": "C6119863",
+   "ok": true,
+   "device": "{\"uuid\":\"e4f855e6f6d6455982b8b9a0889db08c\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "8",
+   "qty": 6,
+   "value": "100nF",
+   "mfr": "FH(风华)",
+   "lcsc": "C110251",
+   "ok": true,
+   "device": "{\"uuid\":\"423fc5b08ab04473b6eb9b7e9463cf24\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "9",
+   "qty": 12,
+   "value": "22pF",
+   "mfr": "FH(风华)",
+   "lcsc": "C1555",
+   "ok": true,
+   "device": "{\"uuid\":\"9c09c88e969f4f2b8aebe35c2860f168\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "10",
+   "qty": 2,
+   "value": "1nF",
+   "mfr": "FH(风华)",
+   "lcsc": "C1523",
+   "ok": true,
+   "device": "{\"uuid\":\"a6891bcc3aea4fbaa00989f6aebb15ca\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "11",
+   "qty": 2,
+   "value": "22uF",
+   "mfr": "SAMSUNG(三星)",
+   "lcsc": "C2762594",
+   "ok": true,
+   "device": "{\"uuid\":\"e78615ee0b2c41edb03940326e971d02\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "12",
+   "qty": 3,
+   "value": "100nF",
+   "mfr": "muRata(村田)",
+   "lcsc": "C77055",
+   "ok": true,
+   "device": "{\"uuid\":\"12b3818ac26c4590b4cad87fb3ce8d66\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "13",
+   "qty": 1,
+   "value": "47uF",
+   "mfr": "muRata(村田)",
+   "lcsc": "C140782",
+   "ok": true,
+   "device": "{\"uuid\":\"b5994ec2aaa04033962c6bb7558eeb9b\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "14",
+   "qty": 1,
+   "value": "22uF",
+   "mfr": "muRata(村田)",
+   "lcsc": "C3845593",
+   "ok": true,
+   "device": "{\"uuid\":\"3d3aa19609bf4563b131d158a2cf4f32\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "15",
+   "qty": 1,
+   "value": "WAFER-GH1.25-2PWB",
+   "mfr": "XUNPU(讯普)",
+   "lcsc": "C3029377",
+   "ok": true,
+   "device": "{\"uuid\":\"53fcc187d4584d07a0a5ee002bc51b05\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "16",
+   "qty": 1,
+   "value": "WAFER-GH1.25-3PLB",
+   "mfr": "XUNPU(讯普)",
+   "lcsc": "C3029369",
+   "ok": true,
+   "device": "{\"uuid\":\"e9436ec921bd4053b2f8c98492d04b7d\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "17",
+   "qty": 1,
+   "value": "KH-ZH1.5WF-02A",
+   "mfr": "kinghelm(金航标)",
+   "lcsc": "C2688779",
+   "ok": true,
+   "device": "{\"uuid\":\"847ee2471a6246a2b211155d05617756\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "18",
+   "qty": 1,
+   "value": "SS24",
+   "mfr": "R+O(宏嘉诚)",
+   "lcsc": "C7420362",
+   "ok": true,
+   "device": "{\"uuid\":\"105cf2dfb7b7488682228f86cded254a\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "19",
+   "qty": 3,
+   "value": "RCLAMP0521T-ES",
+   "mfr": "ElecSuper(静芯微）",
+   "lcsc": "C5180263",
+   "ok": true,
+   "device": "{\"uuid\":\"105e7e373b4046869f5006fb08a2d2eb\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "20",
+   "qty": 1,
+   "value": "SS24",
+   "mfr": "R+O(宏嘉诚)",
+   "lcsc": "C7420362",
+   "ok": true,
+   "device": "{\"uuid\":\"105cf2dfb7b7488682228f86cded254a\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "21",
+   "qty": 2,
+   "value": "PM127V-11-04P-H34",
+   "mfr": "XFCN(兴飞)",
+   "lcsc": "C492398",
+   "ok": true,
+   "device": "{\"uuid\":\"ecd4a8d783504459908ba79012a5f6fe\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "22",
+   "qty": 1,
+   "value": "X9821WRS-02-9TSN",
+   "mfr": "XKB Connectivity(中国星坤)",
+   "lcsc": "C397377",
+   "ok": true,
+   "device": "{\"uuid\":\"1451bb1662ce4ed48338a31fe5272b8d\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "23",
+   "qty": 1,
+   "value": "10uH",
+   "mfr": "cjiang(长江微电)",
+   "lcsc": "C602032",
+   "ok": true,
+   "device": "{\"uuid\":\"3a73acbf143e4cfbbcc4f508ea4f12c8\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "24",
+   "qty": 2,
+   "value": "NCD0402G1",
+   "mfr": "国星光电",
+   "lcsc": "C130723",
+   "ok": true,
+   "device": "{\"uuid\":\"a1b39b66b0a94c018a940a409e77f599\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "25",
+   "qty": 1,
+   "value": "NCD0402R1",
+   "mfr": "国星光电",
+   "lcsc": "C130719",
+   "ok": true,
+   "device": "{\"uuid\":\"cc6053fe767f4dc594d1c16cf029129e\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "26",
+   "qty": 2,
+   "value": "ZTS6216",
+   "mfr": "ZILLTEK(钰太)",
+   "lcsc": "C481302",
+   "ok": true,
+   "device": "{\"uuid\":\"03c965ce708843019929aabb07e77bf6\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "27",
+   "qty": 1,
+   "value": "LMBT3904DW1T1G",
+   "mfr": "LRC(乐山无线电)",
+   "lcsc": "C131781",
+   "ok": true,
+   "device": "{\"uuid\":\"bffb16de62bd4d5fb47348c2027b19f7\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "28",
+   "qty": 2,
+   "value": "SI2305",
+   "mfr": "GOODWORK(固得沃克)",
+   "lcsc": "C5248046",
+   "ok": true,
+   "device": "{\"uuid\":\"7395431b49944fd1ba82c8be3477c987\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "29",
+   "qty": 12,
+   "value": "10kΩ",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C25744",
+   "ok": true,
+   "device": "{\"uuid\":\"c3b9baa5ef2e4070a4c0f9e9cd04fe6e\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "30",
+   "qty": 2,
+   "value": "1kΩ",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C11702",
+   "ok": true,
+   "device": "{\"uuid\":\"65abbad5fa864933b552e0f016ece0db\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "31",
+   "qty": 1,
+   "value": "2kΩ",
+   "mfr": "YAGEO(国巨)",
+   "lcsc": "C852711",
+   "ok": true,
+   "device": "{\"uuid\":\"1f7d4a0060cc481ea4686884d526e395\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "32",
+   "qty": 1,
+   "value": "400mΩ",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C414973",
+   "ok": true,
+   "device": "{\"uuid\":\"9fe3aac2ec244d3cb834a506e1d7b993\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "33",
+   "qty": 1,
+   "value": "110kΩ",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C25745",
+   "ok": true,
+   "device": "{\"uuid\":\"e96454f8538644d196025c43c4d56290\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "34",
+   "qty": 2,
+   "value": "5.1kΩ",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C25905",
+   "ok": true,
+   "device": "{\"uuid\":\"ef1f93374e0c4079b48a2d1a3cec8f6b\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "35",
+   "qty": 1,
+   "value": "15kΩ",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C25756",
+   "ok": true,
+   "device": "{\"uuid\":\"6d104587f1cd4b509c6a5fb272570507\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "36",
+   "qty": 2,
+   "value": "1kΩ",
+   "mfr": "YAGEO(国巨)",
+   "lcsc": "C106235",
+   "ok": true,
+   "device": "{\"uuid\":\"75f6c515eb5447da88ddde6be059d298\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "37",
+   "qty": 22,
+   "value": "0Ω",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C17168",
+   "ok": true,
+   "device": "{\"uuid\":\"b4609725881a44fab1d65d4001f053a7\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "38",
+   "qty": 1,
+   "value": "51Ω",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C25125",
+   "ok": true,
+   "device": "{\"uuid\":\"7c5b8b5bd1174c3b9ad213db9835e938\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "39",
+   "qty": 4,
+   "value": "100kΩ",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C25741",
+   "ok": true,
+   "device": "{\"uuid\":\"acc294b6661948399f609b41c77ed19f\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "40",
+   "qty": 1,
+   "value": "511kΩ",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C64042",
+   "ok": true,
+   "device": "{\"uuid\":\"2912ecd7e47f465cb6d23c61b6b4c7a7\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "41",
+   "qty": 1,
+   "value": "91kΩ",
+   "mfr": "UNI-ROYAL(厚声)",
+   "lcsc": "C4147",
+   "ok": true,
+   "device": "{\"uuid\":\"089beb5b0c864ce4957f07c274c4d955\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "42",
+   "qty": 2,
+   "value": "TS-1010-C-A",
+   "mfr": "XKB Connectivity(中国星坤)",
+   "lcsc": "C692458",
+   "ok": true,
+   "device": "{\"uuid\":\"b9863e01891947eb8873323d5094c311\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "43",
+   "qty": 1,
+   "value": "TK-6580A8-1",
+   "mfr": "Yuandi(元迪)",
+   "lcsc": "C528772",
+   "ok": true,
+   "device": "{\"uuid\":\"e77f6647b48e499b82a96db35b577d71\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "44",
+   "qty": 1,
+   "value": "ESP32-S3-WROOM-1-N16R8",
+   "mfr": "ESPRESSIF(乐鑫)",
+   "lcsc": "C2913202",
+   "ok": true,
+   "device": "{\"uuid\":\"701a1177d7184d1bbf7f86d69d9385c2\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "45",
+   "qty": 1,
+   "value": "CH340K",
+   "mfr": "WCH(南京沁恒)",
+   "lcsc": "C18208922",
+   "ok": true,
+   "device": "{\"uuid\":\"8a66c76b022842dfa90ff7023a1b24eb\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "46",
+   "qty": 1,
+   "value": "CH334F",
+   "mfr": "WCH(南京沁恒)",
+   "lcsc": "C5187527",
+   "ok": true,
+   "device": "{\"uuid\":\"1de3ba376b6b4576b4b3ed42044f6439\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "47",
+   "qty": 1,
+   "value": "ME6211C28M5G-N",
+   "mfr": "MICRONE(南京微盟)",
+   "lcsc": "C53099",
+   "ok": true,
+   "device": "{\"uuid\":\"365f1d7c444f4969acb0b115d72370e5\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "48",
+   "qty": 1,
+   "value": "HX 0.5-24PIN XGXJ-H2.0",
+   "mfr": "hanxia(韩下)",
+   "lcsc": "C19269981",
+   "ok": true,
+   "device": "{\"uuid\":\"f983e6ed5b684466805cd6e08f89a57b\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "49",
+   "qty": 1,
+   "value": "ES8311",
+   "mfr": "Everest-semi(顺芯)",
+   "lcsc": "C962342",
+   "ok": true,
+   "device": "{\"uuid\":\"fe5e5027dfd04b5daa94f470f98cba94\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "50",
+   "qty": 1,
+   "value": "ES7210",
+   "mfr": "Everest-semi(顺芯)",
+   "lcsc": "C365743",
+   "ok": true,
+   "device": "{\"uuid\":\"2fd413fe160e415ca74027b16de8c0d0\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "51",
+   "qty": 1,
+   "value": "NS4150B",
+   "mfr": "Nsiway(纳芯威)",
+   "lcsc": "C189961",
+   "ok": true,
+   "device": "{\"uuid\":\"51a0db5219d04247a320c499c1e78875\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "52",
+   "qty": 1,
+   "value": "MT3608",
+   "mfr": "西安航天民芯",
+   "lcsc": "C84817",
+   "ok": true,
+   "device": "{\"uuid\":\"46b4913582294ab1a014b05451732c50\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "53",
+   "qty": 1,
+   "value": "TPS631000DRLR",
+   "mfr": "TI(德州仪器)",
+   "lcsc": "C5219190",
+   "ok": true,
+   "device": "{\"uuid\":\"0a6d5921bc1a48e6bd247a1d21929552\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "54",
+   "qty": 1,
+   "value": "1uH",
+   "mfr": "muRata(村田)",
+   "lcsc": "C882955",
+   "ok": true,
+   "device": "{\"uuid\":\"9b5ebefb4f7c42e0ae4dab6e6d5d8da0\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "55",
+   "qty": 1,
+   "value": "TP4056",
+   "mfr": "UMW(友台半导体)",
+   "lcsc": "C725790",
+   "ok": true,
+   "device": "{\"uuid\":\"409a1b830fcf4c81964fc0e9828f1486\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "56",
+   "qty": 1,
+   "value": "ME6211C15M5G-N",
+   "mfr": "MICRONE(南京微盟)",
+   "lcsc": "C53100",
+   "ok": true,
+   "device": "{\"uuid\":\"94afe9ece342488a9f0d90fe4cd4a63c\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "57",
+   "qty": 1,
+   "value": "TYPEC-304-ACP16",
+   "mfr": "XUNPU(讯普)",
+   "lcsc": "C2982555",
+   "ok": true,
+   "device": "{\"uuid\":\"efcbf47a409d4e24ac5cf4861bd5f710\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  },
+  {
+   "no": "58",
+   "qty": 1,
+   "value": "12MHz",
+   "mfr": "YXC(扬兴晶振)",
+   "lcsc": "C9002",
+   "ok": true,
+   "device": "{\"uuid\":\"c55a487937c74f7187dad65ee7795fed\",\"libraryUuid\":\"0819f05c4eef4c71ace90d822a990e87\",\"classification\":{\"libraryUu",
+   "error": null
+  }
+ ]
+}

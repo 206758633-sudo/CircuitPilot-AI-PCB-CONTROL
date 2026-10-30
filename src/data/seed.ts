@@ -4,7 +4,7 @@ const now = '2026-08-24 14:20';
 
 export const createSeedState = (): AppState => ({
   schemaVersion: 4,
-  currentPage: 'projects',
+  currentPage: 'overview',
   activeProjectId: 'mira-sense',
   projects: [
     {
@@ -24,7 +24,7 @@ export const createSeedState = (): AppState => ({
       name: 'CAN 电机节点',
       code: 'MOTOR-CAN-B02',
       description: '24V工业电机控制与CAN FD通信节点。',
-      stage: 'PCB布局',
+      stage: 'PCB',
       rootPath: '/Users/demo/Documents/MotorNode',
       edaProjectPath: '/Demo/LCEDA-Pro/projects/MotorNode.eprj2',
       archived: false,
@@ -98,6 +98,7 @@ export const createSeedState = (): AppState => ({
     projectInfo: null,
     documentInfo: null,
     writePaused: false,
+    targetFingerprint: null,
     diagnostics: [
       { id: 'diag-1', name: 'macOS环境', detail: 'Apple Silicon · macOS 26.5', status: 'pass' },
       { id: 'diag-2', name: '嘉立创EDA专业版', detail: 'V3.2.175 · 正版授权', status: 'pass' },
@@ -140,6 +141,7 @@ export const createSeedState = (): AppState => ({
   ],
   settings: {
     provider: 'demo',
+    baseUrl: '',
     onboardingComplete: false,
     model: 'auto',
     budget: 8000,

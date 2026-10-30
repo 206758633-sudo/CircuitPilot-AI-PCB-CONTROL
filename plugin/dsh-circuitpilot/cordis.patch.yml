@@ -1,0 +1,7 @@
+- insert:
+    - id: dsh-circuitpilot
+      name: 'dsh-circuitpilot'
+      config:
+        runtimeUrl: 'http://127.0.0.1:4178'
+        approvalMode: chat
+        uiUrl: 'http://127.0.0.1:4177'

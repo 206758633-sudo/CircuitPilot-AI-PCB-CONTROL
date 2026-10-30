@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "CircuitPilot 通用双板示例",
+    "description": "演示 design-spec 契约结构，不含任何具体板卡坐标"
+  },
+  "boards": [
+    {
+      "id": "main",
+      "name": "主板",
+      "layers": 4,
+      "outline": {
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            40,
+            0
+          ],
+          [
+            40,
+            30
+          ],
+          [
+            0,
+            30
+          ]
+        ],
+        "widthMm": 40,
+        "heightMm": 30
+      }
+    },
+    {
+      "id": "aux",
+      "name": "转接板",
+      "layers": 2,
+      "outline": {
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            20,
+            0
+          ],
+          [
+            20,
+            15
+          ],
+          [
+            0,
+            15
+          ]
+        ],
+        "widthMm": 20,
+        "heightMm": 15
+      }
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "if-board-to-board",
+      "name": "板间电源与信号",
+      "from": {
+        "board": "main",
+        "ref": "J1",
+        "pins": [
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      "to": {
+        "board": "aux",
+        "ref": "J2",
+        "pins": [
+          "1",
+          "2",
+          "3"
+        ]
+      },
+      "nets": [
+        "VBUS",
+        "GND",
+        "SIG"
+      ]
+    }
+  ],
+  "netIntent": [
+    {
+      "net": "VBUS",
+      "endpoints": [
+        "J1.1",
+        "J2.1",
+        "U1.1"
+      ]
+    },
+    {
+      "net": "GND",
+      "endpoints": [
+        "J1.2",
+        "J2.2",
+        "U1.2"
+      ]
+    },
+    {
+      "net": "SIG",
+      "endpoints": [
+        "J1.3",
+        "J2.3"
+      ]
+    }
+  ],
+  "bomLock": [
+    {
+      "ref": "U1",
+      "lcscId": "C00001",
+      "value": "MCU",
+      "footprint": "QFN-32",
+      "locked": true,
+      "mpn": null
+    },
+    {
+      "ref": "J1",
+      "mpn": "HEADER-1X3-2.54",
+      "value": "3P 排针",
+      "footprint": "2.54mm-1x3",
+      "locked": true,
+      "lcscId": null
+    },
+    {
+      "ref": "J2",
+      "lcscId": "C00002",
+      "value": "3P 排母",
+      "footprint": "2.54mm-1x3",
+      "locked": true,
+      "mpn": null
+    }
+  ],
+  "requirements": [
+    {
+      "id": "REQ-SCH-01",
+      "category": "schematic",
+      "requirement": "原理图网络与意图网表一致"
+    },
+    {
+      "id": "REQ-PCB-01",
+      "category": "pcb-layout",
+      "requirement": "关键信号满足最小间距规则"
+    },
+    {
+      "id": "REQ-DFM-01",
+      "category": "dfm",
+      "requirement": "通过在线 DFM 检查"
+    },
+    {
+      "id": "REQ-MECH-01",
+      "category": "structure-outline",
+      "requirement": "板框与接口位置满足结构限制"
+    },
+    {
+      "id": "REQ-FW-01",
+      "category": "firmware",
+      "requirement": "固件版本与 BOM 锁定物料一致"
+    }
+  ],
+  "acceptance": [
+    {
+      "requirementId": "REQ-SCH-01",
+      "criterion": "满足需求：原理图网络与意图网表一致",
+      "evidenceKind": "schematic-erc",
+      "needsReview": true
+    },
+    {
+      "requirementId": "REQ-PCB-01",
+      "criterion": "满足需求：关键信号满足最小间距规则",
+      "evidenceKind": "drc-report",
+      "needsReview": true
+    },
+    {
+      "requirementId": "REQ-DFM-01",
+      "criterion": "满足需求：通过在线 DFM 检查",
+      "evidenceKind": "dfm-evidence",
+      "needsReview": true
+    },
+    {
+      "requirementId": "REQ-MECH-01",
+      "criterion": "满足需求：板框与接口位置满足结构限制",
+      "evidenceKind": "pcb-layer-stack",
+      "needsReview": true
+    },
+    {
+      "requirementId": "REQ-FW-01",
+      "criterion": "固件清单与 BOM 逐项核对通过",
+      "evidenceKind": "signoff",
+      "needsReview": false
+    }
+  ]
+}

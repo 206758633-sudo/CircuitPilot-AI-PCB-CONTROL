@@ -59,9 +59,20 @@ test('从真实设计推断检查：本板没有电阻 → 两项检查都指向
   assert.equal(checks[0].defect !== null, true, '没有电阻 → CC 缺 Rd');
   assert.equal(checks[1].id, 'i2c-pullup');
   assert.equal(checks[1].defect !== null, true, '没有电阻 → I2C 缺上拉');
-  const withResistors = checksFromDesign({ nets, components: [...components, { designator: 'R1' }, { designator: 'R2' }, { designator: 'R3' }] });
-  assert.equal(withResistors[0].defect, null, '有电阻时 CC 检查按"已有 Rd"建网表');
-  assert.equal(withResistors[1].defect, null);
+  // 只有"电阻存在"不足以证明 Rd 存在：必须按真实连通性判定（某颗电阻两端分别在 CC 与 GND 上）
+  const withoutPins = checksFromDesign({ nets, components: [...components, { designator: 'R1' }, { designator: 'R2' }, { designator: 'R3' }] });
+  assert.equal(withoutPins[0].defect !== null, true, '没有引脚连通性证据时不能假设 Rd 存在');
+  // 真机命名：USB_CC1 / USB_CC2（后缀匹配），R19/R20 分别接 GND
+  const usbNets = [{ name: 'USB_CC1' }, { name: 'USB_CC2' }, { name: 'GND' }];
+  const usbComponents = [
+    { designator: 'U1', pins: [{ pin: '1', net: 'USB_CC1' }] },
+    { designator: 'R19', pins: [{ pin: '1', net: 'USB_CC1' }, { pin: '2', net: 'GND' }] },
+    { designator: 'R20', pins: [{ pin: '1', net: 'USB_CC2' }, { pin: '2', net: 'GND' }] },
+  ];
+  const connected = checksFromDesign({ nets: usbNets, components: usbComponents });
+  assert.equal(connected[0].applies, true, 'USB_CC1/USB_CC2 必须按后缀匹配到 CC 检查');
+  assert.equal(connected[0].defect, null, 'CC→GND 电阻存在 → Rd 检查按已有 Rd 建网表');
+  assert.match(connected[0].note, /USB_CC1→R19/);
   assert.equal(checksFromDesign({ nets: [{ name: 'GND' }], components: [] })[0].applies, false);
 });
 

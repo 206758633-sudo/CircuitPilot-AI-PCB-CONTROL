@@ -139,6 +139,9 @@ kbd { padding: 2px 5px; color: #828c88; background: #171b1b; border: 1px solid #
 .button--ghost:hover:not(:disabled) { background: rgba(75, 85, 81, .07); }
 .sidebar .button--ghost { color: #aeb6b2; }
 .button--danger { color: #fff; background: var(--red); border-color: #9e3027; }
+/* 语音识别进行中：红色 + 轻微脉冲，不改变尺寸，避免工具栏跳动。 */
+.button--recording { color: #fff; background: var(--red); border-color: #9e3027; animation: voice-pulse 1.4s ease-in-out infinite; }
+@keyframes voice-pulse { 50% { box-shadow: 0 0 0 3px rgba(199, 71, 58, .22); } }
 .button--sm { min-height: 28px; padding: 0 9px; font-size: 10px; }
 .icon-button { width: 34px; height: 34px; display: inline-grid; place-items: center; background: transparent; border: 1px solid var(--line); cursor: pointer; }
 .icon-button:hover { background: var(--paper-2); }
@@ -209,6 +212,12 @@ select.compact-select--plain { padding: 0 9px; background: #faf9f4; border: 1px 
 .requirement-progress .panel__body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; }
 .coverage-note, .inline-alert { padding: 9px 11px; display: flex; align-items: center; gap: 8px; color: #275a75; background: #e4eef2; border-left: 3px solid var(--blue); font-size: 10px; }
 .inline-alert--warning { color: #76520a; background: #f4eacb; border-left-color: var(--yellow); }
+.inline-alert--success { color: #1f5134; background: #e2efe4; border-left-color: var(--green); }
+.inline-alert--danger { color: #6d1f1b; background: #f6e2df; border-left-color: var(--red); }
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--ink-2); background: #eeece2; border: 1px solid var(--line); }
+.pill--neutral { color: var(--muted); }
+td details summary { cursor: pointer; font-size: 9px; color: var(--blue); }
+td details pre { max-width: 280px; max-height: 170px; overflow: auto; margin: 4px 0 0; padding: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; line-height: 1.45; color: var(--ink-2); background: #f4f2ea; border: 1px solid var(--line); }
 .blocking-note { margin-top: 4px; color: var(--red) !important; }
 
 .table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); }
@@ -604,6 +613,9 @@ td code { font-size: 9px; }
 .chat-composer__footer { margin-top: 7px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .chat-composer__footer > span { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 7px; }
 .chat-composer__actions { display: flex; align-items: center; gap: 6px; }
+/* 语音临时结果（interim）：只说给用户听，不写进输入框，说话过程中实时变化。 */
+.chat-voice-interim { margin-top: 7px; padding: 6px 9px; display: flex; align-items: flex-start; gap: 7px; color: var(--ink-2); background: #f6ece7; border: 1px dashed #d9aaa4; font-size: 10px; line-height: 1.5; }
+.chat-voice-interim svg { flex: 0 0 auto; margin-top: 1px; color: var(--red); }
 .chat-attachments { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
 .chat-attachments > span { max-width: 100%; min-height: 30px; padding: 5px 7px; display: flex; align-items: center; gap: 6px; color: var(--ink-2); background: var(--paper-2); border: 1px solid var(--line-strong); }
 .chat-attachments > span strong { max-width: 220px; overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
@@ -718,3 +730,76 @@ td code { font-size: 9px; }
   .chat-context-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .chat-setup-warning { grid-column: 1 / -1; }
 }
+
+/* ── 自定义模型 API（设置页「02 · AI PROVIDER」第二个页签） ─────────────────
+   只追加，不改动既有规则；沿用 --paper/--line/--ink 与 8~11px 的直角工业风节奏。 */
+.provider-tabs { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+
+.custom-provider-editor { display: grid; gap: 14px; }
+
+.custom-provider-list { display: grid; gap: 7px; }
+.custom-provider-list__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.custom-provider-list__head .standalone-label { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.custom-provider-list__items { display: grid; gap: 5px; }
+.custom-provider-item { padding: 7px 9px; display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 8px; text-align: left; color: var(--ink-2); background: var(--paper-2); border: 1px solid var(--line); cursor: pointer; }
+.custom-provider-item svg { color: var(--muted); }
+.custom-provider-item:hover { border-color: #b9bdb6; }
+.custom-provider-item.is-active { background: #eef0ea; border-left: 2px solid var(--orange); }
+.custom-provider-item__copy { display: grid; gap: 2px; min-width: 0; }
+.custom-provider-item__copy strong { font-size: 10px; color: var(--ink); overflow-wrap: anywhere; }
+.custom-provider-item__copy small { font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: var(--muted); overflow-wrap: anywhere; }
+
+.custom-provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+.custom-provider-form .field__hint { line-height: 1.5; }
+.custom-provider-actions { padding-top: 10px; border-top: 1px solid var(--line); }
+
+.provider-status--registry { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.provider-test--error > span { color: var(--red); }
+.provider-test--error svg { color: var(--red); }
+
+.model-catalog { display: grid; gap: 8px; }
+.model-catalog__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.model-catalog__head .standalone-label { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.model-catalog__head small { margin-left: 5px; color: var(--muted); font-size: 8px; }
+.model-catalog__grid { display: grid; gap: 4px; border: 1px solid var(--line); background: #faf9f4; padding: 6px; }
+.model-catalog__columns,
+.model-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr) 88px 104px 112px minmax(0, 1.2fr) 32px; align-items: start; gap: 6px; }
+.model-catalog__columns { padding: 0 2px 4px; color: var(--muted); font-size: 8px; letter-spacing: .04em; border-bottom: 1px solid var(--line); }
+.model-row__cell { display: grid; gap: 2px; min-width: 0; }
+.model-row__cell .input { padding: 4px 6px; font-size: 9px; min-height: 26px; }
+.model-row__error { color: var(--red); font-size: 8px; line-height: 1.35; }
+.model-row__checks { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.model-check { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-2); font-size: 9px; }
+.model-check input { width: 12px; height: 12px; accent-color: var(--graphite-3); }
+.model-row__cell--switch .toggle-row { min-height: 26px; padding: 2px 4px; border: 0; background: transparent; }
+.model-row__cell--switch .toggle-row strong { font-size: 9px; }
+.model-row__cell--switch .toggle-row small { display: none; }
+.model-row__cell--actions { justify-items: end; }
+.model-row .icon-button { width: 26px; height: 26px; }
+
+@media (max-width: 1080px) {
+  .custom-provider-grid { grid-template-columns: 1fr; }
+  .model-catalog__columns { display: none; }
+  .model-row { grid-template-columns: minmax(0, 1fr) 88px 104px 32px; }
+  .model-row__cell--switch, .model-row__cell:nth-child(2) { grid-column: span 2; }
+}
+
+/* 自定义模型 API 页签需要整行宽度：模型目录是 7 列网格（ID/名称/窗口/输出/输入/推理/操作），
+   挤在设置页右半栏（约 444px）会让列宽只剩 40~100px，输入框互相遮挡无法点击。
+   theme.css 的 .form-grid 是两列且晚于本文件加载，这里用更高特异性把编辑器内部块改回单列堆叠。 */
+.settings-layout .panel--provider-wide { grid-column: 1 / -1; }
+.custom-provider-editor .custom-provider-form { grid-template-columns: minmax(0, 1fr); }
+.custom-provider-editor .model-catalog__grid { overflow-x: auto; }
+
+/* ---------- 一级导航快捷入口（项目 / 需求约束 / 布局微调） ----------
+   两个导航分组会把侧栏顶高：720p 下页脚会被挤出视口（e2e 点击 nav-settings 失败）。
+   侧栏内部滚动 + 快捷入口条目更紧凑，保证 9 个入口都能点到。 */
+.sidebar { overflow-y: auto; overscroll-behavior: contain; }
+.nav--shortcuts { padding-top: 0; }
+.nav--shortcuts .nav__label { padding: 8px 10px 4px; }
+.nav--shortcuts button { min-height: 44px; }
+.nav--shortcuts button strong { font-size: 12.5px; }
+.nav--shortcuts button small { font-size: 9.5px; }
+
+.erc-findings-scroll { max-height: 320px; overflow: auto; }
+.erc-evidence { display: grid; gap: 10px; }

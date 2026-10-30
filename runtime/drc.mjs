@@ -48,8 +48,42 @@ export function dispositionFor(item) {
 }
 
 export const DRC_EXEMPTION_FILE_ENV = 'CIRCUITPILOT_DRC_EXEMPTIONS';
-export function defaultExemptionPath(env = process.env) {
-  return String(env[DRC_EXEMPTION_FILE_ENV] || '').trim() || join(homedir(), '.circuitpilot', 'drc-exemptions.json');
+export const DRC_EXEMPTION_DIR_ENV = 'CIRCUITPILOT_DRC_EXEMPTION_DIR';
+export const DRC_LEGACY_FILE_ENV = 'CIRCUITPILOT_DRC_LEGACY_EXEMPTIONS';
+const legacyExemptionFile = (env = process.env) => String(env[DRC_LEGACY_FILE_ENV] || '').trim() || join(homedir(), '.circuitpilot', 'drc-exemptions.json');
+/**
+ * 豁免文件按工程隔离（真机缺陷：全局单文件会让 A 板的豁免套到 B 板上）。
+ * 显式 CIRCUITPILOT_DRC_EXEMPTIONS 仍然最优先（兼容旧部署/测试）；
+ * 否则默认落在 `<dir>/project-<uuid>.json`，没有工程时退到 `<dir>/global.json`。
+ */
+export function exemptionScopePath(projectUuid = null, env = process.env) {
+  const dir = String(env[DRC_EXEMPTION_DIR_ENV] || '').trim() || join(homedir(), '.circuitpilot', 'drc-exemptions');
+  const scope = String(projectUuid || '').trim();
+  if (/^[A-Za-z0-9_-]{6,64}$/.test(scope)) return join(dir, `project-${scope}.json`);
+  return join(dir, 'global.json');
+}
+export function defaultExemptionPath(env = process.env, projectUuid = null) {
+  const explicit = String(env[DRC_EXEMPTION_FILE_ENV] || '').trim();
+  if (explicit) return explicit;
+  return exemptionScopePath(projectUuid, env);
+}
+/** 读"当前工程"的豁免文件；工程级文件不存在时回退旧版全局文件，但必须带 warning（不能静默混用）。 */
+export function loadScopedExemptionFile(projectUuid = null, env = process.env) {
+  const explicit = String(env[DRC_EXEMPTION_FILE_ENV] || '').trim();
+  if (explicit) return { ...loadExemptionFile(explicit), scope: { kind: 'explicit', projectUuid, scopedPath: explicit } };
+  const scopedPath = exemptionScopePath(projectUuid, env);
+  const scoped = loadExemptionFile(scopedPath);
+  if (scoped.exists) return { ...scoped, scope: { kind: projectUuid ? 'project' : 'global', projectUuid, scopedPath } };
+  const legacyPath = legacyExemptionFile(env);
+  if (existsSync(legacyPath)) {
+    const legacy = loadExemptionFile(legacyPath);
+    return {
+      ...legacy,
+      scope: { kind: 'legacy', projectUuid, scopedPath },
+      warning: `正在使用旧版全局豁免文件 ${legacyPath}（未按工程隔离，已弃用）；建议迁移到 ${scopedPath}`,
+    };
+  }
+  return { ...scoped, scope: { kind: projectUuid ? 'project' : 'global', projectUuid, scopedPath } };
 }
 
 const text = (value, limit = 200) => String(value ?? '').trim().slice(0, limit);
@@ -114,7 +148,13 @@ export function normalizeDrcReport(raw) {
       const net = text(data.net, 80) || netOf(obj1Suffix) || null;
       const signature = [errorType, ruleName, layer || '-', objTypes.join('->') || '-', net || '-'].join('|');
       const globalIndex = text(node?.globalIndex || node?.pos || data.globalIndex, 40) || null;
-      const instanceKey = [signature, position ? `${round1(position.x)},${round1(position.y)}` : '-', globalIndex || '-'].join('@');
+      // 稳定身份（第 31 轮真机缺陷修复）：此前 instanceKey 里塞了 globalIndex 和坐标，
+      // 而 EDA 每次 DRC 运行都会重排 globalIndex、挪动坐标——同一处违规在写前/写后两份报告里
+      // 变成两个不同 key，差分就永远是"全部消失 + 全部新增"（布线写入门禁因此在真板上永远拒写）。
+      // 现在优先用**对象图元 ID**（obj1/obj2，板上对象不变则 ID 不变），没有 ID 才退回坐标+后缀。
+      const objIds = [text(data.obj1, 80), text(data.obj2, 80)].filter(Boolean);
+      const stableIdentity = objIds.length === 2 ? objIds.join('->') : (objIds.join('->') || [obj1Suffix, obj2Suffix].filter(Boolean).join('->') || (position ? `${round1(position.x)},${round1(position.y)}` : '-'));
+      const instanceKey = [signature, stableIdentity].join('@');
       items.push({
         index: items.length,
         ...dispositionFor({ errorType }),

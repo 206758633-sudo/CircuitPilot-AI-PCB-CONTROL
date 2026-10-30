@@ -129,8 +129,10 @@ async function executeAction(executors, action) {
  * @param {object} [options.approvals] { plan:true, write:true, release:true }
  * @param {object|null} [options.journal]
  * @param {string} [options.runId]
+ * @param {Function|null} [options.assertWritesOpen] WP4 P1-11：写步骤执行前的写门禁回调；
+ *   无参调用（可异步），抛错即视为“写入已暂停/被锁”，run 进入 aborted，不执行该步骤。
  */
-export async function runRecipe({ recipe, executors = {}, params = {}, approvals = {}, approvalIds = [], approvalFingerprint = null, journal = null, runId = randomUUID(), signal = null, now = () => new Date().toISOString(), sleep = defaultSleep } = {}) {
+export async function runRecipe({ recipe, executors = {}, params = {}, approvals = {}, approvalIds = [], approvalFingerprint = null, journal = null, runId = randomUUID(), signal = null, assertWritesOpen = null, now = () => new Date().toISOString(), sleep = defaultSleep } = {}) {
   const normalized = validateRecipe(recipe);
   const record = (payload) => {
     if (!journal) return null;
@@ -150,6 +152,37 @@ export async function runRecipe({ recipe, executors = {}, params = {}, approvals
     const reason = typeof signal?.reason === 'string' ? signal.reason : (signal?.reason?.message ? String(signal.reason.message) : 'operator_requested');
     record({ ...base, ...where, phase: 'run.abort', reason, completedSteps: stepResults.length, ...extra });
     return { ok: false, state: RUN_STATES.ABORTED, runId, recipeId: normalized.id, aborted: { reason, stepId: where.stepId ?? null, stepIndex: where.stepIndex ?? null, completedSteps: stepResults.length, ...extra }, steps: stepResults };
+  };
+
+  // WP4 P1-11：在途暂停——每到一个**写步骤**（api allowWrite / GUI 写动作 / 声明了 write|release 批准）
+  // 执行前回调 Runtime 写门禁。抛错 → run 进入 aborted（不是 failed/假成功），journal 记
+  // `run.aborted_by_write_gate`；只读步骤不会被拦。
+  // mayHaveTakenEffect 语义：本次 run 在之前是否已经**发出过**写动作（一旦动作发出就按“可能已落盘”
+  // 保守处理，动作报错也不回收该标记），供恢复/半写收敛判断使用。
+  const stepIsWrite = (step) => (
+    step?.action?.allowWrite === true
+    || step?.action?.write === true
+    || step?.write === true
+    || step?.approval === 'write'
+    || step?.approval === 'release'
+  );
+  let writeMayHaveTakenEffect = false;
+  const writeGateAbortResult = (where, error) => {
+    const gateCode = error?.code || 'EDA_WRITE_PAUSED';
+    const message = String(error?.message || error).slice(0, 400);
+    const aborted = {
+      reason: 'write_gate_paused',
+      abortedByWriteGate: true,
+      code: gateCode,
+      message,
+      stepId: where.stepId ?? null,
+      stepIndex: where.stepIndex ?? null,
+      completedSteps: stepResults.length,
+      mayHaveTakenEffect: writeMayHaveTakenEffect,
+      details: error?.details ?? null,
+    };
+    record({ ...base, ...where, phase: 'run.aborted_by_write_gate', ...aborted });
+    return { ok: false, state: RUN_STATES.ABORTED, runId, recipeId: normalized.id, aborted, steps: stepResults };
   };
 
   const safeParams = params && typeof params === 'object' ? params : {};
@@ -201,6 +234,23 @@ export async function runRecipe({ recipe, executors = {}, params = {}, approvals
     const where = { stepId: step.id, stepIndex: index, title: step.title };
     if (abortRequested()) return abortResult(where, { phaseNote: 'at_step_boundary' });
 
+    // WP4 P1-11：写步骤执行前的在途暂停检查（只读步骤不受影响）。
+    if (stepIsWrite(step) && typeof assertWritesOpen === 'function') {
+      try {
+        await assertWritesOpen({
+          runId,
+          recipeId: normalized.id,
+          stepId: step.id,
+          stepIndex: index,
+          kind: step.action.kind,
+          command: step.action.kind === 'api' ? step.action.command : step.action.action,
+          title: step.title,
+        });
+      } catch (error) {
+        return writeGateAbortResult(where, error);
+      }
+    }
+
     // —— 人工步骤
     if (step.action.kind === 'human') {
       record({ ...base, ...where, phase: 'step.start', kind: 'human', action: step.action.action, instructions: step.action.instructions });
@@ -223,6 +273,8 @@ export async function runRecipe({ recipe, executors = {}, params = {}, approvals
     }
 
     record({ ...base, ...where, phase: 'step.start', kind: step.action.kind, action: step.action.kind === 'api' ? step.action.command : step.action.action, approval: step.approval, fallbackActions: step.fallback ? step.fallback.actions.length : 0 });
+    // 写动作一旦要发出就按“可能已落盘”标记（动作报错也不回收），供后续 in-flight 暂停/恢复判断。
+    if (stepIsWrite(step)) writeMayHaveTakenEffect = true;
     const maxAttempts = 1 + (step.onFail?.retries || 0);
     // 读回重试与动作重试分离：写动作绝不重放，读回可以只重读（配方可选 expect.readRetries）。
     const readAttempts = Math.max(1, step.expect?.readRetries ?? ((step.onFail?.retries || 0) + 1));
@@ -296,8 +348,7 @@ export async function runRecipe({ recipe, executors = {}, params = {}, approvals
 
     // 动作已发出但中止请求到达：写动作可能已生效，标记后返回 aborted（不读回、不重放）。
     if (abortRequested() && primaryActionOk) {
-      const mayHaveTakenEffect = step.action.allowWrite === true;
-      return abortResult(where, { mayHaveTakenEffect, phaseNote: 'after_action_before_readback' });
+      return abortResult(where, { mayHaveTakenEffect: writeMayHaveTakenEffect, phaseNote: 'after_action_before_readback' });
     }
 
     // 阶段 B：主通道读回（只重读，不重放动作）
@@ -318,7 +369,7 @@ export async function runRecipe({ recipe, executors = {}, params = {}, approvals
       try {
         record({ ...base, ...where, phase: 'fallback.start', actions: step.fallback.actions.length });
         for (let fallbackIndex = 0; fallbackIndex < step.fallback.actions.length; fallbackIndex += 1) {
-          if (abortRequested()) return abortResult(where, { mayHaveTakenEffect: step.action.allowWrite === true, phaseNote: 'during_fallback' });
+          if (abortRequested()) return abortResult(where, { mayHaveTakenEffect: writeMayHaveTakenEffect, phaseNote: 'during_fallback' });
           const fallbackAction = resolveParams(step.fallback.actions[fallbackIndex], safeParams, `fallback[${fallbackIndex}]`);
           const fallbackResult = await executeAction(executors, fallbackAction);
           if (fallbackResult !== undefined) actionResults[step.id] = fallbackResult;

@@ -49,7 +49,12 @@ export function countPlanOperations(plan: Record<string, unknown> | null | undef
  * 任何“重新生成/修改计划”的生产路径都必须调用它，否则旧批准会被静默复用到新计划上。
  * 若调用方已算出新的计划哈希，则以新哈希为准（新哈希本身就是未批准状态）。
  */
-export function invalidateTaskApproval(task: AiTask, patch: Partial<AiTask>, timestamp = Date.now()): AiTask {
+export function invalidateTaskApproval(
+  task: AiTask,
+  patch: Partial<AiTask>,
+  timestamp = Date.now(),
+  context?: { trigger: 'requirement' | 'component' | 'asset' | 'project' | 'eda' | 'code'; reason: string },
+): AiTask {
   return {
     ...task,
     ...patch,
@@ -58,5 +63,6 @@ export function invalidateTaskApproval(task: AiTask, patch: Partial<AiTask>, tim
     progress: 0,
     error: undefined,
     steps: task.steps.map((step) => ({ ...step, status: 'pending' })),
+    ...(context ? { invalidation: { ...context, at: new Date(timestamp).toISOString() } } : {}),
   };
 }

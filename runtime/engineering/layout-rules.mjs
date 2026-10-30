@@ -1,5 +1,5 @@
 /**
- * PCBA 布局规则引擎（把 docs/pcb-layout 的 128 条规则变成可执行判定）
+ * PCBA 布局规则引擎（把 docs/pcb-layout 的 151 条规则变成可执行判定）
  *
  * 设计原则（与本仓库其它工程模块一致）：
  *   1. 规则数值只存在于 rule pack（rules/board-layout-rules.json），代码不另抄一份常量；
@@ -52,7 +52,9 @@ const EPS = 1e-9;
 const sha256 = (value) => crypto.createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
 const round = (value, digits = 3) => (Number.isFinite(value) ? Math.round(value * 10 ** digits) / 10 ** digits : value);
 const isNum = (value) => typeof value === 'number' && Number.isFinite(value);
-const toNum = (value) => { const n = Number(value); return Number.isFinite(n) ? n : null; };
+// null/undefined/'' 不能被 Number() 变成 0：否则“未提供”会被当成实测 0，
+// 造成 SILK-04 这类规则把缺数据误判为 0 mm 违规（P1 真机示例）。
+const toNum = (value) => { if (value === null || value === undefined || value === '') return null; const n = Number(value); return Number.isFinite(n) ? n : null; };
 const mm = (value) => `${round(value)} mm`;
 
 // ---------------------------------------------------------------------------
@@ -101,7 +103,7 @@ export function validateRulePack(raw) {
   return problems;
 }
 
-/** 只暴露元信息，不把 128 条正文塞进每个 API 响应。 */
+/** 只暴露元信息，不把 150 条正文塞进每个 API 响应。 */
 export function layoutRulePackSummary() {
   const pack = layoutRulePack();
   return {
@@ -169,10 +171,132 @@ function blockersIn(rect, components, excludeRef) {
 function fmtList(list) { return list.length ? list.join('、') : '（无）'; }
 
 // 元件标准化：统一成"世界坐标 X/Y 范围 + courtyard"
+// ---- Z 轴装配净空（ZCLR）与布局变更影响（MOVE）的输入归一化 ----
+// 阈值默认值与 docs/pcb-layout 02 §7 / 03 §8 的规则表一一对应；调用方可用 input.limits 覆盖，
+// 但覆盖必须落在审计证据里（limits 会原样进 auditHash），避免"代码里偷偷放宽"。
+const ZCLR_DEFAULTS = Object.freeze({
+  matingClearanceMm: 0.5,      // ZCLR-03：装配区内器件到模块底面的安全余量
+  sideClearanceMm: 2.0,        // ZCLR-04：装配区外扩维护环带
+  sideMaxHeightMm: 2.0,        // ZCLR-04：环带内允许的最大器件高度
+  highComponentMm: 5.0,        // ZCLR-05/07：高件阈值
+  stackSolderMm: 0.3,          // ZCLR-06：单面焊点余量（双面计 2×）
+  stackEnclosureClearanceMm: 0.5, // ZCLR-06：到外壳内腔的安全余量
+  coverTallMm: 3.0,            // ZCLR-07：装配区下方电解/晶振的高度阈值
+  moveGrowthPercent: 30,       // MOVE-02：网络搬迁后长度增长上限
+  swMaxLengthMm: 25,           // MOVE-02：SW 类网络绝对长度上限
+  swLoopGrowthFactor: 1.5,     // MOVE-03：SW 环路面积增长上限（倍数）
+  pwrLoopGrowthFactor: 2.0,    // MOVE-03：其它功率环路面积增长上限（倍数）
+});
+
+function zclrLimits(input) {
+  const raw = input && typeof input === 'object' && input.limits && typeof input.limits === 'object' ? input.limits : {};
+  const out = { ...ZCLR_DEFAULTS };
+  for (const key of Object.keys(ZCLR_DEFAULTS)) {
+    const value = toNum(raw[key]);
+    if (isNum(value) && value >= 0) out[key] = value;
+  }
+  return Object.freeze(out);
+}
+
+/** 装配区：矩形 + 插合高度（模块 PCB 底面到本板面的距离）。 */
+function normalizeAssemblyZone(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = String(raw.name || '').trim();
+  const rectSource = raw.rect && typeof raw.rect === 'object' ? raw.rect : null;
+  const list = raw.rectMm ?? raw.quad ?? null;
+  let rect = null;
+  if (rectSource) {
+    const x0 = toNum(rectSource.x0 ?? rectSource.minX); const y0 = toNum(rectSource.y0 ?? rectSource.minY);
+    const x1 = toNum(rectSource.x1 ?? rectSource.maxX); const y1 = toNum(rectSource.y1 ?? rectSource.maxY);
+    if ([x0, y0, x1, y1].every(isNum)) rect = rectOf(x0, y0, x1, y1);
+  } else if (Array.isArray(list) && list.length === 4 && list.every((v) => isNum(toNum(v)))) {
+    const [x0, y0, x1, y1] = list.map(toNum);
+    rect = rectOf(x0, y0, x1, y1);
+  }
+  return {
+    name, rect,
+    kind: String(raw.kind || 'MODULE').toUpperCase(),
+    matingHeightMm: toNum(raw.matingHeightMm),
+    clearanceMm: toNum(raw.clearanceMm),
+    sideClearanceMm: toNum(raw.sideClearanceMm),
+    sideMaxHeightMm: toNum(raw.sideMaxHeightMm),
+    allowedTallRefs: Array.isArray(raw.allowedTallRefs) ? raw.allowedTallRefs.map((ref) => String(ref)) : [],
+    // 装配区自身的结构件（排针/板对板插座本体）：高度就等于插合高度，ZCLR-03 必须具名豁免
+    allowedRefs: Array.isArray(raw.allowedRefs) ? raw.allowedRefs.map((ref) => String(ref)) : [],
+    // ZCLR-04 是否适用：只有需要手指/烙铁侧向进入的装配区（插座式模组、可拆屏蔽罩）才判侧向环带
+    toolAccess: raw.toolAccess === true,
+    source: raw.source ?? null,
+    raw,
+  };
+}
+
+function normalizeChange(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const ref = String(raw.ref || '').trim();
+  if (!ref) return null;
+  const point = (value) => {
+    if (!value || typeof value !== 'object') return null;
+    const x = toNum(value.x); const y = toNum(value.y);
+    return isNum(x) && isNum(y) ? { x, y } : null;
+  };
+  const approvers = Array.isArray(raw.approvedBy) ? raw.approvedBy.map(String) : (raw.approvedBy ? [String(raw.approvedBy)] : []);
+  return {
+    ref, from: point(raw.from), to: point(raw.to),
+    reason: String(raw.reason || '').trim(),
+    ecoId: raw.ecoId ? String(raw.ecoId) : '',
+    approvedBy: approvers.filter(Boolean),
+    zclrRechecked: raw.zclrRechecked === true,
+    raw,
+  };
+}
+
+function normalizeNet(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const net = String(raw.net || '').trim();
+  if (!net) return null;
+  const cls = String(raw.class || raw.netClass || 'SIGNAL').toUpperCase();
+  return {
+    net, class: cls,
+    lengthBeforeMm: toNum(raw.lengthBeforeMm), lengthAfterMm: toNum(raw.lengthAfterMm),
+    loopAreaBeforeMm2: toNum(raw.loopAreaBeforeMm2), loopAreaAfterMm2: toNum(raw.loopAreaAfterMm2),
+    approvedBy: raw.approvedBy ? String(raw.approvedBy) : '',
+    raw,
+  };
+}
+
+function normalizePreviousPositions(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out = new Map();
+  for (const [ref, value] of Object.entries(raw)) {
+    if (!value || typeof value !== 'object') continue;
+    const x = toNum(value.x); const y = toNum(value.y);
+    if (isNum(x) && isNum(y)) out.set(String(ref), { x, y });
+  }
+  return out.size ? out : null;
+}
+
+/** 器件是否落在（或侵入）某个矩形：返回侵入量，未相交返回 null。 */
+function rectIntrusion(body, rect) {
+  const overlap = rectOverlap(body, rect);
+  return overlap ? overlap : null;
+}
+
+const ELECTROLYTIC_PATTERN = /(ELECTRO|ELEC\b|铝电解|电解|ECAP|CD11|RVT|CD28|SMD-CAP-ELEC)/i;
+function isElecOrCrystal(component) {
+  const pkg = String(component.packageClass || '').toUpperCase();
+  if (['CAP_ELEC', 'ELECTROLYTIC', 'CRYSTAL'].includes(pkg)) return true;
+  const raw = component.raw || {};
+  if (raw.electrolytic === true || raw.isElectrolytic === true) return true;
+  const text = [raw.device, raw.packageName, raw.footprint, raw.partNumber, raw.value].filter(Boolean).join(' ');
+  return ELECTROLYTIC_PATTERN.test(text);
+}
+
 function normalizeComponent(raw) {
   const widthMm = toNum(raw.widthMm); const heightMm = toNum(raw.heightMm);
   if (!(widthMm > 0) || !(heightMm > 0) || !isNum(toNum(raw.x)) || !isNum(toNum(raw.y))) return null;
   const rotationDeg = ((toNum(raw.rotationDeg) ?? 0) % 360 + 360) % 360;
+  const rawSide = raw.side ?? raw.layerSide;
+  const side = typeof rawSide === 'number' ? (rawSide === 2 ? 'bottom' : 'top') : (String(rawSide || '').toLowerCase() === 'bottom' ? 'bottom' : 'top');
   const swapped = rotationDeg % 180 !== 0;
   const bodyW = swapped ? heightMm : widthMm;
   const bodyH = swapped ? widthMm : heightMm;
@@ -182,12 +306,79 @@ function normalizeComponent(raw) {
   const conn = raw.conn && typeof raw.conn === 'object' ? { ...raw.conn, openingDir: String(raw.conn.openingDir || '') } : null;
   const antenna = raw.antenna && typeof raw.antenna === 'object' ? { ...raw.antenna, endDir: String(raw.antenna.endDir || '') } : null;
   return {
-    ref: String(raw.ref ?? ''), x: toNum(raw.x), y: toNum(raw.y), bodyW, bodyH, rotationDeg,
+    ref: String(raw.ref ?? ''), x: toNum(raw.x), y: toNum(raw.y), bodyW, bodyH, rotationDeg, side,
     heightMm3d: toNum(raw.heightMm3d), courtyardMm, explicitCourtyard,
+    // 桥的 bboxMm 是“本体 ∪ 焊盘”的包围盒；拿它当本体判吸嘴间距会误报。
+    bboxIncludesPads: raw.bboxIncludesPads === true,
     packageClass: String(raw.packageClass || 'OTHER').toUpperCase(),
     conn, antenna, isNoiseSource: raw.isNoiseSource === true, isMetal: raw.isMetal === true,
     body, courtyard: expand(body, courtyardMm), raw,
   };
+}
+
+
+// ---- 工程与交付一致性（PRJ）输入归一化：只认显式提供的清单，缺就不猜 ----
+const DELIVERABLE_KINDS = ['GERBER', 'BOM', 'DRC', 'DFM', 'NETLIST', 'STEP3D'];
+const DELIVERABLE_ALIASES = { '3D': 'STEP3D', '3D_HEIGHT': 'STEP3D', 'STEP': 'STEP3D', 'GERBERS': 'GERBER', 'CPL': 'BOM', 'PICK_AND_PLACE': 'BOM' };
+function normalizeProject(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const designs = (Array.isArray(raw.designs) ? raw.designs : []).map((design) => ({
+    id: String(design?.id ?? ''), name: String(design?.name ?? ''), kind: String(design?.kind ?? 'SCHEMATIC'),
+    refs: Array.isArray(design?.refs) ? design.refs.map((ref) => String(ref)) : null,
+  })).filter((design) => design.id || design.name);
+  const boards = (Array.isArray(raw.boards) ? raw.boards : []).map((board) => ({
+    id: String(board?.id ?? ''), name: String(board?.name ?? ''), primary: board?.primary === true,
+    pcbUuid: board?.pcbUuid ? String(board.pcbUuid) : null,
+  })).filter((board) => board.id || board.name);
+  if (!designs.length && !boards.length) return null;
+  return { designs, boards };
+}
+function normalizeDocs(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const docHashes = raw.docHashes && typeof raw.docHashes === 'object' ? raw.docHashes : {};
+  const normalized = {};
+  for (const [file, hash] of Object.entries(docHashes)) normalized[String(file)] = String(hash);
+  return { packHash: raw.packHash ? String(raw.packHash) : null, docHashes: normalized, generatedFrom: raw.generatedFrom ? String(raw.generatedFrom) : null };
+}
+function normalizeDeliverable(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const kindRaw = String(raw.kind || '').toUpperCase();
+  return {
+    kind: DELIVERABLE_ALIASES[kindRaw] || kindRaw,
+    path: raw.path ? String(raw.path) : '',
+    sha256: raw.sha256 || raw.hash ? String(raw.sha256 || raw.hash) : '',
+    issuedAt: raw.issuedAt ?? null,
+    passed: raw.passed !== false,
+    exists: raw.exists !== false,
+  };
+}
+function normalizeStageGates(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    postRouteChecked: raw.postRouteChecked === true ? true : raw.postRouteChecked === false ? false : null,
+    equivalentEvidence: Array.isArray(raw.equivalentEvidence) ? raw.equivalentEvidence.map((item) => String(item).toUpperCase()) : [],
+  };
+}
+function normalizeRecord(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const numbers = {};
+  if (raw.numbers && typeof raw.numbers === 'object') for (const [key, value] of Object.entries(raw.numbers)) { const n = toNum(value); if (isNum(n)) numbers[String(key)] = n; }
+  return { file: String(raw.file ?? ''), updatedAt: raw.updatedAt ?? null, numbers };
+}
+function normalizeInferredPart(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    ref: raw.ref ? String(raw.ref) : '', what: raw.what ? String(raw.what) : '',
+    inferred: raw.inferred === false ? false : true,
+    safeDefault: raw.safeDefault ? String(raw.safeDefault) : '',
+    verifySteps: Array.isArray(raw.verifySteps) ? raw.verifySteps.map((step) => String(step ?? '')).filter(Boolean) : [],
+  };
+}
+function normalizeLatestSnapshot(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const numbers = {};
+  if (raw.numbers && typeof raw.numbers === 'object') for (const [key, value] of Object.entries(raw.numbers)) { const n = toNum(value); if (isNum(n)) numbers[String(key)] = n; }
+  return { updatedAt: raw.updatedAt ?? null, numbers };
 }
 
 function normalizeContext(input) {
@@ -221,6 +412,21 @@ function normalizeContext(input) {
     testPoints: Array.isArray(source.testPoints) ? source.testPoints : null,
     switches: Array.isArray(source.switches) ? source.switches : null,
     evidence: source.evidence && typeof source.evidence === 'object' ? source.evidence : {},
+    // ---- Z 轴装配净空（ZCLR）与布局变更影响（MOVE）----
+    assemblyZones: Array.isArray(source.assemblyZones) ? source.assemblyZones.map(normalizeAssemblyZone).filter(Boolean) : null,
+    changes: Array.isArray(source.changes) ? source.changes.map(normalizeChange).filter(Boolean) : null,
+    nets: Array.isArray(source.nets) ? source.nets.map(normalizeNet).filter(Boolean) : null,
+    previousPositions: normalizePreviousPositions(source.previousPositions),
+    enclosureHeightMm: toNum(rawBoard.enclosureHeightMm),
+    limits: zclrLimits(source),
+    // ---- PRJ（工程与交付一致性）----
+    project: normalizeProject(source.project),
+    docs: normalizeDocs(source.docs),
+    deliverables: Array.isArray(source.deliverables) ? source.deliverables.map(normalizeDeliverable).filter(Boolean) : null,
+    stageGates: normalizeStageGates(source.stageGates),
+    records: Array.isArray(source.records) ? source.records.map(normalizeRecord).filter(Boolean) : null,
+    latestSnapshot: normalizeLatestSnapshot(source.latestSnapshot),
+    inferredParts: Array.isArray(source.inferredParts) ? source.inferredParts.map(normalizeInferredPart).filter(Boolean) : null,
   };
 }
 const needGeometry = () => review('缺少板框尺寸（widthMm/heightMm），无法做几何判定');
@@ -264,7 +470,7 @@ const CHECKERS = {
     for (const c of ctx.components) {
       if (c.conn) continue; // 连接器越边由 MECH-13 单独放行
       if (c.antenna) { rfGoverned.push(c.ref); continue; } // 天线越边是 RF-01/RF-02 的放行项
-      const { distance } = nearestEdge(c.courtyard, ctx.board);
+      const { distance } = nearestEdge(c.body, ctx.board);
       if (distance < 0.5 - EPS) violations.push(`${c.ref}=${mm(distance)}`);
     }
     if (violations.length) return fail(`本体到板边不足 0.50 mm：${violations.join('，')}`, { violations });
@@ -369,27 +575,34 @@ const CHECKERS = {
   'SPACE-01': (ctx) => {
     const missing = ctx.components.filter((c) => !c.explicitCourtyard).map((c) => c.ref);
     if (!ctx.components.length) return review('未提供器件清单');
-    if (missing.length) return fail(`未显式声明 courtyard 的器件 ${missing.length} 颗：${fmtList(missing)}；引擎只能按默认 0.25 mm 估算`, { missing });
+    if (missing.length) return review(`未显式声明 courtyard 的器件 ${missing.length} 颗：${fmtList(missing)}；不能按默认值冒充已检查`, { missing });
     return ok({ components: ctx.components.length }, '全部器件显式声明 courtyard');
   },
   'SPACE-02': (ctx) => {
     if (!ctx.components.length) return needComponents();
     if (!ctx.geometryReady) return needGeometry();
+    const missing = ctx.components.filter((c) => !c.explicitCourtyard);
+    if (missing.length) return review(`courtyard 未显式声明（${missing.length} 颗：${fmtList(missing.map((c) => c.ref))}），无法判定真实叠放`, { missing: missing.map((c) => c.ref) });
     const violations = [];
+    let pairsChecked = 0;
     for (let i = 0; i < ctx.components.length; i += 1) for (let j = i + 1; j < ctx.components.length; j += 1) {
       const a = ctx.components[i]; const b = ctx.components[j];
+      if (a.side !== b.side) continue; // 上下层投影重叠不是叠放；跨面高度干涉由 3D/SPACE-18 负责
+      pairsChecked += 1;
       const overlap = rectOverlap(a.courtyard, b.courtyard);
-      if (overlap) violations.push({ a: a.ref, b: b.ref, areaMm2: round(overlap.area, 2), dxMm: round(overlap.dx), dyMm: round(overlap.dy) });
+      if (overlap) violations.push({ a: a.ref, b: b.ref, side: a.side, areaMm2: round(overlap.area, 2), dxMm: round(overlap.dx), dyMm: round(overlap.dy) });
     }
     if (violations.length) {
       const refs = violations.map((v) => `${v.a}↔${v.b}(${v.areaMm2} mm²)`);
       return fail(`courtyard 相交 ${violations.length} 处：${refs.join('，')}`, { violations });
     }
-    return ok({ pairsChecked: ctx.components.length * (ctx.components.length - 1) / 2 }, '无 courtyard 相交');
+    return ok({ pairsChecked }, '无 courtyard 相交（仅同面比较）');
   },
   'SPACE-03': (ctx) => {
-    const levels = new Set(ctx.components.map((c) => round(c.courtyardMm, 3)));
     if (!ctx.components.length) return review('未提供器件清单');
+    const missing = ctx.components.filter((c) => !c.explicitCourtyard);
+    if (missing.length) return review(`courtyard 未显式声明（${missing.length} 颗），不能按默认 0.25 mm 判“全板统一”`, { missing: missing.map((c) => c.ref) });
+    const levels = new Set(ctx.components.map((c) => round(c.courtyardMm, 3)));
     if (levels.size > 1) return fail(`courtyard 外扩值不统一：${[...levels].map((v) => mm(v)).join('、')}`, { levels: [...levels] });
     if (Math.abs([...levels][0] - 0.25) > 0.05 + EPS) return fail(`全板 courtyard 外扩 ${mm([...levels][0])}，不是 Nominal 0.25 mm`, { level: [...levels][0] });
     return ok({ level: 0.25 }, '全板统一 Nominal 0.25 mm');
@@ -418,8 +631,10 @@ const CHECKERS = {
     const inductors = ctx.components.filter((c) => c.packageClass === 'INDUCTOR');
     if (!inductors.length) return na('本板无独立电感器件（或未标注 packageClass=INDUCTOR）');
     const violations = [];
+    const missing = ctx.components.filter((c) => !c.explicitCourtyard);
+    if (missing.length) return review(`电感间距无法判定：courtyard 未显式声明（${fmtList([...new Set(missing.map((c) => c.ref))])}）`);
     for (const inductor of inductors) for (const other of ctx.components) {
-      if (other.ref === inductor.ref) continue;
+      if (other.ref === inductor.ref || inductor.side !== other.side) continue;
       const gap = rectGap(inductor.courtyard, other.courtyard);
       if (gap < 2 - EPS) violations.push(`${inductor.ref}↔${other.ref}=${mm(gap)}`);
     }
@@ -430,8 +645,10 @@ const CHECKERS = {
     const crystals = ctx.components.filter((c) => c.packageClass === 'CRYSTAL');
     if (!crystals.length) return na('本板无独立晶振（或模组内置）');
     const violations = [];
+    const missing = ctx.components.filter((c) => !c.explicitCourtyard);
+    if (missing.length) return review(`晶振间距无法判定：courtyard 未显式声明（${fmtList([...new Set(missing.map((c) => c.ref))])}）`);
     for (const crystal of crystals) for (const other of ctx.components) {
-      if (other.ref === crystal.ref) continue;
+      if (other.ref === crystal.ref || crystal.side !== other.side) continue;
       const gap = rectGap(crystal.courtyard, other.courtyard);
       if (gap < 3 - EPS) violations.push(`${crystal.ref}↔${other.ref}=${mm(gap)}`);
     }
@@ -445,12 +662,17 @@ const CHECKERS = {
     const violations = [];
     for (let i = 0; i < ctx.components.length; i += 1) for (let j = i + 1; j < ctx.components.length; j += 1) {
       const a = ctx.components[i]; const b = ctx.components[j];
+      if (a.side !== b.side) continue; // 上下层各自贴装，不共享吸嘴间距
       const gap = rectGap(a.body, b.body);
       const heightDelta = isNum(a.heightMm3d) && isNum(b.heightMm3d) ? Math.abs(a.heightMm3d - b.heightMm3d) : null;
       const limit = heightDelta !== null && heightDelta >= 2 ? 0.5 : 0.3;
       if (gap < limit - EPS) violations.push(`${a.ref}↔${b.ref}=${mm(gap)} < ${mm(limit)}${heightDelta !== null && heightDelta >= 2 ? '（相邻高度差 ≥2 mm）' : ''}`);
     }
-    if (violations.length) return fail(`吸嘴空间不足：${violations.join('，')}`, { violations });
+    if (violations.length) {
+      const uncertain = [...new Set(violations.flatMap((line) => line.split('↔')).map((part) => part.split('=')[0]))].filter((ref) => ctx.components.some((c) => c.ref === ref && c.bboxIncludesPads === true));
+      if (uncertain.length) return review(`包围盒含焊盘，吸嘴间距疑似不足（需真实本体数据复核）：${violations.join('，')}`, { violations, uncertain, geometry: 'bbox-includes-pads' });
+      return fail(`吸嘴空间不足：${violations.join('，')}`, { violations });
+    }
     return ok({ pairs: ctx.components.length * (ctx.components.length - 1) / 2 }, '本体间距满足吸嘴空间');
   },
   'SPACE-15': (ctx) => {
@@ -472,8 +694,371 @@ const CHECKERS = {
     const needHeight = ctx.components.filter((c) => ['MODULE', 'SHIELD', 'CONNECTOR', 'FFC', 'USB', 'SWITCH', 'INDUCTOR'].includes(c.packageClass));
     if (!needHeight.length) return review('未识别到必须建模高度的器件类别');
     const missing = needHeight.filter((c) => !isNum(c.heightMm3d)).map((c) => c.ref);
-    if (missing.length) return fail(`高度包络缺失：${fmtList(missing)}`, { missing });
+    if (missing.length) return review(`高度包络缺失：${fmtList(missing)}；不能以未提供的 3D 高度判违规`, { missing });
     return ok({ checked: needHeight.length }, '关键器件高度包络齐全');
+  },
+
+  // ---------- ZCLR（Z 轴装配净空 / 高度）----------
+  'ZCLR-01': (ctx) => {
+    if (!ctx.components.length) return needComponents();
+    const missing = ctx.components.filter((c) => !isNum(c.heightMm3d)).map((c) => c.ref);
+    if (missing.length) {
+      return review(`器件 3D 高度缺失 ${missing.length} 件：${fmtList(missing.slice(0, 12))}${missing.length > 12 ? ' …' : ''}；高度表不全，装配净空不能判 PASS`, { missing });
+    }
+    const tall = ctx.components.filter((c) => c.heightMm3d > 1.5).length;
+    return ok({ components: ctx.components.length, tallOver1p5: tall }, `${ctx.components.length} 件全部登记 3D 高度（>1.50 mm 共 ${tall} 件）`);
+  },
+  'ZCLR-02': (ctx) => {
+    if (!ctx.components.length) return needComponents();
+    if (!ctx.geometryReady) return needGeometry();
+    const violations = []; const unknownHeight = []; let pairs = 0;
+    for (let i = 0; i < ctx.components.length; i += 1) for (let j = i + 1; j < ctx.components.length; j += 1) {
+      const a = ctx.components[i]; const b = ctx.components[j];
+      if (a.side !== b.side) continue; // 正/背面叠装归 ZCLR-06
+      const overlap = rectOverlap(a.body, b.body);
+      if (!overlap) continue;
+      pairs += 1;
+      if (!isNum(a.heightMm3d) || !isNum(b.heightMm3d)) { unknownHeight.push(`${a.ref}×${b.ref}`); continue; }
+      violations.push(`${a.ref}(${mm(a.heightMm3d)})×${b.ref}(${mm(b.heightMm3d)}) 入侵 ${round(overlap.dx, 2)}×${round(overlap.dy, 2)} mm`);
+    }
+    if (violations.length) return fail(`同面 3D 实体干涉 ${violations.length} 处：${violations.join('，')}`, { violations, unknownHeight, pairs });
+    if (unknownHeight.length) return review(`同面 XY 重叠但高度未知，无法判 Z 向分离：${fmtList(unknownHeight)}`, { unknownHeight, pairs });
+    return ok({ pairs, components: ctx.components.length }, '同面器件本体 XY 投影无重叠（3D 实体干涉 0 处）');
+  },
+  'ZCLR-03': (ctx) => {
+    if (!ctx.assemblyZones) return na('未声明装配区（assemblyZones），本板无模块/子板插合面，规则不适用');
+    if (!ctx.assemblyZones.length) return na('assemblyZones 为空，规则不适用');
+    if (!ctx.components.length) return needComponents();
+    const { limits } = ctx;
+    const incomplete = ctx.assemblyZones.filter((zone) => !zone.name || !zone.rect || !isNum(zone.matingHeightMm)).map((zone) => zone.name || '(未命名)');
+    if (incomplete.length) return review(`装配区声明不完整（缺 name/矩形/matingHeightMm）：${fmtList(incomplete)}；不能凭未声明的插合高度放行`, { incomplete });
+    const violations = []; const checkedRefs = new Set();
+    for (const zone of ctx.assemblyZones) {
+      const clearance = isNum(zone.clearanceMm) ? zone.clearanceMm : limits.matingClearanceMm;
+      const limitMm = zone.matingHeightMm - clearance;
+      for (const c of ctx.components) {
+        if (!rectIntrusion(c.body, zone.rect)) continue;
+        if (zone.allowedRefs.includes(c.ref)) continue; // 区结构件（排针/插座本体）具名豁免
+        checkedRefs.add(c.ref);
+        if (!isNum(c.heightMm3d)) { violations.push(`${c.ref} 在「${zone.name}」内但高度未登记`); continue; }
+        if (c.heightMm3d > limitMm + EPS) {
+          violations.push(`${c.ref} 高 ${mm(c.heightMm3d)} 超出「${zone.name}」上限 ${mm(zone.matingHeightMm)}−${mm(clearance)}=${mm(limitMm)}`);
+        }
+      }
+    }
+    if (violations.length) return fail(`装配区超高 ${violations.length} 件：${violations.join('，')}`, { violations, zones: ctx.assemblyZones.map((zone) => zone.name) });
+    return ok({ zones: ctx.assemblyZones.map((zone) => `${zone.name}@${mm(zone.matingHeightMm)}`), checked: checkedRefs.size },
+      `装配区（${ctx.assemblyZones.length} 个）内 ${checkedRefs.size} 件均低于插合高度−${mm(limits.matingClearanceMm)}`);
+  },
+  'ZCLR-04': (ctx) => {
+    if (!ctx.assemblyZones || !ctx.assemblyZones.length) return na('未声明装配区，无维护环带可判');
+    if (!ctx.components.length) return needComponents();
+    const toolZones = ctx.assemblyZones.filter((zone) => zone.toolAccess === true && zone.rect);
+    if (!toolZones.length) return na('装配区均未声明 toolAccess（直接对插/无需侧向维护），侧向环带不适用');
+    const { limits } = ctx;
+    const violations = []; let checked = 0;
+    for (const zone of toolZones) {
+      const ring = isNum(zone.sideClearanceMm) ? zone.sideClearanceMm : limits.sideClearanceMm;
+      const maxHeight = isNum(zone.sideMaxHeightMm) ? zone.sideMaxHeightMm : limits.sideMaxHeightMm;
+      const outer = expand(zone.rect, ring);
+      for (const c of ctx.components) {
+        if (!rectIntrusion(c.body, outer) || rectIntrusion(c.body, zone.rect)) continue;
+        checked += 1;
+        if (!isNum(c.heightMm3d)) { violations.push(`${c.ref} 在「${zone.name}」外扩 ${mm(ring)} 环带内但高度未登记`); continue; }
+        if (c.heightMm3d > maxHeight + EPS) violations.push(`${c.ref} 高 ${mm(c.heightMm3d)} 超出环带上限 ${mm(maxHeight)}（「${zone.name}」外 ${mm(ring)}）`);
+      }
+    }
+    if (violations.length) return fail(`装配区维护环带超高：${violations.join('，')}`, { violations });
+    return ok({ checked, zones: toolZones.length }, `需侧向维护的 ${toolZones.length} 个装配区外扩环带内 ${checked} 件高度均 ≤ 环带上限`);
+  },
+  'ZCLR-05': (ctx) => {
+    if (!ctx.components.length) return needComponents();
+    const { limits } = ctx;
+    const tall = ctx.components.filter((c) => isNum(c.heightMm3d) && c.heightMm3d > limits.highComponentMm);
+    if (!tall.length) return ok({ tall: 0, thresholdMm: limits.highComponentMm }, `无高于 ${mm(limits.highComponentMm)} 的器件，高件禁区无命中`);
+    const violations = [];
+    for (const c of tall) {
+      for (const zone of (ctx.assemblyZones || [])) {
+        if (!zone.rect || !rectIntrusion(c.body, zone.rect)) continue;
+        if (zone.allowedTallRefs.includes(c.ref) || zone.allowedRefs.includes(c.ref)) continue;
+        violations.push(`${c.ref}(${mm(c.heightMm3d)}) 位于「${zone.name}」投影内`);
+      }
+      const keepout = ctx.rf?.keepout;
+      if (keepout && isNum(toNum(keepout.x0))) {
+        const box = rectOf(toNum(keepout.x0), toNum(keepout.y0), toNum(keepout.x1), toNum(keepout.y1));
+        if (rectIntrusion(c.body, box)) violations.push(`${c.ref}(${mm(c.heightMm3d)}) 位于 RF 天线禁布区`);
+      }
+    }
+    if (violations.length) return fail(`高件进入禁区：${violations.join('，')}`, { violations, thresholdMm: limits.highComponentMm });
+    return ok({ tall: tall.length, thresholdMm: limits.highComponentMm }, `${tall.length} 件高件均不在装配区/天线禁布区内`);
+  },
+  'ZCLR-06': (ctx) => {
+    if (!ctx.components.length) return needComponents();
+    const { limits } = ctx;
+    const tops = ctx.components.filter((c) => c.side === 'top');
+    const bottoms = ctx.components.filter((c) => c.side === 'bottom');
+    if (!tops.length || !bottoms.length) return na('单面贴装（或未提供双面器件），正反叠装总高不适用');
+    const stacks = [];
+    for (const top of tops) for (const bottom of bottoms) {
+      if (!rectOverlap(top.body, bottom.body)) continue;
+      stacks.push([top, bottom]);
+    }
+    if (!stacks.length) return na('正反面器件 XY 无重叠，无需叠装总高核算');
+    const enclosure = ctx.enclosureHeightMm;
+    if (!isNum(enclosure)) return review(`存在 ${stacks.length} 处正反叠装，但未提供外壳内腔高度（board.enclosureHeightMm）`, { stacks: stacks.length });
+    const thickness = ctx.board.thicknessMm;
+    if (!isNum(thickness)) return review('存在正反叠装，但缺少板厚（board.thicknessMm）');
+    const violations = [];
+    for (const [top, bottom] of stacks) {
+      if (!isNum(top.heightMm3d) || !isNum(bottom.heightMm3d)) { violations.push(`${top.ref}×${bottom.ref} 高度未登记`); continue; }
+      const total = thickness + top.heightMm3d + bottom.heightMm3d + 2 * limits.stackSolderMm;
+      const limitMm = enclosure - limits.stackEnclosureClearanceMm;
+      if (total > limitMm + EPS) violations.push(`${top.ref}(顶 ${mm(top.heightMm3d)})×${bottom.ref}(底 ${mm(bottom.heightMm3d)}) 总高 ${mm(total)} > ${mm(limitMm)}`);
+    }
+    if (violations.length) return fail(`正反叠装总高超限：${violations.join('，')}`, { violations, enclosureHeightMm: enclosure });
+    return ok({ stacks: stacks.length, enclosureHeightMm: enclosure }, `${stacks.length} 处正反叠装总高均 ≤ 内腔−${mm(limits.stackEnclosureClearanceMm)}`);
+  },
+  'ZCLR-07': (ctx) => {
+    if (!ctx.assemblyZones || !ctx.assemblyZones.length) return na('未声明装配区，无长期遮盖区可判');
+    if (!ctx.components.length) return needComponents();
+    const { limits } = ctx;
+    const covered = ctx.assemblyZones.filter((zone) => zone.rect && !['OPEN', 'MAINTENANCE'].includes(zone.kind));
+    if (!covered.length) return na('装配区均为开放/维护类，无长期遮盖区');
+    const violations = [];
+    for (const zone of covered) for (const c of ctx.components) {
+      if (!rectIntrusion(c.body, zone.rect)) continue;
+      if (!isElecOrCrystal(c)) continue;
+      if (!isNum(c.heightMm3d)) { violations.push(`${c.ref} 位于「${zone.name}」内但高度未登记`); continue; }
+      if (c.heightMm3d > limits.coverTallMm + EPS) violations.push(`${c.ref}(${mm(c.heightMm3d)}) 位于「${zone.name}」遮盖区`);
+    }
+    if (violations.length) return fail(`装配区遮盖区内放置电解/晶振（寿命与温漂风险）：${violations.join('，')}`, { violations });
+    return ok({ zones: covered.length }, `装配区遮盖区内无高于 ${mm(limits.coverTallMm)} 的电解/晶振`);
+  },
+  'ZCLR-08': (ctx) => {
+    if (!ctx.assemblyZones || !ctx.assemblyZones.length) return na('未声明装配区，无需证据覆盖');
+    const record = ctx.evidence.step3d || ctx.evidence.heightEnvelope;
+    const state = evidenceState(record);
+    if (state === 'missing') return review('装配净空证据缺失：需要 evidence.step3d / evidence.heightEnvelope（含 source/artifactHash/issuedAt/scope）');
+    if (state === 'failed') return fail('装配净空证据为未通过', { record });
+    if (state !== 'passed') return review(`装配净空证据不可采信：${evidenceProblems(record).join('；')}`, { record });
+    const scope = String(record.scope || '');
+    const uncovered = ctx.assemblyZones.filter((zone) => zone.name && !scope.includes(zone.name)).map((zone) => zone.name);
+    if (uncovered.length) return review(`证据 scope 未覆盖装配区：${fmtList(uncovered)}`, { uncovered, scope, source: record.source });
+    return ok({ source: record.source, scope, zones: ctx.assemblyZones.length }, `3D/装配证据已覆盖全部 ${ctx.assemblyZones.length} 个装配区`);
+  },
+
+  'ZCLR-09': (ctx) => {
+    if (!ctx.assemblyZones || !ctx.assemblyZones.length) return na('未声明装配区，无模块下方散热/走线净空可判');
+    if (!ctx.components.length) return needComponents();
+    const violations = [];
+    for (const zone of ctx.assemblyZones) {
+      if (!zone.rect) continue;
+      if (zone.kind && ['OPEN', 'MAINTENANCE'].includes(zone.kind)) continue;
+      const zoneArea = (zone.rect.x1 - zone.rect.x0) * (zone.rect.y1 - zone.rect.y0);
+      if (!(zoneArea > 0)) continue;
+      for (const c of ctx.components) {
+        if (!isNum(c.heightMm3d) || c.heightMm3d <= 8 + EPS) continue;
+        const overlap = rectOverlap(c.body, zone.rect);
+        if (!overlap) continue;
+        const ratio = overlap.area / zoneArea;
+        if (ratio > 0.3 + EPS) violations.push(`${c.ref} 高 ${mm(c.heightMm3d)} 占「${zone.name}」投影 ${round(ratio * 100, 1)}%`);
+      }
+    }
+    if (violations.length) return fail(`模块下方气流层被高件阻断：${violations.join('，')}`, { violations });
+    return ok({ zones: ctx.assemblyZones.length }, '装配区下方无 >8.00 mm 且投影占比 >30% 的阻断件');
+  },
+  // ---------- PRJ（工程与交付一致性）----------
+  'PRJ-01': (ctx) => {
+    if (!ctx.project) return review('未提供工程对象清单（project.designs/boards），无法验证唯一性');
+    const { designs, boards } = ctx.project;
+    const problems = [];
+    const nameSeen = new Map();
+    for (const design of designs) {
+      const key = design.name.trim().toLowerCase();
+      if (!key) continue;
+      if (nameSeen.has(key)) problems.push(`图纸页名重复「${design.name}」（${nameSeen.get(key)} 与 ${design.id || '?'}）`);
+      else nameSeen.set(key, design.id || design.name);
+    }
+    const primaries = boards.filter((board) => board.primary);
+    if (boards.length && primaries.length !== 1) problems.push(`标记为投板的 PCB 实例 ${primaries.length} 块（应为 1）：${boards.map((board) => board.name || board.id).join('、')}`);
+    const refOwner = new Map();
+    for (const design of designs) for (const ref of design.refs || []) {
+      const key = ref.trim().toUpperCase();
+      if (!key) continue;
+      if (refOwner.has(key) && refOwner.get(key) !== (design.id || design.name)) problems.push(`位号 ${ref} 同时出现在 ${refOwner.get(key)} 与 ${design.id || design.name}`);
+      else refOwner.set(key, design.id || design.name);
+    }
+    if (problems.length) return fail(`工程对象不唯一：${problems.slice(0, 6).join('；')}`, { problems });
+    return ok({ designs: designs.length, boards: boards.length, primary: primaries[0]?.name || primaries[0]?.id || null },
+      `工程对象唯一（${designs.length} 页图纸 / ${boards.length} 块 PCB，投板板 ${primaries[0]?.name || primaries[0]?.id || '未命名'}）`);
+  },
+  'PRJ-02': (ctx) => {
+    const expected = layoutRulePack().sourceHashes || {};
+    const expectedEntries = Object.entries(expected);
+    if (!expectedEntries.length) return review('规则包未携带 sourceHashes（重建规则包即可修复）');
+    if (!ctx.docs) return review('未提供文档哈希（docs.docHashes），无法验证规则包与文档同源');
+    const problems = [];
+    for (const [file, hash] of expectedEntries) {
+      const actual = ctx.docs.docHashes[file];
+      if (!actual) problems.push(`缺少 ${file} 的哈希`);
+      else if (String(actual) !== String(hash)) problems.push(`${file} 哈希不符（文档 ${String(actual).slice(0, 12)}… ≠ 规则包 ${String(hash).slice(0, 12)}…）`);
+    }
+    if (ctx.docs.generatedFrom && !/build-rule-json/.test(ctx.docs.generatedFrom)) problems.push(`generatedFrom=${ctx.docs.generatedFrom} 不是生成脚本`);
+    if (problems.length) return fail(`规则包与文档不同源：${problems.slice(0, 4).join('；')}`, { problems });
+    return ok({ files: expectedEntries.length, packHash: layoutRulePack().hash.slice(0, 12) }, `${expectedEntries.length} 份规则文档与规则包同源（pack ${layoutRulePack().hash.slice(0, 12)}…）`);
+  },
+  'PRJ-03': (ctx) => {
+    if (!ctx.deliverables) return review('未提供交付物清单（deliverables[]），无法判定交付完整性');
+    const byKind = new Map();
+    for (const item of ctx.deliverables) {
+      if (!DELIVERABLE_KINDS.includes(item.kind)) continue;
+      if (!byKind.has(item.kind)) byKind.set(item.kind, []);
+      byKind.get(item.kind).push(item);
+    }
+    const missing = DELIVERABLE_KINDS.filter((kind) => !byKind.has(kind));
+    const invalid = [];
+    for (const [kind, list] of byKind) {
+      const good = list.some((item) => item.passed && item.exists && item.path && /^[a-f0-9]{64}$/i.test(item.sha256));
+      if (!good) invalid.push(`${kind} 证据不合规（缺 path/sha256 或 passed=false）`);
+    }
+    if (missing.length || invalid.length) {
+      return fail(`交付物不完整：${missing.length ? `缺 ${missing.join('、')}` : ''}${missing.length && invalid.length ? '；' : ''}${invalid.join('；')}`, { missing, invalid, required: DELIVERABLE_KINDS });
+    }
+    return ok({ kinds: DELIVERABLE_KINDS, count: ctx.deliverables.length }, `6 类交付物齐备且带 sha256（Gerber/BOM/DRC/DFM/网表/3D 高度）`);
+  },
+  'PRJ-04': (ctx) => {
+    if (!ctx.stageGates) return review('未提供阶段门禁状态（stageGates），无法确认 post_route_checked 是否闭合');
+    if (ctx.stageGates.postRouteChecked === true) return ok({ postRouteChecked: true }, 'post_route_checked 已置 ●');
+    const needed = ['DRC', 'DFM', 'NETLIST'];
+    const have = needed.filter((kind) => ctx.stageGates.equivalentEvidence.includes(kind));
+    if (have.length === needed.length) {
+      return review('post_route_checked 未置位，但 DRC/DFM/网表 三项等效证据齐备——必须由 PCB 工程师签核「等效证据成立」后才可放行', { have, postRouteChecked: false });
+    }
+    return review(`post_route_checked 未置位，等效证据仅 ${have.length ? have.join('、') : '无'}（需 DRC/DFM/NETLIST 三项同时成立）`, { have, postRouteChecked: false });
+  },
+  'PRJ-05': (ctx) => {
+    if (!ctx.records) return review('未提供记录清单（records[]），无法比对文档数字与最新实测');
+    if (!ctx.latestSnapshot) return review('未提供最新实测快照（latestSnapshot），无基准可比');
+    const snapshotTime = Date.parse(ctx.latestSnapshot.updatedAt);
+    const problems = [];
+    for (const record of ctx.records) {
+      const recordTime = Date.parse(record.updatedAt);
+      if (Number.isFinite(snapshotTime) && (!Number.isFinite(recordTime) || recordTime < snapshotTime)) {
+        problems.push(`${record.file || '未命名记录'} 更新时间早于最新快照（${String(record.updatedAt)} < ${String(ctx.latestSnapshot.updatedAt)}）`);
+      }
+      for (const [key, value] of Object.entries(ctx.latestSnapshot.numbers)) {
+        if (!Object.prototype.hasOwnProperty.call(record.numbers, key)) continue;
+        if (Number(record.numbers[key]) !== Number(value)) problems.push(`${record.file || '未命名记录'} 的 ${key}=${record.numbers[key]} 与最新实测 ${value} 不一致`);
+      }
+    }
+    if (problems.length) return fail(`记录与最新实测不一致：${problems.slice(0, 6).join('；')}`, { problems, snapshotAt: ctx.latestSnapshot.updatedAt });
+    return ok({ records: ctx.records.length, keys: Object.keys(ctx.latestSnapshot.numbers).length }, `${ctx.records.length} 份记录与最新快照一致（比对 ${Object.keys(ctx.latestSnapshot.numbers).length} 个关键数字）`);
+  },
+  'PRJ-06': (ctx) => {
+    if (!ctx.inferredParts) return na('未声明推断项（inferredParts[]），无需兜底核对');
+    const inferred = ctx.inferredParts.filter((part) => part.inferred !== false);
+    if (!inferred.length) return ok({ count: 0 }, '无推断项，无需兜底');
+    const problems = [];
+    for (const part of inferred) {
+      const label = part.ref || part.what || '未命名推断项';
+      if (!part.safeDefault.trim()) problems.push(`${label} 缺少 safeDefault（安全默认动作，如「跳线默认开路」）`);
+      if (part.verifySteps.length < 2) problems.push(`${label} 的 verifySteps 少于 2 步可执行核对`);
+    }
+    if (problems.length) return review(`推断项兜底不完整：${problems.slice(0, 6).join('；')}`, { problems, inferred: inferred.length });
+    return ok({ count: inferred.length }, `${inferred.length} 个推断项均有安全默认与核对步骤`);
+  },
+
+  // ---------- MOVE（布局变更影响）----------
+  'MOVE-01': (ctx) => {
+    const changes = ctx.changes || [];
+    const previous = ctx.previousPositions;
+    const detected = [];
+    if (previous) for (const c of ctx.components) {
+      const before = previous.get(c.ref);
+      if (!before) continue;
+      if (Math.abs(before.x - c.x) > 0.01 || Math.abs(before.y - c.y) > 0.01) detected.push(c.ref);
+    }
+    const registered = new Set(changes.map((c) => c.ref));
+    const unregistered = detected.filter((ref) => !registered.has(ref));
+    if (unregistered.length) return fail(`检测到位移但未登记 changes：${fmtList(unregistered)}`, { unregistered, detected });
+    if (!changes.length) return na('本次送审无搬迁记录（changes 为空且未提供 previousPositions）');
+    const incomplete = changes.filter((c) => !c.from || !c.to || c.reason.length < 10 || !c.ecoId).map((c) => c.ref);
+    if (incomplete.length) return review(`搬迁记录不完整（缺 from/to/reason≥10字/ecoId）：${fmtList(incomplete)}`, { incomplete });
+    return ok({ changes: changes.length, detected: detected.length }, `${changes.length} 条搬迁均登记完整${detected.length ? `（坐标比对一致 ${detected.length} 件）` : ''}`);
+  },
+  'MOVE-02': (ctx) => {
+    const nets = ctx.nets;
+    if (!nets) return review('未提供网络长度数据（nets[]），无法评估搬迁对开关/功率网络的影响');
+    const watched = nets.filter((n) => ['SW', 'PWR', 'GATE', 'FB'].includes(n.class));
+    if (!watched.length) return na('未提供 SW/PWR/GATE/FB 类网络的搬迁前/后长度');
+    const { limits } = ctx;
+    const violations = []; const accepted = []; const unknown = [];
+    for (const n of watched) {
+      if (!isNum(n.lengthBeforeMm) || !isNum(n.lengthAfterMm)) { unknown.push(n.net); continue; }
+      const growth = n.lengthBeforeMm > EPS ? (n.lengthAfterMm - n.lengthBeforeMm) / n.lengthBeforeMm * 100 : (n.lengthAfterMm > 0 ? 100 : 0);
+      const tooLong = n.class === 'SW' && n.lengthAfterMm > limits.swMaxLengthMm + EPS;
+      const tooMuch = growth > limits.moveGrowthPercent + EPS;
+      if (!tooLong && !tooMuch) continue;
+      const detail = `${n.net}(${n.class}) ${mm(n.lengthBeforeMm)} → ${mm(n.lengthAfterMm)}（+${round(growth, 1)}%）${tooLong ? ` 超过 SW 绝对上限 ${mm(limits.swMaxLengthMm)}` : ''}`;
+      if (n.approvedBy) accepted.push(`${detail} 已由 ${n.approvedBy} 具名接受`);
+      else violations.push(detail);
+    }
+    if (violations.length) return fail(`搬迁后网络长度超限且未具名接受：${violations.join('，')}`, { violations, unknown });
+    if (accepted.length) return review(`搬迁代价已具名接受（${accepted.length} 条）：${accepted.join('；')}`, { accepted, unknown });
+    if (unknown.length) return review(`缺少搬迁前/后长度，无法判定：${fmtList(unknown)}`, { unknown });
+    return ok({ watched: watched.length, growthLimitPercent: limits.moveGrowthPercent, swMaxLengthMm: limits.swMaxLengthMm }, `${watched.length} 条关键网络长度与增长均在限值内`);
+  },
+  'MOVE-03': (ctx) => {
+    const nets = ctx.nets;
+    if (!nets) return review('未提供环路面积数据（nets[].loopAreaBeforeMm2/AfterMm2）');
+    const watched = nets.filter((n) => ['SW', 'PWR'].includes(n.class));
+    if (!watched.length) return na('未提供 SW/PWR 类环路面积');
+    const { limits } = ctx;
+    const violations = []; const accepted = []; const unknown = [];
+    for (const n of watched) {
+      const factor = n.class === 'SW' ? limits.swLoopGrowthFactor : limits.pwrLoopGrowthFactor;
+      if (!isNum(n.loopAreaBeforeMm2) || !isNum(n.loopAreaAfterMm2)) { unknown.push(n.net); continue; }
+      if (n.loopAreaBeforeMm2 <= EPS) continue;
+      const ratio = n.loopAreaAfterMm2 / n.loopAreaBeforeMm2;
+      if (ratio <= factor + EPS) continue;
+      const detail = `${n.net} 环路面积 ×${round(ratio, 2)} > ×${round(factor, 2)}（${round(n.loopAreaBeforeMm2, 2)}→${round(n.loopAreaAfterMm2, 2)} mm²）`;
+      if (n.approvedBy) accepted.push(`${detail} 已由 ${n.approvedBy} 具名接受`);
+      else violations.push(detail);
+    }
+    if (violations.length) return fail(`开关/功率环路面积增长超限且未具名接受：${violations.join('，')}`, { violations, unknown });
+    if (accepted.length) return review(`环路面积代价已具名接受（${accepted.length} 条）：${accepted.join('；')}`, { accepted, unknown });
+    if (unknown.length) return review(`缺少环路面积数据，无法判定：${fmtList(unknown)}`, { unknown });
+    return ok({ watched: watched.length, swFactor: limits.swLoopGrowthFactor, pwrFactor: limits.pwrLoopGrowthFactor }, `${watched.length} 条环路面积增长在限值内`);
+  },
+  'MOVE-04': (ctx) => {
+    const changes = ctx.changes || [];
+    if (!changes.length) return na('无搬迁记录，无需装配净空复检');
+    const { limits } = ctx;
+    const zones = ctx.assemblyZones || [];
+    const needRecheck = [];
+    for (const change of changes) {
+      const component = ctx.byRef.get(change.ref);
+      const height = component && isNum(component.heightMm3d) ? component.heightMm3d : null;
+      const inZone = (point) => point && zones.some((zone) => zone.rect
+        && point.x >= zone.rect.x0 && point.x <= zone.rect.x1 && point.y >= zone.rect.y0 && point.y <= zone.rect.y1);
+      const touchesZone = inZone(change.from) || inZone(change.to) || (component && zones.some((zone) => zone.rect && rectIntrusion(component.body, zone.rect)));
+      if (touchesZone || (isNum(height) && height > limits.highComponentMm)) needRecheck.push(change.ref);
+    }
+    if (!needRecheck.length) return ok({ changes: changes.length }, '搬迁未触及装配区/高件，无需 ZCLR 复检');
+    const missing = needRecheck.filter((ref) => !changes.find((c) => c.ref === ref)?.zclrRechecked);
+    if (missing.length) return review(`搬迁器件涉及装配区或为高件，必须重跑 ZCLR-03/05 并置 zclrRechecked=true：${fmtList(missing)}`, { missing, needRecheck });
+    return ok({ changes: changes.length, rechecked: needRecheck.length }, `涉及装配区的 ${needRecheck.length} 件搬迁均已标记 ZCLR 复检`);
+  },
+  'MOVE-05': (ctx) => {
+    const changes = ctx.changes || [];
+    if (!changes.length) return na('无搬迁记录，无需 ECO 交叉校验');
+    const ecoId = ctx.evidence.eco && typeof ctx.evidence.eco === 'object' ? String(ctx.evidence.eco.lastChangeId || '') : '';
+    if (!ecoId) return review('搬迁已发生但未提供 ECO 记录（evidence.eco.lastChangeId + source/artifactHash/issuedAt/scope）');
+    const mismatched = changes.filter((c) => c.ecoId && c.ecoId !== ecoId).map((c) => `${c.ref}:${c.ecoId}≠${ecoId}`);
+    if (mismatched.length) return fail(`搬迁 ECO 编号与变更单不一致：${mismatched.join('，')}`, { mismatched, ecoId });
+    const unapproved = changes.filter((c) => !c.approvedBy.length).map((c) => c.ref);
+    if (unapproved.length) return fail(`搬迁缺少具名批准（approvedBy）：${fmtList(unapproved)}`, { unapproved, ecoId });
+    return ok({ changes: changes.length, ecoId }, `${changes.length} 条搬迁与 ECO ${ecoId} 一致且有具名批准`);
   },
 
   // ---------- CONN ----------
@@ -751,14 +1336,22 @@ const CHECKERS = {
     const list = ctx.power?.decoupling;
     if (!Array.isArray(list) || !list.length) return review('未提供去耦电容与被去耦电源脚的配对距离（power.decoupling）');
     const violations = [];
+    const autoViolations = [];
+    const unknown = [];
     for (const entry of list) {
       const distance = toNum(entry.distanceMm);
       const icClass = String(entry.icClass || '').toUpperCase();
       const limit = icClass === 'MODULE' ? 1.5 : ['QFN', 'BGA'].includes(icClass) ? 1.0 : 2.0;
       if (!isNum(distance)) { violations.push(`${entry.capRef || '?'} 距离未知`); continue; }
-      if (distance > limit + EPS) violations.push(`${entry.capRef || '?'} 距 ${entry.icRef || '电源脚'} ${mm(distance)} > ${mm(limit)}`);
+      if (entry.icClassKnown === false) { unknown.push(`${entry.capRef || '?'}→${entry.icRef || '?'}（封装类别未知）`); continue; }
+      if (distance > limit + EPS) {
+        const detail = `${entry.capRef || '?'} 距 ${entry.icRef || '电源脚'} ${mm(distance)} > ${mm(limit)}`;
+        if (entry.auto === true) autoViolations.push(detail); else violations.push(detail);
+      }
     }
-    if (violations.length) return fail(`去耦超距：${violations.join('，')}`, { violations });
+    if (violations.length) return fail(`去耦超距：${violations.join('，')}`, { violations, autoViolations, unknown });
+    if (unknown.length) return review(`去耦封装类别未知，无法确定 1.0/1.5/2.0 mm 适用阈值：${unknown.join('，')}`, { unknown });
+    if (autoViolations.length) return review(`按最近 IC 电源脚自动配对的去耦疑似超距（需人工确认电容角色/目标脚）：${autoViolations.join('，')}`, { autoViolations });
     return ok({ pairs: list.length }, `去耦距离全部合规（共 ${list.length} 对）`);
   },
   'PWR-02': () => review('需要回路面积与 GND 过孔位置（EDA 铜皮量测）'),
@@ -814,7 +1407,15 @@ const CHECKERS = {
     const standard = heights.filter((value) => Math.abs(value - 1.0) <= 0.1);
     return ok({ minHeightMm: Math.min(...heights), standardRatio: round(standard.length / heights.length, 2) }, `字高最小 ${mm(Math.min(...heights))}`);
   },
-  'SILK-02': () => review('需要丝印线宽数据（EDA 文本属性）'),
+  'SILK-02': (ctx) => {
+    const widths = (ctx.silk?.lineWidthsMm || []).map(toNum).filter(isNum);
+    if (!widths.length) return review('未提供丝印线宽数据（EDA 文本属性）');
+    const min = Math.min(...widths);
+    if (min < 0.12 - EPS) return fail(`丝印线宽 ${mm(min)} < 0.12 mm（笔画会断/粘连）`, { minWidthMm: min, widths });
+    const off = widths.filter((value) => value < 0.15 - 0.02 - EPS || value > 0.15 + 0.02 + EPS);
+    if (off.length) return review(`丝印线宽偏离 0.15±0.02 mm：${[...new Set(off.map((value) => mm(value)))].join('、')}`, { widths });
+    return ok({ minWidthMm: min, widths }, `丝印线宽 ${mm(min)} 合规`);
+  },
   'SILK-03': (ctx) => {
     const gap = toNum(ctx.silk?.minCharGapMm);
     if (!isNum(gap)) return review('未提供最小字符间隙实测值');
@@ -823,12 +1424,16 @@ const CHECKERS = {
   },
   'SILK-04': (ctx) => {
     const items = ctx.silk?.items || [];
+    if (ctx.silk?.textCount === 0) return review('texts.detail 返回 0 个独立文字图元；封装内丝印/位号未读取，不能据此判无丝印');
     if (!items.length) return review('未提供丝印到焊盘间距清单');
-    const bad = items.filter((item) => isNum(toNum(item.gapToPadMm)) && toNum(item.gapToPadMm) < 0.15 - EPS).map((item) => `${item.ref}=${mm(toNum(item.gapToPadMm))}`);
+    const measured = items.filter((item) => isNum(toNum(item.gapToPadMm)));
+    if (!measured.length) return review('丝印文字缺少包围盒/焊盘数据，无法量到焊盘间距');
+    const bad = measured.filter((item) => toNum(item.gapToPadMm) < 0.15 - EPS).map((item) => `${item.ref}=${mm(toNum(item.gapToPadMm))}`);
     if (bad.length) return fail(`丝印到焊盘 <0.15 mm：${bad.join('，')}`, { bad });
-    return ok({ items: items.length }, '丝印到焊盘间距 ≥0.15 mm');
+    return ok({ items: measured.length }, '丝印到焊盘间距 ≥0.15 mm');
   },
   'SILK-05': (ctx) => {
+    if (ctx.silk?.textCount === 0) return review('texts.detail 返回 0 个独立文字图元；封装内丝印/位号未读取，不能据此判无丝印');
     const count = toNum(ctx.silk?.overlappingPadCount);
     const items = Array.isArray(ctx.silk?.items) ? ctx.silk.items.filter((item) => Array.isArray(item.onPadRefs) && item.onPadRefs.length) : [];
     if (!isNum(count) && !Array.isArray(ctx.silk?.items)) return review('未提供丝印压焊盘检查结果（需开窗层叠合）');
@@ -837,8 +1442,33 @@ const CHECKERS = {
     if (total > 0) return fail(`丝印与焊盘重叠 ${total} 处：${fmtList(refs)}（CAM 会裁掉，位号将消失）`, { count: total, refs });
     return ok({ count: 0 }, '丝印与焊盘重叠 = 0');
   },
-  'SILK-06': () => review('需要位号摆放角度统计'),
-  'SILK-07': () => review('需要丝印与 courtyard 层叠合'),
+  'SILK-06': (ctx) => {
+    const list = Array.isArray(ctx.silk?.designators) ? ctx.silk.designators : [];
+    if (!list.length) return review('未识别到位号文本（texts.detail 中无与位号同名的文字）');
+    const badAngle = list.filter((item) => ![0, 90].includes(((toNum(item.rotationDeg) ?? 0) % 180 + 180) % 180)).map((item) => `${item.ref}=${item.rotationDeg}°`);
+    const mirrored = list.filter((item) => item.mirror === true).map((item) => item.ref);
+    const sideMismatch = list.filter((item) => item.sideMismatch === true).map((item) => item.ref);
+    if (badAngle.length) return fail(`位号角度非 0°/90°：${badAngle.join('，')}`, { badAngle });
+    if (mirrored.length) return fail(`位号被镜像：${fmtList(mirrored)}`, { mirrored });
+    if (sideMismatch.length) return fail(`位号与器件不在同一面：${fmtList(sideMismatch)}`, { sideMismatch });
+    const gaps = list.map((item) => toNum(item.gapToBodyMm)).filter(isNum);
+    const outOfRange = gaps.filter((gap) => gap < 0.2 - EPS || gap > 0.5 + EPS);
+    if (outOfRange.length) return fail(`位号距本体不在 0.20–0.50 mm：${outOfRange.map((gap) => mm(gap)).join('、')}`, { outOfRange });
+    const relativeKnown = list.filter((item) => item.placementRelative === true || item.placementRelative === false);
+    if (relativeKnown.length !== list.length) return review('位号角度/间距已查，但“置于本体上方或左侧”需位号与本体包围盒叠合确认');
+    if (relativeKnown.some((item) => item.placementRelative !== true)) return fail('位号未统一置于本体上方/左侧', { relative: relativeKnown });
+    return ok({ designators: list.length }, '位号统一角度、无镜像、距本体 0.20–0.50 mm');
+  },
+  'SILK-07': (ctx) => {
+    const items = ctx.silk?.items || [];
+    if (ctx.silk?.textCount === 0) return review('texts.detail 返回 0 个独立文字图元；封装内丝印/位号未读取，不能据此判无丝印');
+    if (!items.length) return review('未提供丝印文字包围盒，无法与 courtyard 叠合');
+    const hits = items.filter((item) => Array.isArray(item.courtyardOverlapRefs) && item.courtyardOverlapRefs.length);
+    if (hits.length) return fail(`丝印进入器件 courtyard/本体投影：${hits.map((item) => `${item.ref}→${item.courtyardOverlapRefs.join('/')}`).join('，')}`, { hits });
+    const unknown = items.filter((item) => item.courtyardKnown !== true);
+    if (unknown.length) return review(`courtyard 未全部显式声明，无法完成丝印叠合检查（${unknown.length} 条文字）`);
+    return ok({ items: items.length }, '丝印未进入任何已知 courtyard');
+  },
   'SILK-08': () => review('需要密集区丝印排布检查'),
   'SILK-09': () => review('需要 IC 1 脚标识（丝印/封装）'),
   'SILK-10': () => review('需要二极管阴极标识'),
@@ -846,10 +1476,13 @@ const CHECKERS = {
   'SILK-12': () => review('需要功能名称丝印清单'),
   'SILK-13': (ctx) => {
     const items = ctx.silk?.items || [];
+    if (ctx.silk?.textCount === 0) return review('texts.detail 返回 0 个独立文字图元；封装内丝印/位号未读取，不能据此判无丝印');
     const runsOff = ctx.silk?.runsOffBoard === true || items.some((item) => item.outsideBoard === true);
     if (!items.length && ctx.silk?.runsOffBoard === undefined) return review('未提供丝印越板边检查结果');
     if (runsOff) return fail('丝印越出板边（会被铣切/裁掉）', { runsOffBoard: true });
-    return ok({}, '丝印未越板边');
+    const tooClose = items.filter((item) => isNum(toNum(item.edgeDistanceMm)) && toNum(item.edgeDistanceMm) < 0.5 - EPS).map((item) => `${item.ref}=${mm(toNum(item.edgeDistanceMm))}`);
+    if (tooClose.length) return fail(`丝印距板边 <0.50 mm：${tooClose.join('，')}`, { tooClose });
+    return ok({ items: items.length }, '丝印未越板边，距板边 ≥0.50 mm');
   },
   'SILK-14': (ctx) => {
     const stray = toNum(ctx.silk?.strayLineCount);
@@ -858,7 +1491,14 @@ const CHECKERS = {
     return ok({ strayLineCount: 0 }, '无无意义丝印线');
   },
   'SILK-15': () => review('需要 courtyard 层归属检查（courtyard 不得画在丝印层）'),
-  'SILK-16': () => review('需要板边/V-CUT 处丝印裁切检查'),
+  'SILK-16': (ctx) => {
+    const items = ctx.silk?.items || [];
+    if (ctx.silk?.textCount === 0) return review('texts.detail 返回 0 个独立文字图元；封装内丝印/位号未读取，不能据此判无丝印');
+    if (!items.length) return review('未提供丝印包围盒，无法判定是否被板边截断');
+    const truncated = items.filter((item) => item.outsideBoard === true || (isNum(toNum(item.edgeDistanceMm)) && toNum(item.edgeDistanceMm) < 0.5 - EPS));
+    if (truncated.length) return fail(`丝印可能被板边截断：${truncated.map((item) => item.ref).join('，')}`, { truncated: truncated.map((item) => item.ref) });
+    return ok({ items: items.length }, '每个丝印文字完整落在板内且距边 ≥0.50 mm');
+  },
 
   // ---------- DFM ----------
   'DFM-01': (ctx) => {
@@ -927,7 +1567,24 @@ const CHECKERS = {
   },
   'DFA-07': (ctx) => checkToolingHoles(ctx, 'DFA-07'),
   'DFA-08': () => review('需要治具压接面与避让区评审'),
-  'DFA-09': () => review('需要 ESD/TVS 与接口距离（网表 + 布局）'),
+  'DFA-09': (ctx) => {
+    const list = ctx.input?.esd?.devices;
+    if (!Array.isArray(list) || !list.length) return review('未提供 ESD/TVS 器件与被保护接口清单（esd.devices）');
+    const failures = [];
+    const unknown = [];
+    for (const entry of list) {
+      const distance = toNum(entry.distanceMm);
+      const gnd = toNum(entry.gndViaDistanceMm);
+      const ref = entry.ref || '?';
+      if (!isNum(distance) || !isNum(gnd)) { unknown.push(`${ref}（距离/GND 回路未量测）`); continue; }
+      if (distance > 5 + EPS) failures.push(`${ref} 距接口 ${mm(distance)} > 5.00 mm`);
+      if (gnd > 2 + EPS) failures.push(`${ref} GND 回路 ${mm(gnd)} > 2.00 mm`);
+      if (entry.orderBeforeBranch === false) failures.push(`${ref} 不在连接器与芯片之间/先于分支`);
+    }
+    if (failures.length) return fail(`ESD 器件位置不合格：${failures.join('，')}`, { failures, unknown });
+    if (unknown.length) return review(`ESD 器件缺量测：${unknown.join('，')}`, { unknown });
+    return ok({ devices: list.length }, `ESD/TVS 位置与 GND 回路合规（共 ${list.length} 颗）`);
+  },
   'DFA-10': () => review('需要测试探针垂直空间与高件遮挡检查'),
   'DFA-11': (ctx) => checkDirectionClasses(ctx),
   'DFA-12': () => review('需要装配顺序与防错评审'),
@@ -972,27 +1629,35 @@ function spacingByClasses(ctx, classA, classB, limitMm) {
   const a = ctx.components.filter((c) => c.packageClass === classA);
   const b = ctx.components.filter((c) => c.packageClass === classB);
   if (!a.length || !b.length) return na(`本板无 ${classA}↔${classB} 组合（packageClass 未标注时视为不适用）`);
+  const missing = [...a, ...b].filter((c) => !c.explicitCourtyard);
+  if (missing.length) return review(`${classA}↔${classB} 间距无法判定：courtyard 未显式声明（${fmtList([...new Set(missing.map((c) => c.ref))])}）`);
   const violations = [];
+  let pairs = 0;
   for (const x of a) for (const y of b) {
-    if (x.ref === y.ref) continue;
+    if (x.ref === y.ref || x.side !== y.side) continue;
+    pairs += 1;
     const gap = rectGap(x.courtyard, y.courtyard);
     if (gap < limitMm - EPS) violations.push(`${x.ref}↔${y.ref}=${mm(gap)}`);
   }
   if (violations.length) return fail(`${classA}↔${classB} 间距 <${mm(limitMm)}：${violations.join('，')}`, { violations });
-  return ok({ pairs: a.length * b.length }, `${classA}↔${classB} 间距 ≥${mm(limitMm)}`);
+  return ok({ pairs }, `${classA}↔${classB} 间距 ≥${mm(limitMm)}`);
 }
 function spacingMatrix(ctx, classA, limitMm) {
   if (!ctx.components.length) return review('未提供器件清单');
   const a = ctx.components.filter((c) => c.packageClass === classA);
   if (!a.length) return na(`本板无 ${classA} 器件（packageClass 未标注时视为不适用）`);
+  const missing = ctx.components.filter((c) => !c.explicitCourtyard);
+  if (missing.length) return review(`${classA} 间距无法判定：courtyard 未显式声明（${fmtList([...new Set(missing.map((c) => c.ref))])}）`);
   const violations = [];
+  let pairs = 0;
   for (const x of a) for (const y of ctx.components) {
-    if (x.ref === y.ref) continue;
+    if (x.ref === y.ref || x.side !== y.side) continue;
+    pairs += 1;
     const gap = rectGap(x.courtyard, y.courtyard);
     if (gap < limitMm - EPS) violations.push(`${x.ref}↔${y.ref}=${mm(gap)}`);
   }
   if (violations.length) return fail(`${classA} 与其它器件间距 <${mm(limitMm)}：${violations.join('，')}`, { violations });
-  return ok({ pairs: a.length * (ctx.components.length - 1) }, `${classA} 间距 ≥${mm(limitMm)}`);
+  return ok({ pairs }, `${classA} 间距 ≥${mm(limitMm)}`);
 }
 function checkToolingHoles(ctx, ruleId) {
   const holes = ctx.board.toolingHoles;
@@ -1034,48 +1699,126 @@ export function requiredTraceWidthMm(currentA, layer = 'outer', deltaTC = 10) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. 门禁：GATE-01..07 由其它规则状态 + 外部证据聚合，不独立臆造
+// 4. 门禁：GATE-01..10 由其它规则状态 + 外部证据聚合，不独立臆造
 // ---------------------------------------------------------------------------
-function evaluateGates(ctx, statusOf) {
+const EVIDENCE_HASH_PATTERN = /^[0-9a-f]{64}$/i;
+/** 门禁证据状态：没有 provenance 的 passed=true 只能算“未证实”，不能放行。 */
+function evidenceState(record) {
+  if (!record || typeof record !== 'object') return 'missing';
+  if (record.passed === false) return 'failed';
+  if (record.passed !== true) return 'incomplete';
+  const hash = String(record.artifactHash || record.reportHash || '');
+  const source = String(record.source || '').trim();
+  const scope = String(record.scope || '').trim();
+  const issuedAt = Date.parse(record.issuedAt);
+  if (!EVIDENCE_HASH_PATTERN.test(hash) || !source || !scope || !Number.isFinite(issuedAt)) return 'unprovenanced';
+  return 'passed';
+}
+function evidenceProblems(record) {
+  const problems = [];
+  if (!record || typeof record !== 'object') return ['证据缺失'];
+  if (record.passed !== true && record.passed !== false) problems.push('passed 必须是布尔值');
+  if (!String(record.source || '').trim()) problems.push('缺少 source（执行工具/来源）');
+  if (!EVIDENCE_HASH_PATTERN.test(String(record.artifactHash || record.reportHash || ''))) problems.push('缺少 artifactHash（sha256）');
+  if (!String(record.scope || '').trim()) problems.push('缺少 scope（覆盖的板/版本/规则范围）');
+  if (!Number.isFinite(Date.parse(record.issuedAt))) problems.push('缺少合法 issuedAt（ISO 时间）');
+  return problems;
+}
+function evaluateGates(ctx, statusOf, levelOf = () => '硬门禁') {
   const evidence = ctx.evidence || {};
   const evidenceGate = (id, key, label) => {
     const record = evidence[key];
-    if (!record || typeof record !== 'object') return { id, status: STATUS.REVIEW, message: `${label}未执行/未提供证据（evidence.${key}）`, evidence: null };
-    if (record.passed === true) return { id, status: STATUS.PASS, message: `${label}已通过`, evidence: record };
-    if (record.passed === false) return { id, status: STATUS.FAIL, message: `${label}未通过`, evidence: record };
+    const state = evidenceState(record);
+    if (state === 'missing') return { id, status: STATUS.REVIEW, message: `${label}未执行/未提供证据（evidence.${key}）`, evidence: null };
+    if (state === 'failed') return { id, status: STATUS.FAIL, message: `${label}未通过`, evidence: record };
+    if (state === 'unprovenanced') return { id, status: STATUS.REVIEW, message: `${label}证据缺少 provenance：${evidenceProblems(record).join('；')}`, evidence: record };
+    if (state === 'passed') return { id, status: STATUS.PASS, message: `${label}已通过（${record.source} / ${record.artifactHash.slice(0, 12)}… / ${record.scope}）`, evidence: record };
     return { id, status: STATUS.REVIEW, message: `${label}证据不完整`, evidence: record };
   };
   const gates = [];
   // GATE-01：3D 干涉，先看几何规则，再看整机 STEP 证据
-  const interferenceRules = ['SPACE-02', 'SPACE-07', 'SPACE-08', 'SPACE-09', 'SPACE-18', 'MECH-05'];
+  const interferenceRules = ['SPACE-02', 'SPACE-07', 'SPACE-08', 'SPACE-09', 'SPACE-18', 'MECH-05', 'ZCLR-02', 'ZCLR-03'];
   const failedInterference = interferenceRules.filter((id) => statusOf(id) === STATUS.FAIL);
   const reviewInterference = interferenceRules.filter((id) => statusOf(id) === STATUS.REVIEW);
   const step3d = evidence.step3d;
+  const step3dState = evidenceState(step3d);
   let gate01;
-  if (step3d?.passed === false) gate01 = { id: 'GATE-01', status: STATUS.FAIL, message: '整机 STEP 3D 干涉未清零', evidence: step3d };
+  if (step3dState === 'failed') gate01 = { id: 'GATE-01', status: STATUS.FAIL, message: '整机 STEP 3D 干涉未清零', evidence: step3d };
   else if (failedInterference.length) gate01 = { id: 'GATE-01', status: STATUS.FAIL, message: `布局几何干涉未清零（${failedInterference.join('、')}）`, evidence: { failedInterference } };
-  else if (step3d?.passed === true && !reviewInterference.length) gate01 = { id: 'GATE-01', status: STATUS.PASS, message: '3D 干涉检查通过', evidence: step3d };
-  else gate01 = { id: 'GATE-01', status: STATUS.REVIEW, message: `3D 干涉证据不足${reviewInterference.length ? `（${reviewInterference.join('、')} 待复核）` : ''}`, evidence: { step3d: step3d ?? null, reviewInterference } };
+  else if (step3dState === 'passed' && !reviewInterference.length) gate01 = { id: 'GATE-01', status: STATUS.PASS, message: '3D 干涉检查通过', evidence: step3d };
+  else gate01 = { id: 'GATE-01', status: STATUS.REVIEW, message: `3D 干涉证据不足${reviewInterference.length ? `（${reviewInterference.join('、')} 待复核）` : ''}${step3dState === 'unprovenanced' ? `（${evidenceProblems(step3d).join('；')}）` : ''}`, evidence: { step3d: step3d ?? null, reviewInterference } };
   gates.push(gate01);
   gates.push(evidenceGate('GATE-02', 'officialDrc', '官方 DRC 门禁'));
   gates.push(evidenceGate('GATE-03', 'dfm', '板厂 DFM 门禁'));
   gates.push(evidenceGate('GATE-04', 'dfa', 'DFA 装配评审门禁'));
   gates.push(evidenceGate('GATE-05', 'fai', '首件 FAI 门禁'));
   const eco = evidence.eco;
-  gates.push(eco?.lastChangeId
-    ? { id: 'GATE-06', status: STATUS.PASS, message: `ECO 变更单 ${eco.lastChangeId} 已记录`, evidence: eco }
-    : { id: 'GATE-06', status: STATUS.REVIEW, message: '未提供 ECO 变更记录（用 evidence.eco.lastChangeId）', evidence: null });
+  const ecoState = evidenceState(eco && typeof eco === 'object' ? { ...eco, passed: Boolean(eco.lastChangeId) } : eco);
+  gates.push(ecoState === 'passed'
+    ? { id: 'GATE-06', status: STATUS.PASS, message: `ECO 变更单 ${eco.lastChangeId} 已记录（${eco.source} / ${eco.artifactHash.slice(0, 12)}…）`, evidence: eco }
+    : { id: 'GATE-06', status: STATUS.REVIEW, message: `未提供可验证的 ECO 变更记录（需要 lastChangeId + source/artifactHash/issuedAt/scope）`, evidence: eco ?? null });
+  // GATE-08：装配净空门（Z 轴）—— 高度表/装配区插合高度/高件禁区/叠装总高任一未闭合即不得放行
+  const ZCLR_IDS = ['ZCLR-01', 'ZCLR-02', 'ZCLR-03', 'ZCLR-04', 'ZCLR-05', 'ZCLR-06', 'ZCLR-07', 'ZCLR-08', 'ZCLR-09'];
+  const zclrFail = ZCLR_IDS.filter((id) => statusOf(id) === STATUS.FAIL && levelOf(id) !== '推荐');
+  const zclrWarn = ZCLR_IDS.filter((id) => statusOf(id) === STATUS.FAIL && levelOf(id) === '推荐');
+  const zclrReview = ZCLR_IDS.filter((id) => statusOf(id) === STATUS.REVIEW);
+  const zoneNames = (ctx.assemblyZones || []).map((zone) => zone.name).filter(Boolean);
+  let gate08;
+  if (zclrFail.length) {
+    gate08 = { id: 'GATE-08', status: STATUS.FAIL, message: `装配净空未清零（${zclrFail.join('、')}）`, evidence: { failed: zclrFail, zones: zoneNames } };
+  } else if (zclrReview.length) {
+    gate08 = { id: 'GATE-08', status: STATUS.REVIEW, message: `装配净空证据不足（${zclrReview.join('、')} 待复核）`, evidence: { review: zclrReview, zones: zoneNames } };
+  } else if (zclrWarn.length) {
+    gate08 = { id: 'GATE-08', status: STATUS.REVIEW, message: `装配净空硬门禁已闭环，但「推荐」级警告待签核（${zclrWarn.join('、')}）`, evidence: { warnings: zclrWarn, zones: zoneNames } };
+  } else {
+    gate08 = { id: 'GATE-08', status: STATUS.PASS, message: `装配净空通过（${zoneNames.length ? `${zoneNames.length} 个装配区：${zoneNames.join('、')}` : '无装配区'}）`, evidence: { zones: zoneNames } };
+  }
+  gates.push(gate08);
+  // GATE-09：布局变更影响门 —— 搬迁登记/网络长度/环路面积/净空复检/ECO 一致性
+  const MOVE_IDS = ['MOVE-01', 'MOVE-02', 'MOVE-03', 'MOVE-04', 'MOVE-05'];
+  const moveFail = MOVE_IDS.filter((id) => statusOf(id) === STATUS.FAIL);
+  const moveReview = MOVE_IDS.filter((id) => statusOf(id) === STATUS.REVIEW);
+  const changeCount = (ctx.changes || []).length;
+  let gate09;
+  if (moveFail.length) {
+    gate09 = { id: 'GATE-09', status: STATUS.FAIL, message: `布局变更影响未闭合（${moveFail.join('、')}）`, evidence: { failed: moveFail, changes: changeCount } };
+  } else if (changeCount && (statusOf('ZCLR-03') !== STATUS.PASS || statusOf('ZCLR-05') !== STATUS.PASS)) {
+    gate09 = { id: 'GATE-09', status: STATUS.REVIEW, message: `发生 ${changeCount} 次搬迁，但装配净空（ZCLR-03/ZCLR-05）尚未闭合，漂移风险未排除`, evidence: { changes: changeCount, zclr03: statusOf('ZCLR-03'), zclr05: statusOf('ZCLR-05') } };
+  } else if (moveReview.length) {
+    gate09 = { id: 'GATE-09', status: STATUS.REVIEW, message: `布局变更影响待复核（${moveReview.join('、')}）`, evidence: { review: moveReview, changes: changeCount } };
+  } else {
+    gate09 = { id: 'GATE-09', status: STATUS.PASS, message: changeCount ? `${changeCount} 条搬迁的电气与净空影响均已闭合` : '本次送审无搬迁', evidence: { changes: changeCount } };
+  }
+  gates.push(gate09);
+
+  // GATE-10：交付放行门 —— 工程唯一性/规则同源/交付物完整性为硬门禁；门禁证据/记录一致性/推断兜底为推荐级
+  const PRJ_HARD = ['PRJ-01', 'PRJ-02', 'PRJ-03'];
+  const PRJ_WARN = ['PRJ-04', 'PRJ-05', 'PRJ-06'];
+  const prjHardFail = PRJ_HARD.filter((id) => statusOf(id) === STATUS.FAIL);
+  const prjWarnFail = PRJ_WARN.filter((id) => statusOf(id) === STATUS.FAIL);
+  const prjReview = [...PRJ_HARD, ...PRJ_WARN].filter((id) => statusOf(id) === STATUS.REVIEW);
+  const deliverableKinds = new Set((ctx.deliverables || []).map((item) => item.kind));
+  const missingKinds = DELIVERABLE_KINDS.filter((kind) => !deliverableKinds.has(kind));
+  let gate10;
+  if (prjHardFail.length) {
+    gate10 = { id: 'GATE-10', status: STATUS.FAIL, message: `交付放行未通过（${prjHardFail.join('、')}）${missingKinds.length ? `：缺 ${missingKinds.join('、')}` : ''}`, evidence: { failed: prjHardFail, missingKinds } };
+  } else if (prjWarnFail.length || prjReview.length) {
+    gate10 = { id: 'GATE-10', status: STATUS.REVIEW, message: `交付证据待闭合（${[...prjWarnFail, ...prjReview].join('、')}）`, evidence: { warnFail: prjWarnFail, review: prjReview, missingKinds } };
+  } else {
+    gate10 = { id: 'GATE-10', status: STATUS.PASS, message: '交付链完整：工程对象唯一、规则文档同源、6 类交付物齐备、阶段门禁与记录一致、推断项有兜底', evidence: { missingKinds } };
+  }
+  gates.push(gate10);
   const gateStatus = (id) => gates.find((gate) => gate.id === id)?.status || STATUS.REVIEW;
   // GATE-07：8 条不可投产红线
   const redLines = [
-    { key: '3D 干涉未清零', hit: gate01.status === STATUS.FAIL },
+    { key: '3D 干涉/装配净空未清零', hit: gate01.status === STATUS.FAIL || statusOf('ZCLR-02') === STATUS.FAIL || statusOf('ZCLR-03') === STATUS.FAIL },
     { key: '丝印压焊盘未清零', hit: statusOf('SILK-05') === STATUS.FAIL },
     { key: '去耦电容超距', hit: statusOf('PWR-01') === STATUS.FAIL },
     { key: 'RF 天线禁布区被金属侵占', hit: statusOf('RF-03') === STATUS.FAIL || statusOf('RF-04') === STATUS.FAIL },
     { key: '拼板/工艺边缺失', hit: statusOf('MECH-10') === STATUS.FAIL },
     { key: '无 Mark 与定位孔', hit: statusOf('MECH-11') === STATUS.FAIL || statusOf('MECH-12') === STATUS.FAIL },
     { key: 'USB 差分阻抗未定义', hit: statusOf('DFM-09') === STATUS.REVIEW ? null : statusOf('DFM-09') === STATUS.FAIL },
-    { key: '首件 FAI 未通过', hit: evidence.fai?.passed === true ? false : evidence.fai?.passed === false ? true : null },
+    { key: '首件 FAI 未通过', hit: evidenceState(evidence.fai) === 'passed' ? false : evidenceState(evidence.fai) === 'failed' ? true : null },
   ];
   const hardHits = redLines.filter((item) => item.hit === true).map((item) => item.key);
   const unknown = redLines.filter((item) => item.hit === null).map((item) => item.key);
@@ -1093,13 +1836,17 @@ function evaluateGates(ctx, statusOf) {
 // ---------------------------------------------------------------------------
 /** 规则分组 → 覆盖它的门禁（用于给 REVIEW 规则标注"由谁签字覆盖"）。 */
 const GROUP_GATE_COVER = {
-  MECH: ['GATE-01', 'GATE-02'], SPACE: ['GATE-01', 'GATE-02'], CONN: ['GATE-01', 'GATE-04'],
-  RF: ['GATE-01', 'GATE-02'], PWR: ['GATE-02'], SILK: ['GATE-02'], DFM: ['GATE-03'], DFA: ['GATE-04'], GATE: [],
+  MECH: ['GATE-01', 'GATE-02'], SPACE: ['GATE-01', 'GATE-02'], ZCLR: ['GATE-01', 'GATE-08'],
+  CONN: ['GATE-01', 'GATE-04'], RF: ['GATE-01', 'GATE-02'], PWR: ['GATE-02'], MOVE: ['GATE-09', 'GATE-06'],
+  SILK: ['GATE-02'], DFM: ['GATE-03'], DFA: ['GATE-04'], PRJ: ['GATE-10'], GATE: [],
 };
 
 const REQUIRE_HINTS = {
   MECH: '需要 EDA 板框/机械层/Gerber 或结构图',
   SPACE: '需要 courtyard 属性、3D 高度表与封装库',
+  ZCLR: '需要 components[].heightMm3d 高度表、assemblyZones[]（矩形+插合高度）与整机 STEP 证据',
+  MOVE: '需要 changes[]（搬迁前后坐标）、nets[]（搬迁前后长度/环路面积）与 ECO 记录',
+  PRJ: '需要 project（图纸/PCB 实例）、docs（文档哈希）、deliverables[]（交付物清单）、stageGates、records[] 与 latestSnapshot',
   CONN: '需要在连接器上标注 kind/openingDir/插拔净空/线缆 keepout',
   RF: '需要天线禁布区几何、层叠/铜皮数据与仿真证据',
   PWR: '需要网表、电源脚与去耦配对、铜皮量测',
@@ -1129,7 +1876,8 @@ export function evaluateLayoutRules(input = {}) {
     if (item.rule.group === 'GATE') continue;
     statusOfMap.set(item.rule.id, item.result.status);
   }
-  const { gates, redLines } = evaluateGates(ctx, (id) => statusOfMap.get(id));
+  const levelMap = new Map(pack.rules.map((rule) => [rule.id, rule.level]));
+  const { gates, redLines } = evaluateGates(ctx, (id) => statusOfMap.get(id), (id) => levelMap.get(id));
   const gateById = new Map(gates.map((gate) => [gate.id, gate]));
   const finalRules = rules.map(({ rule, result }) => {
     const resolved = rule.group === 'GATE'
@@ -1166,7 +1914,7 @@ export function evaluateLayoutRules(input = {}) {
     board: { widthMm: ctx.board.widthMm, heightMm: ctx.board.heightMm, thicknessMm: ctx.board.thicknessMm },
     rules: finalRules, gates, gatesSummary, redLines, summary, findings,
     passed: summary.blockingFailures === 0,
-    // 放行判据是门禁：GATE-01..07 全 PASS 且无硬门禁 FAIL。
+    // 放行判据是门禁：GATE-01..10 全 PASS 且无硬门禁 FAIL。
     // 单条 REVIEW 不等于 PASS，但若其对应门禁已有签字证据（如 GATE-02 官方 DRC），
     // 则该规则由外部检查覆盖（会在 coveredBy 里写明），引擎自身仍不宣称已验证。
     releaseReady: summary.blockingFailures === 0 && gates.every((gate) => gate.status === STATUS.PASS),

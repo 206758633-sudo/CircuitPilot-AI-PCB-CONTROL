@@ -24,6 +24,30 @@ import { dirname, join } from 'node:path';
 export const ERC_SCHEMA_VERSION = 1;
 export const ERC_SEVERITIES = Object.freeze(['fatal', 'error', 'warning', 'info']);
 export const ERC_EXEMPTION_FILE_ENV = 'CIRCUITPILOT_ERC_EXEMPTIONS';
+export const ERC_EXEMPTION_DIR_ENV = 'CIRCUITPILOT_ERC_EXEMPTION_DIR';
+export const ERC_LEGACY_FILE_ENV = 'CIRCUITPILOT_ERC_LEGACY_EXEMPTIONS';
+const legacyErcExemptionFile = (env = process.env) => String(env[ERC_LEGACY_FILE_ENV] || '').trim() || join(homedir(), '.circuitpilot', 'erc-exemptions.json');
+/** 原理图豁免按工程隔离（同 DRC：全局单文件会把 A 板豁免套到 B 板）。 */
+export function ercExemptionScopePath(projectUuid = null, env = process.env) {
+  const dir = String(env[ERC_EXEMPTION_DIR_ENV] || '').trim() || join(homedir(), '.circuitpilot', 'erc-exemptions');
+  const scope = String(projectUuid || '').trim();
+  if (/^[A-Za-z0-9_-]{6,64}$/.test(scope)) return join(dir, `project-${scope}.json`);
+  return join(dir, 'global.json');
+}
+/** 读"当前工程"的 ERC 豁免；工程级文件不存在时回退旧版全局文件并带 warning。 */
+export function loadScopedErcExemptionFile(projectUuid = null, env = process.env) {
+  const explicit = String(env[ERC_EXEMPTION_FILE_ENV] || '').trim();
+  if (explicit) return { ...loadErcExemptionFile(explicit), scope: { kind: 'explicit', projectUuid, scopedPath: explicit } };
+  const scopedPath = ercExemptionScopePath(projectUuid, env);
+  const scoped = loadErcExemptionFile(scopedPath);
+  if (scoped.exists) return { ...scoped, scope: { kind: projectUuid ? 'project' : 'global', projectUuid, scopedPath } };
+  const legacyPath = legacyErcExemptionFile(env);
+  if (existsSync(legacyPath)) {
+    const legacy = loadErcExemptionFile(legacyPath);
+    return { ...legacy, scope: { kind: 'legacy', projectUuid, scopedPath }, warning: `正在使用旧版全局 ERC 豁免文件 ${legacyPath}（未按工程隔离，已弃用）；建议迁移到 ${scopedPath}` };
+  }
+  return { ...scoped, scope: { kind: projectUuid ? 'project' : 'global', projectUuid, scopedPath } };
+}
 
 const text = (value, limit = 240) => String(value ?? '').trim().slice(0, limit);
 const stableStringify = (value) => {
@@ -288,8 +312,10 @@ export function buildErcExemptionTemplate(normalized) {
   return [...byCode.values()].sort((left, right) => right.count - left.count);
 }
 
-export function defaultErcExemptionPath(env = process.env) {
-  return String(env[ERC_EXEMPTION_FILE_ENV] || '').trim() || join(homedir(), '.circuitpilot', 'erc-exemptions.json');
+export function defaultErcExemptionPath(env = process.env, projectUuid = null) {
+  const explicit = String(env[ERC_EXEMPTION_FILE_ENV] || '').trim();
+  if (explicit) return explicit;
+  return ercExemptionScopePath(projectUuid, env);
 }
 
 export function loadErcExemptionFile(filePath = defaultErcExemptionPath()) {

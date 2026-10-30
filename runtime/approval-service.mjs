@@ -57,7 +57,8 @@ export function createApprovalService({
   };
   const isLive = (record) => !record.usedAt && !record.revokedAt && record.expiresAt > now();
   const prune = () => {
-    for (const [id, record] of records) if (!isLive(record)) records.delete(id);
+    // 只做容量淘汰：已使用/已过期/已撤销的记录保留到容量上限，便于按 approvalId
+    // 解释“为什么不能撤销”（区分 missing/used/expired/revoked），list() 仍只回 live。
     // 防御性上限：极端情况下也不让内存无限增长（最早签发的先淘汰）。
     while (records.size > maxEntries) records.delete(records.keys().next().value);
   };
@@ -154,6 +155,22 @@ export function createApprovalService({
       record.usedAt = usedAt;
       emit('consumed', record);
       return { ...publicView(record), usedAt };
+    },
+    /**
+     * 按 approvalId 撤销仍可用的批准（UI 待执行队列用；不接收令牌原文）。
+     * 只允许 live 记录；不存在/已使用/已过期/已撤销一律 APPROVAL_INVALID，不写假审计。
+     * `details.reason` 仅供路由区分 404（不存在/已撤销）与 409（已使用/已过期），不含敏感信息。
+     */
+    revokeById({ approvalId } = {}) {
+      const id = String(approvalId ?? '').trim();
+      const record = id ? records.get(id) : null;
+      if (!record) throw code('批准不存在或已失效', 'APPROVAL_INVALID', { approvalId: id, reason: 'missing' });
+      if (record.usedAt) throw code('批准已使用，不能撤销', 'APPROVAL_INVALID', { approvalId: id, reason: 'used' });
+      if (record.revokedAt) throw code('批准已撤销', 'APPROVAL_INVALID', { approvalId: id, reason: 'revoked' });
+      if (record.expiresAt <= now()) throw code('批准已过期，不能撤销', 'APPROVAL_INVALID', { approvalId: id, reason: 'expired' });
+      record.revokedAt = now();
+      emit('revoked', record);
+      return publicView(record);
     },
     /** 撤销未使用的批准；已使用/不存在一律按无效拒绝（不制造"撤销成功"的假象，也不写假审计）。 */
     revokeToken({ token } = {}) {

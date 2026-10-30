@@ -6,7 +6,8 @@
  * 这里给三类批准一个统一的**只追加哈希链账本**：每条记录带 prevHash + entryHash，
  * 任何一条被改都会在 verify() 里暴露；落盘后重启仍能核对历史。
  *
- * 账本只记录"批准生命周期事实"（scope/action/绑定哈希/时间），**绝不记录令牌原文**，
+ * 账本只记录"批准生命周期事实"（scope/action/绑定哈希/时间），**绝不记录令牌原文**。
+ * W5-04 起新增 signed/rejected 两个人工终审动作（放行签字/驳回），同样进哈希链。
  * 令牌依然只存在于内存、一次性、30 分钟过期。放行批准当前以人工签核证据表达（见 B1），
  * scope=release 预留但尚无签发点。
  */
@@ -14,7 +15,7 @@ import crypto from 'node:crypto';
 
 export const APPROVAL_LEDGER_VERSION = 1;
 export const APPROVAL_LEDGER_SCOPES = ['plan', 'write', 'release'];
-export const APPROVAL_LEDGER_ACTIONS = ['issued', 'consumed', 'revoked', 'expired', 'replayed', 'mismatch'];
+export const APPROVAL_LEDGER_ACTIONS = ['issued', 'consumed', 'revoked', 'expired', 'replayed', 'mismatch', 'signed', 'rejected'];
 
 const stableStringify = (value) => {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);

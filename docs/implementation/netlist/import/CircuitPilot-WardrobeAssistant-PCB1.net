@@ -1,0 +1,154 @@
+(
+Netlist
+(
+	Comp ( Name "C1" ) ( Designator "C1" ) ( Footprint "C0402_1" )
+	Comp ( Name "C2" ) ( Designator "C2" ) ( Footprint "C0603_1" )
+	Comp ( Name "C3" ) ( Designator "C3" ) ( Footprint "C0603_1" )
+	Comp ( Name "C4" ) ( Designator "C4" ) ( Footprint "C0603_1" )
+	Comp ( Name "C5" ) ( Designator "C5" ) ( Footprint "C0603_1" )
+	Comp ( Name "LED1" ) ( Designator "LED1" ) ( Footprint "LED-SMD_L1.0-W0.5_FC-F1005UGK" )
+	Comp ( Name "LED2" ) ( Designator "LED2" ) ( Footprint "LED0402-RD_GREEN" )
+	Comp ( Name "LED3" ) ( Designator "LED3" ) ( Footprint "LED0402-RD_GREEN" )
+	Comp ( Name "LED4" ) ( Designator "LED4" ) ( Footprint "LED0402-RD_GREEN" )
+	Comp ( Name "LED5" ) ( Designator "LED5" ) ( Footprint "LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P" )
+	Comp ( Name "LED6" ) ( Designator "LED6" ) ( Footprint "LED0402-RD_GREEN" )
+	Comp ( Name "Q1" ) ( Designator "Q1" ) ( Footprint "SOT-363_L2.0-W1.3-P0.65-LS2.1-BR" )
+	Comp ( Name "R1" ) ( Designator "R1" ) ( Footprint "R0402_1" )
+	Comp ( Name "R2" ) ( Designator "R2" ) ( Footprint "R0402_1" )
+	Comp ( Name "R3" ) ( Designator "R3" ) ( Footprint "R0402_1" )
+	Comp ( Name "R4" ) ( Designator "R4" ) ( Footprint "R0402_1" )
+	Comp ( Name "U1" ) ( Designator "U1" ) ( Footprint "WIRELM-SMD_ESP32-S3-WROOM-1" )
+	Comp ( Name "U2" ) ( Designator "U2" ) ( Footprint "ESOP-8_L4.9-W3.9-P1.27-LS6.0-BL-EP" )
+	Comp ( Name "U3" ) ( Designator "U3" ) ( Footprint "" )
+	Comp ( Name "U4" ) ( Designator "U4" ) ( Footprint "ESOP-10_L4.9-W3.9-P1.00-LS6.0-BL-EP" )
+)
+(
+	Net ( Name "GND" )
+	(
+		Node ( NodeName "U1" ) ( PinName "A1B12" ) ( PinType "PASSIVE" )
+		Node ( NodeName "U1" ) ( PinName "B1A12" ) ( PinType "PASSIVE" )
+		Node ( NodeName "U4" ) ( PinName "3" ) ( PinType "PASSIVE" )
+		Node ( NodeName "Q1" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "R3" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED2" ) ( PinName "4" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED3" ) ( PinName "4" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED4" ) ( PinName "4" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED5" ) ( PinName "4" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED6" ) ( PinName "4" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C1" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C2" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C3" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C4" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C5" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "U2" ) ( PinName "9" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "+5V" )
+	(
+		Node ( NodeName "U1" ) ( PinName "A4B9" ) ( PinType "PASSIVE" )
+		Node ( NodeName "U1" ) ( PinName "B4A9" ) ( PinType "PASSIVE" )
+		Node ( NodeName "U4" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "R1" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED2" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED3" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED4" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED5" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED6" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C1" ) ( PinName "1" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C2" ) ( PinName "1" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C3" ) ( PinName "1" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C4" ) ( PinName "1" ) ( PinType "PASSIVE" )
+		Node ( NodeName "C5" ) ( PinName "1" ) ( PinType "PASSIVE" )
+		Node ( NodeName "U2" ) ( PinName "8" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "N_SW" )
+	(
+		Node ( NodeName "U3" ) ( PinName "1" ) ( PinType "PASSIVE" )
+		Node ( NodeName "U3" ) ( PinName "6" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "MOTOR" )
+	(
+		Node ( NodeName "U4" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "FILL_LED_K" )
+	(
+		Node ( NodeName "LED1" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "Q1" ) ( PinName "3" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "FILL_LED_A" )
+	(
+		Node ( NodeName "LED1" ) ( PinName "1" ) ( PinType "PASSIVE" )
+		Node ( NodeName "R1" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "FILL_CTRL_B" )
+	(
+		Node ( NodeName "Q1" ) ( PinName "1" ) ( PinType "PASSIVE" )
+		Node ( NodeName "R2" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "R3" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "FILL_LED_CTRL" )
+	(
+		Node ( NodeName "R2" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "LED_DATA" )
+	(
+		Node ( NodeName "R4" ) ( PinName "2" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED2" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "LED_DATA_SRC" )
+	(
+		Node ( NodeName "R4" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "LED_D2" )
+	(
+		Node ( NodeName "LED2" ) ( PinName "3" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED3" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "LED_D3" )
+	(
+		Node ( NodeName "LED3" ) ( PinName "3" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED4" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "LED_D4" )
+	(
+		Node ( NodeName "LED4" ) ( PinName "3" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED5" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "LED_D5" )
+	(
+		Node ( NodeName "LED5" ) ( PinName "3" ) ( PinType "PASSIVE" )
+		Node ( NodeName "LED6" ) ( PinName "1" ) ( PinType "PASSIVE" )
+	)
+)
+(
+	Net ( Name "LED_DATA_OUT" )
+	(
+		Node ( NodeName "LED6" ) ( PinName "3" ) ( PinType "PASSIVE" )
+	)
+)
+)

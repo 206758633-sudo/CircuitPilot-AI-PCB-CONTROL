@@ -11,9 +11,9 @@ test('G4 外发清单：覆盖现有 provider 调用点，明确同意模式与�
   assert.equal(manifest.consentMode, 'per-action');
   assert.equal(manifest.orderEnabled, false);
   assert.match(manifest.consentNote, /没有后台自动上传路径/);
-  assert.deepEqual(manifest.endpoints.map((item) => item.id), ['chat.turn', 'plan.ai', 'netlist.ai', 'part.proposal']);
+  assert.deepEqual(manifest.endpoints.map((item) => item.id), ['chat.turn', 'plan.ai', 'netlist.ai', 'knowledge.research', 'part.proposal']);
   for (const endpoint of manifest.endpoints) {
-    assert.ok(endpoint.route.startsWith('POST /api/'), `${endpoint.id} 缺路由`);
+    assert.ok(endpoint.route.startsWith('POST /api/') || endpoint.route.startsWith('Runtime 内部'), `${endpoint.id} 缺路由`);
     assert.ok(endpoint.trigger.length > 0);
     assert.ok(endpoint.data.length >= 1);
     assert.ok(endpoint.excluded.length >= 1);
@@ -77,7 +77,10 @@ test('G4 HTTP：清单 200、预览脱敏后不含密钥、缺 payload 400', asy
   const manifestResponse = await fetch(`${base}/api/provider/egress`, { headers });
   assert.equal(manifestResponse.status, 200);
   const manifest = await manifestResponse.json();
-  assert.equal(manifest.egress.endpoints.length, 4);
+  assert.equal(manifest.egress.endpoints.length, 5);
+  const researchEndpoint = manifest.egress.endpoints.find((item) => item.id === 'knowledge.research');
+  assert.equal(researchEndpoint.defaultEnabled, false, '联网研究默认必须关闭');
+  assert.match(researchEndpoint.consent, /researchConfig/);
 
   const previewResponse = await fetch(`${base}/api/provider/egress/preview`, { method: 'POST', headers, body: JSON.stringify({ payload: { key: 'sk-very-secret-123456', note: 'Bearer abc.def.ghi' } }) });
   assert.equal(previewResponse.status, 200);

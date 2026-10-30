@@ -1,0 +1,185 @@
+{
+  "note": "CircuitPilot 工程预检的登记数据（2026-10-29 16:55 从 records/eda-workspace.md 与 REWORK-REPORT 提取）。这里只登记“事实”，判定交给 scripts/circuitpilot-preflight.mjs。",
+  "board": {
+    "widthMm": 130.5,
+    "heightMm": 88.5
+  },
+  "designs": [
+    {
+      "id": "P1",
+      "name": "P1 电源输入与保护",
+      "kind": "SCHEMATIC",
+      "refs": [
+        "CN1",
+        "CN2",
+        "CN3"
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "P2 功率开关与采样",
+      "kind": "SCHEMATIC",
+      "refs": [
+        "Q1",
+        "Q2",
+        "L1"
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "P3 驱动与互锁",
+      "kind": "SCHEMATIC",
+      "refs": [
+        "U8",
+        "Q3",
+        "Q4"
+      ]
+    },
+    {
+      "id": "P4",
+      "name": "P4 MCU 与 IO",
+      "kind": "SCHEMATIC",
+      "refs": [
+        "MCU1",
+        "CN4"
+      ]
+    },
+    {
+      "id": "P5",
+      "name": "P5 采样与电源监控",
+      "kind": "SCHEMATIC",
+      "refs": [
+        "U10",
+        "R13",
+        "R14",
+        "R17",
+        "R18"
+      ]
+    },
+    {
+      "id": "P6",
+      "name": "P6 充电链路",
+      "kind": "SCHEMATIC",
+      "refs": [
+        "U9",
+        "J7",
+        "J8",
+        "J9",
+        "J12",
+        "C39",
+        "L2"
+      ]
+    },
+    {
+      "id": "P7",
+      "name": "P7 输出与保护",
+      "kind": "SCHEMATIC",
+      "refs": [
+        "J1",
+        "J2",
+        "F1"
+      ]
+    },
+    {
+      "id": "P8",
+      "name": "P8 5V/3.3V 降压",
+      "kind": "SCHEMATIC",
+      "refs": [
+        "U5",
+        "U7",
+        "R19",
+        "R20"
+      ]
+    },
+    {
+      "id": "P6-old-3S",
+      "name": "P6 充电链路",
+      "kind": "SCHEMATIC",
+      "note": "重复旧版（3S/20V）图纸：页名与位号与主设计重名，是 DRC 那条 Netlist Error 的根因",
+      "refs": [
+        "U9",
+        "J7",
+        "J8"
+      ]
+    },
+    {
+      "id": "P8-old-12V",
+      "name": "P8 5V/3.3V 降压",
+      "kind": "SCHEMATIC",
+      "note": "重复旧版（12V 输出版）图纸",
+      "refs": [
+        "U7",
+        "R19",
+        "R20"
+      ]
+    }
+  ],
+  "boards": [
+    {
+      "id": "PCB1",
+      "name": "PCB1",
+      "primary": true,
+      "pcbUuid": "9ab008aa6dfb92c2",
+      "note": "唯一投板板（8 页主图纸绑定）"
+    },
+    {
+      "id": "PCB1_1",
+      "name": "PCB1_1",
+      "primary": false,
+      "pcbUuid": "084751e2c073fcf2",
+      "note": "旧设计备份板，勿投；删除需用户确认（不可撤销）"
+    }
+  ],
+  "stageGates": {
+    "postRouteChecked": false,
+    "equivalentEvidence": [
+      "DRC",
+      "DFM",
+      "NETLIST"
+    ],
+    "note": "post_route_checked 只由 CLI 自身布线通道写位；本轮走外部 SES 导入，用 drc-final.json + dfm-final.txt + net-report.json 作等效证据，需签核"
+  },
+  "records": [
+    {
+      "file": "projects/dual-battery-tsb/README.md",
+      "numbers": {
+        "components": 99,
+        "tracks": 1267,
+        "vias": 207,
+        "dfmWarn": 149
+      }
+    },
+    {
+      "file": "artifacts/final-5v-chg/REWORK-REPORT.md",
+      "numbers": {
+        "components": 99,
+        "tracks": 1267,
+        "vias": 207,
+        "dfmWarn": 149
+      }
+    }
+  ],
+  "latestSnapshot": {
+    "updatedAt": "2026-10-29T07:20:00.000Z",
+    "numbers": {
+      "components": 99,
+      "tracks": 1267,
+      "vias": 207,
+      "dfmWarn": 149
+    }
+  },
+  "inferredParts": [
+    {
+      "ref": "J7/J8",
+      "what": "外置 6S 3A 充电模块两列 6 脚的信号分配（照片标定 15.30 px/mm 推断，非模块手册）",
+      "inferred": true,
+      "safeDefault": "J12（INT_24V ↔ INT_24V_HDR）默认开路：即使模块引脚顺序猜错，6S 电池也不会经模块地平面短路",
+      "verifySteps": [
+        "断电：万用表通断档逐脚确认模块焊盘与 J7/J8 的对应关系",
+        "空载上电：测 J7.5 CHG_VBUS = 27.0 V、J8.3 INT_24V_HDR 与电池侧隔离",
+        "插 J12 前测电池组 25.2 V 与模块 VBAT 焊盘极性",
+        "插 J12 后限流 0.5 A 预充 10 s，确认 ST 脚翻转后再开放 3 A"
+      ]
+    }
+  ]
+}

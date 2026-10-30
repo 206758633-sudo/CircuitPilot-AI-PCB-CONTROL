@@ -48,6 +48,19 @@ fn resolve_log_dir(app: &tauri::App) -> Option<PathBuf> {
     app.path().app_log_dir().ok()
 }
 
+/// 业务状态目录：必须落在用户数据目录，不能落在 .app 包内。
+///
+/// 历史缺陷：打包版 sidecar 的 cwd 是 `Contents/Resources`，Runtime 默认把 state 写成
+/// `Contents/Resources/artifacts/state`，导致 (a) 升级/重装即丢用户数据（自定义 Provider、
+/// 项目状态、审批台账都在里面），(b) 应用被放到只读位置时写入直接失败（保存报 503）。
+/// 允许 CIRCUITPILOT_STATE_DIR 覆盖（自动化/测试用），否则用系统应用数据目录。
+fn resolve_state_dir(app: &tauri::App) -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("CIRCUITPILOT_STATE_DIR") {
+        return Some(PathBuf::from(dir));
+    }
+    app.path().app_data_dir().ok().map(|dir| dir.join("state"))
+}
+
 /// 每次启动生成一次性会话令牌。
 ///
 /// 令牌只通过两个不经由 HTTP 的通道交付：sidecar 的进程环境变量，
@@ -114,9 +127,21 @@ pub fn run() {
                 // 可以用 `ps -E` 读到别人进程的环境变量，管道内容则读不到。
                 // 同时设置 CIRCUITPILOT_TOKEN_STDIN=1，让 Runtime 在没收到令牌时 fail closed，
                 // 而不是退化成“随机令牌 + HTTP 发放”。
-                let mut spawned = Command::new(node)
-                    .arg(&server)
-                    .current_dir(&resource_dir)
+                // 状态目录必须在用户数据目录：先建好（失败不阻塞启动，Runtime 会自行报明确错误）。
+                let state_dir = resolve_state_dir(app);
+                if let Some(dir) = state_dir.as_deref() {
+                    let _ = std::fs::create_dir_all(dir);
+                }
+                let mut command = Command::new(node);
+                command.arg(&server).current_dir(&resource_dir);
+                if let Some(dir) = state_dir.as_deref() {
+                    command.env("CIRCUITPILOT_STATE_DIR", dir);
+                    // 证据目录也放用户数据目录：避免装进 .app 后证据写进包内（升级/重装即丢，且可能只读）。
+                    let evidence_dir = dir.join("evidence");
+                    let _ = std::fs::create_dir_all(&evidence_dir);
+                    command.env("CIRCUITPILOT_EVIDENCE_DIR", &evidence_dir);
+                }
+                let mut spawned = command
                     .env("CIRCUITPILOT_TOKEN_STDIN", "1")
                     .stdin(Stdio::piped())
                     .stdout(log_out)

@@ -235,15 +235,15 @@ test('布局规则 API：规则包元信息、样板审计、404 与报告并入
   const packResponse = await fetch(`${base}/api/engineering/layout-rules`, { headers });
   const pack = await packResponse.json();
   assert.equal(packResponse.status, 200);
-  assert.equal(pack.pack.total, 128);
+  assert.equal(pack.pack.total, 151);
   assert.equal(pack.pack.hash.length, 64);
-  assert.deepEqual(pack.fixtures, ['ESP32-TEST-BOARD', 'ESP32-TEST-BOARD-RECTIFIED']);
-  assert.equal(pack.pack.rules, undefined, '规则包路由不能把 128 条正文塞进响应');
+  assert.deepEqual(pack.fixtures, ['ESP32-TEST-BOARD', 'ESP32-TEST-BOARD-RECTIFIED', 'DBTS-A01-MODULE-BEFORE', 'DBTS-A01-MODULE-AFTER', 'DBTS-A01-DELIVERY-BEFORE', 'DBTS-A01-DELIVERY-AFTER']);
+  assert.equal(pack.pack.rules, undefined, '规则包路由不能把 151 条正文塞进响应');
 
   const post = (path, body) => fetch(`${base}${path}`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
   const defective = await (await post('/api/engineering/layout-rules/audit', { fixtureId: 'ESP32-TEST-BOARD' })).json();
-  assert.equal(defective.audit.summary.blockingFailures, 50);
+  assert.equal(defective.audit.summary.blockingFailures, 57);
   assert.equal(defective.audit.passed, false);
   assert.equal(defective.audit.releaseReady, false);
   assert.equal(defective.audit.gatesSummary['GATE-01'], 'FAIL');
@@ -252,7 +252,7 @@ test('布局规则 API：规则包元信息、样板审计、404 与报告并入
   const rectified = await (await post('/api/engineering/layout-rules/audit', { fixtureId: 'ESP32-TEST-BOARD-RECTIFIED' })).json();
   assert.equal(rectified.audit.summary.FAIL, 0);
   assert.equal(rectified.audit.releaseReady, true);
-  assert.deepEqual(Object.values(rectified.audit.gatesSummary), Array(7).fill('PASS'));
+  assert.deepEqual(Object.values(rectified.audit.gatesSummary), Array(10).fill('PASS'));
 
   const missing = await post('/api/engineering/layout-rules/audit', { fixtureId: 'NOT-A-FIXTURE' });
   assert.equal(missing.status, 404);
@@ -269,6 +269,6 @@ test('布局规则 API：规则包元信息、样板审计、404 与报告并入
     body: JSON.stringify({ input: { ...engineeringFixtures['HDI-BGA-6L'](), layoutRules: { board: { widthMm: 70, heightMm: 48 } } } }),
   })).json();
   assert.equal(merged.analysis.layoutRules.kind, 'pcba-layout-rule-audit');
-  assert.equal(merged.analysis.layoutRules.summary.total, 128);
+  assert.equal(merged.analysis.layoutRules.summary.total, 151);
   assert.equal(merged.analysis.releaseReady, false);
 });

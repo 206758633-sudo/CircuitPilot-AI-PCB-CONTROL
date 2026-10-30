@@ -11,7 +11,7 @@
  *   3. 回滚用"把原坐标写回去"这种定点方式，而不是重建整份文档（重建会把铺铜等一起重算，代价高、风险大）。
  *   4. 回滚也要回读验证；回滚失败必须报 `ROLLBACK_FAILED` 并附上原始坐标，让工程师能手改。
  */
-import { placementCenterMm, verifyOutlinePlacement } from './placement.mjs';
+import { buildPadEnvelopes, checkPadOutlineClearance, placementCenterMm, verifyOutlinePlacement } from './placement.mjs';
 import { assertAnnotatedDesignators } from './designator.mjs';
 
 export const PLACEMENT_WRITE_CODES = {
@@ -135,20 +135,42 @@ export async function applyPlacementPlan({
   if (mismatched.length) findings.push({ code: PLACEMENT_WRITE_CODES.READBACK_MISMATCH, severity: 'blocking', message: `${mismatched.length}/${updates.length} 个器件回读位置与目标不符（例：${mismatched.slice(0, 3).map((item) => `${item.ref} 偏差 ${item.errorMm}mm`).join('、')}）` });
   steps.push({ step: 'readback', ok: mismatched.length === 0, compared: perItem.length, mismatched: mismatched.length, perItem });
 
+  // 焊盘包络（D-33-1）：写回后复核也要按"本体 ∪ 焊盘"占位，否则连接器焊盘越界仍会被判"通过"
+  let padEnvelopes = {};
+  let copperAfter = null;
+  try {
+    copperAfter = readValue(await execute('pcb.copper.read', {}));
+    const forEnvelope = (after?.components || []).map((component) => ({ ref: component.designator || component.primitiveId, current: placementCenterMm(component), widthMm: Number(component.bboxMm?.xMm) || null, heightMm: Number(component.bboxMm?.yMm) || null }));
+    padEnvelopes = buildPadEnvelopes(Array.isArray(copperAfter?.pads) ? copperAfter.pads : [], forEnvelope);
+  } catch { padEnvelopes = {}; }
   const geometry = (after?.components || []).filter((component) => component?.bboxMm && Number.isFinite(Number(component.xMm))).map((component) => {
     const center = placementCenterMm(component);
     return {
       ref: component.designator || component.primitiveId, xMm: center.xMm, yMm: center.yMm,
       widthMm: Number(component.bboxMm.xMm), heightMm: Number(component.bboxMm.yMm), rotationDeg: Number(component.rotationDeg) || 0,
+      padEnvelope: padEnvelopes[component.designator || component.primitiveId] || null,
     };
   });
   const verified = verifyOutlinePlacement({ placements: geometry, ...verifyOptions });
   steps.push({ step: 'verify', ok: verified.ok, blockingCount: verified.blockingCount, checkedCount: verified.checkedCount });
   if (!verified.ok) findings.push({ code: PLACEMENT_WRITE_CODES.VERIFY_BLOCKED, severity: 'blocking', message: `写回后布局复核不通过：${verified.findings.filter((item) => item.severity === 'blocking').map((item) => item.message).slice(0, 3).join('；')}` });
 
-  if (mismatched.length === 0 && verified.ok) {
+  // 焊盘级板框复核（D-33-1）：器件本体包围盒合规 ≠ 焊盘合规。连接器焊盘伸出本体时，
+  // 本体离板框 1mm 也可能焊盘压板框（真机 U1 顶排 4 个焊盘 0mil，EDA DRC 要求 ≥11.8mil）。
+  let padOutline = null;
+  try {
+    const copper = copperAfter || readValue(await execute('pcb.copper.read', {}));
+    padOutline = checkPadOutlineClearance({ pads: copper?.pads || [], outline: verifyOptions.outline, clearanceMil: Number(verifyOptions.padOutlineClearanceMil ?? 11.8) });
+    steps.push({ step: 'pad-outline', ok: padOutline.ok, checked: padOutline.checked, violationCount: padOutline.violationCount });
+    if (!padOutline.ok) findings.push(...padOutline.findings.slice(0, 5));
+  } catch (error) {
+    padOutline = { ok: null, checked: 0, violations: [], findings: [], note: `焊盘级板框复核读不到铜：${String(error?.message || error).slice(0, 160)}` };
+    steps.push({ step: 'pad-outline', ok: null, note: padOutline.note });
+  }
+
+  if (mismatched.length === 0 && verified.ok && padOutline?.ok !== false) {
     findings.push({ code: PLACEMENT_WRITE_CODES.APPLIED, severity: 'info', message: `${updates.length} 个器件写回成功并逐一回读确认（未保存：改动只在内存里）` });
-    return { ok: true, applied: true, saved: false, dryRun: false, updates, skipped, missing, steps, findings, verified, rollback: null, summary, readback: { perItem }, snapshotHash };
+    return { ok: true, applied: true, saved: false, dryRun: false, updates, skipped, missing, steps, findings, verified, padOutline, rollback: null, summary, readback: { perItem }, snapshotHash };
   }
 
   // 4) 回滚：把原坐标写回去（定点回滚，不重建文档）
@@ -180,5 +202,5 @@ export async function applyPlacementPlan({
     findings.push({ code: PLACEMENT_WRITE_CODES.ROLLBACK_FAILED, severity: 'blocking', message: `回滚抛错：${rollback.error}；manualCoordinates 已附上原始坐标` });
   }
   steps.push({ step: 'rollback', ok: rollback.ok });
-  return { ok: false, applied: false, saved: false, dryRun: false, updates, skipped, missing, steps, findings, verified, rollback, summary, snapshotHash, readback: { perItem } };
+  return { ok: false, applied: false, saved: false, dryRun: false, updates, skipped, missing, steps, findings, verified, padOutline, rollback, summary, snapshotHash, readback: { perItem } };
 }

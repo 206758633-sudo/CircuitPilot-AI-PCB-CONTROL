@@ -7,6 +7,7 @@ import { createRuntimeServer } from '../server.mjs';
 
 process.env.CIRCUITPILOT_STATE_DIR = mkdtempSync(join(tmpdir(), 'cp-batch-http-state-'));
 process.env.CIRCUITPILOT_EVIDENCE_DIR = mkdtempSync(join(tmpdir(), 'cp-batch-http-evidence-'));
+process.env.CIRCUITPILOT_AUTOMATION_DIR = mkdtempSync(join(tmpdir(), 'cp-batch-http-automation-'));
 process.env.CIRCUITPILOT_BATCH_DIR = mkdtempSync(join(tmpdir(), 'cp-batch-http-batches-'));
 process.env.CIRCUITPILOT_PROJECT_MEMO = join(mkdtempSync(join(tmpdir(), 'cp-batch-http-memo-')), 'memo.json');
 

@@ -34,7 +34,10 @@ function fakeBridge() {
 }
 
 test('ERC HTTP：取证落盘、最新证据读回、豁免写入后重新取证被应用', async (context) => {
-  const { server } = createRuntimeServer({ bridge: fakeBridge() });
+  // GUI 明细抓取在离线契约测试里必须注入假实现：真实 EdaGuiClient 会去连 CDP，
+  // 一旦本机 EDA 正在运行，测试就会在进程退出前挂住（真机踩过）。
+  const fakeGui = { async execute(action) { return { ok: false, reason: `OFFLINE_TEST:${action}` }; } };
+  const { server } = createRuntimeServer({ bridge: fakeBridge(), gui: fakeGui });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   context.after(() => new Promise((resolve) => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -76,4 +79,55 @@ test('ERC HTTP：取证落盘、最新证据读回、豁免写入后重新取证
   assert.equal(rerun.summary.exempted, 1);
   assert.ok(rerun.erc.findings.some((finding) => finding.exempted === true));
   assert.notEqual(rerun.saved.digest, run.saved.digest, '豁免变化必须体现在证据摘要里');
+});
+
+test('多板工程：从某块板的 PCB 发起 ERC 时，必须切到同一块板的原理图（不能检查第一块空板）', async (context) => {
+  const fakeGui = { async execute(action) { return { ok: false, reason: `OFFLINE_TEST:${action}` }; } };
+  const project = {
+    uuid: 'P-MULTI',
+    data: [
+      {
+        itemType: 'Board', name: 'Board1',
+        schematic: { itemType: 'Schematic', uuid: 'SCH-A', page: [{ itemType: 'Page', uuid: 'PAGE-A1', name: 'A1' }] },
+        pcb: { itemType: 'PCB', uuid: 'PCB-A', page: [{ itemType: 'PcbPage', uuid: 'PCB-A' }] },
+      },
+      {
+        itemType: 'Board', name: 'Board1_1',
+        schematic: { itemType: 'Schematic', uuid: 'SCH-B', page: [{ itemType: 'Page', uuid: 'PAGE-B1', name: 'B1' }] },
+        pcb: { itemType: 'PCB', uuid: 'PCB-B', page: [{ itemType: 'PcbPage', uuid: 'PCB-B' }] },
+      },
+    ],
+  };
+  let openedPage = null;
+  const openedCommands = [];
+  const bridge = {
+    port: 49631,
+    selectedWindowId: 'W-MULTI',
+    async discover() { return { port: 49631 }; },
+    async windows() { return { windows: [{ id: 'W-MULTI' }], selectedWindowId: 'W-MULTI', selectionRequired: false }; },
+    listCommands() { return ['schematic.open', 'schematic.drc']; },
+    async execute(id, args = {}) {
+      openedCommands.push({ id, args });
+      if (id === 'project.current') return { result: project };
+      if (id === 'document.current') {
+        return { result: openedPage ? { uuid: openedPage, documentType: 1 } : { uuid: 'PCB-B', documentType: 3 } };
+      }
+      if (id === 'schematic.open') { openedPage = args.pageUuid || args.documentUuid; return { result: { opened: true } }; }
+      if (id === 'schematic.drc') return { result: [{ type: 'error', count: 1 }] };
+      throw Object.assign(new Error(`不应执行的命令：${id}`), { code: 'EDA_OFFLINE' });
+    },
+  };
+  const { server } = createRuntimeServer({ bridge, gui: fakeGui });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const health = await (await fetch(`${base}/api/health`, { headers: { origin: TRUSTED_ORIGIN } })).json();
+  const headers = { 'content-type': 'application/json', 'x-circuitpilot-token': health.sessionProof };
+  const response = await fetch(`${base}/api/eda/schematic/erc/run`, { method: 'POST', headers, body: JSON.stringify({}) });
+  const payload = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(payload));
+  const openCommand = openedCommands.find((item) => item.id === 'schematic.open');
+  assert.ok(openCommand, '必须打开原理图页面');
+  assert.equal(openCommand.args.pageUuid, 'PAGE-B1', '当前活动 PCB 属于 Board1_1，ERC 必须检查 Board1_1 的原理图页面');
+  assert.equal(payload.erc.documentUuid, 'PAGE-B1', '响应必须如实给出这次 ERC 检查的原理图文档 UUID');
 });

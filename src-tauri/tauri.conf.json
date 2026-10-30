@@ -17,11 +17,18 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app"],
-    "externalBin": ["binaries/node"],
+    "targets": [
+      "dmg",
+      "app"
+    ],
+    "externalBin": [
+      "binaries/node"
+    ],
     "resources": {
       "../runtime": "runtime",
-      "../manufacturing": "manufacturing"
+      "../manufacturing": "manufacturing",
+      "../docs/implementation": "docs/implementation",
+      "../docs/wardrobe-case": "docs/wardrobe-case"
     },
     "macOS": {
       "minimumSystemVersion": "12.0",

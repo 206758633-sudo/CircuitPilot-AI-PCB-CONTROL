@@ -9,8 +9,11 @@
  *  被赋网，都判失败并回滚（删端口 + 保存 + 再读回核对）。
  *
  * 这里只做确定性配方：网络名、引脚身份、坐标全部来自读回；不猜、不试、不重试写入。
+ * 端口朝向（rotation）由 `schematic-layout.planNetPortLabels` 按"引脚相对元件主体的朝外方向"
+ * 加 4 方向碰撞打分算出（R1：标签全朝右会压在元件符号上），仍然只依据读回坐标，不猜。
  */
 import { createHash } from 'node:crypto';
+import { planNetPortLabels } from './schematic-layout.mjs';
 
 export const NET_CONNECT_CODES = {
   EXECUTE_REQUIRED: 'NET_CONNECT_EXECUTE_REQUIRED',
@@ -58,12 +61,22 @@ export function indexNetlist(netlist) {
   return { byUniqueId, byDesignator, pinNets };
 }
 
+/** 引脚级硬上限：标签规划是 O(端口²) 的 4 方向碰撞打分，超大请求必须 fail-closed，不能把运行时拖死。 */
+const MAX_PLANNED_PINS = 2000;
+
 /** 计划：校验连接、解析引脚坐标与"当前网络"，产出待写入的网络端口操作。 */
 export function planNetConnect({ connections, components, pins, netlist } = {}) {
   const findings = [];
   const add = (severity, code, message, extra = {}) => findings.push({ severity, code, message, ...extra });
   if (!Array.isArray(connections) || !connections.length) {
     add('blocking', NET_CONNECT_CODES.CONNECTIONS_INVALID, 'connections 必须是非空数组');
+    return { ok: false, operations: [], satisfied: [], findings };
+  }
+  // 先按请求量 fail-closed：2 万条端口会让 4 方向碰撞打分变成数亿次比较，
+  // 与其"卡住再超时"，不如直接告诉调用方拆批（这也是限制单次写板规模的既有安全取向）。
+  const requestedPins = connections.reduce((sum, connection) => sum + (Array.isArray(connection?.pins) ? connection.pins.length : 0), 0);
+  if (requestedPins > MAX_PLANNED_PINS) {
+    add('blocking', NET_CONNECT_CODES.CONNECTIONS_INVALID, `本次连接计划包含 ${requestedPins} 个引脚，超过单次上限 ${MAX_PLANNED_PINS}；请按网络/功能块拆成多批，或先在 EDA 里手工处理一部分`);
     return { ok: false, operations: [], satisfied: [], findings };
   }
   const componentList = Array.isArray(components) ? components : (components?.components || []);
@@ -135,17 +148,28 @@ export function planNetConnect({ connections, components, pins, netlist } = {}) 
       });
     }
   }
+  // 标签朝向（R1）：原来 args 不带 rotation，立创EDA 默认 0=朝右，于是标签全压在元件符号上。
+  // 这里用 planner 按"引脚相对元件主体的朝外方向"选 rotation，并对 4 个方向做碰撞打分；
+  // 纯函数、不写盘，只把 findings 并入计划（warning 级，不改变 ok/执行/回读/回滚语义）。
+  // 既有网络端口也要算障碍：二次连线时不能把新标签叠在上一轮已画好的标签上。
+  const existingLabels = componentList
+    .filter((item) => String(item?.componentType || '').toLowerCase() === 'netport')
+    .map((item) => ({ net: item.net, x: Number(item.x), y: Number(item.y), rotation: item.rotation }));
+  const labelPlan = planNetPortLabels({ operations, components: componentList, pinsByComponent: pinsByPrimitiveId, existingLabels });
+  const plannedOperations = labelPlan.operations;
+  findings.push(...labelPlan.findings);
   const blocking = findings.filter((item) => item.severity === 'blocking');
-  if (!operations.length && !satisfied.length && !blocking.length) add('blocking', NET_CONNECT_CODES.CONNECTIONS_INVALID, '连接计划没有任何可写入的引脚');
+  if (!plannedOperations.length && !satisfied.length && !blocking.length) add('blocking', NET_CONNECT_CODES.CONNECTIONS_INVALID, '连接计划没有任何可写入的引脚');
   const plan = {
     apiVersion: 1,
     kind: 'schematic-net-connect',
-    operations,
+    operations: plannedOperations,
     satisfied,
     findings,
-    nets: [...new Set(operations.map((item) => item.net))].sort(),
+    nets: [...new Set(plannedOperations.map((item) => item.net))].sort(),
   };
-  return { ok: blocking.length === 0 && operations.length + satisfied.length > 0, operations, satisfied, findings, plan, planHash: digest(plan) };
+  // summary 只用于 dry-run/审批展示（不改 planHash，不改变执行语义）。
+  return { ok: blocking.length === 0 && plannedOperations.length + satisfied.length > 0, operations: plannedOperations, satisfied, findings, plan, planHash: digest(plan), labelSummary: labelPlan.summary };
 }
 
 export function digest(value) {

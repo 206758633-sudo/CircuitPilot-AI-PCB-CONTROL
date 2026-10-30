@@ -16,6 +16,11 @@ export const ALLOWED_ORIGINS = new Set([
   'tauri://localhost',
 ]);
 
+// GUI 里启动的 App 继承的是 launchd 的最小 PATH（通常只有 /usr/bin:/bin:/usr/sbin:/sbin），
+// 看不到 rustup 装到 ~/.cargo/bin 的 cargo。此时"未在受支持路径中找到"是**假阴性**：
+// 用户明明装了 Rust，却卡在"桌面构建待安装"。所以这里必须像 codex/claude 一样列出落点。
+export const CARGO_HOME = process.env.CARGO_HOME || path.join(os.homedir(), '.cargo');
+
 export const CLI_CANDIDATES = {
   codex: [
     path.join(os.homedir(), '.npm-global/bin/codex'),
@@ -31,6 +36,13 @@ export const CLI_CANDIDATES = {
     path.join(os.homedir(), '.local/bin/claude'),
     '/opt/homebrew/bin/claude',
     '/usr/local/bin/claude',
+  ],
+  cargo: [
+    // rustup 官方安装器的默认落点（cargo 是指向 rustup 的软链，绝对路径可执行）
+    path.join(CARGO_HOME, 'bin/cargo'),
+    path.join(os.homedir(), '.cargo/bin/cargo'),
+    '/opt/homebrew/bin/cargo',
+    '/usr/local/bin/cargo',
   ],
 };
 
@@ -61,3 +73,15 @@ export const KEYCHAIN_SERVICES = {
 };
 
 export const KEYCHAIN_ACCOUNT = 'api-key';
+
+/**
+ * 自定义模型 Provider 的钥匙串服务名前缀。
+ *
+ * 用户可以在设置里创建任意多个自定义 Provider（acme-gateway、内部网关…），数量不固定，
+ * 不能像内置平台那样在 KEYCHAIN_SERVICES 里逐条声明。这里按 id 派生独立服务名：
+ * 每个自定义 Provider 一个钥匙串条目，撤销/轮换某个条目不会影响其它条目，
+ * 也不会和内置平台（含内置 custom_api 的 com.circuitpilot.provider.custom）串味。
+ */
+export const CUSTOM_KEYCHAIN_PREFIX = 'com.circuitpilot.provider.custom';
+
+export const customKeychainService = (id) => `${CUSTOM_KEYCHAIN_PREFIX}.${id}`;

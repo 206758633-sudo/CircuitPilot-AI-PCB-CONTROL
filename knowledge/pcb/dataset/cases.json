@@ -1,0 +1,1336 @@
+{
+  "version": "1.1.0",
+  "generatedAt": "2026-10-23T11:30:00.000Z",
+  "domain": "pcb-case-studies",
+  "notes": "参考设计案例：A 级=本地工程证据，B 级=公开资料。2026-10-23 新增 ESP32/TI QFN/TI USB/板厂能力案例，已直接抓取官方页面/PDF 并登记 sources.json；案例只提供设计思路与规则依据，具体数值必须按 datasheet/官方文件复核。",
+  "entries": [
+    {
+      "kind": "module",
+      "title": "案例 01：Raspberry Pi Pico / RP2040 官方参考设计",
+      "doc": "docs/knowledge/cases/01-rpi-pico-rp2040.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-PICO",
+   "sources": ["SRC-RPI-HW"],
+   "evidenceLevel": "A",
+        "category": "参考设计案例",
+        "boardType": "2 层低成本 MCU 模块（Pico 形态，半孔 castellated）",
+        "sourceType": "public-reference",
+        "evidence": [
+          "RP2040 Hardware Design Guide（官方，需按最新版本复核）",
+          "Raspberry Pi Pico 官方原理图/数据手册（未联网逐页核对）"
+        ],
+        "summary": "用 RP2040 的 2 层官方参考设计说明：去耦按引脚就近、12MHz 晶振与负载电容、QSPI flash 走线、板载 3.3V 升降压、USB 1.1 FS 与半孔模块化封装的取舍。",
+        "designPrinciples": [
+          "每个 VREG/VDD 引脚 100nF 就近去耦，地端独立过孔",
+          "12MHz 晶振靠近 MCU、负载电容按 CL 计算、下方净空",
+          "QSPI flash 走线短、等长、避免跨分割",
+          "3.3V 电源由板载升降压产生，输入/输出电容按 datasheet",
+          "USB D+/D- 90Ω 差分、ESD 靠连接器、CC 按受电配置（Pico 无 PD）",
+          "半孔（castellated）模块边缘强度与分板工艺"
+        ],
+        "keyCircuits": [
+          "RP2040 最小系统",
+          "QSPI flash 接口",
+          "12MHz 晶振",
+          "3.3V 升降压",
+          "USB 1.1 FS",
+          "半孔模块"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "去耦就近与地回路"
+          },
+          {
+            "ruleId": "PCB-RULE-CRYSTAL-001",
+            "note": "晶振负载电容与布局"
+          },
+          {
+            "ruleId": "PCB-RULE-USB-001",
+            "note": "USB 差分 90Ω"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "USB ESD 靠连接器"
+          },
+          {
+            "ruleId": "PCB-RULE-STACKUP-001",
+            "note": "2 层叠层与参考平面"
+          }
+        ],
+        "lessons": [
+          "低成本 MCU 模块可以用 2 层+及时序约束做到可靠",
+          "半孔模块要按板厂工艺设计孔径/孔环",
+          "内部 LDO/升降压的输入输出电容不能省"
+        ],
+        "reviewFocus": [
+          "去耦是否每脚就近",
+          "晶振 CL 是否按 datasheet 计算",
+          "QSPI 走线长度/参考平面",
+          "USB 差分与 ESD",
+          "半孔/分板工艺"
+        ],
+        "verificationNotes": "2026-10-23 已抓取 Raspberry Pi 官方 Hardware design with RP2040 PDF；层数/尺寸/器件参数以官方设计指南与 datasheet 为准。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "pico"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 02：Arduino Uno R3 开源参考设计",
+      "doc": "docs/knowledge/cases/02-arduino-uno-r3.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-UNO",
+        "category": "参考设计案例",
+        "boardType": "2 层开源开发板（ATmega328P + ATmega16U2）",
+        "sourceType": "public-reference",
+        "evidence": [
+          "Arduino Uno R3 官方原理图（公开开源硬件，未联网逐页核对）",
+          "ATmega328P/ATmega16U2 datasheet"
+        ],
+        "summary": "以 Uno R3 说明开发板的三件事：USB 串口桥与自动复位、电源自动切换（适配器/USB）、以及 16MHz 晶振/去耦/地平面这些最小系统要素。",
+        "designPrinciples": [
+          "ATmega16U2 做 USB-UART，DTR 经电容/晶体管实现自动复位",
+          "电源自动切换用比较器 + P-MOS，避免适配器与 USB 互相倒灌",
+          "16MHz 晶振 + 22pF 级负载电容，靠近 MCU",
+          "5V/3.3V 两级 LDO，输入输出电容按 datasheet",
+          "每个电源脚 100nF 就近去耦，地平面连续",
+          "接口 ESD/保险丝/自恢复保险丝保护"
+        ],
+        "keyCircuits": [
+          "ATmega328P 最小系统",
+          "USB-UART 桥",
+          "电源自动切换",
+          "16MHz 晶振",
+          "5V/3.3V 电源"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-POWERMUX-001",
+            "note": "多电源优先级/防倒灌"
+          },
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "每脚去耦"
+          },
+          {
+            "ruleId": "PCB-RULE-CRYSTAL-001",
+            "note": "晶振布局与负载电容"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "接口保护"
+          },
+          {
+            "ruleId": "PCB-RULE-RETURN-001",
+            "note": "地平面与回流"
+          }
+        ],
+        "lessons": [
+          "开发板要把“下载/复位/供电”做成用户零学习成本",
+          "电源自动切换必须防倒灌",
+          "开源原理图可读性强，适合教学与评审训练"
+        ],
+        "reviewFocus": [
+          "电源切换是否有倒灌路径",
+          "自动复位电路参数",
+          "晶振负载电容",
+          "USB 串口桥去耦",
+          "接口 ESD/保险丝"
+        ],
+        "verificationNotes": "公开资料级别：本机无外网，基于公开开源硬件常识整理；元件值/电路细节以官方原理图与 datasheet 为准。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "uno"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 03：ESP32-DevKitC / ESP32-S3-DevKitC 官方参考设计",
+      "doc": "docs/knowledge/cases/03-esp32-devkit.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-ESP32",
+   "sources": ["SRC-ESP32-HW"],
+   "evidenceLevel": "A",
+        "category": "参考设计案例",
+        "boardType": "2 层无线模组开发板",
+        "sourceType": "public-reference",
+        "evidence": [
+          "Espressif ESP32-DevKitC / ESP32-S3-DevKitC 官方原理图（未联网逐页核对）",
+          "ESP32-WROOM / ESP32-S3-WROOM datasheet"
+        ],
+        "summary": "以 ESP32 官方开发板说明无线板的四条硬约束：模组天线净空、3.3V 电源与去耦、USB-UART/自动下载电路、EN/BOOT 按键与 ESD。",
+        "designPrinciples": [
+          "天线净空区所有层无铜/无走线/无器件/无丝印，模组天线伸出板边",
+          "3.3V LDO 输入输出电容 + 模组电源脚 100nF 就近",
+          "USB-UART 桥 + DTR/RTS 自动下载电路（EN/IO0 时序）",
+          "EN/BOOT 按键与上拉/电容，避免误复位",
+          "USB 差分 90Ω、ESD 靠连接器",
+          "模组下方地平面完整、地过孔阵列"
+        ],
+        "keyCircuits": [
+          "ESP32 模组最小系统",
+          "USB-UART 桥",
+          "自动下载电路",
+          "EN/BOOT",
+          "3.3V 电源",
+          "天线净空"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-RF-001",
+            "note": "天线净空"
+          },
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "模组电源去耦"
+          },
+          {
+            "ruleId": "PCB-RULE-USB-001",
+            "note": "USB 差分"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "USB/按键 ESD"
+          },
+          {
+            "ruleId": "PCB-RULE-RETURN-001",
+            "note": "地平面与地弹"
+          }
+        ],
+        "lessons": [
+          "无线板最容易犯的错是覆铜进入天线净空",
+          "自动下载电路要按官方时序设计，不能省三极管",
+          "模组电源去耦与地回流决定射频稳定性"
+        ],
+        "reviewFocus": [
+          "天线净空四层检查",
+          "模组 3V3 去耦",
+          "自动下载时序",
+          "EN/BOOT 默认电平",
+          "USB ESD/差分"
+        ],
+        "verificationNotes": "2026-10-23 已抓取 Espressif 官方 ESP32 PCB Layout Design 页面；净空尺寸/自动下载电路以 Espressif 官方文件与模组 datasheet 为准。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "esp32"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 04：ST STM32 Nucleo-64 官方参考设计",
+      "doc": "docs/knowledge/cases/04-stm32-nucleo.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-NUCLEO",
+        "category": "参考设计案例",
+        "boardType": "官方 MCU 开发板（板载 ST-LINK/V2-1）",
+        "sourceType": "public-reference",
+        "evidence": [
+          "STM32 Nucleo-64 用户手册/原理图（如 UM1724，未联网逐页核对）",
+          "STM32 datasheet"
+        ],
+        "summary": "以 Nucleo 说明“开发板级”设计：板载调试器与目标 MCU 的隔离/供电选择、Arduino 兼容排针、8MHz 晶振与去耦、以及 ESD/电源保护。",
+        "designPrinciples": [
+          "ST-LINK 与目标 MCU 之间做电平/供电隔离，避免调试器被目标板拉死",
+          "电源选择跳线明确 5V/3.3V/外部供电来源",
+          "8MHz 晶振靠近 MCU，负载电容按 CL 计算",
+          "每个电源脚 100nF + 体电容",
+          "排针/连接器 ESD 与过流保护",
+          "调试接口（SWD）短而直，必要时包地"
+        ],
+        "keyCircuits": [
+          "STM32 最小系统",
+          "ST-LINK/V2-1",
+          "电源选择",
+          "8MHz 晶振",
+          "Arduino 兼容排针"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "MCU 去耦"
+          },
+          {
+            "ruleId": "PCB-RULE-CRYSTAL-001",
+            "note": "晶振"
+          },
+          {
+            "ruleId": "PCB-RULE-POWERMUX-001",
+            "note": "电源选择/隔离"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "接口保护"
+          },
+          {
+            "ruleId": "PCB-RULE-TESTPOINT-001",
+            "note": "调试/测试点"
+          }
+        ],
+        "lessons": [
+          "开发板要把调试器与目标板的供电关系设计清楚",
+          "排针/跳线是开发板的主要用户界面，丝印必须清晰",
+          "官方参考设计的 EMC/ESD 器件选型可以直接借鉴"
+        ],
+        "reviewFocus": [
+          "调试器与目标板隔离",
+          "电源选择跳线",
+          "晶振/去耦",
+          "排针 ESD",
+          "SWD 走线"
+        ],
+        "verificationNotes": "公开资料级别：本机无外网，未逐页核对官方文件；具体型号/层数/尺寸以 ST 官方文件为准。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "nucleo"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 05：USB-C PD 受电/充电参考设计",
+      "doc": "docs/knowledge/cases/05-usb-c-pd-sink.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-USBCPD",
+   "sources": ["SRC-USBIF-TYPEC", "SRC-TI-USB"],
+   "evidenceLevel": "A/B",
+        "category": "参考设计案例",
+        "boardType": "Type-C 受电/充电参考设计（含 PD 控制器）",
+        "sourceType": "public-reference",
+        "evidence": [
+          "USB Type-C/PD 规范与厂商参考设计（TI/ST 等，未联网逐页核对）",
+          "IEC 61000-4-2 ESD 标准"
+        ],
+        "summary": "以 USB-C PD 受电参考设计说明：CC1/CC2、PD 协商、VBUS 开关/泄放、死电池、ESD/浪涌与保护器件顺序。",
+        "designPrinciples": [
+          "CC1/CC2 按角色配置（Sink 两只 5.1kΩ 或 PD 控制器参考设计）",
+          "PD 控制器通过 CC 协商电压/电流，控制 VBUS 开关",
+          "VBUS 加 TVS/浪涌保护，ESD 靠连接器",
+          "VBUS 泄放电阻/放电管，满足拔线后电压下降时间",
+          "死电池状态下保证 PD 控制器可由 VBUS 启动",
+          "D+/D- 若不用按规范处理，USB2 差分 90Ω"
+        ],
+        "keyCircuits": [
+          "Type-C 连接器",
+          "CC/PD 控制器",
+          "VBUS 开关与泄放",
+          "ESD/浪涌保护",
+          "死电池电路"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-USBC-CC-001",
+            "note": "CC 下拉/角色"
+          },
+          {
+            "ruleId": "PCB-RULE-USB-001",
+            "note": "USB 差分"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "ESD 靠连接器"
+          },
+          {
+            "ruleId": "PCB-RULE-CREEPAGE-001",
+            "note": "VBUS 爬电/间距"
+          },
+          {
+            "ruleId": "PCB-RULE-THERMAL-001",
+            "note": "VBUS 开关/充电热"
+          }
+        ],
+        "lessons": [
+          "PD 不是“接上 Type-C 就行”，CC/协议/开关/保护缺一不可",
+          "泄放与死电池是最容易漏的两项",
+          "保护器件顺序决定 ESD 测试能否过"
+        ],
+        "reviewFocus": [
+          "CC1/CC2 配置",
+          "PD 控制器外围",
+          "VBUS 开关/泄放",
+          "ESD/浪涌",
+          "死电池"
+        ],
+        "verificationNotes": "2026-10-23 已抓取 USB-IF Type-C R2.0 与 TI USB/ESD 应用报告；具体器件/参数以官方参考设计、PHY datasheet 与 USB-IF 测试规范为准。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "usbcpd"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 06：同步 Buck 电源参考布局",
+      "doc": "docs/knowledge/cases/06-sync-buck-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-BUCK",
+   "sources": ["SRC-TI-AN1149", "SRC-TI-BOOST"],
+   "evidenceLevel": "A/B",
+        "category": "参考设计案例",
+        "boardType": "同步 Buck DC-DC 功率级参考布局",
+        "sourceType": "public-reference",
+        "evidence": [
+          "TI/ADI/MP 等同步 Buck datasheet 与应用笔记（未联网逐页核对）"
+        ],
+        "summary": "以同步 Buck 参考布局说明：输入电容紧邻高侧开关与地、SW 节点最小、电感靠近、反馈取自输出电容之后、地平面与热过孔。",
+        "designPrinciples": [
+          "输入陶瓷电容紧贴高侧 FET 的 VIN 与 GND，缩小高 di/dt 环路",
+          "SW 节点铜面积最小，避免天线化",
+          "电感靠近 SW 与输出电容，功率路径短而宽",
+          "反馈分压取自输出电容之后，远离 SW/电感",
+          "地平面完整，功率地与信号地单点/分区",
+          "散热焊盘过孔阵列 + 大面积铜，按 θja 核算结温"
+        ],
+        "keyCircuits": [
+          "同步 Buck 功率级",
+          "输入/输出电容",
+          "电感",
+          "反馈分压",
+          "散热过孔"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "输入电容就近"
+          },
+          {
+            "ruleId": "PCB-RULE-FEEDBACK-001",
+            "note": "反馈采样"
+          },
+          {
+            "ruleId": "PCB-RULE-RETURN-001",
+            "note": "地平面/回流"
+          },
+          {
+            "ruleId": "PCB-RULE-THERMAL-001",
+            "note": "热过孔/结温"
+          },
+          {
+            "ruleId": "PCB-RULE-CURRENT-001",
+            "note": "功率路径载流"
+          }
+        ],
+        "lessons": [
+          "Buck 的 EMI/稳定性 80% 取决于功率环路布局",
+          "反馈走线是“小信号”，不能和大电流路径混在一起",
+          "热设计要按实际铜面积/风道修正 θja"
+        ],
+        "reviewFocus": [
+          "输入电容位置",
+          "SW 节点面积",
+          "电感/输出电容",
+          "反馈取样点",
+          "热过孔/结温"
+        ],
+        "verificationNotes": "2026-10-23 已抓取 TI AN-1149 与 SLVA773；AN-1149 年代较早，具体参数以所选控制器 datasheet 与实测为准。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "buck"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 07：隔离 CAN / RS485 工业节点参考设计",
+      "doc": "docs/knowledge/cases/07-isolated-can-rs485.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-CANISO",
+        "category": "参考设计案例",
+        "boardType": "隔离 CAN/RS485 工业接口节点",
+        "sourceType": "public-reference",
+        "evidence": [
+          "ISO 11898（CAN）、TIA-485（RS485）、IEC 61010/UL 等标准与厂商参考设计（未联网逐页核对）"
+        ],
+        "summary": "以隔离 CAN/RS485 节点说明：隔离电源+数字隔离、跨隔离带无铜、爬电/间隙、TVS/共模电感、终端与地分割。",
+        "designPrinciples": [
+          "隔离电源与数字隔离同时设计，隔离带下方所有层无铜/无走线",
+          "爬电距离/电气间隙按工作电压、污染等级与认证标准计算",
+          "总线侧 TVS/共模电感，保护器件靠连接器",
+          "CAN 两端 120Ω 终端（按拓扑），RS485 按 TIA-485 终端/偏置",
+          "隔离两侧地不直接相连，Y 电容按 EMI/漏电流选",
+          "隔离器电源去耦与地回流要短"
+        ],
+        "keyCircuits": [
+          "隔离 DC-DC",
+          "数字隔离器",
+          "CAN/RS485 收发器",
+          "TVS/共模电感",
+          "终端/偏置"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-ISO-001",
+            "note": "隔离带/爬电"
+          },
+          {
+            "ruleId": "PCB-RULE-CREEPAGE-001",
+            "note": "爬电/间隙"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "总线 ESD"
+          },
+          {
+            "ruleId": "PCB-RULE-RETURN-001",
+            "note": "隔离两侧地"
+          },
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "隔离器电源去耦"
+          }
+        ],
+        "lessons": [
+          "隔离不是“加一颗隔离器”，电源/地/爬电要一起做",
+          "隔离带被走线跨越等于没隔离",
+          "终端/偏置错误会导致通信距离骤降"
+        ],
+        "reviewFocus": [
+          "隔离带无铜",
+          "爬电/间隙",
+          "TVS/共模",
+          "终端/偏置",
+          "隔离电源去耦"
+        ],
+        "verificationNotes": "公开资料级别：本机无外网，未逐页核对标准/参考设计；爬电/间隙数值必须按目标标准与认证要求计算。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "caniso"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 08：衣橱助手参考原理图 V1.2（ESP32-S3 整机拓扑）",
+      "doc": "docs/knowledge/cases/08-wardrobe-v12.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-WARDROBE12",
+        "category": "参考设计案例",
+        "boardType": "ESP32-S3 整机主板参考原理图（2 页，178 器件）",
+        "sourceType": "local-artifact",
+        "evidence": [
+          "SCH_Wardrobe Assistant_V1_2_2026-09-15.pdf",
+          "docs/implementation/netlist/ref-net-extraction.md",
+          "/tmp/ref_nets.json（提取中间件）"
+        ],
+        "summary": "从参考原理图与提取网表看整机骨架：3V3/2V8/AU_GND 电源域、Type-C→USB HUB→串口桥/原生 USB、DVP 摄像头、I2S 音频、电池采样与保护。",
+        "designPrinciples": [
+          "电源域按数字/摄像头模拟/音频地划分，AU_GND 单点接系统",
+          "电池采样高阻分压 + 可选开关，控制待机漏电",
+          "Type-C 单口经 USB HUB 拆成串口桥与 MCU 原生 USB 两路",
+          "USB 差分 90Ω、ESD 靠连接器、CC 5.1k 下拉",
+          "DVP 并行总线串 22–33Ω、摄像头 2V8 独立滤波",
+          "I2S 时钟串阻、功放 PA_EN 默认静音、AU_GND 单点",
+          "I2C 共享总线核对地址/上拉/总线电容"
+        ],
+        "keyCircuits": [
+          "ESP32-S3 最小系统",
+          "USB HUB + 串口桥",
+          "DVP 摄像头",
+          "I2S 音频",
+          "电池采样",
+          "Type-C 受电"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-USBC-CC-001",
+            "note": "CC 下拉"
+          },
+          {
+            "ruleId": "PCB-RULE-USB-001",
+            "note": "USB 差分"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "接口 ESD"
+          },
+          {
+            "ruleId": "PCB-RULE-AUDIO-001",
+            "note": "音频地/功放"
+          },
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "电源去耦"
+          },
+          {
+            "ruleId": "PCB-RULE-I2C-001",
+            "note": "I2C 上拉/地址"
+          }
+        ],
+        "lessons": [
+          "单 Type-C 方案用 HUB 兼顾下载/数据/充电",
+          "摄像头模拟电源与音频地必须独立",
+          "参考图与 BOM 版本必须对齐后再复用"
+        ],
+        "reviewFocus": [
+          "电源域/地分割",
+          "CC 下拉",
+          "USB HUB 拓扑",
+          "DVP/I2S 走线",
+          "参考图与 BOM 版本一致性"
+        ],
+        "verificationNotes": "本地证据级别：PDF 与 BOM 存在版本差异；充电/升压具体器件以 V2.0 BOM 为准；未判定引脚需逐条确认。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "wardrobe12"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 09：衣橱助手 V2.0 主板 + 按键灯板（4 层异形板）",
+      "doc": "docs/knowledge/cases/09-wardrobe-v20.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-WARDROBE20",
+        "category": "参考设计案例",
+        "boardType": "4 层异形主板（56.06×61.84mm）+ 按键灯板（21.4×44.9mm）",
+        "sourceType": "local-artifact",
+        "evidence": [
+          "artifacts/wardrobe-case/records/PCB-FULL-CHAIN-RUN-20261021.md",
+          "artifacts/wardrobe-case/pm-run-20261022/PM-FULL-CHAIN-RUN-20261022.md",
+          "artifacts/wardrobe-case/bom/ai-bom-merged.json",
+          "测试板文件/图纸/PCB尺寸图纸-衣橱助手V2.0.dxf",
+          "manufacturing/wardrobe-assistant/"
+        ],
+        "summary": "消费类整机板：4 层异形板框、ESP32-S3 + Type-C 充电（IP2312-4V35）+ 升压/降压、音频/摄像头/舵机/WS2812，以及天线净空、0.5mm 细间距、板间防反等 DFM 约束。",
+        "designPrinciples": [
+          "先按 DXF 定异形板框，再定 4 层叠层与布局",
+          "电源树按峰值电流设计：充电/电池/升压/降压/负载",
+          "4.35V 电池配 4.35V 截止充电 IC，NTC/保护齐全",
+          "天线净空四层无铜，模组地平面完整",
+          "0.5mm 细间距禁止盘中孔，阻焊桥/钢网同步设计",
+          "板间连接器交叉线序 1↔3 + 防呆 + 低电容 TVS",
+          "异形板框用邮票孔/铣槽，不用 V-CUT",
+          "3D 装配复核 FPC/按键/导光柱/Type-C"
+        ],
+        "keyCircuits": [
+          "ESP32-S3 模组",
+          "Type-C 充电/保护",
+          "MT3608 升压",
+          "SY8089 降压",
+          "音频/摄像头",
+          "WS2812 灯板",
+          "板间连接"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-STACKUP-001",
+            "note": "4 层叠层"
+          },
+          {
+            "ruleId": "PCB-RULE-RF-001",
+            "note": "天线净空"
+          },
+          {
+            "ruleId": "PCB-RULE-CHARGER-001",
+            "note": "充电电压匹配"
+          },
+          {
+            "ruleId": "PCB-RULE-BOARD2BOARD-001",
+            "note": "板间防反"
+          },
+          {
+            "ruleId": "PCB-RULE-VIA-001",
+            "note": "盘中孔禁令"
+          },
+          {
+            "ruleId": "PCB-RULE-PANEL-001",
+            "note": "异形板拼板"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "接口保护"
+          }
+        ],
+        "lessons": [
+          "DRC 0 ≠ 可制造，天线净空/细间距/钢网必须人工确认",
+          "自动布局/布线不能替代人工评审",
+          "BOM 阻容值/CPL 坐标/网表完整性是发布门禁的真实阻断点"
+        ],
+        "reviewFocus": [
+          "4 层叠层/参考平面",
+          "天线净空",
+          "充电/电池匹配",
+          "0.5mm 细间距 DFM",
+          "板间连接防反",
+          "3D 装配"
+        ],
+        "verificationNotes": "本地证据级别：层数/尺寸/记录可核对；具体阻容/晶振/充电参数以最终 BOM 与 datasheet 为准；记录中存在 BOM 缺值/CPL 偏差等已知问题。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "wardrobe20"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 10：CircuitPilot 6 层监测板（90Ω 差分 + 电流/温度监测）",
+      "doc": "docs/knowledge/cases/10-circuitpilot-6l.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-CP6L",
+        "category": "参考设计案例",
+        "boardType": "6 层 60×40mm 监测板（STM32G071 + INA226/TMP117/SHT40 + USB-C）",
+        "sourceType": "local-artifact",
+        "evidence": [
+          "deliverables/cp-multilayer-monitor-20261013/README.md",
+          "cp_semantic_plan_6l.json",
+          "cp_multilayer_evidence_6l.json",
+          "drc-report-20261013.json"
+        ],
+        "summary": "先算阻抗再布线的正面样本：6 层、USB 90Ω 差分反解 0.2102mm→实布 0.213mm→回算 89.99Ω、等长 0.0000mm、GND 过孔墙；语义编译器抓出 CC1/CC2 缺 5.1k 下拉。",
+        "designPrinciples": [
+          "叠层→反解线宽→正向回算闭环，偏差 ±5% 内",
+          "差分对等长/等距/同参考/少过孔，两侧 GND 过孔墙",
+          "6 层明确 Top/GND/PWR/SIG/SIG/GND 职责",
+          "电流采样开尔文接法，分流电阻功率/温漂核算",
+          "温湿度传感器远离热源/板边，必要时热隔离",
+          "USB ESD 靠连接器，CC1/CC2 各 5.1k 下拉",
+          "DRC 按类别处理，区分真违规/陈旧填充/未布线"
+        ],
+        "keyCircuits": [
+          "USB-C 受电",
+          "USB 90Ω 差分",
+          "INA226 电流监测",
+          "TMP117/SHT40 传感",
+          "6 层叠层"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-IMPEDANCE-001",
+            "note": "阻抗反解/回算"
+          },
+          {
+            "ruleId": "PCB-RULE-DIFF-001",
+            "note": "差分等长/等距"
+          },
+          {
+            "ruleId": "PCB-RULE-USBC-CC-001",
+            "note": "CC 下拉"
+          },
+          {
+            "ruleId": "PCB-RULE-SHUNT-001",
+            "note": "开尔文采样"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "USB ESD"
+          },
+          {
+            "ruleId": "PCB-RULE-DRC-001",
+            "note": "DRC 分类处理"
+          }
+        ],
+        "lessons": [
+          "阻抗不能拍脑袋，必须反解+回算",
+          "等长/屏蔽过孔墙是高速差分的基本功",
+          "编译器/端点检查能在投板前抓住缺件"
+        ],
+        "reviewFocus": [
+          "叠层计算单",
+          "90Ω 差分几何/等长",
+          "GND 过孔墙",
+          "CC 下拉",
+          "电流采样开尔文",
+          "DRC 真实状态"
+        ],
+        "verificationNotes": "本地证据级别：叠层介质 0.15mm/εr 4.3/铜厚 35µm 是当时假设，必须按板厂叠层单复核；156 项 DRC 不代表可制造。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "cp6l"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 11：CircuitPilot CH32V003 P0 2 层最小系统",
+      "doc": "docs/knowledge/cases/11-ch32v003-p0.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-CH32",
+        "category": "参考设计案例",
+        "boardType": "2 层 45×30mm 低成本 MCU 最小系统",
+        "sourceType": "local-artifact",
+        "evidence": [
+          "manufacturing/CircuitPilot-CH32V003-P0-BOM-UTF8.csv",
+          "manufacturing/CircuitPilot-CH32V003-P0-Gerber.zip",
+          "manufacturing/MANUFACTURING-RELEASE-REPORT.md"
+        ],
+        "summary": "成本极限板：CH32V003 + XC6206 LDO + Type-C + 按键/LED，2 层 12 行 BOM/14 器件；同时暴露无安装孔/测试点、DFM 未验证、缺货替代、盘中孔工艺等风险。",
+        "designPrinciples": [
+          "最小系统=电源+去耦+复位/BOOT+下载口（内部 RC 可省晶振）",
+          "LDO 输入/输出电容、压差、热耗按负载核算",
+          "Type-C 只取 5V 也要两只 5.1k CC 下拉",
+          "按键上拉/去抖、LED 限流按公式计算",
+          "2 层双面 GND + 过孔缝合补回流",
+          "盘中孔必须确认塞孔/填平工艺",
+          "DRC 与 DFM 分开验证；无安装孔/测试点要结构/产线确认",
+          "首件短路检查+限流上电"
+        ],
+        "keyCircuits": [
+          "CH32V003 最小系统",
+          "XC6206 3.3V LDO",
+          "Type-C 受电",
+          "按键/LED",
+          "SWIO 下载"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "去耦"
+          },
+          {
+            "ruleId": "PCB-RULE-USBC-CC-001",
+            "note": "CC 下拉"
+          },
+          {
+            "ruleId": "PCB-RULE-VIA-001",
+            "note": "盘中孔工艺"
+          },
+          {
+            "ruleId": "PCB-RULE-TESTPOINT-001",
+            "note": "测试点"
+          },
+          {
+            "ruleId": "PCB-RULE-GERBER-001",
+            "note": "Gerber/制造文件"
+          },
+          {
+            "ruleId": "PCB-RULE-BOM-001",
+            "note": "BOM/替代料"
+          }
+        ],
+        "lessons": [
+          "低成本不是省掉保护/去耦/CC",
+          "DRC 0 ≠ DFM 通过",
+          "缺货替代料必须同封装/同参数并重新验证"
+        ],
+        "reviewFocus": [
+          "LDO 热耗/电容",
+          "CC 下拉",
+          "2 层 GND 连续",
+          "盘中孔",
+          "DFM/缺货替代",
+          "首件上电流程"
+        ],
+        "verificationNotes": "本地证据级别：尺寸/层数/BOM/Gerber 可核对；CH32V003 外围与 XC6206 电容要求以 datasheet 为准；库存快照需刷新。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "ch32"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 12：衣橱助手 V2.0 双板（主板 + 按键指示灯板）AI 全链路",
+      "doc": "docs/knowledge/pcb/16-fine-pitch-escape.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-WARDROBE-V2",
+        "category": "参考设计案例",
+        "boardType": "2 层异形主板 56.065×61.843mm（DXF 凹口/斜边/缺口）+ 灯板 21.4×44.9mm",
+        "sourceType": "local-artifact",
+        "evidence": [
+          "artifacts/wardrobe-case/pm-run-20261022/evidence/drc-robust-main-r40b-r38.json",
+          "artifacts/wardrobe-case/pm-run-20261022/evidence/drc-robust-led-r41-r38.json",
+          "artifacts/wardrobe-case/pm-run-20261022/evidence/release-gate-r41.json",
+          "artifacts/wardrobe-case/pm-run-20261022/evidence/spice-simulation-led-op-r41.json",
+          "deliverables/pcb-3d/CircuitPilot-Assembled-3D-main.step"
+        ],
+        "summary": "按 PRD+DXF 全新设计（不导入参考工程）：主板 47 器件/49 网/DRC 0；灯板 24 器件（含 5×100nF 去耦）/14 网/DRC 0；布局人工确认后主门只剩草稿命名阻断，正式放行仍缺 A16/DFM/签核。",
+        "designPrinciples": [
+          "异形板框必须用闭合多边形 + 沿边采样做布局复核，不能只查四角",
+          "双面贴装：布局复核按 side 分面，旋转器件用物理 bbox",
+          "底部 Type-C 放凹口、开口朝外，焊盘必须全部在板内",
+          "细间距（0.4mm BGA / 0.5mm FPC）逃逸需 via-in-pad 或更细规则，先由板厂确认",
+          "每颗 WS2812 旁放 100nF 去耦，就近 +5V/GND",
+          "覆铜重建后必须读回 fills>0 再保存",
+          "DRC/仿真证据必须绑定 pcbUuid/网表 sha256 才能进放行门"
+        ],
+        "keyCircuits": [
+          "ESP32-S3-WROOM 最小系统（底层）",
+          "USB-C 5V 输入 + CC 下拉",
+          "WS2812 5 灯链 + 按键",
+          "5V 去耦子电路（ngspice 验证 vload=4.995459V）"
+        ],
+        "risks": [
+          "+3V3 单脚网络待产品决策",
+          "整板 SPICE 模型缺失，仿真不可执行",
+          "DFM/终审签核必须人工完成"
+        ],
+        "tags": [
+          "ESP32",
+          "USB-C",
+          "WS2812",
+          "双面板",
+          "异形板",
+          "DRC-0"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-CP-BBOX-002",
+            "note": "双面/旋转 bbox 复核"
+          },
+          {
+            "ruleId": "PCB-RULE-CP-AUTO-001",
+            "note": "自动布线只做 EVT + DRC 读回"
+          },
+          {
+            "ruleId": "PCB-RULE-CP-EVID-003",
+            "note": "DRC/仿真证据指纹绑定"
+          },
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "WS2812 就近 100nF 去耦"
+          },
+          {
+            "ruleId": "PCB-RULE-USB-001",
+            "note": "USB-C 差分与 CC 下拉"
+          }
+        ],
+        "lessons": [
+          "异形板框（凹口/斜边/缺口）必须用闭合多边形 + 沿边 0.25mm 采样做布局复核，只查四角会漏掉边中切边",
+          "旋转器件读回 bbox 必须按 rotation 旋转；否则 rot90 的 ESP32 会被判出界（真机误报 3.112mm）",
+          "双面贴装必须按 side 分面判重叠，否则双面板永远过不了复核",
+          "移动器件后必须清空旧线孔再重布，否则出现大量 SMD Pad to Track 间距错误",
+          "自动布线 49/49 只是 EVT 候选；重建覆铜 + 官方 DRC 0 items 才算闭环",
+          "DRC/仿真证据必须带当前 pcbUuid/网表 sha256，否则门禁必须阻断（真机出现过 pcbUuid 不符的假证据）",
+          "EDA 无 SPICE 模型时整板仿真不可执行；子电路（5V 去耦）可用显式网表真跑 ngspice 得到可复核数值"
+        ],
+        "reviewFocus": [
+          "底部 Type-C 凹口开口方向与焊盘是否全部在板内",
+          "U1 底层旋转 90° 的物理包围盒与焊盘是否越板框",
+          "+3V3 单脚网络的产品语义（测试点/应接线/删除）",
+          "DFM（在线）与人工终审签核"
+        ],
+        "verificationNotes": [
+          "主板：官方 DRC 0 items（drc-robust-main-r40b-r38.json）；布局复核 blockingCount=0；autoRouting 49/49",
+          "灯板：官方 DRC 0 items（drc-robust-led-r41-r38.json）；布局复核 blockingCount=0；焊盘级板框 68/68；autoRouting 13/14",
+          "3D：主板 STEP 41,593,543 B、灯板 7,144,857 B（ISO-10303-21 头）",
+          "仿真：整板不可执行（EDA 无 SPICE 模型）；5V 去耦子电路 ngspice-46 真跑 vload=4.995459 V",
+          "放行门：blocked，仅剩 3× RELEASE_ARTIFACT_DRAFT_MARKER；正式导出被 RELEASE_DECISION_BLOCKED（缺 A16/在线 DFM/人工签核）"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 14：参考工程对标与机械能力边界（衣橱助手 V2.0）",
+      "doc": "docs/knowledge/pcb/17-circuitpilot-mechanical-capability-gaps.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-REFCOMPARE-WARDROBE",
+        "category": "参考设计案例",
+        "boardType": "AI 设计双板 vs 参考工程 4 层验证板",
+        "sourceType": "local-artifact",
+        "evidence": [
+          "artifacts/wardrobe-case/pm-run-20261022/evidence/reference-vs-ours-r42.json",
+          "artifacts/wardrobe-case/pm-run-20261022/evidence/reference-bom-gap-r44.json",
+          "artifacts/wardrobe-case/pm-run-20261022/evidence/main-gnd-stitching-r43.json",
+          "artifacts/wardrobe-case/pm-run-20261022/evidence/led-gnd-stitching-r43.json"
+        ],
+        "summary": "用参考工程 .epro2 做对标：参考 180 位号（179 PCB 器件/128 网/4 层/13 覆铜/609 过孔/26 丝印/11 禁布），我方双板 71 器件（47+24）/2 层/2 覆铜/92 过孔/0 丝印/0 禁布；完成 GND 缝合（主板 32+灯板 16，双板 DRC 0），机械要素（安装孔/禁布/丝印）因 EDA 插件 API 不可用而阻塞，BOM 完备度差距形成独立 issue。",
+        "designPrinciples": [
+          "对标先解析文档结构再统计，不能凭文件名/标题判断",
+          "\"DRC 0\"与\"设计完备\"分开验收",
+          "机械/叠层类变更先确认产品决策与工具能力"
+        ],
+        "keyCircuits": [
+          "ESP32-S3 最小系统",
+          "5V 升压/3V3 降压",
+          "相机 24P FPC",
+          "WS2812 5 灯 + 4 绿 1 红电量灯",
+          "GND 缝合与覆铜"
+        ],
+        "ruleBasis": [
+          "PCB-RULE-CP-CAP-005",
+          "PCB-RULE-CP-REF-006",
+          "PCB-RULE-CP-BOM-007",
+          "PCB-RULE-CP-STITCH-008",
+          "PCB-RULE-CP-STACK-009"
+        ],
+        "lessons": [
+          "能力探测必须先于自动化计划",
+          "参考工程语义需逐层确认",
+          "完备度差异要量化成清单而不是感觉",
+          "缝合过孔几何筛选+DRC 可一次通过"
+        ],
+        "reviewFocus": [
+          "安装孔/禁布/丝印的人工补齐",
+          "相机 2V8/1V5 供电确认",
+          "BOM 补料范围与成本",
+          "2 层 vs 4 层决策"
+        ],
+        "verificationNotes": [
+          "主板 32 孔/灯板 16 孔后官方 DRC 均 0 items",
+          "参考 BOM 180 行已还原（Device META 映射 100%）",
+          "create API 三形态失败已读回验证"
+        ],
+        "tags": [
+          "参考对标",
+          "BOM差异",
+          "GND缝合",
+          "能力边界",
+          "衣橱助手"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 15：ESP32 无线底板 — 天线净空、RF 电源与典型故障",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-ESP32-RF-RESEARCH",
+   "sources": ["SRC-ESP32-HW"],
+   "evidenceLevel": "A",
+        "category": "参考设计案例",
+        "boardType": "2.4 GHz Wi-Fi/BLE 模组底板（模组贴在主板边缘，整机含塑料外壳）",
+        "sourceType": "official-vendor-guideline+research",
+        "evidence": [
+          "Espressif, ESP Hardware Design Guidelines — ESP32 / PCB Layout Design, https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32/pcb-layout-design.html（2026-10-23 抓取）",
+          "Espressif, ESP32 PCB Layout Design — Positioning a Module on a Base Board / RF / Typical Layout Problems and Solutions（同上）"
+        ],
+        "summary": "把 Espressif 官方 ESP32 布局指南中的模组天线、RF 走线、RF 电源、SDIO 与四类典型故障，整理成可复用的底板设计案例。核心不是某个固定线宽，而是「天线伸出板边 + 整机 ≥15 mm 净空 + RF 50 Ω 不换层 + PA 电源低纹波 + 外部干扰隔离」这套组合约束。",
+        "designPrinciples": [
+          "模组天线伸出底板边缘，馈电点尽量靠边；无法伸出时天线两侧/下方挖空，禁止放板中心四面掏空",
+          "整机外壳内天线各方向净空建议 ≥15 mm；天线附近保留地铜 + 密集地孔",
+          "RF 走线 50 Ω、短、等宽、不分支、不换层；转弯 135°/圆弧；参考地完整；IPEX 下方全层挖空",
+          "3.3 V 主走线 ≥25 mil、VDD3P3 ≥20 mil、其他电源 12–15 mil；10 µF + 0.1/1 µF；RF 电源脚 LC/CLC；星形分支",
+          "芯片底部地焊盘 ≥9 个地孔；去耦地脚就近打孔",
+          "SDIO 50 Ω ±10%，CMD/DATA 相对 CLK ≤±50 mil，总长 ≤2000 mil，不换层，CLK 包地",
+          "TX 差但纹波小先查匹配/PA 电源；RX 差查晶振/时钟/高速线/ UART 与 RF 的耦合"
+        ],
+        "keyCircuits": [
+          "ESP32 模组最小系统",
+          "RF 匹配/天线",
+          "3.3 V 电源与 RF 电源滤波",
+          "SDIO/Flash",
+          "晶振",
+          "UART/USB 与 RF 共存"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-RF-MODULE-001",
+            "note": "天线伸出板边/整机 15 mm"
+          },
+          {
+            "ruleId": "PCB-RULE-RF-TRACE-002",
+            "note": "RF 50 Ω/不换层/参考地"
+          },
+          {
+            "ruleId": "PCB-RULE-RF-PWR-001",
+            "note": "RF 电源/地孔"
+          },
+          {
+            "ruleId": "PCB-RULE-RF-SDIO-001",
+            "note": "SDIO 等长/参考平面"
+          },
+          {
+            "ruleId": "PCB-RULE-PLACE-ANTENNA-15MM-001",
+            "note": "现有 15 mm 规则"
+          },
+          {
+            "ruleId": "PCB-RULE-PLACE-CRYSTAL-GAP-001",
+            "note": "晶振与时钟净空"
+          }
+        ],
+        "lessons": [
+          "把天线埋进板中心/外壳金属附近，会出现 TX 功率正常但距离短、RX 灵敏度低",
+          "电源纹波正常不代表 RF 一定好，匹配/天线阻抗/PA 电源去耦仍可能有问题",
+          "UART/USB/晶振的谐波会耦合进天线；RF 不是只画一根 50 Ω 线"
+        ],
+        "reviewFocus": [
+          "天线是否伸出板边/整机净空",
+          "RF 走线是否换层/分支/90°",
+          "RF 电源去耦/LC/星形",
+          "SDIO 等长与参考平面",
+          "晶振/时钟/高速线与 RF 的隔离"
+        ],
+        "verificationNotes": "2026-10-23 已用 curl 抓取 Espressif 官方页面并核对原文；15 mm 是建议值，最终以模组 datasheet + 整机吞吐/距离实测为准。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "ESP32",
+          "RF",
+          "天线",
+          "research-2026-10-23"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 16：TI QFN/SON 热焊盘、散热过孔与钢网",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-TI-QFN-THERMAL",
+   "sources": ["SRC-TI-QFN", "SRC-SIERRA-THERMAL"],
+   "evidenceLevel": "A/B",
+        "category": "参考设计案例",
+        "boardType": "QFN/SON 封装功率/模拟器件（外露热焊盘）",
+        "sourceType": "official-vendor-application-report+research",
+        "evidence": [
+          "Texas Instruments, QFN and SON PCB Attachment (SLUA271C, revised 2023-12), https://www.ti.com/lit/an/slua271a/slua271a.pdf（2026-10-23 抓取）",
+          "Sierra Circuits, How Thermal Vias Enhance Heat Dissipation in PCBs, https://www.protoexpress.com/kb/how-thermal-vias-enhance-heat-dissipation-in-pcbs/（2026-10-23 抓取）"
+        ],
+        "summary": "以 TI QFN/SON 应用报告为主线，说明热焊盘尺寸、0.2 mm clearance、约 1.0 mm 间距/0.3 mm 钻孔散热过孔、塞孔/盖油、50–70% 钢网、≤50% 空洞、NSMD 等可执行约束，并用 Sierra 的散热过孔经验做交叉核对。",
+        "designPrinciples": [
+          "PCB 热焊盘与封装外露焊盘等大；周围 clearance ≥0.2 mm",
+          "散热过孔间距约 1.0 mm，钻孔 0.3 mm 起步；更小孔减少锡流失",
+          "过孔塞孔/盖油；盖油直径比孔大 0.1 mm；按板厂工艺选择",
+          "钢网热焊盘开口 50–70%，外围引脚 1:1；0.5 mm pitch 外围可减到 0.28 mm",
+          "回流后热焊盘空洞 ≤50%；高功率按 JEDEC/J-STD 复核",
+          "NSMD；引脚焊盘阻焊开窗比焊盘大 0.1–0.14 mm；0.5 mm pitch 建议整排开窗、clearance ≤0.05 mm",
+          "过孔接完整内部地平面，避免 anti-pad 切断；纵横比 <10:1"
+        ],
+        "keyCircuits": [
+          "QFN/SON 热焊盘",
+          "散热过孔阵列",
+          "钢网/锡膏",
+          "阻焊/NSMD",
+          "回流焊空洞控制"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-THERM-QFN-001",
+            "note": "QFN 热焊盘/过孔/钢网"
+          },
+          {
+            "ruleId": "PCB-RULE-MFG-STENCIL-001",
+            "note": "钢网开口/面积比"
+          },
+          {
+            "ruleId": "PCB-RULE-THERMAL-001",
+            "note": "现有散热焊盘规则"
+          },
+          {
+            "ruleId": "SUP-TH-02",
+            "note": "运行时散热过孔补充规则"
+          }
+        ],
+        "lessons": [
+          "1:1 热焊盘钢网 + 不塞孔，常见结果是锡流失/空洞/浮件/开路",
+          "热焊盘不焊会失去机械和热路径，不能只靠引脚散热",
+          "空洞率要用 X-Ray 看面积，不是只看「有没有空洞」"
+        ],
+        "reviewFocus": [
+          "热焊盘尺寸/clearance",
+          "过孔间距/孔径/塞孔",
+          "钢网开口/面积比",
+          "空洞率/润湿",
+          "NSMD/阻焊开窗"
+        ],
+        "verificationNotes": "2026-10-23 已抓取 TI SLUA271C 并核对原文；数值随封装/锡膏/板厂变化，量产前做 DOE/X-Ray。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "QFN",
+          "热焊盘",
+          "散热过孔",
+          "research-2026-10-23"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 17：TI USB Hub/信号调理 — 高速差分与 ESD 一条路径",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-TI-USB-LAYOUT",
+   "sources": ["SRC-TI-USB", "SRC-TI-ESD"],
+   "evidenceLevel": "A",
+        "category": "参考设计案例",
+        "boardType": "USB 2.0/3.x/4 hub 或信号调理板（连接器→ESD→PHY/SoC）",
+        "sourceType": "official-vendor-application-report+research",
+        "evidence": [
+          "Texas Instruments, High-Speed Layout Guidelines for Signal Conditioners and USB Hubs (SLLA414A, revised 2026-01), https://www.ti.com/lit/an/slla414/slla414.pdf（2026-10-23 抓取）",
+          "Texas Instruments, ESD Protection Layout Guide (SLVA680A, revised 2022-04), https://www.ti.com/lit/an/slva680/slva680.pdf（2026-10-23 抓取）"
+        ],
+        "summary": "把 TI 的 USB/高速布局与 ESD 布局两份应用报告合并成一条「连接器→ESD→PHY」路径约束：90 Ω 差分、对内 5 mil、对间 30 mil、参考平面边缘 90 mil、stub <15 mil、回流地孔 200 mil、TVS flow-through/靠连接器/ESD 路径不换层/≤45°。",
+        "designPrinciples": [
+          "USB2 90 Ω ±15% 差分 / 45 Ω ±15% 单端；端接按 PHY（RP2040 实例 27 Ω）",
+          "对内等长按协议（TI USB3.2 约 ≤5 mil）；差分对间 ≥30 mil",
+          "参考平面边缘 ≥90 mil；距空洞 ≥1.5W；换层回流地孔 200 mil 内",
+          "过孔 stub <15 mil，超过背钻；不跨分割，跨分割加 stitching 电容",
+          "TVS 靠连接器，优先 flow-through；ESD 源到 TVS 不布未保护线、尽量不换层、转角 ≤45°/圆弧",
+          "TVS 地脚旁至少 1 个地孔，地平面缝合；chassis 地靠近连接器/TVS 地",
+     "USB3/4 的 AC 耦合/CMF 与 ESD 尽量靠连接器；ESD/EMI 信号焊盘下方约 60% 挖空",
+          "高速差分上不放 probe/test point"
+        ],
+        "keyCircuits": [
+          "USB 连接器/ESD",
+          "差分对/参考平面",
+          "AC 耦合/共模滤波（按协议）",
+          "TVS 地/回流",
+          "连接器屏蔽/chassis 地"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-USB-HS-001",
+            "note": "USB 阻抗/端接"
+          },
+          {
+            "ruleId": "PCB-RULE-HS-REF-001",
+            "note": "参考平面/回流"
+          },
+          {
+            "ruleId": "PCB-RULE-USB-ESD-001",
+            "note": "ESD 路径"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-GND-001",
+            "note": "TVS 地缝合"
+          },
+          {
+            "ruleId": "PCB-RULE-DFT-002",
+            "note": "高速差分禁测试点"
+          },
+          {
+            "ruleId": "PCB-RULE-ML-SKEW-001",
+            "note": "现有等长规则"
+          }
+        ],
+        "lessons": [
+          "USB 眼图/ESD 失败常见根因是 TVS 放远、地回路长、ESD 路径上分支/换层，而不是 TVS 型号选错",
+          "参考平面边缘/空洞会让回流绕行，TDR 上表现为阻抗突变",
+          "测试点放在高速差分上会形成 stub，可能直接毁掉眼图"
+        ],
+        "reviewFocus": [
+          "差分阻抗/端接",
+          "对内/对间等长",
+          "参考平面/回流地孔",
+          "stub/背钻",
+          "TVS 位置/地缝合",
+          "测试点"
+        ],
+        "verificationNotes": "2026-10-23 已抓取 TI SLLA414A/SLVA680A 并核对原文；具体端接/AC 耦合按 PHY datasheet 与 USB-IF 测试规范。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "USB",
+          "高速",
+          "ESD",
+          "research-2026-10-23"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 18：同一套 Gerber 在 JLCPCB 与 PCBWay 的工艺窗口对比",
+      "doc": "docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "ttlDays": 180,
+      "payload": {
+        "moduleId": "PCB-CASE-MFG-CAPABILITY",
+   "sources": ["SRC-JLC-CAP", "SRC-PCBWAY-CAP"],
+   "evidenceLevel": "B",
+        "category": "参考设计案例",
+        "boardType": "同一套 Gerber 的多板厂 DFM/报价对比（标准工艺档）",
+        "sourceType": "manufacturer-capability+research",
+        "evidence": [
+          "JLCPCB, PCB Manufacturing & Assembly Capabilities, https://jlcpcb.com/capabilities/pcb-capabilities（2026-10-23 抓取）",
+          "PCBWay, PCB Capabilities, https://www.pcbway.com/capabilities.html（2026-10-23 抓取）"
+        ],
+        "summary": "用两家板厂当前能力表做同板对比，说明「最小线宽/间距、孔环、钻孔、丝印、V-CUT 余厚/间距、阻抗公差、拼板尺寸」都是变量；工程规则应写成「相对目标板厂能力窗口 + EQ 锁定」，而不是抄某一家最小值。",
+        "designPrinciples": [
+          "线宽/间距：JLC 标准盖油 0.15/0.15 mm、露铜 0.25/0.25 mm；PCBWay 标准 0.1/0.1 mm",
+          "孔环：PCBWay ≥0.15 mm；JLC 最小过孔 0.15 mm 孔/0.25 mm 盘",
+          "钻孔：PCBWay 0.15–6.0 mm；JLC 标准过孔孔径按能力表/工艺档",
+          "丝印：JLC 焊盘到丝印 ≥0.15 mm；PCBWay 字符宽 ≥0.15 mm、高 ≥0.8 mm、宽高比 1:5",
+          "V-CUT：JLC 铜到 V-CUT ≥0.4 mm；PCBWay 余厚 ≥0.25 mm、V-SCORE 板间距 0、断板铣 ≥1.6 mm",
+          "阻抗：JLC 标准 ±10%，特殊 ±5%；必须锁叠层/测试条",
+          "拼板：PCBWay 最小拼板 100×120 mm；JLC 建议板间 ≥2 mm",
+          "所有能力值都要记录厂家/日期/版本，下单前重新核对"
+        ],
+        "keyCircuits": [
+          "DFM 询价",
+          "拼板/V-CUT",
+          "阻抗叠层",
+          "丝印/阻焊",
+          "板厂 EQ"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-MFG-CAP-001",
+            "note": "板厂能力窗口"
+          },
+          {
+            "ruleId": "PCB-RULE-MFG-PANEL-002",
+            "note": "V-CUT/拼板"
+          },
+          {
+            "ruleId": "PCB-RULE-SILK-LEGIBLE-002",
+            "note": "丝印可读性"
+          },
+          {
+            "ruleId": "PCB-RULE-IMPEDANCE-002",
+            "note": "阻抗/叠层"
+          },
+          {
+            "ruleId": "PCB-RULE-PANEL-001",
+            "note": "现有拼板规则"
+          },
+          {
+            "ruleId": "PCB-RULE-EDGE-001",
+            "note": "板边/分板禁布"
+          }
+        ],
+        "lessons": [
+          "同一套 Gerber 在不同板厂的「可制造性」和价格可能不同，不能默认等价",
+          "能力表最小值是极限，不是量产默认；整板应留工艺余量",
+          "阻抗/叠层/拼板必须在询价阶段锁定，不要等下单后才发现超窗"
+        ],
+        "reviewFocus": [
+          "目标板厂/工艺档",
+          "线宽/间距/孔环/钻孔",
+          "丝印/阻焊",
+          "V-CUT/拼板",
+          "阻抗叠层/EQ"
+        ],
+        "verificationNotes": "2026-10-23 抓取两家能力表快照；能力表会变，量产前必须重新核对并保存日期/版本/EQ。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "DFM",
+          "板厂能力",
+          "拼板",
+          "research-2026-10-23"
+        ]
+      }
+    }
+  ]
+}

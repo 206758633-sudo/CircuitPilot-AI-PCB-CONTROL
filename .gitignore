@@ -20,3 +20,8 @@ src-tauri/binaries/
 
 # Generated test output
 artifacts/*.png
+# 运行时产物：自动化审计链 / 证据落盘 / 生产状态（本机生成，不入库）
+artifacts/automation-runs/
+artifacts/evidence/
+artifacts/state/
+artifacts/acceptance/

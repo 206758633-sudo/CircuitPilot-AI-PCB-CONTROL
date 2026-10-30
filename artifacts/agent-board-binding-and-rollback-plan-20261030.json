@@ -1,0 +1,90 @@
+{
+  "kind": "agent-board-binding-and-rollback-drill-plan",
+  "at": "2026-10-30T03:03:23.145041+00:00",
+  "userDecision": {
+    "targetBoard": "project-saved 5595e77cead09682",
+    "rollbackDrill": "authorized for later, subject to explicit confirmation of a newly generated planHash"
+  },
+  "before": {
+    "activeEdaPcbUuid": "084751e2c073fcf2",
+    "projectEdaWorkspacePcbUuid": "5595e77cead09682",
+    "mismatch": true
+  },
+  "switch": {
+    "method": "POST /api/eda/project/open {projectUuid: ba4924190e3a4388a097f3dee090da20, activatePcb: true}",
+    "result": {
+      "ok": true,
+      "projectUuid": "ba4924190e3a4388a097f3dee090da20",
+      "title": "衣橱助手V2.0-AI设计",
+      "pcbUuid": "5595e77cead09682",
+      "activated": true
+    },
+    "writeToBoard": false,
+    "note": "只切换 EDA 活动工程/板，不修改工程数据；没有调用任何 pcb 写操作"
+  },
+  "after": {
+    "projectId": "project-1790610000001",
+    "projectName": "衣橱助手V2.0 测试板",
+    "activeEdaPcbUuid": "5595e77cead09682",
+    "projectEdaWorkspacePcbUuid": "5595e77cead09682",
+    "mismatch": false,
+    "windowId": "0a54ded2-92cb-4981-ba1d-d255575c357f",
+    "targetFingerprint": "1b77a3f34a5511de69338849d5a7ea0224f56c66f428111db9e364c7af1df596",
+    "sourceDigest": "ec2ba51e62d849bd230aa15a49d21d210a38099458d12adb5f0b41978f58033f",
+    "layers": 4
+  },
+  "rollbackDrillPlan": {
+    "planHash": "c0b54846600520cbea48ba7aec789ea6ed59144c3612829c6f7f7a0d3f87dafe",
+    "ready": true,
+    "missing": [],
+    "operations": [
+      {
+        "type": "pcb.component.modify",
+        "target": "C1",
+        "primitiveId": "936528fd97e47f5e",
+        "change": "x 46.000mm -> 46.010mm (+0.01mm)",
+        "purpose": "真实非创建变更"
+      },
+      {
+        "type": "pcb.component.modify",
+        "target": "rollback-drill-nonexistent-target",
+        "purpose": "故意无效目标，触发失败并走整档 source.restore"
+      },
+      {
+        "type": "pcb.save",
+        "purpose": "保存（若失败点在此之前则不执行）"
+      },
+      {
+        "type": "pcb.drc",
+        "purpose": "DRC 必须最后（若失败点在此之前则不执行）"
+      }
+    ],
+    "expected": {
+      "state": "rolled_back",
+      "sourceDigestRestored": "ec2ba51e62d849bd230aa15a49d21d210a38099458d12adb5f0b41978f58033f",
+      "snapshotRestored": true,
+      "scope": "stage 或 all（取决于失败点）",
+      "safetyLockOnFailure": true
+    },
+    "risk": [
+      "整档 source.restore 曾经在 2026-10-29 真机失败并触发安全锁；若再次失败，C1 可能保留 0.01mm 位移，需要人工 Cmd+Z/手工恢复",
+      "本计划包含真实 EDA 写；执行前必须由用户明确批准同一 planHash"
+    ],
+    "executed": true,
+    "approved": true,
+    "approvalId": "05e9ebbfac3ee185",
+    "executionId": "84c220b7-fdbf-4847-85f9-faa3951b04ce",
+    "state": "rollback_failed",
+    "resultRef": "artifacts/agent-rollback-drill-noncreate-failure-20261030.json"
+  },
+  "evidence": {
+    "context": "/tmp/cp-pcb-context.json",
+    "placementRead": "/tmp/cp-placement.json",
+    "status": "cp_status after switch: project edaWorkspace.pcbUuid == eda.workspace.pcbUuid == 5595..."
+  },
+  "noClaims": [
+    "未做生产导出/签核/订单",
+    "未释放安全写锁",
+    "失败后未自动重试"
+  ]
+}

@@ -49,7 +49,7 @@ test('原理图验收链：好网表放行；本机没有求解器时必须如�
   assert.ok(notRunnable, '必须报"仿真不可执行"');
   assert.match(notRunnable.message, /不是"仿真通过"，是"没有仿真"/);
   assert.ok(report.findings.some((f) => f.code === 'SCHEMATIC_ERC_AGGREGATE_ONLY'));
-  assert.deepEqual(report.steps.map((s) => s.step), ['netlist', 'erc', 'verify', 'simulation']);
+  assert.deepEqual(report.steps.map((s) => s.step), ['netlist', 'erc', 'verify', 'net-connectivity', 'simulation']);
   assert.equal(report.designChecks, null, '连求解器都没有，不许凭空生成设计检查结论');
 });
 
@@ -222,4 +222,96 @@ test('大网表分片取回失败：必须报"分片取回失败"，不能把半
   assert.ok(finding);
   assert.match(finding.message, /分片取回失败/);
   assert.equal(report.steps.find((item) => item.step === 'netlist').reason, 'EDA_EXPORT_BUFFER_LOST');
+});
+
+test('ERC 明细：聚合计数 + GUI 面板逐条 → 验收报告出现可定位的逐条错误（不再只有"1 个错误"）', async () => {
+  const execute = async (commandId) => {
+    if (commandId === 'document.current') return { result: { documentType: 1 } };
+    if (commandId === 'schematic.netlist.export') { const text = realShapedNetlist(); return { result: { name: 'n', size: text.length, text } }; }
+    if (commandId === 'schematic.drc') return { result: [{ type: 'error', count: 1 }, { type: 'warn', count: 2 }] };
+    if (commandId === 'schematic.simulation.netlist.export') return { result: null };
+    throw Object.assign(new Error(`未知命令 ${commandId}`), { code: 'UNKNOWN_COMMAND' });
+  };
+  const report = await runSchematicAcceptance({
+    execute,
+    discover: () => ({ path: '/fake/ngspice', source: 'path', searched: [] }),
+    checksRunner: async () => ({ ok: false, findings: [], summary: { total: 0, passed: 0, failed: 0, notRun: 0, simulated: false }, results: [] }),
+    ercDetail: async () => ({ ok: true, source: 'ui-dom', items: [{ level: 'error', message: '网络 GND 与 +3V3 短路', object: 'U1.2' }, { level: 'warning', message: 'R1.1 引脚悬空' }] }),
+  });
+  assert.equal(report.erc.detailSource, 'ui-dom');
+  assert.equal(report.erc.detailAvailable, true);
+  assert.ok(report.findings.some((item) => /ERC 错误（逐条）/.test(item.message) && /U1\.2/.test(item.message)), JSON.stringify(report.findings));
+  assert.ok(!report.findings.some((item) => item.code === 'SCHEMATIC_ERC_AGGREGATE_ONLY'), '有明细后不应再报"只有聚合计数"');
+  assert.ok(report.steps.some((step) => step.step === 'erc-detail' && step.ok === true));
+});
+
+test('仿真证据回退：EDA 导不出网表且检查点跑不了时，引用已落盘真实求解器证据并标注覆盖范围', async () => {
+  const execute = async (commandId) => {
+    if (commandId === 'document.current') return { result: { documentType: 1 } };
+    if (commandId === 'schematic.netlist.export') { const text = realShapedNetlist(); return { result: { name: 'n', size: text.length, text } }; }
+    if (commandId === 'schematic.drc') return { result: [] };
+    if (commandId === 'schematic.simulation.netlist.export') return { result: null };
+    throw Object.assign(new Error(`未知命令 ${commandId}`), { code: 'UNKNOWN_COMMAND' });
+  };
+  const report = await runSchematicAcceptance({
+    execute,
+    discover: () => ({ path: null, source: 'not-found', searched: [] }),
+    loadSimulationEvidence: async () => ({
+      path: '/x/artifacts/evidence/spice-simulation/abc.json',
+      digest: 'a'.repeat(64),
+      savedAt: '2026-10-21T00:00:00.000Z',
+      payload: { evidence: { source: 'solver-run', solver: { path: '/opt/homebrew/bin/ngspice' }, evidenceHash: 'b'.repeat(64), operatingPoint: { vdd: 3.3 } }, scopeNote: '外部网表 SPICE 仿真（关键电路）' },
+    }),
+  });
+  assert.ok(report.simulation, '必须引用落盘证据，不能再说"没有仿真"');
+  assert.equal(report.simulation.source, 'solver-run');
+  assert.equal(report.simulation.evidenceHash, 'b'.repeat(64));
+  assert.match(String(report.simulation.scopeNote), /关键电路/);
+  const reused = report.findings.find((item) => item.code === ACCEPTANCE_CODES.SIMULATION_NOT_RUNNABLE && /已引用本机落盘的 SPICE 仿真证据/.test(item.message));
+  assert.ok(reused, JSON.stringify(report.findings));
+  assert.equal(reused.severity, 'info');
+  assert.ok(report.steps.some((step) => step.code === 'SIMULATION_EVIDENCE_REUSED' && step.ok === true));
+});
+
+test('仿真证据回退：没有落盘证据时仍然必须如实报"没有仿真"（不许把回退机制变成免检通道）', async () => {
+  const execute = async (commandId) => {
+    if (commandId === 'document.current') return { result: { documentType: 1 } };
+    if (commandId === 'schematic.netlist.export') { const text = realShapedNetlist(); return { result: { name: 'n', size: text.length, text } }; }
+    if (commandId === 'schematic.drc') return { result: [] };
+    if (commandId === 'schematic.simulation.netlist.export') return { result: null };
+    throw Object.assign(new Error(`未知命令 ${commandId}`), { code: 'UNKNOWN_COMMAND' });
+  };
+  const report = await runSchematicAcceptance({
+    execute,
+    discover: () => ({ path: null, source: 'not-found', searched: [] }),
+    loadSimulationEvidence: async () => null,
+  });
+  assert.equal(report.simulation, null);
+  const notRunnable = report.findings.find((item) => item.code === ACCEPTANCE_CODES.SIMULATION_NOT_RUNNABLE);
+  assert.ok(notRunnable);
+  assert.equal(notRunnable.severity, 'warning');
+});
+
+test('仿真证据回退：加载器拒绝（归属/新鲜度不符）时必须如实记录原因，不能静默当"没有证据"', async () => {
+  const execute = async (commandId) => {
+    if (commandId === 'document.current') return { result: { documentType: 1 } };
+    if (commandId === 'schematic.netlist.export') { const text = realShapedNetlist(); return { result: { name: 'n', size: text.length, text } }; }
+    if (commandId === 'schematic.drc') return { result: [] };
+    if (commandId === 'schematic.simulation.netlist.export') return { result: null };
+    throw Object.assign(new Error(`未知命令 ${commandId}`), { code: 'UNKNOWN_COMMAND' });
+  };
+  const report = await runSchematicAcceptance({
+    execute,
+    discover: () => ({ path: null, source: 'not-found', searched: [] }),
+    loadSimulationEvidence: async () => ({
+      entry: null,
+      rejected: [{ reason: '落盘仿真证据不满足归属/新鲜度要求', problems: ['证据属于其它工程（证据 p1 ≠ 当前 p2）', '证据已过期'] }],
+    }),
+  });
+  assert.equal(report.simulation, null, '被拒绝的证据不能被引用');
+  const notRunnable = report.findings.find((item) => item.code === ACCEPTANCE_CODES.SIMULATION_NOT_RUNNABLE);
+  assert.ok(notRunnable);
+  assert.equal(notRunnable.severity, 'warning');
+  assert.match(notRunnable.message, /未引用/);
+  assert.match(notRunnable.message, /其它工程/);
 });

@@ -1,0 +1,156 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-10-22T07:30:16Z",
+  "precedence": [
+    "L1 项目规则包/当前板厂能力表（rules/board-layout-rules.json、厂商最新能力表、工程确认单）",
+    "L2 器件 datasheet/模组 layout guide（引脚、焊盘、净空、时序、热阻）",
+    "L3 本知识库通用规则（无项目规则包时的默认基线）",
+    "L4 经验值/市场惯例（只能作推荐值，不得单独作为硬门禁）"
+  ],
+  "groups": [
+    {
+      "groupId": "EDGE-PANEL",
+      "title": "板边与拼板：0.5 mm / 1 mm / 3–5 mm / 0.4 mm 的口径",
+      "rules": [
+        "PCB-RULE-EDGE-001",
+        "PCB-RULE-PANEL-001",
+        "PCB-RULE-PLACE-EDGE-001",
+        "PCB-RULE-PLACE-PANEL-001"
+      ],
+      "scope": {
+        "PCB-RULE-EDGE-001": "元件本体到铣切板边最小 0.5 mm；V-CUT/邮票孔两侧元件禁布 1 mm；工艺边 5 mm",
+        "PCB-RULE-PANEL-001": "与 EDGE-001 同口径，补充邮票孔/拼板尺寸",
+        "PCB-RULE-PLACE-EDGE-001": "3–5 mm 是分板应力/装配余量推荐值，针对细间距/易损/连接器；不是全局最小",
+        "PCB-RULE-PLACE-PANEL-001": "0.4 mm 是 V-CUT 处裸铜/焊盘到 V 线的最小铜避让（板厂能力）；1 mm 是元件禁布；工艺边 3 mm 为板厂最小、SMT 取 5 mm"
+      },
+      "resolution": "硬最小取 0.5 mm（元件）/1 mm（V-CUT 元件禁布）/5 mm（SMT 工艺边）；3–5 mm 与 0.4 mm 仅在其对应口径下使用；项目规则包 MECH-05/07/10 优先。",
+      "status": "resolved-with-scope"
+    },
+    {
+      "groupId": "DECOUPLE",
+      "title": "去耦：≤2 mm 与 100–500 pH 的关系",
+      "rules": [
+        "PCB-RULE-DECOUPLE-001",
+        "PCB-RULE-DECOUPLE-002",
+        "PCB-RULE-PLACE-DECOUPLE-001",
+        "PCB-RULE-PLACE-PARASITIC-001"
+      ],
+      "scope": {
+        "PCB-RULE-DECOUPLE-001": "无 datasheet 电感上限时的布局代理判据（≤2 mm、独立过孔）",
+        "PCB-RULE-DECOUPLE-002": "体电容+近端电容组合",
+        "PCB-RULE-PLACE-DECOUPLE-001": "与 DECOUPLE-001 同口径的经验版",
+        "PCB-RULE-PLACE-PARASITIC-001": "datasheet 给出引脚-电容寄生电感上限时的电学主判据（pH）"
+      },
+      "resolution": "datasheet 有 pH 上限时以 pH 为主判据，mm 只作辅助；无 pH 数据时用 ≤2 mm/地过孔 ≤1 mm 代理；两者都满足才放行。",
+      "status": "resolved-primary-proxy"
+    },
+    {
+      "groupId": "CRYSTAL",
+      "title": "晶振：≤5–10 mm 与 ≥2.0 mm 的窗口",
+      "rules": [
+        "PCB-RULE-CRYSTAL-001",
+        "PCB-RULE-PLACE-CRYSTAL-001",
+        "PCB-RULE-PLACE-CRYSTAL-GAP-001"
+      ],
+      "scope": {
+        "PCB-RULE-CRYSTAL-001": "XIN/XOUT 走线 ≤10 mm、越短越好",
+        "PCB-RULE-PLACE-CRYSTAL-001": "晶振到芯片 ≤5–10 mm、负载电容 ≤3 mm 的布局推荐",
+        "PCB-RULE-PLACE-CRYSTAL-GAP-001": "晶振本体与芯片时钟引脚最小 ≥2.0 mm，避免机械/热耦合与寄生电容；是下限不是目标值"
+      },
+      "resolution": "目标窗口 2.0–10 mm：≥2.0 mm 为下限，≤5–10 mm 为上限；负载电容 ≤3 mm 且对称；最终以 datasheet/实测起振裕度为准。",
+      "status": "resolved-window"
+    },
+    {
+      "groupId": "ESD",
+      "title": "ESD/TVS：≤10 mm 与 ≤5–10 mm",
+      "rules": [
+        "PCB-RULE-ESD-001",
+        "PCB-RULE-PLACE-ESD-001"
+      ],
+      "scope": {
+        "PCB-RULE-ESD-001": "TVS 到连接器 ≤10 mm 的硬上限，强调连接器→TVS→IC 顺序",
+        "PCB-RULE-PLACE-ESD-001": "经验版 ≤5–10 mm，优先 ≤5 mm"
+      },
+      "resolution": "顺序不可变；距离取更严格的 ≤5 mm 为目标、≤10 mm 为上限；结电容按信号速率另行校核。",
+      "status": "resolved-stricter-wins"
+    },
+    {
+      "groupId": "THERMAL",
+      "title": "热：散热焊盘过孔阵列与热源间距",
+      "rules": [
+        "PCB-RULE-THERMAL-001",
+        "PCB-RULE-PLACE-THERMAL-001"
+      ],
+      "scope": {
+        "PCB-RULE-THERMAL-001": "EPAD 下过孔阵列/铜皮，解决单器件散热",
+        "PCB-RULE-PLACE-THERMAL-001": "多热源分散与热敏感件 ≥5 mm，解决系统热布局"
+      },
+      "resolution": "两者对象不同，叠加执行；间距以热仿真/实测为准，5 mm 只是默认经验值。",
+      "status": "resolved-different-objects"
+    },
+    {
+      "groupId": "TESTPOINT",
+      "title": "测试点：2.54 mm 与 1.27 mm 网格",
+      "rules": [
+        "PCB-RULE-TESTPOINT-001",
+        "PCB-RULE-PLACE-TEST-001"
+      ],
+      "scope": {
+        "PCB-RULE-TESTPOINT-001": "关键网络 ≥1 TP、Ø1.0–1.5 mm、间距 ≥2.54 mm 的通用判据",
+        "PCB-RULE-PLACE-TEST-001": "按治具可选 2.54/1.27 mm 网格，并考虑遮挡/FCT 可视空间"
+      },
+      "resolution": "默认 2.54 mm；只有治具明确支持 1.27 mm 时才用 1.27 mm；两者都必须满足不被高件/结构件遮挡。",
+      "status": "resolved-fixture-dependent"
+    },
+    {
+      "groupId": "RF",
+      "title": "RF/天线：模组 keepout 与整机 15 mm",
+      "rules": [
+        "PCB-RULE-RF-001",
+        "PCB-RULE-PLACE-RF-001",
+        "PCB-RULE-PLACE-ANTENNA-15MM-001"
+      ],
+      "scope": {
+        "PCB-RULE-RF-001": "净空尺寸以模组 datasheet 为准，所有层禁铜/禁线/禁器件",
+        "PCB-RULE-PLACE-RF-001": "模组放板边/角落、50Ω 连续、地孔阵列",
+        "PCB-RULE-PLACE-ANTENNA-15MM-001": "整机外壳内各方向净空 ≥15 mm，feed 靠板边，整机吞吐/距离实测"
+      },
+      "resolution": "板级按模组 datasheet；整机按 ≥15 mm（各方向）+ 前方无金属；两者冲突时取更严格且以整机射频测试为准。",
+      "status": "resolved-board-vs-product"
+    },
+    {
+      "groupId": "FIDUCIAL",
+      "title": "Mark/基准点：板边 1 mm/2 mm 与拼板 3.85 mm",
+      "rules": [
+        "PCB-RULE-FIDUCIAL-001",
+        "PCB-RULE-PLACE-PANEL-001"
+      ],
+      "scope": {
+        "PCB-RULE-FIDUCIAL-001": "铜盘 Ø1 mm、阻焊开窗 Ø2 mm、周围 ≥1 mm 净空、≥3 个非对称",
+        "PCB-RULE-PLACE-PANEL-001": "JLCPCB 口径 Mark 中心距拼板边 3.85 mm，是拼板定位距离"
+      },
+      "resolution": "铜盘/开窗按 1/2 mm；距边分“板内 Mark 距板边”与“拼板 Mark 距拼板边”两种口径，按贴片厂要求取 3.85 mm 或更远。",
+      "status": "resolved-reference-edge"
+    },
+    {
+      "groupId": "VIA",
+      "title": "过孔：机械/载流/盖油与 HDI/背钻",
+      "rules": [
+        "PCB-RULE-VIA-001",
+        "PCB-RULE-ANNULAR-001",
+        "PCB-RULE-VIA-TENT-001",
+        "PCB-RULE-ML-HDI-001",
+        "PCB-RULE-ML-BACKDRILL-001"
+      ],
+      "scope": {
+        "PCB-RULE-VIA-001": "普通过孔孔径/孔环的机械与载流基线",
+        "PCB-RULE-ANNULAR-001": "孔环最小宽度",
+        "PCB-RULE-VIA-TENT-001": "盖油/塞孔工艺",
+        "PCB-RULE-ML-HDI-001": "HDI 微孔/盲埋孔",
+        "PCB-RULE-ML-BACKDRILL-001": "背钻 stub"
+      },
+      "resolution": "先按机械/载流定普通过孔，再按高速/HDI 选微孔/背钻；不可用普通过孔规则否定 HDI 专项规则。",
+      "status": "resolved-process-class"
+    }
+  ]
+}

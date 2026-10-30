@@ -13,10 +13,15 @@
 import crypto from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { inspectProductionArtifacts } from './production.mjs';
 
 export const RELEASE_ARCHIVE_CODES = Object.freeze({
   NOT_ALLOWED: 'RELEASE_ARCHIVE_NOT_ALLOWED',
   BINDING_INVALID: 'RELEASE_ARCHIVE_BINDING_INVALID',
+  // P1-6：文档/版本/执行域缺失（稀疏 binding）时不能拿它重算 manifestHash——那会得到与签核/导出一致的假象。
+  BINDING_INCOMPLETE: 'RELEASE_ARCHIVE_BINDING_INCOMPLETE',
+  // P1-6：服务端用完整 binding 重算的 manifestHash ≠ 调用方/签核绑定值 ⇒ 物料已变，拒绝归档。
+  MANIFEST_DRIFT: 'RELEASE_ARCHIVE_MANIFEST_DRIFT',
   EVIDENCE_UNREADABLE: 'RELEASE_ARCHIVE_EVIDENCE_UNREADABLE',
   DUPLICATE: 'RELEASE_ARCHIVE_DUPLICATE',
   NOT_FOUND: 'RELEASE_ARCHIVE_NOT_FOUND',
@@ -78,7 +83,7 @@ export function createReleaseArchiveStore({ dir, now = () => new Date().toISOStr
      * 归档一次已 ready 的放行。调用方必须传入**服务端重算**过的 gate/releaseDecision，
      * 不能把客户端自报的 ready 传进来（路由层负责重算）。
      */
-    archive({ gate = null, releaseDecision = null, binding = null, artifactsDir = null, files = [], notes = '' } = {}) {
+    archive({ gate = null, releaseDecision = null, binding = null, artifactsDir = null, files = [], notes = '', recomputeManifest = undefined } = {}) {
       if (!gate || gate.ready !== true) {
         throw Object.assign(new Error('本地放行门禁未通过，不能归档发布版本'), {
           code: RELEASE_ARCHIVE_CODES.NOT_ALLOWED, status: 409,
@@ -91,17 +96,72 @@ export function createReleaseArchiveStore({ dir, now = () => new Date().toISOStr
           details: { blockedBy: Array.isArray(releaseDecision?.blockedBy) ? releaseDecision.blockedBy : [], verdict: releaseDecision?.verdict ?? null },
         });
       }
-      const safeBinding = {
-        planHash: text(binding?.planHash) || null,
+      // P1-6：归档是"把已签核的那批物料冻起来"，所以 manifestHash 必须由服务端用**与导出/签核
+      // 相同的完整 binding**（projectId/documentId/sourceDigest/semanticPlanHash/compiledPlanHash/
+      // executionId）对 artifactsDir 重算，不能信任调用方传来的（旧路由曾用稀疏 binding 重算，
+      // 结果与签核哈希必然不等 → B8 结构性 400/409）。
+      const semanticPlanHash = text(binding?.semanticPlanHash) || text(binding?.planHash) || null;
+      const legacyPlanHash = text(binding?.planHash) || null;
+      const fullBinding = {
+        projectId: text(binding?.projectId) || null,
+        projectName: text(binding?.projectName) || null,
+        documentId: text(binding?.documentId) || null,
+        sourceDigest: text(binding?.sourceDigest) || null,
+        semanticPlanHash,
         compiledPlanHash: text(binding?.compiledPlanHash) || null,
+        executionId: text(binding?.executionId) || text(binding?.pcbExecutionId) || null,
+      };
+      const fullBindingMissing = ['projectId', 'documentId', 'sourceDigest', 'semanticPlanHash', 'compiledPlanHash', 'executionId'].filter((key) => !fullBinding[key]);
+      const fullBindingMode = fullBindingMissing.length === 0;
+      // 自动模式：完整 binding + artifactsDir ⇒ 必须重算（这正是服务端归档路由的形状）。
+      // 旧测试/旧调用的稀疏 binding 保持原行为；显式 true 时即使稀疏也要求重算（交给下面报 INCOMPLETE）。
+      const recomputeRequested = recomputeManifest === true || (recomputeManifest !== false && fullBindingMode);
+      if (recomputeRequested && !fullBindingMode) {
+        throw Object.assign(new Error(`归档 binding 不完整（缺 ${fullBindingMissing.join('/')}）：稀疏 binding 重算的 manifestHash 与导出/签核不会一致，拒绝用假哈希归档`), {
+          code: RELEASE_ARCHIVE_CODES.BINDING_INCOMPLETE, status: 400, details: { missing: fullBindingMissing },
+        });
+      }
+      // planHash 兼容口径（与 UI"可留空"一致）：semanticPlanHash 或 planHash 任一存在即可。
+      if (!semanticPlanHash) {
+        throw Object.assign(new Error('归档必须绑定语义计划哈希（semanticPlanHash）或 planHash'), {
+          code: fullBindingMode ? RELEASE_ARCHIVE_CODES.BINDING_INCOMPLETE : RELEASE_ARCHIVE_CODES.BINDING_INVALID,
+          status: 400, details: { missing: ['semanticPlanHash', 'planHash'] },
+        });
+      }
+      let authoritativeManifestHash = text(binding?.manifestHash) || null;
+      let manifestRecomputed = null;
+      if (recomputeRequested) {
+        if (!text(artifactsDir)) {
+          throw Object.assign(new Error('完整 binding 归档必须提供 artifactsDir：服务端要用它重算 manifestHash（不能拿调用方自报值当依据）'), {
+            code: RELEASE_ARCHIVE_CODES.BINDING_INCOMPLETE, status: 400, details: { missing: ['artifactsDir'] },
+          });
+        }
+        manifestRecomputed = inspectProductionArtifacts(text(artifactsDir), fullBinding).manifest.manifestHash;
+        if (authoritativeManifestHash && authoritativeManifestHash !== manifestRecomputed) {
+          throw Object.assign(new Error(`归档 manifestHash 与 artifactsDir 重算不一致（signoff/请求=${authoritativeManifestHash.slice(0, 12)}…，重算=${manifestRecomputed.slice(0, 12)}…）：物料已变，不能把旧签核冻进发布版本`), {
+            code: RELEASE_ARCHIVE_CODES.MANIFEST_DRIFT, status: 409,
+            details: { provided: authoritativeManifestHash, recomputed: manifestRecomputed, artifactsDir: text(artifactsDir) },
+          });
+        }
+        authoritativeManifestHash = manifestRecomputed;
+      }
+      const safeBinding = {
+        planHash: legacyPlanHash || semanticPlanHash,
+        semanticPlanHash,
+        compiledPlanHash: fullBinding.compiledPlanHash,
         pcbUuid: text(binding?.pcbUuid) || null,
         pcbExecutionId: text(binding?.pcbExecutionId) || null,
+        executionId: fullBinding.executionId,
+        projectId: fullBinding.projectId,
+        projectName: fullBinding.projectName,
+        documentId: fullBinding.documentId,
+        sourceDigest: fullBinding.sourceDigest,
         reviewHash: text(binding?.reviewHash) || null,
-        manifestHash: text(binding?.manifestHash) || null,
+        manifestHash: authoritativeManifestHash,
         gateFingerprint: gate?.fingerprint?.sha256 ?? null,
         decisionFingerprint: releaseDecision?.fingerprint ?? null,
+        manifestRecomputed,
       };
-      if (!safeBinding.planHash) throw Object.assign(new Error('归档必须绑定 planHash'), { code: RELEASE_ARCHIVE_CODES.BINDING_INVALID, status: 400 });
       if (!safeBinding.manifestHash || !HEX64.test(safeBinding.manifestHash)) throw Object.assign(new Error('归档必须绑定合法的 manifestHash（sha256 十六进制）'), { code: RELEASE_ARCHIVE_CODES.BINDING_INVALID, status: 400, details: { manifestHash: safeBinding.manifestHash } });
       if (!safeBinding.reviewHash) throw Object.assign(new Error('归档必须绑定人工终审 reviewHash'), { code: RELEASE_ARCHIVE_CODES.BINDING_INVALID, status: 400 });
       // 目录本身不作为文件条目（readFileSync 目录会 EISDIR）；目录路径单独记在 evidence.artifactsDir。

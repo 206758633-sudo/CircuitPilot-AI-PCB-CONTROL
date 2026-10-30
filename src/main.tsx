@@ -7,6 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppProvider } from './state/AppContext';
 import { logger } from './utils/logger';
 import './styles.css';
+import './theme.css';
 
 logger.info('Lifecycle', 'CircuitPilot Demo starting');
 

@@ -26,10 +26,33 @@ npm run dev:full
    - Demo本地模拟：Runtime离线时的显式降级模式。
    - 官方 API：OpenAI API、Anthropic API，Key 由 Runtime 写入 macOS 钥匙串。
    - 第三方平台 API：DeepSeek、Moonshot/Kimi、智谱 GLM、阿里云百炼（通义千问）、
-     硅基流动、OpenRouter、Google Gemini、xAI Grok、Groq、Mistral。
+     硅基流动、火山方舟（DeepSeek）、百度智能云千帆（DeepSeek）、OpenRouter、
+     Google Gemini、xAI Grok、Groq、Mistral。
      在 Provider 下拉框里按“国内平台 API / 国际平台 API”分组选择，
      点“去平台申请Key”可直接打开该平台的官方控制台；每个平台的 Key 在钥匙串里
      是独立条目，撤销某一个平台不会影响其它平台。
+   - 第三方供应商平台的 DeepSeek 模型：选择任一托管 DeepSeek 的平台（官方/硅基流动/
+     火山方舟/千帆/OpenRouter/阿里云百炼），保存该平台 Key 并选择具体模型即可直接
+     作为 AI 后端；如果走企业网关或其它 OpenAI 兼容供应商，在“第三方供应商 Base URL”
+     填入网关地址（HTTPS，本机回环可用 HTTP），Runtime 会向该地址的
+     `/chat/completions` 发起请求。
+   - 自定义 API（快捷槽）：Provider 选“自定义 API（OpenAI 兼容）”，直接填写 **API URL**、
+     **API Key** 和 **模型名称** 三项。API URL 例如 `https://api.deepseek.com/v1`
+     （Runtime 会请求 `{API URL}/chat/completions` 与 `{API URL}/models`），
+     Key 只写入 macOS 钥匙串的 `com.circuitpilot.provider.custom` 条目，
+     模型名称必须显式填写（没有 auto 默认值）。
+   - 自定义模型 API（可注册多个）：在“系统设置 → 02 · AI PROVIDER → 自定义模型 API”
+     页签里定义自己的 Provider（面板右上角有“自定义模型 API”直达按钮；Provider 下拉框里
+     也有一项“＋ 新增自定义 Provider（地址/密钥/目录）…”可直接跳转）：**Provider ID**（小写字母开头，唯一标识，用于派生凭据名）、
+     **显示名称**、**API 地址**、**API 协议**（OpenAI Chat Completions 或 Anthropic
+     Messages）、**API 密钥**，以及**模型目录**（每个模型的 ID、显示名称、上下文窗口、
+     最大输出 token 数、输入类型“文本/图片”、推理等级）。地址只接受 HTTPS 或本机回环 HTTP；
+     保存后该 Provider 会出现在 Provider 下拉框的“自定义 API”分组，可直接作为 AI 后端。
+     “获取可用模型”会用已保存的钥匙串 Key 请求 `{API 地址}/models`，把结果增量合并进
+     模型目录（已手工填写的条目不会被覆盖）。配置持久化在 Runtime 的 state 目录
+     `custom-providers.json`（开发模式下是 `artifacts/state/`；**打包版是
+     `~/Library/Application Support/com.circuitpilot.desktop/state/`**，这样升级/重装不会丢配置；
+     可用 `CIRCUITPILOT_STATE_DIR` 覆盖），文件里**只有公开配置**，不含任何密钥。
 3. 点击“测试连接”。API 测试只读取模型列表；完整Key不会返回前端。
 4. 打开嘉立创EDA专业版并确认 Run API Gateway / 外部交互已开启。
 5. 启动 EasyEDA Bridge 后，进入“EDA控制”运行全量检查。
@@ -49,7 +72,19 @@ P0 仅覆盖原理图，不代表 PCB 布局、布线、铺铜、Gerber/BOM/CPL 
 
 ## 使用真实 AI 需求对话
 
-1. 保持 `npm run dev:full` 运行，并在“系统设置”确认“Codex账号”测试通过。
+有两种后端，任选其一，在“系统设置”的 Provider 里切换后保存：
+
+- **Codex账号（本机 CLI 登录）**：适合本机个人工作流，沿用 ChatGPT/Codex 登录态。
+- **第三方平台 API（含 DeepSeek 模型）**：保存平台 Key 后即可用于对话、生产计划和
+  网络表生成，不再要求 Codex 登录。`auto` 模型会回落到平台声明的默认模型；没有默认
+  模型的平台需要显式选择模型。内置第三方平台通道只支持文本附件（DeepSeek 系模型不支持
+  图片），图片会得到明确的拒绝提示而不是被静默丢弃。
+- **自定义模型 Provider**：模型是否支持图片由模型目录里的“输入类型”决定。勾选“图片”的
+  多模态模型会把图片作为真实图片输入（base64 直传，不落盘、不经图床）；未勾选时同样
+  明确拒绝而不是静默丢弃。模型 ID 必须在该 Provider 的模型目录里，Runtime 会拒绝目录外
+  的模型并列出可用模型 ID。
+
+1. 保持 `npm run dev:full` 运行，并在“系统设置”确认所选 Provider 测试通过。
 2. 进入“AI 对话”，输入板卡功能、接口、电源、尺寸、环境、法规或制造要求。
 3. 每轮发送时，应用只会提供：当前项目元数据、结构化需求、BOM行、资料名称/版本/状态，以及固定嘉立创EDA只读证据。
 4. Codex 会返回自然语言答复、优先追问和结构化需求建议。
@@ -64,10 +99,22 @@ P0 仅覆盖原理图，不代表 PCB 布局、布线、铺铜、Gerber/BOM/CPL 
 - API Key保存在macOS钥匙串，每个平台一个独立条目（`runtime/config.mjs` 的 `KEYCHAIN_SERVICES`）：
   - `com.circuitpilot.provider.openai` / `com.circuitpilot.provider.anthropic`
   - `com.circuitpilot.provider.deepseek` / `moonshot` / `zhipu` / `dashscope` / `siliconflow`
+  - `com.circuitpilot.provider.ark` / `qianfan` / `custom`
   - `com.circuitpilot.provider.openrouter` / `gemini` / `xai` / `groq` / `mistral`
-- 新增第三方平台只需三处声明，不需要改 `server.mjs`：`runtime/providers.mjs` 的 `PROVIDERS`
-  表（模型列表地址 + 鉴权方式）、`runtime/config.mjs` 的 `KEYCHAIN_SERVICES`、
-  `src/data/providerCatalog.ts` 的界面目录（分组、Key 申请入口与模型建议）。
+  - 自定义模型 Provider：`com.circuitpilot.provider.custom.<Provider ID>`（每个 Provider
+    一个条目，撤销其中一个不影响其它 Provider；删除 Provider 配置时会一并删除该条目）。
+- 自定义模型 Provider 的配置由 Runtime 权威持久化（`artifacts/state/custom-providers.json`，
+  原子写、带 `schemaVersion`）：文件损坏时 Runtime 会大声降级为内存并拒绝写操作
+  （503 `CUSTOM_PROVIDER_STORE_UNAVAILABLE`），不会把“读失败”伪装成“没有自定义 Provider”。
+- 新增内置第三方平台只需三处声明：`runtime/providers.mjs` 的 `PROVIDERS`
+  表（模型列表地址、OpenAI 兼容 `chatBaseUrl` 与默认模型）、`runtime/config.mjs` 的
+  `KEYCHAIN_SERVICES`、`src/data/providerCatalog.ts` 的界面目录（分组、Key 申请入口、
+  默认 Base URL 与模型建议）。API 对话通道在 `runtime/apiChat.mjs`，内置平台兼容
+  `/chat/completions` 即可；自定义模型 Provider 另外支持 Anthropic Messages 协议
+  （`/messages` + `x-api-key` + `anthropic-version`），协议差异只在 `apiChat.mjs` 收口，
+  `server.mjs` 与前端路由不需要为每个网关写分支。
+- “第三方供应商 Base URL”是请求级覆盖值，只接受 HTTPS 或本机回环 HTTP；不允许 URL
+  内嵌账号密码。Key 仍只出现在请求头里，不会进入 URL、日志和错误信息。
 - 鉴权头由 `authHeaders()` 统一生成（Bearer / `x-api-key` / `x-goog-api-key`），
   Key 不会出现在 URL、日志和错误信息里。
 - 在设置页点击“撤销Key”可明确删除对应钥匙串项。
@@ -201,6 +248,7 @@ npm audit --registry=https://registry.npmjs.org
 - `runtime/design.mjs`：计划规范化/哈希、一次性批准、目标指纹、快照、写入、回读、DRC和恢复编排。
 - `src/pages/VersionsPage.tsx`：版本、修改日志、问题中心和审计。
 - `src-tauri/`：Tauri 2桌面壳层骨架。
+- `docs/implementation/README.md`：实现文档索引（新人先读 checklist → task-plan → automation-kernel，10 分钟找到链路验收入口）。
 - `openspec/changes/integrate-real-ai-eda-runtime/`：本次真实接入的proposal、design、specs和tasks。
 - `openspec/changes/add-real-codex-pcba-chat/`：真实PCBA需求对话的proposal、design、specs、tasks和实施记录。
 - `openspec/changes/implement-controlled-simple-board-design/`：P0简单控制板端到端受控设计的OpenSpec产物与任务清单。

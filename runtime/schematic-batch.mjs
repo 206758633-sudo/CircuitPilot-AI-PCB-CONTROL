@@ -200,7 +200,7 @@ export async function applySchematicBatch({ execute, plan, stateFile = null, sav
         mirror: item.mirror,
         addIntoBom: item.addIntoBom,
         addIntoPcb: item.addIntoPcb,
-      }));
+      }, { allowWrite: true }));
       const primitiveId = primitiveIdOf(raw);
       created.push({ key: item.key, primitiveId, result: raw ?? null });
       completed[item.key] = { primitiveId, at: new Date().toISOString() };
@@ -221,7 +221,7 @@ export async function applySchematicBatch({ execute, plan, stateFile = null, sav
     return { ok: false, planHash: plan.planHash, created, skipped, failed: failure, resumed: Boolean(previous), saved: false, statePath: stateFile, verification: null };
   }
   if (save) {
-    const savedResult = unwrap(await execute('schematic.save', {}));
+    const savedResult = unwrap(await execute('schematic.save', {}, { allowWrite: true }));
     if (savedResult !== true) {
       throw fail(BATCH_CODES.SAVE_FAILED, '批量落件后保存未确认（schematic.save 未返回 true），不能声称已落盘', { savedResult });
     }

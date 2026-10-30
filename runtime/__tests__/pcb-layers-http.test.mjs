@@ -46,7 +46,7 @@ function synthLayers(copperCount) {
   return layers;
 }
 
-function createFakeBridge({ copperCount = 2 } = {}) {
+function createFakeBridge({ copperCount = 2, layerShape = 'array' } = {}) {
   const state = {
     copperCount,
     ignoreSetCount: false,
@@ -70,6 +70,11 @@ function createFakeBridge({ copperCount = 2 } = {}) {
         case 'pcb.layers.copperCount':
           return { ok: true, result: state.copperCount };
         case 'pcb.layers.read':
+          if (layerShape === 'normalized') {
+            const layers = synthLayers(state.copperCount);
+            const enabled = layers.filter((layer) => layer.layerStatus === 1 && layer.type === 'SIGNAL').map((layer) => layer.id);
+            return { ok: true, result: { layers, enabledCopperIds: enabled, configuredCount: state.copperCount } };
+          }
           return { ok: true, result: synthLayers(state.copperCount) };
         case 'pcb.layers.setCount':
           // 忠实模拟官方 Beta API：只认 true/false；"返回 true 但层数没变"是真机出现过的情形。
@@ -131,6 +136,35 @@ test('GET /api/eda/pcb/layers：返回当前 2 层铜层数与层列表', async 
   assert.ok(ids.includes(LAYER_IDS.BOTTOM));
   // 只读路由不得产生任何写命令。
   assert.equal(bridge.calls.filter((call) => call.options?.allowWrite).length, 0);
+});
+
+test('GET /api/eda/pcb/layers：桥层归一化返回 {layers,enabledCopperIds,configuredCount} 时不再被当成空列表', async (context) => {
+  // 第 60 轮真机缺陷：桥层归一化后 GET 路由仍按数组解包，真机上返回 count=0/layers=[]，
+  // 会让 UI 以为板子只有 2 层、甚至做出错误叠层决策。
+  const bridge = createFakeBridge({ copperCount: 4, layerShape: 'normalized' });
+  const { get } = await startServer(context, bridge);
+
+  const response = await get('/api/eda/pcb/layers');
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.equal(body.layers.copperCount, 4);
+  // 层列表是 EDA 返回的全部理论层（44 条），真正的判据是 enabledCopperIds / configuredCount。
+  assert.ok(body.layers.count > 4);
+  assert.deepEqual([...body.layers.enabledCopperIds].sort((a, b) => a - b), [1, 2, 15, 16]);
+  assert.equal(body.layers.configuredCount, 4);
+});
+
+test('POST /api/eda/pcb/layers：桥层归一化形状下 2→4 层写后读回仍通过', async (context) => {
+  const bridge = createFakeBridge({ copperCount: 2, layerShape: 'normalized' });
+  const { post } = await startServer(context, bridge);
+
+  const approvalId = await issueWriteApproval(post);
+  const response = await post('/api/eda/pcb/layers', { copperLayers: 4, approvalIds: [approvalId] });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.equal(body.after.copperCount, 4);
+  assert.deepEqual(body.verification.expectedLayerIds, [1, 15, 16, 2]);
+  assert.equal(body.verification.matched, true);
 });
 
 test('POST /api/eda/pcb/layers：无批准时必须被服务端批准门禁拒绝，且不得写板', async (context) => {

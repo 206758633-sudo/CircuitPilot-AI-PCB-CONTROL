@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { DRAFT_MARKER, PRODUCTION_OUTPUT_CODES, artifactName, decideProductionOutput } from '../production-release.mjs';
+import { PRODUCTION_EXPORT_CODES, runProductionExport } from '../production-export.mjs';
+import { inspectProductionArtifacts } from '../production.mjs';
 
 /**
  * "门禁没通过就只能出草稿"这条规则的可测形态。
@@ -99,4 +104,158 @@ test('正式产出裁决：本次将要覆盖的自产草稿不算"陈旧草稿"
   const mixed = decideProductionOutput({ gate, requested: 'final', artifacts: [{ kind: 'gerber', path: draft }, { kind: 'bom', path: '/tmp/other/BOM_x-DRAFT.csv' }], draftPathsReplaced: [draft] });
   assert.equal(mixed.allowed, false);
   assert.deepEqual(mixed.staleArtifacts, ['/tmp/other/BOM_x-DRAFT.csv']);
+});
+
+/**
+ * P0-A：导出锚点。正式导出必须用**与签核相同的完整 binding**对产出重算 manifestHash，
+ * 与签核值一致才允许按正式命名落盘；签核后文件被改过 ⇒ 拒绝并保留草稿。
+ */
+
+const fullBinding = () => ({
+  projectId: 'proj-1',
+  projectName: '测试工程',
+  documentId: 'doc-1',
+  sourceDigest: 'd'.repeat(64),
+  semanticPlanHash: 'p'.repeat(64),
+  compiledPlanHash: 'c'.repeat(64),
+  executionId: 'exec-1',
+});
+
+const EXPORT_PAYLOADS = () => ({
+  gerber: Buffer.from('PK\x03\x04gerber-zip-bytes'),
+  bom: Buffer.from('Designator,Supplier Part\nU1,C100000\n'),
+  cpl: Buffer.from('Designator,Mid X,Mid Y,Layer,Rotation\nU1,10mm,-20mm,T,0\n'),
+});
+
+/** 模拟桥：导出命令返回元数据，分片命令回传真字节（走真实落盘/哈希代码）。 */
+function fakeBridge(payloads) {
+  const calls = [];
+  const execute = async (commandId, args, options) => {
+    calls.push({ commandId, args, options });
+    if (commandId === 'pcb.manufacture.export' || commandId === 'pcb.3d.export') {
+      const body = payloads[args.kind ?? 'step'];
+      if (!body) return { result: null };
+      const size = body.length;
+      const chunkSize = 262144;
+      return { result: { exportId: `exp-${args.kind ?? 'step'}123456`, kind: args.kind ?? 'step', name: `${args.fileName}.bin`, size, chunkSize, chunks: Math.max(1, Math.ceil(size / chunkSize)) } };
+    }
+    if (commandId === 'pcb.export.chunk' || commandId === 'pcb.3d.chunk') {
+      const kind = String(args.exportId).replace(/^exp-/, '').replace(/123456$/, '');
+      const body = payloads[kind];
+      const chunkSize = 262144;
+      const total = Math.max(1, Math.ceil(body.length / chunkSize));
+      const start = args.index * chunkSize;
+      const slice = body.subarray(start, Math.min(start + chunkSize, body.length));
+      return { result: { index: args.index, total, bytes: slice.length, size: body.length, base64: Buffer.from(slice).toString('base64') } };
+    }
+    throw new Error(`未预期的命令 ${commandId}`);
+  };
+  return { execute, calls };
+}
+
+/** 在目标目录里预置"已签核"的产物文件（默认用草稿名，模拟用户先出草稿再签核）。 */
+function seedArtifacts(dir, payloads, { outputClass = 'draft' } = {}) {
+  writeFileSync(join(dir, artifactName({ base: 'GERBER_CircuitPilot-gerber', ext: 'zip', outputClass }).name), payloads.gerber);
+  writeFileSync(join(dir, artifactName({ base: 'BOM_CircuitPilot-bom', ext: 'csv', outputClass }).name), payloads.bom);
+  writeFileSync(join(dir, artifactName({ base: 'CPL_CircuitPilot-cpl', ext: 'csv', outputClass }).name), payloads.cpl);
+}
+
+const finalExportDecision = () => ({ allowed: true, outputClass: 'final', ticket: 'ticket-final', gate: { fingerprint: { sha256: 'a'.repeat(64) } } });
+
+test('P0-A：默认输出根改为产物根（artifactsRoot），不再默认写 release/<日期>', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cp-anchor-default-'));
+  try {
+    const payloads = EXPORT_PAYLOADS();
+    const result = await runProductionExport({ decision: { allowed: true, outputClass: 'draft', ticket: 't' }, artifactsRoot: dir, execute: fakeBridge(payloads).execute });
+    assert.equal(result.outputDir, dir);
+    assert.equal(result.final, false);
+    assert.ok(result.files.gerber.startsWith(dir), '不传 outDir 时必须落在 artifactsRoot');
+    assert.deepEqual(readdirSync(dir).sort(), [...result.exported.map((item) => item.name).sort(), 'manifest.json'].sort());
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('P0-A：导出产物与签核锚点一致 → 按正式命名落盘、final=true、清单 released', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cp-anchor-match-'));
+  try {
+    const binding = fullBinding();
+    const payloads = EXPORT_PAYLOADS();
+    seedArtifacts(dir, payloads, { outputClass: 'draft' });
+    const signed = inspectProductionArtifacts(dir, binding).manifest.manifestHash;
+    const verified = [];
+    const result = await runProductionExport({
+      decision: finalExportDecision(),
+      artifactsRoot: dir,
+      binding,
+      signoffManifestHash: signed,
+      execute: fakeBridge(payloads).execute,
+      verify: ({ files, outputClass }) => { verified.push({ files, outputClass }); return { status: 'pass', blockingCount: 0, findings: [] }; },
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.final, true);
+    assert.equal(result.manifestHash, signed, '返回的锚点哈希必须就是签核哈希');
+    assert.equal(result.outputDir, dir);
+    const names = readdirSync(dir).sort();
+    assert.ok(names.every((name) => !/DRAFT-NOT-FOR-ORDER/.test(name)), `正式导出不得留草稿名：${names.join('、')}`);
+    assert.ok(names.includes('GERBER_CircuitPilot-gerber.zip'));
+    assert.ok(names.includes('BOM_CircuitPilot-bom.csv'));
+    assert.ok(names.includes('CPL_CircuitPilot-cpl.csv'));
+    const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
+    assert.equal(manifest.outputClass, 'final');
+    assert.equal(manifest.released, true);
+    assert.equal(manifest.signoffAnchor.matched, true);
+    assert.equal(verified[0].outputClass, 'draft', '锚点模式先按草稿名导出/复核，比较通过后才转正');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('P0-A：签核后文件被改过（导出内容≠签核物料）→ MANIFEST_DRIFT 409，且不留下正式命名产物', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cp-anchor-drift-'));
+  try {
+    const binding = fullBinding();
+    const original = EXPORT_PAYLOADS();
+    seedArtifacts(dir, original, { outputClass: 'final' }); // 已签核的是正式名文件
+    const signed = inspectProductionArtifacts(dir, binding).manifest.manifestHash;
+    const changed = EXPORT_PAYLOADS();
+    changed.bom = Buffer.from('Designator,Supplier Part\nU1,C999999\n'); // 签核后物料被改
+    await assert.rejects(
+      () => runProductionExport({ decision: finalExportDecision(), artifactsRoot: dir, binding, signoffManifestHash: signed, execute: fakeBridge(changed).execute }),
+      (error) => {
+        assert.equal(error.code, PRODUCTION_EXPORT_CODES.MANIFEST_DRIFT);
+        assert.equal(error.status, 409);
+        assert.equal(error.details.signoffManifestHash, signed);
+        assert.ok(error.details.manifestHash && error.details.manifestHash !== signed);
+        assert.equal(error.details.outputDir, dir);
+        return true;
+      },
+    );
+    const names = readdirSync(dir).sort();
+    assert.ok(!names.includes('manifest.json'), '漂移时不许写清单（清单=可交付凭据）');
+    assert.ok(names.every((name) => /DRAFT-NOT-FOR-ORDER/.test(name)), `漂移时必须保留草稿标记，实际：${names.join('、')}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('P0-A：锚点模式复核不通过 → 不转正、不写清单（沿用"复核没过不算交付物"）', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cp-anchor-verify-fail-'));
+  try {
+    const binding = fullBinding();
+    const payloads = EXPORT_PAYLOADS();
+    seedArtifacts(dir, payloads, { outputClass: 'draft' });
+    const signed = inspectProductionArtifacts(dir, binding).manifest.manifestHash;
+    const result = await runProductionExport({
+      decision: finalExportDecision(), artifactsRoot: dir, binding, signoffManifestHash: signed,
+      execute: fakeBridge(payloads).execute,
+      verify: () => ({ status: 'fail', blockingCount: 1, findings: [{ code: 'BOM_FIELD_MISSING' }] }),
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, PRODUCTION_EXPORT_CODES.VERIFY_FAILED);
+    assert.equal(result.final, false);
+    assert.equal(readdirSync(dir).some((name) => name === 'manifest.json'), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -39,16 +39,12 @@ const PARAM = ':param';
  */
 const KNOWN_UNWIRED_ROUTES = {
   // --- 布局/走线写回只有受控脚本与 e2e-live 使用，UI 还没有入口（写板风险高，先不接）---
-  'POST /api/eda/pcb/routing/apply': 'TODO: 走线写回仅在 scripts/e2e-live.mjs 中受控调用，UI 暂无入口（写板需人工批准，等交互设计定稿再接线）。',
-  'POST /api/eda/pcb/routing/rollback': 'TODO: 走线回滚目前仅由受控脚本使用，UI 暂无入口。',
-  'POST /api/eda/pcb/routing/finish': 'TODO: 收尾/保存动作尚未进入 UI，保留给脚本编排。',
   // --- DRC 会话控制：start/report/cancel 已有 UI（验证页一键取证）；豁免清单还没有 UI 编辑器 ---
   // 豁免清单 GET/PUT 已由验证页豁免编辑器消费（dr 面板 → 载入/保存），不再列入允许清单。
   // --- 设计执行取消/能力探测：客户端方法尚未被页面调用 ---
   'POST /api/design/cancel': 'TODO: 设计执行取消暂无 UI 入口（执行窗口较短，后续再补"中止"按钮）。',
   'POST /api/design/capabilities/probe': 'TODO: 能力探测尚无可视化入口，保留给流程编排。',
   // --- GUI 兜底：Phase 0 自动化尚未接 GUI 执行 ---
-  'POST /api/eda/gui/execute': 'TODO: GUI 兜底执行尚无 UI（API 优先策略下暂不暴露 GUI 写入）。',
   'GET /api/eda/gui/state': 'TODO: GUI 状态回读尚无 UI 消费者。',
   // --- 供应链价格：只接受用户显式提供，当前没有在线询价 UI ---
   // POST /api/supply/pricing 已由 runtimeClient.supplyPricing + 验证页"供应链证据"面板消费。
@@ -59,9 +55,13 @@ const KNOWN_UNWIRED_ROUTES = {
   'GET /api/design/executions/:param/evidence': 'TODO: 执行证据查询尚无 runtimeClient 方法与 UI 消费者。',
   // --- 实际静态扫描发现的其它孤儿路由（不在任务给定的最小清单里，但同样没有消费者）---
   'GET /api/eda/commands': 'TODO: 命令清单目前由前端静态命令卡定义，未调用 GET 清单；保留给外部诊断/未来动态命令发现。',
+  'POST /api/evidence/retention/prune': 'TODO: 证据清理是破坏性运维动作，目前只给 CLI/运维脚本用（必须 confirm+写批准），暂无 UI 入口。',
   'POST /api/design/plan/ai': 'TODO: runtimeClient.generateDesignPlan 已定义但无页面调用（AI 设计草案目前走 netlist/ai），待接线或删除。',
-  'POST /api/eda/schematic/component-batch': 'TODO: A6 批量落件已有模块/HTTP 测试，UI 面板待 E2 接线（写板必须人工批准，先不把按钮放进页面）。',
+  'POST /api/eda/footprint/integrity': 'TODO: 封装完整性预检当前由 CLI（npm run check:footprint-integrity）经 bridge 直连消费；HTTP 路由留给验证页/门禁后续接线（2026-10-22 新增）。',
   'POST /api/production/reviews/final': 'TODO: runtimeClient.recordProductionFinalReview 已定义但无 UI 调用，终审登记入口待接线。',
+  // --- W3/W1 知识库与联网检索的运维/内部入口：暂无 UI 消费者，留作采集器/审计工具 ---
+  'GET /api/research/status': 'TODO: 联网检索状态查询暂无 UI（设置页只调 search），保留给诊断。',
+  'POST /api/research/fetch': 'TODO: 单页抓取由 runtime 内部资料采集器调用，暂无 UI 入口。',
 };
 
 // ---------------------------------------------------------------------------

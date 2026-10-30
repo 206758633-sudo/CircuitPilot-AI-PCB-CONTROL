@@ -52,6 +52,18 @@ const ENDPOINTS = Object.freeze([
     excluded: ['API Key / 登录令牌', '工程文件字节', '本机绝对路径'],
   },
   {
+    id: 'knowledge.research',
+    route: 'Runtime 内部：知识维护/联网检索（KMA 调度器）',
+    trigger: '「联网检索」开关开启后由 KMA 定时器触发，或用户手动点“运行知识维护”',
+    data: [
+      { field: 'query', source: '已确认需求/器件主题生成的检索关键词（不含工程文件）' },
+      { field: 'pageExcerpt', source: '白名单站点返回的公开网页摘要（只写入 candidate 知识条目，需人工审核后才可能被引用）' },
+    ],
+    excluded: ['API Key / 登录令牌', '工程文件字节（Gerber/STEP/DRC 报告本体）', '本机绝对路径', '未经用户开启联网时的任何自动请求'],
+    defaultEnabled: false,
+    consent: '由 Runtime researchConfig 权威控制；默认关闭，关闭时 KMA 定时器不启动',
+  },
+  {
     id: 'part.proposal',
     route: 'POST /api/library/proposals',
     trigger: '用户在选型页点击检索/生成提案',

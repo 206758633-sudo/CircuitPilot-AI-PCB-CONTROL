@@ -1,0 +1,6 @@
+{
+  "name": "GND 空网：意图有地网络，实际所有地引脚悬空",
+  "intent": [ { "net": "GND", "endpoints": [ { "ref": "U1", "pin": "1" }, { "ref": "C1", "pin": "2" } ] }, { "net": "+3V3", "endpoints": [ { "ref": "U1", "pin": "2" }, { "ref": "C1", "pin": "1" } ] } ],
+  "actual": { "components": { "a": { "props": { "Designator": "U1" }, "pinInfoMap": { "1": { "net": "" }, "2": { "net": "+3V3" } } }, "b": { "props": { "Designator": "C1" }, "pinInfoMap": { "1": { "net": "+3V3" }, "2": { "net": "" } } } } },
+  "expect": { "verdict": "blocked", "codes": ["NETLIST_GND_EMPTY"] }
+}

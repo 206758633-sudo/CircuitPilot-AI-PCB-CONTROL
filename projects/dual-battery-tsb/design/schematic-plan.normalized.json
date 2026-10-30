@@ -1,0 +1,324 @@
+{
+  "plan": {
+    "apiVersion": 1,
+    "kind": "reviewed-netlist",
+    "title": "DBTS-A01 双电池无缝切换测试板 · 原理图网络表计划 v0.1（待确认项见 assumptions）",
+    "nets": [
+      "CHG_EN",
+      "EXT_48V",
+      "EXT_MID",
+      "G1",
+      "G2",
+      "G3",
+      "G4",
+      "GND",
+      "INT_24V",
+      "INT_MID",
+      "Q1_GATE",
+      "Q2_GATE",
+      "Q3_GATE",
+      "Q4_GATE",
+      "VDC",
+      "VDC_SENSE",
+      "VEXT_SENSE",
+      "VINT_SENSE"
+    ],
+    "operations": [
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "CN1",
+          "device": "XT60-M",
+          "value": "外置电池 48V 接口",
+          "note": "XT60 60A"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "CN2",
+          "device": "XT60-M",
+          "value": "内置电池 24V 接口",
+          "note": "XT60 60A"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "Q1",
+          "device": "CSD19535KTT",
+          "value": "100V N-MOS",
+          "note": "外置通路，源极接 EXT_48V"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "Q2",
+          "device": "CSD19535KTT",
+          "value": "100V N-MOS",
+          "note": "外置通路，源极接 VDC"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "Q3",
+          "device": "CSD19535KTT",
+          "value": "100V N-MOS",
+          "note": "内置通路，源极接 INT_24V，作理想二极管"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "Q4",
+          "device": "CSD19535KTT",
+          "value": "100V N-MOS",
+          "note": "内置通路，源极接 VDC，作双向通道"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "U1",
+          "device": "充电模块 48V→24V 3–5A CC/CV",
+          "value": "充电模块",
+          "note": "VIN=EXT_48V，+VO=INT_24V"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "U2",
+          "device": "LTC7000",
+          "value": "高边驱动（电荷泵）",
+          "note": "驱动 Q1"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "U3",
+          "device": "LTC7000",
+          "value": "高边驱动（电荷泵）",
+          "note": "驱动 Q2"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "U4",
+          "device": "LTC7000",
+          "value": "高边驱动（电荷泵）",
+          "note": "驱动 Q3"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "U5",
+          "device": "LTC7000",
+          "value": "高边驱动（电荷泵）",
+          "note": "驱动 Q4"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "C1",
+          "device": "1000uF/63V",
+          "value": "母线储能"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "C2",
+          "device": "1000uF/63V",
+          "value": "母线储能"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "D1",
+          "device": "SMBJ58A",
+          "value": "母线 TVS"
+        }
+      },
+      {
+        "type": "component.create",
+        "args": {
+          "designator": "J1",
+          "device": "2x8 排针",
+          "value": "控制接口 G1–G4/GND/采样"
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "EXT_48V",
+          "endpoints": [
+            "CN1.+",
+            "Q1.S",
+            "U1.VIN",
+            "J1.VEXT_SENSE"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "EXT_MID",
+          "endpoints": [
+            "Q1.D",
+            "Q2.D"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "VDC",
+          "endpoints": [
+            "Q2.S",
+            "Q4.S",
+            "C1.+",
+            "C2.+",
+            "D1.K",
+            "J1.VDC_SENSE"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "INT_24V",
+          "endpoints": [
+            "CN2.+",
+            "Q3.S",
+            "U1.VOUT",
+            "J1.VINT_SENSE"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "INT_MID",
+          "endpoints": [
+            "Q3.D",
+            "Q4.D"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "GND",
+          "endpoints": [
+            "CN1.-",
+            "CN2.-",
+            "U1.GND",
+            "C1.-",
+            "C2.-",
+            "D1.A",
+            "J1.GND"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "G1",
+          "endpoints": [
+            "J1.G1",
+            "U2.IN"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "G2",
+          "endpoints": [
+            "J1.G2",
+            "U3.IN"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "G3",
+          "endpoints": [
+            "J1.G3",
+            "U4.IN"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "G4",
+          "endpoints": [
+            "J1.G4",
+            "U5.IN"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "Q1_GATE",
+          "endpoints": [
+            "U2.OUT",
+            "Q1.G"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "Q2_GATE",
+          "endpoints": [
+            "U3.OUT",
+            "Q2.G"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "Q3_GATE",
+          "endpoints": [
+            "U4.OUT",
+            "Q3.G"
+          ]
+        }
+      },
+      {
+        "type": "net.connect",
+        "args": {
+          "net": "Q4_GATE",
+          "endpoints": [
+            "U5.OUT",
+            "Q4.G"
+          ]
+        }
+      }
+    ],
+    "assumptions": [
+      "母线电压：外置 48V / 内置 24V（用户 2026-10-28 确认）",
+      "24V 侧 2kW 满功率是否成立未确认；若成立则 83A 下需多管并联，本计划按 4 管单管方案暂列",
+      "24V 锂电池串数/化学体系未确认，充电器输出电压未定",
+      "栅极驱动选用 LTC7000 仅为候选，未做库存/价格确认",
+      "充电模块选型未定（需 48V 输入 / 24V 输出 / 3–5A CC-CV）",
+      "辅助电源（48V→12V）与制动斩波电路本版计划未展开"
+    ]
+  },
+  "missing": [],
+  "ready": true,
+  "planHash": "fe49e76692f747cd1ab6ac92b6124602cb3c18f39e87d765eafe864579cabc80"
+}

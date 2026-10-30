@@ -234,3 +234,121 @@ test('没有重叠、只是不满足自设间距目标时，只能报 info 且�
   assert.ok(Math.abs(0.2 - 0.2) < 1e-9);
   assert.match(finding.message, /未重叠/);
 });
+
+test('焊盘级板框间距：本体合规但焊盘压板框必须被拦（D-33-1 真机 U1 顶排焊盘 0mil）', async () => {
+  const { checkPadOutlineClearance } = await import('../placement.mjs');
+  const outline = { points: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 20 }] };
+  // 焊盘单位 mil：RECT 59.1 x 35.4（和真机 U1 同尺寸），中心离左边 20mil → 铜到边 20 - 29.55 = 越界
+  const badPad = { designator: 'U1', pad: '25', net: 'TOUCH', x: 20, y: 300, shape: ['RECT', 59.1, 35.4, 0], radius: 17.7 };
+  const bad = checkPadOutlineClearance({ pads: [badPad], outline, clearanceMil: 11.8 });
+  assert.equal(bad.ok, false);
+  assert.equal(bad.findings[0].code, 'PLACEMENT_PAD_OUTLINE_CLEARANCE');
+  assert.ok(bad.violations[0].outside, '焊盘中心离板框只有 20mil，矩形已经越界');
+  // 放到安全位置（中心离左边 60mil）⇒ 铜到边 30.5mil ≥ 11.8mil
+  const goodPad = { ...badPad, x: 60 };
+  const good = checkPadOutlineClearance({ pads: [goodPad], outline, clearanceMil: 11.8 });
+  assert.equal(good.ok, true, JSON.stringify(good.violations));
+  assert.equal(good.checked, 1);
+});
+
+test('焊盘包络必须包含本体：焊盘收在本体里时占位不能反而变小（否则规划出本体重叠）', async () => {
+  const { buildPadEnvelopes } = await import('../placement.mjs');
+  // 本体 10x10mm，焊盘只有 4x4mm 且都在本体内部 → 包络应是本体 10x10
+  const components = [{ ref: 'U1', widthMm: 10, heightMm: 10, current: { xMm: 20, yMm: 20 } }];
+  const pads = [
+    { designator: 'U1', pad: '1', x: (20 - 2 / 0.0254) , y: 20 / 0.0254, shape: ['RECT', 40, 40, 0] },
+    { designator: 'U1', pad: '2', x: (20 + 2 / 0.0254), y: 20 / 0.0254, shape: ['RECT', 40, 40, 0] },
+  ];
+  const envelopes = buildPadEnvelopes(pads, components);
+  assert.ok(envelopes.U1, '必须有包络');
+  assert.ok(envelopes.U1.widthMm >= 10 - 1e-6, `包络宽度应≥本体 10mm，实际 ${envelopes.U1.widthMm}`);
+  assert.ok(envelopes.U1.heightMm >= 10 - 1e-6);
+});
+
+test('双面贴装：正反面器件重叠不判碰撞（D-62 真机 ESP32 放底层被顶层器件判重叠）', async () => {
+  const outline = { points: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 40 }, { x: 0, y: 40 }] };
+  const top = { ref: 'U1', xMm: 20, yMm: 20, widthMm: 18, heightMm: 16, rotationDeg: 0, side: 'top' };
+  const bottom = { ref: 'U8', xMm: 20, yMm: 20, widthMm: 18, heightMm: 16, rotationDeg: 0, side: 'bottom' };
+  const opposite = verifyOutlinePlacement({ placements: [top, bottom], outline, edgeClearanceMm: 1, spacingMm: 0.5 });
+  assert.equal(opposite.findings.filter((f) => f.code === PLACEMENT_CODES.OVERLAP).length, 0, JSON.stringify(opposite.findings));
+  const sameSide = verifyOutlinePlacement({ placements: [top, { ...bottom, side: 'top' }], outline, edgeClearanceMm: 1, spacingMm: 0.5 });
+  assert.ok(sameSide.findings.some((f) => f.code === PLACEMENT_CODES.OVERLAP), '同面重叠必须照常阻断');
+});
+
+test('P0：自动布局保留原旋转角与装配面，不把器件转回 0°/顶层', () => {
+  const outline = { points: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 40 }, { x: 0, y: 40 }], closed: true };
+  const components = [
+    { ref: 'U1', primitiveId: 'p1', widthMm: 10, heightMm: 6, current: { xMm: 20, yMm: 20, rotationDeg: 90 }, side: 'bottom' },
+    { ref: 'U2', primitiveId: 'p2', widthMm: 6, heightMm: 10, current: { xMm: 30, yMm: 20, rotationDeg: 0 }, side: 'top' },
+  ];
+  const plan = planOutlinePlacement({ outline, components, edgeClearanceMm: 1, spacingMm: 0.5, gridMm: 0.5 });
+  assert.equal(plan.ok, true, JSON.stringify(plan.findings));
+  assert.equal(plan.placements.find((item) => item.ref === 'U1').rotationDeg, 90);
+  assert.equal(plan.placements.find((item) => item.ref === 'U1').side, 'bottom');
+  assert.equal(plan.placements.find((item) => item.ref === 'U2').side, 'top');
+});
+
+test('R5：每器件 region 约束候选中心点（板框/间距/禁布仍独立生效），默认不传行为不变', () => {
+  const outline = { points: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 40 }, { x: 0, y: 40 }], closed: true };
+  const components = [
+    { ref: 'U1', primitiveId: 'p1', widthMm: 4, heightMm: 4, current: { xMm: 6, yMm: 6, rotationDeg: 0 }, side: 'top' },
+    { ref: 'U2', primitiveId: 'p2', widthMm: 4, heightMm: 4, current: { xMm: 30, yMm: 30, rotationDeg: 0 }, side: 'top' },
+  ];
+  const baseline = planOutlinePlacement({ outline, components, edgeClearanceMm: 1, spacingMm: 0.5, gridMm: 0.5 });
+  assert.deepEqual(planOutlinePlacement({ outline, components, edgeClearanceMm: 1, spacingMm: 0.5, gridMm: 0.5, regions: {} }), baseline, '默认行为（不传/传空 region）必须完全一致');
+  const region = { xMinMm: 20, yMinMm: 20, xMaxMm: 38, yMaxMm: 38 };
+  const plan = planOutlinePlacement({ outline, components, edgeClearanceMm: 1, spacingMm: 0.5, gridMm: 0.5, regions: { U1: region } });
+  assert.equal(plan.unplaced.length, 0, JSON.stringify(plan.unplaced));
+  const u1 = plan.placements.find((item) => item.ref === 'U1');
+  assert.ok(u1.xMm >= region.xMinMm - 1e-9 && u1.xMm <= region.xMaxMm + 1e-9 && u1.yMm >= region.yMinMm - 1e-9 && u1.yMm <= region.yMaxMm + 1e-9, JSON.stringify(u1));
+  assert.deepEqual(u1.regionMm, region, '落地结果要能追溯“它被约束在哪个区域”');
+  assert.equal(plan.placements.find((item) => item.ref === 'U2').regionMm, null);
+  assert.equal(verifyOutlinePlacement({ placements: plan.placements, outline, edgeClearanceMm: 1, spacingMm: 0.5 }).ok, true);
+  // 独立复核必须自己检查 region，而不是复用规划器的判断：故意把中心挪出区域，必须报 blocking。
+  const escaped = { ...u1, xMm: u1.xMm + (region.xMaxMm - region.xMinMm) + 5 };
+  const escapedVerification = verifyOutlinePlacement({ placements: [escaped, ...plan.placements.filter((item) => item.ref !== 'U1')], outline, edgeClearanceMm: 1, spacingMm: 0.5 });
+  assert.equal(escapedVerification.ok, false);
+  assert.ok(escapedVerification.findings.some((item) => item.code === PLACEMENT_CODES.REGION_UNSATISFIED && item.severity === 'blocking'));
+  // 区域也可以是 component 自己的字段（服务端把 componentRegions 合并进 components 的形态）
+  const merged = planOutlinePlacement({ outline, components: components.map((item) => (item.ref === 'U1' ? { ...item, region } : item)), edgeClearanceMm: 1, spacingMm: 0.5, gridMm: 0.5 });
+  const mergedU1 = merged.placements.find((item) => item.ref === 'U1');
+  assert.deepEqual([mergedU1.xMm, mergedU1.yMm], [u1.xMm, u1.yMm]);
+});
+
+test('大板（300×200mm，0.5mm 网格）不再整块布局失败：候选点超限时抽样并如实报告', () => {
+  const outline = { points: [{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: 300, y: 200 }, { x: 0, y: 200 }], closed: true };
+  const components = [
+    { ref: 'U1', primitiveId: 'p1', widthMm: 5, heightMm: 5, current: { xMm: 20, yMm: 20, rotationDeg: 0 }, side: 'top' },
+    { ref: 'U2', primitiveId: 'p2', widthMm: 5, heightMm: 5, current: { xMm: 40, yMm: 20, rotationDeg: 0 }, side: 'top' },
+  ];
+  // 601 × 401 = 241001 个候选点 > 默认上限 20000：旧实现直接 unplaced=CANDIDATE_GRID_TOO_LARGE。
+  const plan = planOutlinePlacement({ outline, components, edgeClearanceMm: 1, spacingMm: 0.5, gridMm: 0.5 });
+  assert.equal(plan.unplaced.length, 0, JSON.stringify(plan.unplaced));
+  assert.equal(plan.ok, true, JSON.stringify(plan.findings));
+  assert.ok(plan.findings.some((item) => item.code === PLACEMENT_CODES.CANDIDATE_GRID_COARSENED), '必须如实报告用了抽样网格');
+  // 抽样后布局仍必须能通过独立复核
+  assert.equal(verifyOutlinePlacement({ placements: plan.placements, outline, edgeClearanceMm: 1, spacingMm: 0.5 }).ok, true);
+});
+
+test('大板 + 小分区：候选点在 region 内生成，不因整板候选数超限而失败（且中心点确实在区域内）', () => {
+  const outline = { points: [{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: 300, y: 200 }, { x: 0, y: 200 }], closed: true };
+  const region = { xMinMm: 20, yMinMm: 20, xMaxMm: 80, yMaxMm: 50 };
+  const components = [
+    { ref: 'U1', primitiveId: 'p1', widthMm: 5, heightMm: 5, current: { xMm: 60, yMm: 40, rotationDeg: 0 }, side: 'top', region },
+  ];
+  const plan = planOutlinePlacement({ outline, components, edgeClearanceMm: 1, spacingMm: 0.5, gridMm: 0.5 });
+  assert.equal(plan.unplaced.length, 0, JSON.stringify(plan.unplaced));
+  const u1 = plan.placements[0];
+  assert.ok(u1.xMm >= region.xMinMm && u1.xMm <= region.xMaxMm && u1.yMm >= region.yMinMm && u1.yMm <= region.yMaxMm, JSON.stringify(u1));
+  assert.equal(plan.findings.some((item) => item.code === PLACEMENT_CODES.CANDIDATE_GRID_COARSENED), false, '0.5mm 网格下 60×30mm 区域只有 12k 候选，不需要抽样');
+});
+
+test('region 小到没有对齐网格的候选点时：明确失败并报 blocking，不静默空放', () => {
+  const outline = { points: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 40 }, { x: 0, y: 40 }], closed: true };
+  const tiny = { xMinMm: 10.1, yMinMm: 10.1, xMaxMm: 10.2, yMaxMm: 10.2 };
+  const components = [{ ref: 'U1', primitiveId: 'p1', widthMm: 2, heightMm: 2, current: { xMm: 20, yMm: 20, rotationDeg: 0 }, side: 'top', region: tiny }];
+  const plan = planOutlinePlacement({ outline, components, edgeClearanceMm: 1, spacingMm: 0.5, gridMm: 0.5 });
+  assert.equal(plan.ok, false);
+  assert.equal(plan.unplaced[0].reason, 'NO_SPACE_IN_REGION');
+  assert.ok(plan.findings.some((item) => item.code === PLACEMENT_CODES.REGION_UNSATISFIED && item.severity === 'blocking'));
+});

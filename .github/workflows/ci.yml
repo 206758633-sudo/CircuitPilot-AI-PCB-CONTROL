@@ -30,6 +30,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 发布前最容易漏的一步：版本号四处声明不一致，会导致 OTA 更新"版本没变"或安装包与 UI 不一致。
+      # 只检查不写文件；发版时用 npm run version:sync 统一改写。
+      - name: Version consistency (runtime/version.mjs is the source)
+        run: npm run version:check
+
+      # 知识包是"经验升级"的交付物：这里只验证当前数据集能构建 + 自校验通过（含 doc 指针存在性），
+      # 避免发版时才发现数据集坏了、打不出可分发的知识包。
+      - name: Knowledge pack build + verify
+        run: |
+          node scripts/knowledge-pack.mjs build --pack-version 2026.01.01 --validate --out /tmp/knowledge-pack-ci.json
+          node scripts/knowledge-pack.mjs verify /tmp/knowledge-pack-ci.json
+
       - name: Typecheck (fails fast — this is what `vite build` cannot catch)
         run: npm run typecheck
 

@@ -168,14 +168,26 @@ async function requestModels(url, headers) {
   }
 }
 
+/**
+ * 连接测试：读钥匙串里的 Key，打该 Provider 的模型列表地址（{base}/models）。
+ *
+ * options.provider 允许调用方传入"注册表解析出来的描述符"（自定义模型 Provider）：
+ * 这类 Provider 不在 PROVIDERS 表里，但形状与内置条目一致（chatBaseUrl/modelsUrl/auth/headers），
+ * 因此复用同一套地址拼接、鉴权头与超时/错误映射，不在 server.mjs 里复制一份请求逻辑。
+ */
 export async function testProvider(id, keychain, options = {}) {
-  const provider = PROVIDERS[id];
+  const provider = options.provider || PROVIDERS[id];
   if (!provider) throw Object.assign(new Error('未知Provider'), { code: 'PROVIDER_UNKNOWN' });
   if (provider.kind === 'cli') return cliStatus(id);
-  const key = await keychain.read(id);
+  // 自定义 Provider 的钥匙串条目按 provider.id 派生，必须用描述符里的 id 读（而不是路由里的字符串）。
+  const keyId = provider.id || id;
+  const key = await keychain.read(keyId);
   // 允许用户用自己的第三方供应商网关做连接测试；模型列表地址 = Base URL + /models。
-  const base = normalizeBaseUrl(options.baseUrl);
-  const modelsUrl = base ? `${base}/models` : provider.modelsUrl;
+  // 请求体里的显式覆盖优先；没有覆盖时内置平台用声明的 modelsUrl（个别平台如 Gemini 的
+  // models 与 openai 兼容根地址不是同一个），自定义 Provider 没有 modelsUrl 才退回 chatBaseUrl。
+  const override = normalizeBaseUrl(options.baseUrl);
+  const fallbackBase = override ? null : normalizeBaseUrl(provider.chatBaseUrl);
+  const modelsUrl = override ? `${override}/models` : (provider.modelsUrl || (fallbackBase ? `${fallbackBase}/models` : null));
   if (!modelsUrl && provider.custom) throw Object.assign(new Error('请先填写自定义 API 的 URL，再测试连接'), { code: 'PROVIDER_BASE_URL_REQUIRED' });
   if (!modelsUrl) throw Object.assign(new Error('该Provider未声明模型列表地址'), { code: 'PROVIDER_MODELS_UNSUPPORTED' });
   return requestModels(modelsUrl, authHeaders(provider, key));

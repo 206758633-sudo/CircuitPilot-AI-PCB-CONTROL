@@ -2,8 +2,8 @@ import crypto from 'node:crypto';
 import http from 'node:http';
 import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, extname, join, relative, resolve as resolvePath, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { basename, delimiter, extname, join, relative, resolve as resolvePath, sep } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ALLOWED_ORIGINS, BODY_LIMIT, EDA_APP_CANDIDATES, RUNTIME_HOST, RUNTIME_PORT } from './config.mjs';
 import { BridgeClient } from './bridge.mjs';
 import { EdaGuiClient } from './eda-gui.mjs';
@@ -14,12 +14,14 @@ import { createRuntimeExecutors } from './automation/executors.mjs';
 import { createDefaultRecipeRegistry } from './automation/recipes.mjs';
 import { runRecipe } from './automation/runner.mjs';
 import { createRunLock } from './automation/run-lock.mjs';
+import { WriteGateStore, writePausedError } from './write-gate.mjs';
 import { analyzeRunEntries, canReplay, findInterruptedRuns } from './automation/recovery.mjs';
 import { exportSchematicNetlistText, runSchematicAcceptance } from './schematic-acceptance.mjs';
+import { evaluateFootprintIntegrity } from './footprint-integrity.mjs';
 import { applyNetConnect, buildTestConnections, collectDanglingPins, rollbackNetConnect, planNetConnect } from './net-connect.mjs';
 import { applySchematicBatch, planSchematicBatch, readPartFacts } from './schematic-batch.mjs';
 import { assertAnnotatableDesignator } from './designator.mjs';
-import { buildExemptionTemplate, classifyDrcItems, defaultExemptionPath, loadExemptionFile, normalizeDrcReport, saveExemptionFile } from './drc.mjs';
+import { buildExemptionTemplate, classifyDrcItems, defaultExemptionPath, loadExemptionFile, loadScopedExemptionFile, normalizeDrcReport, saveExemptionFile } from './drc.mjs';
 import { checkOperatingPoint, runSimulation as runSimulationDefault, verifySimulationEvidence } from './simulation.mjs';
 import { assertPinEvidenceForNetlist, auditPinEvidence, buildPinEvidence } from './pin-evidence.mjs';
 import { captureEdaWindow } from './eda-window-capture.mjs';
@@ -27,6 +29,36 @@ import { assessEdaAdaptation } from './eda-adaptation.mjs';
 import { auditNetlistAssumptions } from './netlist-assumptions.mjs';
 import { planPinFirstNetlistFlow } from './automation/pin-first-flow.mjs';
 import { providerEgressManifest, previewProviderEgress } from './provider-egress.mjs';
+import { fetchPage, searchWeb, RESEARCH_CODES } from './research.mjs';
+import { createKnowledgeStore } from './knowledge.mjs';
+import { createKnowledgeApi, KNOWLEDGE_API_CODES } from './knowledge-api.mjs';
+import { buildGateKnowledgeAdvice } from './knowledge-gate-advice.mjs';
+import { buildReviewQueue, healthMetrics } from './knowledge-pipeline.mjs';
+import { createKnowledgeManager } from './agents/knowledge-manager.mjs';
+import {
+  RETRO_EVIDENCE_KINDS,
+  RETRO_LESSON_DRAFT_INSTRUCTIONS,
+  RETRO_LESSON_DRAFT_SCHEMA,
+  buildExperienceBundle,
+  buildLessonDraftPrompt,
+  collectRetroFacts,
+  experienceBundlePreview,
+  createRetrospectiveLearner,
+  normalizeLessons,
+} from './agents/retrospective-learner.mjs';
+import { createPcbWebCollectors, DEFAULT_PCB_TOPICS } from './collectors/pcb-web.mjs';
+import { createKnowledgeScheduler } from './knowledge-scheduler.mjs';
+import { createRagStore } from './rag/store.mjs';
+import { createGateService, GATE_SERVICE_CODES } from './gates-service.mjs';
+import { collectGateEvidence } from './gates-evidence.mjs';
+import { buildDesignSpec } from './design-spec.mjs';
+import { createResearchConfig } from './research-config.mjs';
+import { buildKnowledgeChatContext } from './knowledge-chat.mjs';
+import { AGENT_TOKEN_HEADER, agentTokenFile, ensureAgentTokenFile, readAgentToken, verifyAgentToken } from './agent-token.mjs';
+import { assertAgentRouteAllowed } from './agent-auth.mjs';
+import { PlanRequestStore } from './plan-requests.mjs';
+import { agentAuditFile, agentConsoleStatus, appendAgentAudit, readAgentAudit, rotateAgentToken } from './agent-console.mjs';
+import { withEdaWriteLock } from './eda-write-lock.mjs';
 import { createReleaseArchiveStore } from './release-archive.mjs';
 import { buildTimeline } from './timeline.mjs';
 import { appendTimelineLink, loadTimelineLinks, validateTimelineLink } from './timeline-links.mjs';
@@ -35,7 +67,13 @@ import { planOrchestration, decideFailureRecovery, listGoalProfiles } from './au
 import { catalogTexts, evaluateGuiCapabilities } from './gui-capabilities.mjs';
 import { validateOrderConfirmation } from './order-confirmation.mjs';
 import { summarizeSupplyEvidence } from './supply-summary.mjs';
-import { applyErcExemptions, loadErcExemptionFile, normalizeErcReport, saveErcExemptionFile, summarizeErcConvergence } from './erc.mjs';
+import { applyErcExemptions, loadScopedErcExemptionFile, normalizeErcReport, saveErcExemptionFile, summarizeErcConvergence } from './erc.mjs';
+import { assessEvidenceFreshness } from './evidence-freshness.mjs';
+import { EVIDENCE_KINDS } from './evidence-store.mjs';
+import { pruneEvidenceStore } from './evidence-retention.mjs';
+import { applyRoutingWithDrcGuard } from './engineering/routing-drc.mjs';
+import { extractErcDetail, mergeErcDetail } from './eda-erc-detail.mjs';
+import { materializeGuiScreenshot } from './gui-artifact-transport.mjs';
 import { createEvidenceStore } from './evidence-store.mjs';
 import { buildReleaseDecision } from './release-decision.mjs';
 import { verifyExportManifestBinding } from './release-binding.mjs';
@@ -44,17 +82,18 @@ import { planRetention } from './artifact-retention.mjs';
 import { createJsonStore } from './store.mjs';
 import { createProjectStateStore, createProjectScopedStore, sliceProjectState, assertProjectId, PROJECT_STATE_CODES } from './project-state.mjs';
 import { createIssueStateStore } from './issue-state.mjs';
+import { createValidationStateStore } from './validation-state.mjs';
 import { createTraceStateStore } from './trace-state.mjs';
 import { buildDiagnosticBundle } from './diagnostic-bundle.mjs';
 import { summarizeJournalRuns } from './automation/journal.mjs';
-import { diffPlacement, netAffinity, parsePolygonSource, placementCenterMm, planOutlinePlacement, readComponentGeometry, verifyOutlinePlacement } from './placement.mjs';
+import { buildOutlineField, buildPadEnvelopes, checkPadOutlineClearance, diffPlacement, netAffinity, parsePolygonSource, placementCenterMm, planOutlinePlacement, polygonBounds, readComponentGeometry, verifyOutlinePlacement } from './placement.mjs';
 import { applyPlacementPlan } from './placement-write.mjs';
 import { auditPlacementPlan } from './placement-rules.mjs';
 import { decideProductionOutput } from './production-release.mjs';
 import { DEFAULT_KINDS as DEFAULT_EXPORT_KINDS, readExportManifest, runProductionExport, sanitizeArtifactVerification } from './production-export.mjs';
 import { buildFabricationOrder, deriveBoardFacts } from './fabrication-order.mjs';
 import { DEFAULT_PULLUP_REPAIRS, applySchematicRepair, findExistingBridge, layoutFreeRow, partMatchesRepair, planSchematicRepair } from './schematic-repair.mjs';
-import { collectArtifacts, gateArtifacts, gateFabricationRelease } from './release-gate.mjs';
+import { RELEASE_CODES, collectArtifacts, gateArtifacts, gateFabricationRelease } from './release-gate.mjs';
 import { parseEasyEdaNetlist } from './schematic.mjs';
 import { EdaJobStore } from './engineering/eda-jobs.mjs';
 import { createFileJournal } from './engineering/eda-job-journal.mjs';
@@ -65,16 +104,24 @@ import { systemDiagnostics } from './diagnostics.mjs';
 import { diagnoseFailure } from './failure-diagnosis.mjs';
 import { MacKeychain } from './keychain.mjs';
 import { listEvents, logger, redact } from './logger.mjs';
-import { openProviderConsole, providerStatuses, startProviderLogin, testProvider } from './providers.mjs';
+import { PROVIDERS, openProviderConsole, providerStatuses, startProviderLogin, testProvider } from './providers.mjs';
+import { CustomProviderRegistry, customProviderNotFound } from './customProviders.mjs';
 import { compileCh32v003Fixture, normalizePcbPlan, PcbManager, diffPcbAgainstNetlist } from './pcb.mjs';
 import { ProductionManager, classifyArtifact, inspectProductionArtifacts } from './production.mjs';
 import { findAlternatives } from './engineering/supply-alternatives.mjs';
 import { lookupLcscParts, formatSupplyEvidence, searchLcscByKeyword } from './engineering/supply.mjs';
 import { engineeringProfiles, runEngineeringAnalysis } from './engineering/engine.mjs';
 import { evaluateLayoutRules, layoutRulePackSummary } from './engineering/layout-rules.mjs';
+import { normalizeLayoutIntent } from './engineering/layout-intent.mjs';
+import { planFunctionalBlocks } from './engineering/functional-blocks.mjs';
 import { LAYOUT_RULE_FIXTURES } from './engineering/rules/fixtures.mjs';
+import { evaluateFabRules, fabProfileSummary, FAB_RULE_FIXTURES } from './engineering/fab-rules.mjs';
+import { evaluateNetRules, NET_RULE_FIXTURES, netRuleSummary } from './engineering/net-rules.mjs';
+import { evaluateSkillRules, skillRuleSummary, SKILL_RULE_FIXTURES } from './engineering/skill-rules.mjs';
+import { buildSkillInput } from './engineering/skill-input.mjs';
 import { engineeringFixtures } from './engineering/fixtures.mjs';
 import { applyRoutingPlan, buildRepairConnections, finishRouting, planRepairRoutes, rollbackRouting } from './engineering/pcb-routing.mjs';
+import { selectRoutableLayers } from './engineering/route-layers.mjs';
 // 叠层铜层数的唯一权威换算：叠层序号/层号（内层从 15 起，不是 3/4/5）。
 // 产品 HTTP 接口只需读写“层数”，但读回校验必须用这里换算出的层号，不允许裸写层号。
 import { PLAN_COPPER_LAYER_COUNTS, copperLayerIds, isEdaCopperLayerCount } from './engineering/layers.mjs';
@@ -87,6 +134,68 @@ const parentWatchdog = setInterval(() => {
 }, 2_000);
 parentWatchdog.unref();
 
+/**
+ * 桥连通性故障：这些码表示"本机 EDA 桥暂时不可用"，不是请求体写错了。
+ *
+ * 历史契约（第 60 轮记录的已知项）：bridge.mjs 抛出的 BRIDGE_UNREACHABLE / BRIDGE_TIMEOUT
+ * 不带 error.status，走到顶层 catch 被兜底成 400 —— 把"服务暂时不可用、稍后重试即可"
+ * 说成了"客户端请求错误"，会让调用方（UI/脚本）误判成参数问题而放弃重试。
+ * 第 61 轮起统一映射为 503 Service Unavailable；BRIDGE_NOT_FOUND 原本就显式返回 503，
+ * 这里一并纳入映射，保证"桥没发现/连不上/超时"三种连通性故障语义一致。
+ * 错误码与文案保持不变（只改状态码 + 瞬时故障追加 retryable:true），避免破坏既有解析。
+ */
+const BRIDGE_UNAVAILABLE_CODES = new Set(['BRIDGE_UNREACHABLE', 'BRIDGE_TIMEOUT', 'BRIDGE_NOT_FOUND']);
+/** 只有"暂时性"故障才标 retryable；BRIDGE_NOT_FOUND 需先启动/发现桥，不宣称立即可重试。 */
+const BRIDGE_RETRYABLE_CODES = new Set(['BRIDGE_UNREACHABLE', 'BRIDGE_TIMEOUT']);
+
+/**
+ * P0-8：会写 EDA 工程的 HTTP 路由（POST）。
+ *
+ * 这些路由在分发前统一过 Runtime 写暂停门禁，暂停时 409 `EDA_WRITE_PAUSED`。
+ * 只收"会改 EDA 工程/签发写批准/运行写配方"的入口；纯文件导出、证据落盘、
+ * 只读分析（DRC/ERC/规划/DFM 报告）不在此列——暂停写入不应让人连检查都做不了。
+ * `POST /api/eda/gui/execute` 按动作区分读写，在路由内单独判断（state/screenshot 是只读）。
+ */
+const EDA_WRITE_ROUTES = new Set([
+  '/api/eda/schematic/repair',
+  '/api/eda/schematic/net-connect',
+  '/api/eda/schematic/net-connect/rollback',
+  '/api/eda/schematic/designators/set',
+  '/api/eda/schematic/component-batch',
+  '/api/eda/pcb/placement/apply',
+  '/api/eda/pcb/routing/apply',
+  '/api/eda/pcb/routing/rollback',
+  '/api/eda/pcb/routing/finish',
+  '/api/eda/pcb/pour/create',
+  '/api/eda/pcb/layers',
+  '/api/eda/workspaces',
+  '/api/design/approve',
+  '/api/design/execute',
+  '/api/pcb/approve',
+  '/api/pcb/execute',
+  '/api/automation/approvals',
+  '/api/automation/run',
+]);
+/** GUI 动作里只有这两个纯只读；其余（click/type/shortcut/eval…）都可能在点"应用修改"写板。 */
+const GUI_READONLY_ACTIONS = new Set(['state', 'screenshot']);
+
+/**
+ * 统一的"错误 → HTTP 状态"映射。显式 error.status 永远优先（保持既有路由契约），
+ * 只有未标注状态的桥连通性错误才提升为 503，其余仍按历史行为兜底 400。
+ */
+/**
+ * P0-1：批准/血缘不一致必须 409（冲突），而不是笼统 400。
+ * 调用方据此区分“参数写错了”和“你批准的那份计划/哈希已经变了，必须重新读取并重新批准”。
+ */
+const APPROVAL_CONFLICT_CODES = new Set(['APPROVAL_MISMATCH', 'APPROVAL_REPLAYED', 'APPROVAL_EXPIRED', 'APPROVAL_INVALID']);
+
+function httpStatusForError(error) {
+  if (error?.status) return error.status;
+  if (BRIDGE_UNAVAILABLE_CODES.has(error?.code)) return 503;
+  if (APPROVAL_CONFLICT_CODES.has(error?.code)) return 409;
+  return 400;
+}
+
 function runtimeError(error) {
   // details 是为了"说清到底哪个对象出问题"：只报个数（"3 个对象找不到"）会让人无从下手，
   // 真机排查时必须能直接看到对象类型/网络/坐标。
@@ -97,6 +206,8 @@ function runtimeError(error) {
       code: error?.code || 'RUNTIME_ERROR',
       message: redact(error?.message || '本机Runtime发生未知错误'),
       ...(details ? { details } : {}),
+      // 503 是"可重试"信号；再显式给一个字段，客户端不必靠猜状态码含义。
+      ...(BRIDGE_RETRYABLE_CODES.has(error?.code) ? { retryable: true } : {}),
     },
   };
 }
@@ -111,9 +222,14 @@ function runtimeError(error) {
  */
 const DOWNLOAD_EXTENSIONS = new Set(['.zip', '.csv', '.step', '.stp', '.glb', '.gbr', '.drl', '.json', '.txt', '.pdf', '.md', '.xlsx']);
 const DOWNLOAD_MIME = { '.zip': 'application/zip', '.csv': 'text/csv; charset=utf-8', '.step': 'application/step', '.stp': 'application/step', '.glb': 'model/gltf-binary', '.gbr': 'application/octet-stream', '.drl': 'application/octet-stream', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.pdf': 'application/pdf', '.md': 'text/markdown; charset=utf-8', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+/**
+ * 这些文件永远不能通过下载路由取走（即使有人把 state 目录配进下载根）：
+ * agent-token 是 bearer 凭据，audit key 是 HMAC 密钥。密钥泄露会让审计防篡改失效。
+ */
+const DOWNLOAD_SENSITIVE_NAMES = new Set(['agent-token.json', 'agent-audit.key.json', 'agent-audit.head.json']);
 
 function downloadRoots() {
-  const configured = String(process.env.CIRCUITPILOT_DOWNLOAD_ROOTS || '').split(sep === ':' ? ':' : ';').map((item) => item.trim()).filter(Boolean);
+  const configured = String(process.env.CIRCUITPILOT_DOWNLOAD_ROOTS || '').split(delimiter).map((item) => item.trim()).filter(Boolean);
   const roots = configured.length ? configured : [join(process.cwd(), 'release'), join(process.cwd(), 'deliverables')];
   return roots.map((root) => resolvePath(root)).filter((root) => existsSync(root)).map((root) => realpathSync(root));
 }
@@ -126,6 +242,7 @@ function resolveDownloadableArtifact(rawPath) {
   const real = realpathSync(absolute);
   const inside = downloadRoots().some((root) => real === root || real.startsWith(root + sep));
   if (!inside) throw Object.assign(new Error('只允许下载放行产物目录内的文件'), { code: 'DOWNLOAD_PATH_FORBIDDEN', status: 403 });
+  if (DOWNLOAD_SENSITIVE_NAMES.has(basename(real))) throw Object.assign(new Error('该文件包含 Agent 凭据/审计完整性锚点，禁止下载'), { code: 'DOWNLOAD_SENSITIVE_FORBIDDEN', status: 403 });
   const stat = statSync(real);
   if (!stat.isFile()) throw Object.assign(new Error('只能下载文件，不能下载目录'), { code: 'DOWNLOAD_NOT_A_FILE', status: 400 });
   const ext = extname(real).toLowerCase();
@@ -145,17 +262,69 @@ function sendFile(response, file, origin) {
   createReadStream(file.path).pipe(response);
 }
 
+/** 这些字段是"公开协议元数据"，即使名字里带 token/credential 也不能按密钥擦掉。 */
+const PUBLIC_CREDENTIAL_FIELDS = new Set(['configured', 'hint', 'removed', 'note']);
+
+/**
+ * 把被"按字段名整值擦除"的公开协议字段恢复回去。
+ *
+ * 为什么需要：sendJson 对所有响应体套了同一套密钥脱敏，而脱敏规则刻意宽——
+ * 字段名命中 `token|credential` 就整值擦成 "[REDACTED]"。对日志这是对的，对协议是错的：
+ *   - 自定义模型 Provider 的模型元数据 `maxOutputTokens` 是配置数字，不是密钥，
+ *     擦掉会让设置页拿不到上下文/输出上限（值变成字符串 "[REDACTED]"）；
+ *   - Provider 凭据状态 `credential` 只有 {configured,hint}（hint 是钥匙串末四位提示），
+ *     不含明文，擦掉会让"凭据已保存"的提示变成 undefined。
+ * 恢复条件同时限定"形状匹配 + 值类型安全"：数字只恢复数字，credential 只恢复
+ * 白名单内的键；任何其它命中敏感名的字段（以及未知形状）仍然保持整值擦除。
+ */
+function restorePublicResponseFields(original, safe) {
+  if (Array.isArray(safe)) {
+    if (!Array.isArray(original) || original.length !== safe.length) return safe;
+    return safe.map((item, index) => restorePublicResponseFields(original[index], item));
+  }
+  if (!safe || typeof safe !== 'object' || !original || typeof original !== 'object' || Array.isArray(original)) return safe;
+  for (const key of Object.keys(safe)) {
+    if (!Object.prototype.hasOwnProperty.call(original, key)) continue;
+    const value = original[key];
+    if (key === 'maxOutputTokens' && typeof value === 'number' && Number.isFinite(value)) { safe[key] = value; continue; }
+    // chat.reply 是模型生成的对话正文（用户要看到完整答复）。此前经 redact() 后会被按 512 字符
+    // 截断成 "……[truncated N chars]"，多轮对话里连提问都被砍半；这里恢复原始正文（其余字段仍脱敏）。
+    if (key === 'reply' && typeof value === 'string') { safe[key] = value; continue; }
+    if (key === 'credential' && value && typeof value === 'object' && !Array.isArray(value)
+      && Object.keys(value).length > 0 && Object.keys(value).every((field) => PUBLIC_CREDENTIAL_FIELDS.has(field))) {
+      safe[key] = { ...value };
+      continue;
+    }
+    safe[key] = restorePublicResponseFields(value, safe[key]);
+  }
+  return safe;
+}
+
+/**
+ * 生成"可回给本机客户端"的响应体：先脱敏，再只恢复协议明确允许下发的字段。
+ *
+ * 真机/压测教训（2026-10-23）：/api/health 的 sessionProof 是发给受信 Origin 的会话令牌；
+ * 随机令牌有时以 `sk`/`pk`/`rk` 开头，会被 log-redaction 的自由文本规则当成 API key 擦成
+ * `[REDACTED]`，客户端随后拿它发请求就随机 401。这里和 approval.token 一样显式恢复。
+ */
+export function publicResponseBody(body) {
+  const safeBody = redact(body);
+  // Approval proofs are intentionally returned to the authenticated local client.
+  // They remain redacted from logger events and every other response field.
+  if (typeof body?.approval?.token === 'string' && safeBody?.approval) safeBody.approval.token = body.approval.token;
+  if (typeof body?.sessionProof === 'string' && safeBody && typeof safeBody === 'object') safeBody.sessionProof = body.sessionProof;
+  // 见 restorePublicResponseFields：只恢复公开协议字段，其余仍按密钥擦除。
+  restorePublicResponseFields(body, safeBody);
+  return safeBody;
+}
+
 function sendJson(response, status, body, origin) {
   if (origin && ALLOWED_ORIGINS.has(origin)) response.setHeader('access-control-allow-origin', origin);
   response.setHeader('vary', 'Origin');
   response.setHeader('content-type', 'application/json; charset=utf-8');
   response.setHeader('cache-control', 'no-store');
   response.writeHead(status);
-  const safeBody = redact(body);
-  // Approval proofs are intentionally returned to the authenticated local client.
-  // They remain redacted from logger events and every other response field.
-  if (typeof body?.approval?.token === 'string' && safeBody?.approval) safeBody.approval.token = body.approval.token;
-  response.end(JSON.stringify(safeBody));
+  response.end(JSON.stringify(publicResponseBody(body)));
 }
 
 function normalizeLibraryPart(value) {
@@ -281,7 +450,7 @@ function isLoopbackHost(hostHeader) {
   return /^(127\.0\.0\.1|localhost|\[::1\]|tauri\.localhost)(:\d+)?$/i.test(String(hostHeader || ''));
 }
 
-export function createRuntimeServer({ keychain = new MacKeychain(), bridge = createDurableBridgeClient(), diagnostics = systemDiagnostics, chat = null, design = null, pcb = null, production = null, evidence = null, gui = null, simulationRun = runSimulationDefault, alternativeSearch = null, runtimeToken = process.env.CIRCUITPILOT_RUNTIME_TOKEN } = {}) {
+export function createRuntimeServer({ keychain = new MacKeychain(), bridge = createDurableBridgeClient(), diagnostics = systemDiagnostics, chat = null, design = null, pcb = null, production = null, evidence = null, gui = null, simulationRun = runSimulationDefault, alternativeSearch = null, planRequests = null, runtimeToken = process.env.CIRCUITPILOT_RUNTIME_TOKEN, agentTokenPath = agentTokenFile(), agentAuditFile: agentAuditPath = agentAuditFile() } = {}) {
   const injectedToken = typeof runtimeToken === 'string' && runtimeToken.length >= 16;
   // Tauri 壳层通过环境变量注入令牌时，令牌完全不经由 HTTP 分发，因此彻底关闭
   // HTTP 令牌发放：此时本机任何进程（哪怕伪造 Origin）都无法再通过 /api/health 领到令牌，
@@ -289,9 +458,51 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
   // 独立开发模式（npm run dev:full，没有注入令牌）才回退到随机令牌 + 受信 Origin 引导。
   const httpTokenIssuance = !injectedToken;
   const sessionToken = injectedToken ? runtimeToken : crypto.randomBytes(24).toString('base64url');
+  // Agent 令牌与 UI 会话令牌隔离：文件损坏/权限过宽时只关闭 Agent 访问，不拖垮 UI。
+  let storedAgentToken = readAgentToken(agentTokenPath).catch((error) => {
+    logger.error('Runtime', 'Agent token file unavailable; agent access disabled', { code: error?.code, message: error?.message });
+    return null;
+  });
+  // Agent 接入审计：只记元数据（谁/什么方法/哪条路径/结果），绝不记令牌。写失败只 warn，
+  // 不影响业务请求——审计是旁路，不能成为新的单点故障。
+  const recordAgentAudit = (event) => {
+    void appendAgentAudit({ auditFile: agentAuditPath, event }).then((written) => {
+      if (written?.ok === false) logger.warn('AgentAudit', 'Agent audit append failed', { code: written.code, message: written.message });
+      else if (written?.headUpdated === false) logger.warn('AgentAudit', 'Agent audit head anchor not updated', { warning: written.warning });
+    }).catch((error) => {
+      logger.warn('AgentAudit', 'Agent audit append failed', { code: error?.code, message: error?.message });
+    });
+  };
   // 业务状态落盘目录：生产放行/执行历史/（后续）项目与聊天共用同一个 state 目录，
   // 便于整体备份与迁移；单文件损坏只影响对应子系统，不互相带崩。
   const stateDir = process.env.CIRCUITPILOT_STATE_DIR || join(process.cwd(), 'artifacts/state');
+  /**
+   * 计划级待审批队列（task-40）：Agent 登记已生成计划，UI 只做 approve/reject；
+   * 带 approvalRequestId 的 design/pcb approve 必须消费「已批准且绑定一致」的请求。
+   * 状态文件损坏时 fail-closed：相关路由 503，绝不把“读坏了”当成“空队列”继续签发。
+   */
+  let planRequestStore = null;
+  let planRequestStoreError = null;
+  try {
+    planRequestStore = planRequests || new PlanRequestStore({ file: join(stateDir, 'agent-plan-requests.json') });
+  } catch (error) {
+    planRequestStoreError = error;
+    logger.error('PlanRequests', '计划级待审批队列状态文件不可用：相关路由已禁用（fail-closed），请修复或移走文件后重启', {
+      file: join(stateDir, 'agent-plan-requests.json'), code: error?.code, message: error?.message,
+    });
+  }
+  const requirePlanRequestStore = () => {
+    if (planRequestStore) return planRequestStore;
+    throw Object.assign(new Error('计划级待审批队列状态文件不可用（fail-closed）：请修复或移走 agent-plan-requests.json 后重启 Runtime'), {
+      code: 'PLAN_REQUEST_STORE_UNAVAILABLE',
+      status: 503,
+      details: { storeCode: planRequestStoreError?.code ?? null },
+    });
+  };
+  // P0-8：全局写暂停的权威状态（落盘到 state 目录；重启不丢，脚本/curl 同样被拦）。
+  const writeGate = new WriteGateStore({ file: join(stateDir, 'write-gate.json') });
+  // P1-15 复审：联网检索开关由 Runtime 持久化，设置页不再只改 localStorage。
+  const researchConfig = createResearchConfig({ file: join(stateDir, 'research-config.json') });
   // C1：项目/需求/器件/资料等业务状态的权威副本。前端仍保留 localStorage 作离线缓存，
   // 但跨浏览器/清缓存后的恢复以 Runtime 这份原子写文件为准（读损坏会抛 STORE_*，不假装空状态）。
   const projectStateStore = createProjectStateStore({ file: join(stateDir, 'project-state.json') });
@@ -301,6 +512,8 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
   const traceStateStore = createTraceStateStore({ file: join(stateDir, 'trace-state.json') });
   // C1：问题中心记录也落 Runtime；前端 localStorage 仅离线缓存。
   const issueStateStore = createIssueStateStore({ file: join(stateDir, 'issue-state.json') });
+  // 复审计 P0-1：官方 ERC/DRC 结论必须持久化，否则刷新后 KPI/阶段证据蒸发。
+  const validationStateStore = createValidationStateStore({ file: join(stateDir, 'validation-state.json') });
   // 统一批准账本（C2）：设计计划批准 + 自动化写板批准共用一个哈希链；损坏时降级为内存并大声记日志。
   const approvalLedger = (() => {
     try {
@@ -310,13 +523,46 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       return createApprovalLedger();
     }
   })();
+
+  // W3-03：知识库（本地 JSON 存储 + 检索/审核 API）。API 写入只能是 candidate，审核必须给 reviewedBy。
+  const knowledgeStore = createKnowledgeStore({ root: join(stateDir, 'knowledge') });
+  const knowledgeApi = createKnowledgeApi({ store: knowledgeStore });
+  /**
+   * 自定义模型 Provider 注册表：Runtime 是唯一权威持久化（${stateDir}/custom-providers.json），
+   * 密钥不在这里——每个 Provider 一个独立钥匙串条目。
+   * 读损坏/版本不符时 createJsonStore 抛 STORE_*：与其它子系统一致地**降级为内存 + 大声记日志**，
+   * 而不是把"读失败"伪装成"没有自定义 Provider"继续放行（那会悄悄丢用户的全部配置）。
+   */
+  const customProvidersFile = join(stateDir, 'custom-providers.json');
+  // 降级原因（null = 正常）。降级后写路由必须 fail-closed 拒绝：内存注册表的修改重启即丢，
+  // 让用户以为"保存成功"比直接报错更糟；读路由仍然可用，只是显式标注不可用。
+  let customProvidersDegraded = null;
+  const customProviders = (() => {
+    try {
+      return new CustomProviderRegistry({ file: customProvidersFile, reservedIds: Object.keys(PROVIDERS) });
+    } catch (error) {
+      customProvidersDegraded = {
+        code: error?.code || 'STORE_UNAVAILABLE',
+        message: `自定义 Provider 状态文件不可用（${error?.code || 'STORE_UNAVAILABLE'}），已临时降级为内存模式：本次会话的新增/修改不会保存。请修复或移走 ${customProvidersFile} 后重启 Runtime。`,
+      };
+      logger.error('CustomProviders', '自定义模型 Provider 状态文件不可用，已降级为内存（重启后自定义 Provider 配置会丢）', { code: error?.code, message: error?.message });
+      return new CustomProviderRegistry({ reservedIds: Object.keys(PROVIDERS) });
+    }
+  })();
+  /** 自定义 Provider 写操作的前置门禁：状态文件坏掉时不接受"看起来成功"的修改。 */
+  const assertCustomProvidersWritable = () => {
+    if (!customProvidersDegraded) return;
+    throw Object.assign(new Error(customProvidersDegraded.message), {
+      code: 'CUSTOM_PROVIDER_STORE_UNAVAILABLE', status: 503, details: { storeCode: customProvidersDegraded.code, file: customProvidersFile },
+    });
+  };
   const chatManager = chat || (() => {
     try {
       // C1：聊天 transcript 落盘（重启后按历史重建线程）；损坏/不可写时降级为内存并大声记日志。
-      return new ChatManager({ keychain, bridge, transcriptStore: createJsonStore({ file: join(stateDir, 'chat-transcripts.json'), schemaVersion: 1, initial: () => ({ sessions: {} }) }) });
+      return new ChatManager({ keychain, bridge, customProviders, transcriptStore: createJsonStore({ file: join(stateDir, 'chat-transcripts.json'), schemaVersion: 1, initial: () => ({ sessions: {} }) }) });
     } catch (error) {
       logger.error('Chat', '聊天 transcript 状态文件不可用，已降级为内存（重启后聊天记录会丢）', { code: error?.code, message: error?.message });
-      return new ChatManager({ keychain, bridge });
+      return new ChatManager({ keychain, bridge, customProviders });
     }
   })();
   const designManager = design || (() => {
@@ -337,6 +583,79 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
     }
   })();
   /**
+   * 计划级审批请求辅助（task-40）：
+   * - `approvalRequestId` 为空/缺省 = 旧对话审批路径，行为完全不变；
+   * - 非空时：先用权威计划哈希（normalizePlan/normalizePcbPlan）校验绑定并原子消费，
+   *   再签发 token；manager 失败把请求回滚到 approved，消费失败则撤销刚签发的 token。
+   */
+  const normalizeApprovalRequestId = (value) => {
+    if (value === undefined || value === null || value === '') return '';
+    if (typeof value !== 'string') {
+      throw Object.assign(new Error('approvalRequestId 必须是字符串（apr_ 前缀）'), { code: 'PLAN_REQUEST_INVALID', status: 400 });
+    }
+    const requestId = value.trim();
+    if (!requestId) return '';
+    if (requestId.length > 128) {
+      throw Object.assign(new Error('approvalRequestId 长度不能超过 128'), { code: 'PLAN_REQUEST_INVALID', status: 400 });
+    }
+    return requestId;
+  };
+  const withoutApprovalRequestId = (body) => {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+    const { approvalRequestId: _approvalRequestId, ...rest } = body;
+    return rest;
+  };
+  const revokeIssuedApprovalToken = (manager, approval) => {
+    const token = approval?.token;
+    if (!token) return;
+    try {
+      if (typeof manager?.approvals?.revoke === 'function') manager.approvals.revoke(token);
+      else if (typeof manager?.cancel === 'function') manager.cancel({ approvalToken: token });
+      else logger.warn('Approvals', 'Plan request consume failed but manager cannot revoke issued approval token');
+    } catch (error) {
+      logger.error('Approvals', 'Failed to revoke issued approval after plan request consume failure', { code: error?.code, message: error?.message });
+    }
+  };
+  /**
+   * 带 approvalRequestId 的批准：返回 manager 的 approval（含 token，与旧路由一致）。
+   * @param {'design'|'pcb'} kind
+   */
+  const approveWithPlanRequest = ({ kind, manager, body, approvalRequestId }) => {
+    const store = requirePlanRequestStore();
+    const managerBody = withoutApprovalRequestId(body);
+    const normalized = kind === 'design' ? normalizePlan(managerBody?.plan) : normalizePcbPlan(managerBody?.plan);
+    const binding = normalized?.ready
+      ? { planHash: normalized.planHash, targetFingerprint: managerBody?.targetFingerprint, windowId: managerBody?.windowId }
+      : null;
+    if (!binding) {
+      // 计划不完整：不消费请求，让 manager 抛原有 PLAN_* 错误（请求保持 approved，修正后仍可重试）。
+      const approval = manager.approve(managerBody);
+      try {
+        store.consumeApproved({
+          requestId: approvalRequestId,
+          kind,
+          planHash: approval?.planHash,
+          targetFingerprint: managerBody?.targetFingerprint ?? approval?.targetFingerprint,
+          windowId: managerBody?.windowId ?? approval?.windowId,
+        });
+      } catch (error) {
+        // 已签发但无法消费（例如并发/绑定不一致）：撤销刚签发的 token，绝不返回可用批准。
+        revokeIssuedApprovalToken(manager, approval);
+        throw error;
+      }
+      return approval;
+    }
+    // 先用权威计划哈希校验并消费，再签发 token：防止“UI 批准 A、实际签发 B”。
+    store.consumeApproved({ requestId: approvalRequestId, kind, ...binding });
+    try {
+      return manager.approve(managerBody);
+    } catch (error) {
+      store.rollbackConsumed(approvalRequestId);
+      throw error;
+    }
+  };
+
+  /**
    * 通道 B：EDA GUI 执行器（CDP 受信任输入）。
    * 与桥接通道（eda.* 扩展 API）互补：铺铜/交互式连线/菜单对话框只能走这条。
    * 挂在运行时上而不是外部脚本，保证每次 GUI 操作都有统一的动作白名单、超时与读回校验。
@@ -356,7 +675,16 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
   const automationRunCacheTtlMs = 10 * 60 * 1000;
   const automationJournal = createAutomationJournal();
   const automationApprovals = createApprovalStore({ journal: automationJournal, ledger: approvalLedger });
-  const productionArtifactsRoot = new URL('../manufacturing/', import.meta.url).pathname;
+  /**
+   * 单一产物根（P0-6）：readiness / 门禁 / 正式导出 / 自产草稿替换必须看同一个目录。
+   * 修复前 readiness 看 `manufacturing/`、导出与门禁看 `deliverables/`，交接的 manifestHash
+   * 永远对不上（RELEASE_MANIFEST_MISMATCH）。默认与导出端一致用 `deliverables/`，测试可用
+   * CIRCUITPILOT_ARTIFACTS_DIR 指向隔离目录。
+   */
+  const productionArtifactsRoot = process.env.CIRCUITPILOT_ARTIFACTS_DIR
+    ? resolvePath(process.env.CIRCUITPILOT_ARTIFACTS_DIR)
+    // 注意：URL.pathname 会把空格编码成 %20；仓库路径含空格时会指向错误目录，必须走 fileURLToPath。
+    : fileURLToPath(new URL('../deliverables/', import.meta.url));
   const productionStateFile = process.env.CIRCUITPILOT_STATE_FILE
     || join(process.env.CIRCUITPILOT_STATE_DIR || join(process.cwd(), 'artifacts/state'), 'production.json');
   const productionManager = production || (() => {
@@ -379,20 +707,196 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
    */
   const evidenceRoot = process.env.CIRCUITPILOT_EVIDENCE_DIR || join(process.cwd(), 'artifacts/evidence');
   const evidenceStore = evidence || createEvidenceStore({ root: evidenceRoot });
+
+  /**
+   * P0-5：交付签核只认 payload.kind='signoff-record' 的最新 signoff 证据。
+   * 修复前 `evidenceStore.latest('signoff')` 不做类型过滤：验证中心点一次"门禁评估"就把
+   * 门禁报告写进 signoff 目录，release/export/readiness 随即把 gate-report 当签核 → 真实签核被遮蔽。
+   * 现在门禁报告另用 'gate-report' kind；这里再做一层 payload 校验兜底（旧文件/未来误写都挡住）。
+   */
+  const isReleaseSignoffPayload = (payload) => {
+    if (!payload || typeof payload !== 'object') return false;
+    if (payload.kind === 'signoff-record') return true;
+    // 向后兼容：修复前落盘的三方签核没有 kind 字段，但一定有 passed:true 与 roles；
+    // 旧 gate-report 没有 passed，因此仍会被挡住。
+    return payload.kind === undefined && payload.passed === true && Array.isArray(payload.roles) && payload.roles.length > 0;
+  };
+  /**
+   * 交付签核必须"向前找最近一条有效签核"，不能只看最新文件。
+   * 历史 gate-report/旧 W5 signoff-record 可能比真实交付签核更新；只看最新一条会把有效
+   * 签核判成 null（复审 2026-10-29 实测：有效签核被旧 gate-report 遮蔽）。
+   */
+  const latestReleaseSignoff = ({ fingerprint = null } = {}) => {
+    const entries = typeof evidenceStore.list === 'function' ? evidenceStore.list('signoff') : [];
+    return entries.find((entry) => {
+      if (fingerprint && !Object.entries(fingerprint).every(([key, value]) => (entry.fingerprint?.[key] ?? null) === value)) return false;
+      return isReleaseSignoffPayload(entry?.payload);
+    }) ?? null;
+  };
+  // W3-18：KMA 知识管理 Agent + 定时维护。只产 candidate；抓取走白名单；调度状态落 state。
+  const knowledgeWebEnabled = process.env.CIRCUITPILOT_KNOWLEDGE_WEB !== 'off';
+  const knowledgeManager = createKnowledgeManager({
+    store: knowledgeStore,
+    evidenceRoot,
+    evidenceStore,
+    webCollectors: knowledgeWebEnabled ? createPcbWebCollectors({ topics: DEFAULT_PCB_TOPICS }) : [],
+  });
+  const knowledgeIntervalHours = Number(process.env.CIRCUITPILOT_KNOWLEDGE_INTERVAL_HOURS ?? 24);
+  const knowledgeInitialMinutes = Number(process.env.CIRCUITPILOT_KNOWLEDGE_INITIAL_MINUTES ?? 2);
+  const knowledgeScheduler = createKnowledgeScheduler({
+    manager: knowledgeManager,
+    stateFile: join(stateDir, 'knowledge-agent.json'),
+    intervalMs: Math.max(60 * 60 * 1000, (Number.isFinite(knowledgeIntervalHours) ? knowledgeIntervalHours : 24) * 60 * 60 * 1000),
+    initialDelayMs: Math.max(60 * 1000, (Number.isFinite(knowledgeInitialMinutes) ? knowledgeInitialMinutes : 2) * 60 * 1000),
+  });
+  // W5-01：复盘学习 Agent（RLA）。项目收尾（交付归档/人工触发）时把"事实 + 经验"沉淀成知识候选，
+  // 之后仍由 KMA 维护（去重/冲突/审核队列）与人工审核；RLA 自己绝不放行任何知识。
+  const retrospectiveLearner = createRetrospectiveLearner({ store: knowledgeStore, evidenceStore });
+  const retroAutoEnabled = process.env.CIRCUITPILOT_RETRO_AUTO !== 'off';
+  /** 按白名单收集各类证据的最新一条（单类损坏只跳过该类，不让整个复盘 500）。 */
+  const collectRetroEvidence = () => {
+    const collected = [];
+    for (const kind of RETRO_EVIDENCE_KINDS) {
+      try {
+        const entry = evidenceStore.latest(kind);
+        if (entry) collected.push({ kind, digest: entry.digest, savedAt: entry.savedAt, fingerprint: entry.fingerprint, payload: entry.payload });
+      } catch (error) {
+        logger.warn('Knowledge', 'RLA evidence skipped', { kind, message: String(error?.message || error).slice(0, 160) });
+      }
+    }
+    return collected;
+  };
+  // P1-15：KMA 会联网抓取——必须受"联网检索"开关控制，不能默认在后台联网。
+  // 显式环境变量 CIRCUITPILOT_KNOWLEDGE_AGENT=on/off 仍可覆盖（运维口径），默认跟随 researchConfig。
+  const knowledgeAgentEnv = process.env.CIRCUITPILOT_KNOWLEDGE_AGENT;
+  let knowledgeSchedulerRunning = false;
+  const applyResearchSchedule = async (config) => {
+    if (knowledgeAgentEnv === 'off') return;
+    const shouldRun = knowledgeAgentEnv === 'on' || (config?.enabled === true && knowledgeWebEnabled);
+    if (shouldRun && !knowledgeSchedulerRunning) {
+      const schedulerStatus = knowledgeScheduler.start();
+      knowledgeSchedulerRunning = true;
+      logger.info('Knowledge', 'KMA scheduler started', { intervalMs: schedulerStatus.intervalMs, nextRunAt: schedulerStatus.nextRunAt, source: knowledgeAgentEnv === 'on' ? 'env' : 'research-config' });
+    } else if (!shouldRun && knowledgeSchedulerRunning) {
+      knowledgeScheduler.stop();
+      knowledgeSchedulerRunning = false;
+      logger.info('Knowledge', 'KMA scheduler stopped', { reason: 'research-config disabled' });
+    }
+  };
+  // createRuntimeServer 是同步构造：读盘后异步启动/停止定时器（请求路径本身会 await researchConfig.load()，不受影响）。
+  researchConfig.load().then((config) => applyResearchSchedule(config)).catch((error) => logger.warn('Knowledge', 'KMA schedule not applied', { message: error?.message ?? String(error) }));
+
+  // W3-20：RAG 混合检索（知识库条目 + 工程文档）；索引落 state，首次查询懒构建。
+  // docs/knowledge 是 K1 通用工程知识（PCB 设计/原理图/元件）：结构化条目由
+  // scripts/seed-knowledge-pcb.mjs 灌入，文档目录必须一并进语料，否则"有文档但检索不到"。
+  const ragDirs = ['docs/implementation', 'docs/wardrobe-case', 'docs/knowledge'].filter((dir) => existsSync(join(process.cwd(), dir)));
+  const ragStore = createRagStore({
+    knowledgeStore,
+    indexFile: join(stateDir, 'rag', 'index.json'),
+    dirs: ragDirs,
+    baseDir: process.cwd(),
+  });
+
+  // W5-03/W5-04：门禁服务（证据→G1~G6 裁决→归档→人工终审签字写哈希链账本）
+  const gateService = createGateService({ evidenceStore, approvalLedger });
+  /**
+   * 原理图验收的"增强取证"公共选项：
+   *  - ercDetail：EDA 扩展 API 只有聚合计数，逐条明细走 GUI 面板抓取（eda-erc-detail.mjs）；
+   *  - loadSimulationEvidence：EDA 导不出 SPICE 网表时，回退引用本机已落盘的真实求解器证据。
+   * 两件事都只在真机可用时生效；不可用时如实降级，绝不把"没有结论"包装成"通过"。
+   */
+  const simEvidenceMaxAgeMs = () => {
+    const hours = Number(process.env.CIRCUITPILOT_SIM_EVIDENCE_MAX_AGE_HOURS);
+    return Number.isFinite(hours) && hours > 0 ? hours * 3_600_000 : 24 * 3_600_000;
+  };
+  const acceptanceExtraOptions = {
+    ercDetail: () => extractErcDetail({ gui: guiClient }),
+    /**
+     * 仿真证据回退必须校验"归属 + 新鲜度"：只取 latest() 可能引用到别的工程/改版前的旧证据。
+     * 返回 {entry} 或 {rejected:[{reason, problems, entry}]}，由验收如实记录拒绝原因。
+     */
+    loadSimulationEvidence: async () => {
+      const entry = evidenceStore.latest('spice-simulation');
+      if (!entry) return { entry: null, rejected: [{ reason: '本机没有落盘的 SPICE 仿真证据' }] };
+      let current = null;
+      try { current = await currentEdaFingerprint(); } catch { current = null; }
+      const freshness = assessEvidenceFreshness(entry, { current, maxAgeMs: simEvidenceMaxAgeMs() });
+      if (!freshness.ok) {
+        return {
+          entry: null,
+          rejected: [{ reason: '落盘仿真证据不满足归属/新鲜度要求', problems: freshness.problems, entry: { digest: entry.digest, savedAt: entry.savedAt, path: entry.path, fingerprint: entry.fingerprint ?? null } }],
+        };
+      }
+      return { entry, freshness };
+    },
+  };
   /** 证据路由里统一把可选字符串字段收敛成 trim 后的字符串（避免 undefined/null 混进指纹）。 */
   const text = (value) => (typeof value === 'string' ? value.trim() : '');
+  /**
+   * Provider id 必须"存在"：内置声明表里，或自定义注册表里。
+   * 未知 id 一律 404 —— 以前它会被直接透给钥匙串，用户看到的是一句
+   * KEYCHAIN_PROVIDER_UNSUPPORTED，完全不知道是自己 id 写错了还是功能没实现。
+   */
+  const requireKnownProvider = (id) => {
+    if (PROVIDERS[id]) return;
+    if (customProviders.get(id)) return;
+    throw customProviderNotFound(id);
+  };
+
   /**
    * 确保 EDA 桥已发现且窗口已选中。
    * 真机教训：新加的 EDA 路由如果直接 bridge.execute，会因为没有先 discover 而 400 BRIDGE_NOT_FOUND——
    * 而"先 discover"这一步在其它路由里是散落重复写的，很容易漏。这里收成一个口子。
    */
+  /**
+   * 确保桥已发现、窗口已选中、工程已打开。
+   *
+   * 自愈（真机第 59 轮）：EDA 退出重开后桥会消失，`bridge.discover()` 只探测不拉起；
+   * 即使桥恢复，EDA 也可能停在开始页（没有工程）。这里做两件事：
+   *   1. 桥不可达时重新 discover 一次（端口可能变）；
+   *   2. 工程没打开时用上次记录的工程 UUID 自动 openProject（只尝试一次，失败不假装成功）。
+   */
   const ensureEdaSession = async () => {
-    if (!bridge.port) await bridge.discover();
-    if (!bridge.port) throw Object.assign(new Error('未发现EasyEDA Bridge'), { code: 'BRIDGE_NOT_FOUND', status: 503 });
-    const windows = await bridge.windows();
+    const connect = async () => {
+      if (!bridge.port) await bridge.discover();
+      if (!bridge.port) throw Object.assign(new Error('未发现EasyEDA Bridge（EDA 可能没启动或桥进程已退出，请重新连接 EDA）'), { code: 'BRIDGE_NOT_FOUND', status: 503 });
+      return bridge.windows();
+    };
+    let windows;
+    let reconnected = false;
+    try {
+      windows = await connect();
+    } catch (error) {
+      // 只有"桥真的断过"才进入自愈分支：EDA 重启会带走桥进程，此时重连后 EDA 多半停在开始页。
+      if (error?.code === 'BRIDGE_UNREACHABLE' || error?.code === 'BRIDGE_TIMEOUT') {
+        bridge.port = null;
+        windows = await connect();
+        reconnected = true;
+      } else throw error;
+    }
     if (windows.selectionRequired) throw Object.assign(new Error('检测到多个嘉立创EDA窗口，请先在高级控制中选择目标窗口'), { code: 'EDA_WINDOW_SELECTION_REQUIRED', status: 409 });
     if (!bridge.selectedWindowId) throw Object.assign(new Error('没有已连接的嘉立创EDA窗口'), { code: 'EDA_WINDOW_NOT_FOUND', status: 409 });
-    return { windows, selectedWindowId: bridge.selectedWindowId };
+    let reopened = null;
+    // 自愈只发生在"桥断线重连"之后（或显式开启），不改变普通调用"当前工程没开就是没开"的语义。
+    if (reconnected || process.env.CIRCUITPILOT_AUTO_REOPEN_PROJECT === '1') {
+      try {
+        const project = (await bridge.execute('project.current', {}))?.result;
+        if (!(project?.uuid || project?.id)) throw Object.assign(new Error('EDA 没有打开工程'), { code: 'EDA_PROJECT_NOT_OPEN' });
+      } catch {
+        const remembered = lastProjectUuid();
+        if (remembered) {
+          try {
+            await bridge.execute('project.open', { projectUuid: remembered });
+            const project = (await bridge.execute('project.current', {}))?.result;
+            const projectUuid = project?.uuid || project?.id || null;
+            if (projectUuid) { rememberProject(projectUuid); reopened = { projectUuid, via: 'last-eda-project' }; }
+          } catch (reopenError) {
+            logger.warn('EDA', '自动重开上次工程失败（不影响窗口连接，后续路由会给出具体错误）', { projectUuid: remembered, message: String(reopenError?.message || reopenError).slice(0, 200) });
+          }
+        }
+      }
+    }
+    return { windows, selectedWindowId: bridge.selectedWindowId, reopened };
   };
 
   /**
@@ -403,6 +907,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
     const project = (await bridge.execute('project.current', {})).result;
     const document = (await bridge.execute('document.current', {})).result;
     const projectUuid = project?.uuid || project?.id || project?.data?.[0]?.uuid || null;
+    if (projectUuid) rememberProject(projectUuid);
     const documentUuid = document?.uuid || null;
     return {
       fingerprint: fingerprintOf({ windowId: bridge.selectedWindowId, projectUuid, documentUuid }),
@@ -410,6 +915,20 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       projectUuid,
       documentUuid,
     };
+  };
+
+  /** 读当前工程的 ERC 豁免（与 DRC 同样的工程级隔离规则）。 */
+  const loadErcExemptionFileForCurrentProject = async () => {
+    let projectUuid = null;
+    try { projectUuid = (await currentEdaFingerprint()).projectUuid; } catch { projectUuid = null; }
+    return loadScopedErcExemptionFile(projectUuid);
+  };
+
+  /** 读当前工程的 DRC 豁免（工程级文件；没有工程时用 global，回退旧版全局文件会带 warning）。 */
+  const loadDrcExemptionFileForCurrentProject = async () => {
+    let projectUuid = null;
+    try { projectUuid = (await currentEdaFingerprint()).projectUuid; } catch { projectUuid = null; }
+    return loadScopedExemptionFile(projectUuid);
   };
 
   /**
@@ -421,7 +940,22 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
    * 现在真实写入（非 dryRun / 会保存）必须先消费一次服务端签发、绑定当前窗口+工程+文档指纹的
    * write 批准；dry-run 不写盘，不需要批准。
    */
+  /**
+   * P0-8：全局写暂停的 fail-closed 检查。
+   *
+   * Runtime 是唯一权威：状态落盘在 state 目录，UI 只镜像；脚本/curl 直接打 HTTP 也会被拦。
+   * 返回当前 gate 快照，调用方可复用（例如写批准签发时把原因带进 409 details）。
+   */
+  const assertEdaWritesOpen = async (pathname = null) => {
+    const gate = await writeGate.load();
+    // P0-5 复审：全局暂停与“本会话暂停”都是 Runtime 权威状态，任一开启都 fail-closed。
+    if (gate.paused || gate.sessionPaused === true) throw writePausedError(gate, pathname);
+    return gate;
+  };
+
   const requireWriteApproval = async (body, { recipeId = null } = {}) => {
+    // P0-8：即便调用方带来了有效的一次性写批准，暂停期间也不允许执行。
+    await assertEdaWritesOpen();
     const approvalIds = Array.isArray(body?.approvalIds) ? body.approvalIds.map(String).filter(Boolean) : [];
     if (!approvalIds.length) {
       throw Object.assign(new Error('真实写入必须先由人工签发写板批准（先 POST /api/automation/approvals {scope:"write"}，再带 approvalIds）'), {
@@ -572,24 +1106,51 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
    * ACCEPTANCE_NETLIST_WRONG_DOCUMENT（没有假装通过，这是对的），但"切到原理图"这件事应当由 AI 自己做。
    */
   const SCHEMATIC_DOCUMENT_TYPE = 1;
-  const resolveProjectSchematicUuid = async () => {
+  const PCB_DOCUMENT_TYPE = 3;
+  /**
+   * 取"要检查/导出的原理图页面"。
+   *
+   * 真机教训（第 60 轮）：一个工程里可能有多块板（Board1 / Board1_1 / Board1_2），
+   * 旧实现永远取**第一块板**的第一页。用户在 Board1_1 的 PCB 上点 ERC 时，
+   * 结果检查的是 Board1 的原理图——那块板可能是空的，于是出现"ERC 全 0、ran:false"的假结果。
+   * 现在若当前活动文档是某块板的 PCB，就优先用**同一块板**的原理图页面。
+   */
+  const resolveProjectSchematicUuid = async (preferredPcbUuid = null) => {
     const project = (await bridge.execute('project.current', {})).result;
     rememberProject(project?.uuid);
     const boards = Array.isArray(project?.data) ? project.data.filter((item) => item?.itemType === 'Board') : [];
-    const pages = [];
-    for (const board of boards) {
+    const schematicPagesOf = (board) => {
       const schematic = board?.schematic;
+      const pages = [];
       // 页面 UUID 优先：原理图导出只对活动**页**生效（文档级 UUID 不一定能直接打开）。
       if (Array.isArray(schematic?.page)) for (const page of schematic.page) if (typeof page?.uuid === 'string' && page.uuid) pages.push(page.uuid);
-      if (typeof schematic?.uuid === 'string' && schematic.uuid) pages.push(schematic.uuid);
+      if (typeof schematic?.uuid === 'string' && schematic.uuid && !pages.includes(schematic.uuid)) pages.push(schematic.uuid);
+      return pages;
+    };
+    if (preferredPcbUuid) {
+      const preferred = boards.find((board) => {
+        const pcb = board?.pcb || {};
+        const uuids = [pcb.uuid, ...(Array.isArray(pcb.page) ? pcb.page.map((page) => page?.uuid) : [])].filter(Boolean);
+        return uuids.includes(preferredPcbUuid);
+      });
+      if (preferred) {
+        const pages = schematicPagesOf(preferred);
+        if (pages.length) return pages[0];
+      }
     }
-    return pages[0] ?? null;
+    for (const board of boards) {
+      const pages = schematicPagesOf(board);
+      if (pages.length) return pages[0];
+    }
+    return null;
   };
 
   const ensureSchematicDocument = async (schematicUuid) => {
     const current = (await bridge.execute('document.current', {})).result;
     if (Number(current?.documentType) === SCHEMATIC_DOCUMENT_TYPE) return { schematicUuid: current.uuid ?? null, activated: false };
-    const target = (typeof schematicUuid === 'string' && schematicUuid) ? schematicUuid : await resolveProjectSchematicUuid();
+    // 当前是 PCB 时，优先切到"同一块板"的原理图，避免多板工程里检查错板（见 resolveProjectSchematicUuid）。
+    const preferredPcbUuid = Number(current?.documentType) === PCB_DOCUMENT_TYPE ? (current?.uuid ?? null) : null;
+    const target = (typeof schematicUuid === 'string' && schematicUuid) ? schematicUuid : await resolveProjectSchematicUuid(preferredPcbUuid);
     if (!target) throw Object.assign(new Error('当前工程里找不到原理图页面：请在嘉立创EDA 打开原理图，或在请求里填原理图 documentUuid'), { code: 'SCHEMATIC_DOCUMENT_REQUIRED', status: 409 });
     const opened = (await bridge.execute('schematic.open', { documentUuid: target, pageUuid: target })).result;
     if (!opened?.opened) throw Object.assign(new Error(`原理图页面打不开：${target}`), { code: 'SCHEMATIC_DOCUMENT_OPEN_FAILED', status: 409 });
@@ -649,6 +1210,20 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
   };
 
   /**
+   * 布局审计的扩展证据：丝印文字（含包围盒）、封装名、铜焊盘。
+   * 每一项都独立失败：缺一项就让对应规则 REVIEW，不能让整份审计因为一个读命令 500 而消失。
+   */
+  const readLayoutEvidence = async (pcbUuid, knownCopper = null) => {
+    const readOptional = async (command, args) => {
+      try { return (await bridge.execute(command, args)).result ?? null; } catch (error) { return null; }
+    };
+    const copper = knownCopper ?? await readOptional('pcb.copper.read', {});
+    const texts = await readOptional('pcb.texts.detail', {});
+    const pads = await readOptional('pcb.pads.read', { pcbUuid });
+    return { texts, pads, copper };
+  };
+
+  /**
    * 收集门禁所需的全部证据：body 里给了的用给的（离线可复现、界面可缓存），缺的才去实机读。
    * 抽成函数是为了让"下单前闸门"和"产出决策"共用同一套取证——两处各写一遍必然漂移，
    * 而漂移的后果是"界面说能下单、导出脚本说不能"这种最难查的分歧。
@@ -658,9 +1233,15 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
    * 只在请求正式产出（requested==='final'）时才把**本目录内**的草稿产物视为"将被替换"，
    * 目录外的草稿一律不算——避免"随便放个草稿进来就能绕过闸门"。
    */
+  /**
+   * 请求类别归一化：门禁/发布/归档都是"出正式生产文件"的路径，缺省即 final。
+   * 不能只看显式 `body.requested==='final'`——UI 的闸门请求长期不带该字段，
+   * 导致自产草稿替换永远算不出来（P0-6 死锁①）。
+   */
+  const normalizedRequested = (body = {}) => (body?.requested === 'draft' ? 'draft' : 'final');
   const selfDraftReplacedPaths = (body = {}) => {
-    if (body?.requested !== 'final') return [];
-    const dir = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? body.artifactsDir : join(process.cwd(), 'deliverables');
+    if (normalizedRequested(body) !== 'final') return [];
+    const dir = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? resolvePath(body.artifactsDir) : productionArtifactsRoot;
     if (!existsSync(dir)) return [];
     const prefixes = ['GERBER_', 'BOM_', 'CPL_', 'STEP_'];
     return readdirSync(dir)
@@ -668,9 +1249,147 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       .map((name) => join(dir, name));
   };
 
+  /**
+   * 第 61 轮：放行门可显式消费"本机落盘的 SPICE 仿真证据"。
+   *
+   * 输入（`body.acceptanceExtraOptions.simulationEvidence`，兼容顶层 `body.simulationEvidence`）：
+   *   - 字符串：本机 JSON 文件路径（T3 的 artifacts/spice/simulation-evidence-*.json）；
+   *   - 对象：同形状内联证据。
+   *
+   * 为什么必须 fail-closed：这份证据只覆盖关键子电路，而且可能是**别的工程/上一版网表**跑出来的。
+   * "文件存在"不等于"这块板被仿真过"。这里依次校验：可读 → kind/schema → 新鲜度 → 数值 →
+   * 与当前工程/原理图页/实时网表 sha256 的绑定。任何一项拿不到或不符都返回 rejected，
+   * 由闸门映射成 unknown/blocked，绝不默认当通过。
+   */
+  const readReleaseSimulationEvidenceSource = (input) => {
+    if (input && typeof input === 'object' && !Array.isArray(input)) return { value: input, path: null };
+    if (typeof input !== 'string' || !input.trim()) return { error: 'simulationEvidence 必须是本机 JSON 证据文件路径，或同形状对象' };
+    const path = resolvePath(input.trim());
+    if (!existsSync(path)) return { error: `仿真证据文件不存在：${path}` };
+    let content;
+    try { content = readFileSync(path, 'utf8'); } catch (error) { return { error: `仿真证据文件不可读：${String(error?.message || error).slice(0, 160)}` }; }
+    try { return { value: JSON.parse(content), path }; } catch (error) { return { error: `仿真证据不是合法 JSON：${String(error?.message || error).slice(0, 160)}` }; }
+  };
+
+  /** 归一化并校验一份 T3 仿真证据；返回 {simulation} 或 {rejected:[{code,reason,...}]}。 */
+  const validateReleaseSimulationEvidence = ({ input, current = null, pageUuid = null, targetPcbUuid = null, liveNetlistSha256 = null, currentError = null }) => {
+    const invalid = (reason, extra = {}) => ({ rejected: [{ code: RELEASE_CODES.SIMULATION_EVIDENCE_INVALID, reason, ...extra }] });
+    const unbound = (reason, extra = {}) => ({ rejected: [{ code: RELEASE_CODES.SIMULATION_EVIDENCE_UNBOUND, reason, ...extra }] });
+    const source = readReleaseSimulationEvidenceSource(input);
+    if (source.error) return invalid(source.error);
+    const evidence = source.value;
+    if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return invalid('仿真证据必须是 JSON 对象');
+    const evidencePath = source.path ?? (typeof evidence.path === 'string' ? evidence.path : null);
+    if (evidence.kind !== 'spice-simulation-evidence') return invalid(`仿真证据 kind 必须是 spice-simulation-evidence，实际为 ${JSON.stringify(evidence.kind ?? null)}`, { evidencePath });
+    if (evidence.status !== 'ok') return invalid(`仿真证据 status=${JSON.stringify(evidence.status ?? null)}：只有 status=ok 的完整证据才能被消费`, { evidencePath });
+    const generatedAt = Date.parse(evidence.generatedAt || '');
+    if (!Number.isFinite(generatedAt)) return invalid('仿真证据缺少可解析的 generatedAt：无法判断是否过期', { evidencePath });
+    const ageMs = Date.now() - generatedAt;
+    const maxAgeMs = simEvidenceMaxAgeMs();
+    if (ageMs < -5 * 60_000) return invalid('仿真证据 generatedAt 在未来：时间戳不可信，不能当证据', { evidencePath });
+    if (ageMs > maxAgeMs) return invalid(`仿真证据已 ${Math.round((ageMs / 3_600_000) * 10) / 10} 小时（阈值 ${Math.round(maxAgeMs / 3_600_000)} 小时）：必须重新跑仿真，不能拿旧证据放行`, { evidencePath });
+
+    const netlist = evidence.netlist && typeof evidence.netlist === 'object' ? evidence.netlist : null;
+    if (!netlist) return invalid('仿真证据缺少 netlist 段：无法确认它来自哪份网表', { evidencePath });
+    const netlistSha256 = typeof netlist.sha256 === 'string' ? netlist.sha256.trim().toLowerCase() : '';
+    if (!/^[a-f0-9]{64}$/.test(netlistSha256)) return invalid('仿真证据 netlist.sha256 缺失或不是 64 位十六进制', { evidencePath });
+    if (netlist.parseable === false) return invalid('仿真证据标注 netlist.parseable=false：网表没有被解析成功', { evidencePath });
+    if (!(Number(netlist.componentCount) > 0)) return invalid('仿真证据 netlist.componentCount 无效（≤0）：等于没有真实网表', { evidencePath });
+    const runs = Array.isArray(evidence.runs) ? evidence.runs : [];
+    if (!runs.length) return invalid('仿真证据没有 runs：没有真实求解器执行记录，不能当仿真结果', { evidencePath });
+    const failedRuns = runs.filter((run) => !Number.isInteger(run?.exitCode) || run.exitCode !== 0);
+    if (failedRuns.length) return invalid(`仿真证据有 ${failedRuns.length} 个求解器 run 非 0 退出：${failedRuns.map((run) => `${run?.kind ?? '?'}:exit${run?.exitCode ?? '?'}`).join('、')}`, { evidencePath });
+    const numericValues = [];
+    const results = evidence.results && typeof evidence.results === 'object' ? evidence.results : null;
+    if (results) for (const group of Object.values(results)) {
+      if (!group || typeof group !== 'object') continue;
+      for (const value of Object.values(group)) if (typeof value === 'number' && Number.isFinite(value)) numericValues.push(value);
+    }
+    if (!results || !numericValues.length) return invalid('仿真证据没有可复核的数值结果（results 为空或没有有限数）：不能声称跑出了结论', { evidencePath });
+
+    // ---- 绑定：证据必须属于"当前工程 + 当前原理图页/当前网表" ----
+    const evidenceProjectUuid = text(evidence.environment?.project?.projectUuid) || text(evidence.environment?.expectedProjectUuid) || null;
+    if (!evidenceProjectUuid) return unbound('仿真证据没有记录工程 UUID：无法确认它属于当前工程', { evidencePath });
+    const currentProjectUuid = text(current?.projectUuid) || null;
+    if (!currentProjectUuid) return unbound(`无法读取当前工程指纹${currentError ? `（${currentError}）` : ''}：不确认归属就当没有证据（fail-closed）`, { evidencePath, binding: { projectUuid: evidenceProjectUuid, currentProjectUuid: null } });
+    if (evidenceProjectUuid !== currentProjectUuid) return unbound(`仿真证据属于工程 ${evidenceProjectUuid}，当前工程是 ${currentProjectUuid}：这是别的工程的证据`, { evidencePath, binding: { projectUuid: evidenceProjectUuid, currentProjectUuid } });
+    const evidencePageUuid = text(evidence.environment?.project?.pageUuid) || text(evidence.environment?.targetPageUuid) || null;
+    const requestedPage = text(pageUuid) || null;
+    const pageMatched = Boolean(evidencePageUuid && requestedPage && evidencePageUuid === requestedPage);
+    if (evidencePageUuid && requestedPage && !pageMatched) return unbound(`仿真证据属于原理图页 ${evidencePageUuid}，本次请求的原理图页是 ${requestedPage}：页不一致`, { evidencePath, binding: { projectUuid: evidenceProjectUuid, pageUuid: evidencePageUuid, requestedPage } });
+    const liveSha = text(liveNetlistSha256).toLowerCase() || null;
+    const netlistSha256MatchedLive = Boolean(liveSha && liveSha === netlistSha256);
+    if (liveSha && !netlistSha256MatchedLive) {
+      return unbound(`仿真证据网表 sha256=${netlistSha256.slice(0, 12)}… 与当前实时导出网表 ${liveSha.slice(0, 12)}… 不一致：证据不是这块板当前版本的网表`, { evidencePath, binding: { projectUuid: evidenceProjectUuid, netlistSha256, liveNetlistSha256: liveSha } });
+    }
+    if (!pageMatched && !netlistSha256MatchedLive) {
+      return unbound('仿真证据既没有匹配的原理图页、也没有可与当前实时网表对照的 sha256：无法确认属于当前设计（fail-closed）', { evidencePath, binding: { projectUuid: evidenceProjectUuid, pageUuid: evidencePageUuid, requestedPage } });
+    }
+
+    const deck = evidence.deck && typeof evidence.deck === 'object' ? evidence.deck : {};
+    const edaNetlistAvailable = evidence.edaSimulationNetlist?.available === true;
+    const subcircuit = text(deck.subcircuit) || '关键子电路';
+    const simulation = {
+      evidencePath,
+      evidenceKind: evidence.kind,
+      evidenceHash: netlistSha256,
+      source: 'T3 外部网表 + ngspice 求解器',
+      solver: 'ngspice',
+      scopeNote: `${subcircuit}；不是整板/全功能仿真`,
+      generatedAt: new Date(generatedAt).toISOString(),
+      // 覆盖范围永远不是整板：T3 deck 是从真实网表里挑出的子电路；EDA 侧整板 SPICE 网表导不出时更明确。
+      partial: true,
+      coverage: {
+        subcircuit,
+        decks: Array.isArray(deck.decks) ? deck.decks.length : 0,
+        usedComponents: Array.isArray(deck.usedComponents) ? deck.usedComponents.length : 0,
+        usedNets: Array.isArray(deck.usedNets) ? deck.usedNets.length : 0,
+        edaSimulationNetlistAvailable: edaNetlistAvailable,
+        edaSimulationNetlistReason: evidence.edaSimulationNetlist?.reason ?? null,
+        componentCount: Number(netlist.componentCount),
+        netCount: Number.isFinite(Number(netlist.netCount)) ? Number(netlist.netCount) : null,
+        runs: runs.map((run) => ({ kind: run.kind ?? null, exitCode: run.exitCode })),
+      },
+      binding: {
+        projectUuid: evidenceProjectUuid,
+        pageUuid: evidencePageUuid,
+        netlistSha256,
+        liveNetlistSha256: liveSha,
+        netlistSha256MatchedLive,
+        pageMatched,
+        targetPcbUuid: text(targetPcbUuid) || null,
+        verifiedAt: new Date().toISOString(),
+      },
+      netlist: { sha256: netlistSha256, componentCount: Number(netlist.componentCount), netCount: Number.isFinite(Number(netlist.netCount)) ? Number(netlist.netCount) : null },
+    };
+    return { simulation };
+  };
+
+  /**
+   * 归一化放行门收到的 DRC 输入，并保留**证据绑定信息**（第 61 轮）。
+   *
+   * 支持两种真实形状：
+   *   - 裸 DRC 报告（normalizeDrcReport 的输入）；
+   *   - 证据库条目 {kind:'drc-report', fingerprint:{pcbUuid}, payload:{report}}——
+   *     这种形状以前会被 normalizeDrcReport 判成"结构不可识别"，绑定信息也随之丢失。
+   * 绑定字段放在 normalized.binding，gateDrc 用它判断"是不是当前这块板"。
+   */
+  const normalizeReleaseDrcReport = (raw) => {
+    const record = raw && typeof raw === 'object' && raw.kind === 'drc-report' && raw.payload && typeof raw.payload === 'object' ? raw : null;
+    const reportSource = record?.payload?.report ?? (raw?.payload && typeof raw.payload === 'object' && Object.prototype.hasOwnProperty.call(raw.payload, 'report') ? raw.payload.report : raw);
+    const normalized = normalizeDrcReport(reportSource);
+    normalized.binding = {
+      pcbUuid: text(record?.fingerprint?.pcbUuid ?? raw?.fingerprint?.pcbUuid ?? raw?.pcbUuid ?? raw?.payload?.pcbUuid) || null,
+      projectUuid: text(record?.fingerprint?.projectUuid ?? raw?.fingerprint?.projectUuid ?? raw?.projectUuid) || null,
+      savedAt: text(record?.savedAt ?? raw?.savedAt) || null,
+      digest: text(record?.digest ?? raw?.digest) || normalized.digest || null,
+    };
+    return normalized;
+  };
+
   const gatherReleaseEvidence = async (body) => {
 
-      const dir = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? body.artifactsDir : join(process.cwd(), 'deliverables');
+      const dir = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? resolvePath(body.artifactsDir) : productionArtifactsRoot;
       const prefixes = { gerber: 'GERBER_', bom: 'BOM_', cpl: 'CPL_', step: 'STEP_' };
       const files = {};
       const draftChosen = {};
@@ -703,6 +1422,8 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       let acceptance = provided('acceptance') ? body.acceptance : null;
       let design = provided('design') ? body.design : null;
       let placementVerification = provided('placementVerification') ? body.placementVerification : null;
+      // 当前目标 PCB：优先实机解析结果，其次请求里显式给的 uuid（全离线注入证据时只有后者）。
+      let targetPcbUuid = text(body.pcbUuid) || null;
       // 界面往往拿不到 DRC 报告对象，只给一个本机报告路径；这里按路径读真报告，
       // 而不是"没给报告就当通过"——缺证据永远是 unknown/阻断。
       if (!body.drcReport && typeof body.drcReportPath === 'string' && body.drcReportPath) {
@@ -726,6 +1447,41 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       if (!provided('acceptance') || !provided('design') || !provided('placementVerification')) {
         await ensureEdaSession();
         const bridgeExecute = (commandId, args) => bridge.execute(commandId, args);
+        // 网络连通性核对需要 PCB 文档 UUID：**必须在切到原理图之前解析**（解析 PCB 会把活动文档切走）。
+        // 不传的话验收里的 net-connectivity 只能跳过——2026-10-22 真机就是因此让"171 个空网络焊盘"的板子
+        // 在门禁里拿到 schematic:pass。缺失时如实降级为"无法核对"，但能解析就一定要解析。
+        let gatePcbUuid = text(body.pcbUuid) || ((await readPcbPlacement(null).catch(() => null))?.pcbUuid ?? null);
+        /**
+         * 产品修复（r54，两处真机复现的缺陷）：
+         *  ① 多板工程且未给 pcbUuid 时，门禁会挑"当前/第一块 PCB"（本次挑到 2 层 LED 灯板），
+         *     再拿 4 层主板的 Gerber/CPL 去比 → 误报 RELEASE_GERBER_COPPER_MISSING（4 vs 2）
+         *     与 RELEASE_CPL_COORD_MISMATCH（偏差 13~45mm）。这不是设计问题，是门禁没绑定目标板。
+         *  ② 未给 pageUuid 时 acceptance 不会打开原理图，直接判 RELEASE_SCHEMATIC_NOT_READY
+         *     （documentType=3），等于"没读到就说原理图不过"。
+         * 修法：多板且未显式指定 → fail-closed 409 列出板子让调用方选；唯一板 → 自动补齐 pcbUuid+pageUuid。
+         */
+        if (!text(body.pcbUuid) && !provided('design') && !provided('acceptance') && !provided('placementVerification')) {
+          let boards = [];
+          try {
+            const projectInfo = (await bridge.execute('project.current')).result;
+            boards = Array.isArray(projectInfo?.data)
+              ? projectInfo.data.filter((item) => item?.itemType === 'Board' && text(item?.pcb?.uuid))
+              : [];
+          } catch { boards = []; }
+          if (boards.length > 1) {
+            throw Object.assign(new Error(`工程里有 ${boards.length} 块板（${boards.map((board) => `${board.name}:${board.pcb.uuid}`).join('、')}）：多板工程必须显式给 pcbUuid，否则门禁可能拿错板比对（本次就会把 4 层主板产物和 2 层 LED 灯板读回混在一起）。`), {
+              code: 'EDA_TARGET_PCB_AMBIGUOUS',
+              status: 409,
+              details: { boards: boards.map((board) => ({ name: board.name, pcbUuid: board.pcb.uuid, schematicUuid: board?.schematic?.uuid ?? null })) },
+            });
+          }
+          if (boards.length === 1) {
+            body.pcbUuid = boards[0].pcb.uuid;
+            gatePcbUuid = boards[0].pcb.uuid;
+            const page = Array.isArray(boards[0]?.schematic?.page) ? boards[0].schematic.page.find((item) => text(item?.uuid)) : null;
+            if (page?.uuid) body.pageUuid = page.uuid;
+          }
+        }
         // 门禁要读原理图与 PCB：调用方给出 uuid，运行时自己打开（否则很容易"读到空"而给出假结论）
         if (!provided('acceptance') && (body.pageUuid || body.documentUuid)) {
           const opened = (await bridge.execute('schematic.open', { pageUuid: body.pageUuid || null, documentUuid: body.documentUuid || null })).result;
@@ -740,21 +1496,34 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           }
           if (!activated) throw Object.assign(new Error('原理图已打开但没能成为活动文档（可能被其它窗口或对话框挡住），拒绝用空网表给出结论'), { code: 'EDA_DOCUMENT_OPEN_FAILED', status: 409 });
         }
-        if (!acceptance) acceptance = await runSchematicAcceptance({ execute: bridgeExecute, plan: body.plan || null, skipSimulation: false });
-        const { readback } = await readPcbPlacement(body.pcbUuid);
+        if (!acceptance) acceptance = await runSchematicAcceptance({ execute: bridgeExecute, plan: body.plan || null, skipSimulation: false, pcbUuid: gatePcbUuid });
+        // 抓完原理图证据后**立刻**留下网表文本：下一步要切回 PCB 读 placement/铜层，
+        // 切回后再 export 只会拿到空网表（历史上 design.designators 变空、BOM 位号校验被静默跳过的根因）。
+        let gateNetlistText = '';
+        if (!design) {
+          try {
+            gateNetlistText = (await bridge.execute('schematic.netlist.export', { fileName: 'circuitpilot-netlist', netlistType: 'EasyEDA', inlineLimit: 262144 }))?.result?.text || '';
+          } catch { gateNetlistText = ''; }
+        }
+        const pcbPlacement = await readPcbPlacement(text(body.pcbUuid) || gatePcbUuid || null);
+        const { readback } = pcbPlacement;
+        // 实机解析出的 PCB 才是"当前目标"的权威来源（body.pcbUuid 可能没给）。
+        if (pcbPlacement.pcbUuid) targetPcbUuid = pcbPlacement.pcbUuid;
         const copperCount = await bridge.execute('pcb.layers.copperCount').then((value) => value?.result ?? null).catch(() => null);
         // 板面证据里的坐标统一用**包围盒中心**（读回 xMm/yMm 是器件原点，非对称封装会差几毫米）。
-        const placement = (readback?.components || []).map((item) => { const center = placementCenterMm(item); return { ref: item.designator, xMm: center.xMm, yMm: center.yMm, rotationDeg: Number(item.rotationDeg) || 0 }; });
+        // 同时保留 originXMm/originYMm：EDA 导出的 CPL 用的正是器件原点，发布门禁做坐标比对时
+        // 需要两套基准都试（否则 USB/座子/模组等非对称封装会稳定误报 CPL 坐标不一致）。
+        const placement = (readback?.components || []).map((item) => { const center = placementCenterMm(item); return { ref: item.designator, xMm: center.xMm, yMm: center.yMm, originXMm: Number(item.xMm), originYMm: Number(item.yMm), rotationDeg: Number(item.rotationDeg) || 0 }; });
         if (!placementVerification) {
           placementVerification = verifyOutlinePlacement({
-            placements: (readback?.components || []).filter((item) => item.bboxMm).map((item) => { const center = placementCenterMm(item); return { ref: item.designator, xMm: center.xMm, yMm: center.yMm, widthMm: Number(item.bboxMm.xMm), heightMm: Number(item.bboxMm.yMm), rotationDeg: Number(item.rotationDeg) || 0 }; }),
+            placements: (readback?.components || []).filter((item) => item.bboxMm).map((item) => { const center = placementCenterMm(item); return { ref: item.designator, xMm: center.xMm, yMm: center.yMm, widthMm: Number(item.bboxMm.xMm), heightMm: Number(item.bboxMm.yMm), rotationDeg: Number(item.rotationDeg) || 0, side: item.layerSide || 'top' }; }),
             outline: parsePolygonSource(readback?.outline?.[0]?.source),
             edgeClearanceMm: body.edgeClearanceMm ?? 1, spacingMm: body.spacingMm ?? 0.5,
             overhangAllowances: body.overhangAllowances && typeof body.overhangAllowances === 'object' ? body.overhangAllowances : {},
           });
         }
         if (!design) {
-          const netlistText = (await bridge.execute('schematic.netlist.export', { fileName: 'circuitpilot-netlist', netlistType: 'EasyEDA', inlineLimit: 262144 }))?.result?.text || '';
+          const netlistText = gateNetlistText;
           const parsed = parseEasyEdaNetlist(netlistText);
           design = {
             designators: (parsed?.components || []).map((item) => item.designator).filter(Boolean),
@@ -765,11 +1534,56 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           };
         }
       }
+      /**
+       * 第 61 轮：可选仿真证据接线（body.acceptanceExtraOptions.simulationEvidence 或 body.simulationEvidence）。
+       * 只在"验收本身没有仿真结论"时注入；显式提供但校验不过 → 把具体原因塞进 acceptance.simulation.invalid，
+       * 让 gate 的 simulation 子门如实报"证据不可用/绑定不符"，而不是笼统的 NOT_RUN 或假通过。
+       */
+      const simulationEvidenceInput = body?.acceptanceExtraOptions?.simulationEvidence ?? body?.simulationEvidence ?? null;
+      let simulationEvidence = null;
+      if (simulationEvidenceInput !== null && simulationEvidenceInput !== undefined) {
+        let current = null;
+        let currentError = null;
+        try { current = await currentEdaFingerprint(); } catch (error) { currentError = String(error?.message || error).slice(0, 200); }
+        const outcome = validateReleaseSimulationEvidence({
+          input: simulationEvidenceInput,
+          current,
+          currentError,
+          pageUuid: text(body.pageUuid) || text(body.documentUuid) || null,
+          targetPcbUuid,
+          liveNetlistSha256: design?.netlistSha256 ?? null,
+        });
+        if (outcome.rejected) {
+          const reject = outcome.rejected[0];
+          acceptance = {
+            ...(acceptance || { ready: null, netlist: {}, findings: [] }),
+            simulation: { invalid: true, code: reject.code, reason: reject.reason, evidencePath: reject.evidencePath ?? null, binding: reject.binding ?? null },
+          };
+          simulationEvidence = { consumed: false, rejected: outcome.rejected };
+          logger.warn('Release', '提供的仿真证据未通过 fail-closed 校验，闸门将如实报不可用', { code: reject.code, reason: reject.reason });
+        } else if (acceptance?.designChecks) {
+          simulationEvidence = { consumed: false, rejected: [{ code: RELEASE_CODES.SIMULATION_EVIDENCE_INVALID, reason: '本次验收已有 EDA 侧设计检查点结论：显式仿真证据不覆盖它' }] };
+        } else if (acceptance?.simulation) {
+          simulationEvidence = { consumed: false, rejected: [{ code: RELEASE_CODES.SIMULATION_EVIDENCE_INVALID, reason: '验收报告已自带仿真结论：不重复覆盖' }] };
+        } else {
+          acceptance = { ...(acceptance || { ready: null, netlist: {}, findings: [] }), simulation: outcome.simulation };
+          simulationEvidence = {
+            consumed: true,
+            evidencePath: outcome.simulation.evidencePath,
+            evidenceHash: outcome.simulation.evidenceHash,
+            partial: outcome.simulation.partial,
+            binding: outcome.simulation.binding,
+          };
+          logger.info('Release', '放行门已消费本机仿真证据（仅关键子电路，覆盖范围如实标注）', { evidencePath: outcome.simulation.evidencePath, netlistSha256: outcome.simulation.netlist.sha256 });
+        }
+      }
     return {
       acceptance, artifacts, design, placementVerification,
-      drcReport: body.drcReport ? normalizeDrcReport(body.drcReport) : null,
-      exemptions: Array.isArray(body.exemptions) ? body.exemptions : loadExemptionFile(defaultExemptionPath()).exemptions,
+      // 第 61 轮：DRC 输入归一化的同时保留绑定（pcbUuid），gateDrc 用它判断"是不是当前这块板"。
+      drcReport: body.drcReport ? normalizeReleaseDrcReport(body.drcReport) : null,
+      exemptions: Array.isArray(body.exemptions) ? body.exemptions : (await loadDrcExemptionFileForCurrentProject()).exemptions,
       writeback: body.writeback || null, userConfirmed: body.userConfirmed === true, pricing: body.pricing || null,
+      targetPcbUuid, simulationEvidence,
     };
   };
 
@@ -791,30 +1605,73 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
     }
     if (method === 'OPTIONS') {
       if (origin) response.setHeader('access-control-allow-origin', origin);
-      response.setHeader('access-control-allow-methods', 'GET,POST,DELETE,OPTIONS');
-      response.setHeader('access-control-allow-headers', 'content-type,x-circuitpilot-token');
+      // 允许的方法必须覆盖真实用到的动词。历史缺陷：这里漏了 PUT，浏览器预检直接失败，
+      // 请求根本没离开 WebView，前端只能看到 fetch 抛错（表现为“保存不了 / Runtime 不可达”），
+      // 而 Runtime 日志里连一条请求都不会出现。
+      response.setHeader('access-control-allow-methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      response.setHeader('access-control-allow-headers', 'content-type,x-circuitpilot-token,x-circuitpilot-agent-token');
+      response.setHeader('access-control-max-age', '600');
+      if (origin) response.setHeader('vary', 'origin');
       response.writeHead(204);
       return response.end();
     }
     // 唯一公开路由是 GET /api/health，它本身也不会向未受信任的来源泄漏令牌。
     // 其余路由（含只读 GET）一律要求会话令牌，避免本机任意进程读取设计数据、日志和工具链路径。
     const isPublicRoute = method === 'GET' && url.pathname === '/api/health';
-    if (!isPublicRoute && request.headers['x-circuitpilot-token'] !== sessionToken) {
-      // 鉴权失败必须留下可审计痕迹（但不记录令牌本身）。此前这里静默返回 401，
-      // 排查“前端为什么连不上”时日志里什么都看不到。
-      logger.warn('Http', 'Rejected request with invalid session token', {
-        method,
-        path: url.pathname,
-        // 注意：字段名不能包含 token/key/secret/credential，否则会被 logger 的
-        // SECRET_KEYS 规则整段涂成 [REDACTED]，日志就失去诊断价值了。
-        hadAuthHeader: typeof request.headers['x-circuitpilot-token'] === 'string',
-        issuanceEnabled: httpTokenIssuance,
-      });
-      return sendJson(response, 401, runtimeError(Object.assign(new Error('Runtime会话令牌无效'), { code: 'RUNTIME_TOKEN_INVALID' })), origin);
+    const sessionAuthorized = request.headers['x-circuitpilot-token'] === sessionToken;
+    let agentContext = null;
+    if (!isPublicRoute && !sessionAuthorized) {
+      // Agent 令牌是第二条独立通道（DSH 插件/外部 Agent 用），不与 UI 会话令牌共享。
+      // 先认证、再按路由 denylist 授权：认证失败 401，认证成功但越权 403。
+      const agentToken = await storedAgentToken;
+      agentContext = verifyAgentToken(request.headers[AGENT_TOKEN_HEADER], agentToken);
+      if (agentContext) {
+        try {
+          assertAgentRouteAllowed(method, url.pathname);
+        } catch (error) {
+          logger.warn('Http', 'Agent token rejected by route boundary', {
+            agent: agentContext.name,
+            method,
+            path: url.pathname,
+            code: error?.code,
+          });
+          recordAgentAudit({ kind: 'denied', actor: 'agent', agent: agentContext.name, method, path: url.pathname, outcome: 'denied', status: 403, note: error?.code });
+          return sendJson(response, 403, runtimeError(error), origin);
+        }
+        request.agent = agentContext;
+        if (method !== 'GET' && method !== 'HEAD') {
+          logger.info('Http', 'Agent token request accepted', {
+            agent: agentContext.name,
+            method,
+            path: url.pathname,
+          });
+          recordAgentAudit({ kind: 'request', actor: 'agent', agent: agentContext.name, method, path: url.pathname, outcome: 'accepted' });
+        }
+      } else {
+        // 鉴权失败必须留下可审计痕迹（但不记录令牌本身）。此前这里静默返回 401，
+        // 排查“前端为什么连不上”时日志里什么都看不到。
+        logger.warn('Http', 'Rejected request with invalid session token', {
+          method,
+          path: url.pathname,
+          // 注意：字段名不能包含 token/key/secret/credential，否则会被 logger 的
+          // SECRET_KEYS 规则整段涂成 [REDACTED]，日志就失去诊断价值了。
+          hadAuthHeader: typeof request.headers['x-circuitpilot-token'] === 'string',
+          hadAgentAuthHeader: typeof request.headers[AGENT_TOKEN_HEADER] === 'string',
+          issuanceEnabled: httpTokenIssuance,
+        });
+        return sendJson(response, 401, runtimeError(Object.assign(new Error('Runtime会话令牌无效'), { code: 'RUNTIME_TOKEN_INVALID' })), origin);
+      }
     }
 
     try {
       let result;
+      /**
+       * P0-8：所有 EDA 写入口在分发前统一过 Runtime 写暂停门禁。
+       *
+       * 放在分发前而不是各路由内，是为了避免"以后新增写路由忘了加判断"再次退化；
+       * 只读分析、文件导出、证据落盘不在名单里（暂停写入不能让人连检查都做不了）。
+       */
+      if (method === 'POST' && EDA_WRITE_ROUTES.has(url.pathname)) await assertEdaWritesOpen(url.pathname);
       // C6：项目级路由用 URL 里的项目 id 做隔离键（声明在 try 内，避免全局变量）。
       let projectMatch = null;
       if (method === 'GET' && url.pathname === '/api/health') {
@@ -823,6 +1680,190 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         // 永远拿不到写权限凭据。
         const trustedOrigin = typeof origin === 'string' && ALLOWED_ORIGINS.has(origin);
         result = { ok: true, service: 'circuitpilot-runtime', version: RUNTIME_VERSION, host: RUNTIME_HOST, ...(httpTokenIssuance && trustedOrigin ? { sessionProof: sessionToken } : {}) };
+      } else if (method === 'GET' && url.pathname === '/api/agent/status') {
+        // Agent 接入控制台（只读）：UI 与 Agent 都可读；只返回令牌元数据与最近审计，
+        // 令牌原文永远不出现在响应里（agentConsoleStatus 已做脱敏与字段白名单）。
+        const status = await agentConsoleStatus({ tokenFile: agentTokenPath, auditFile: agentAuditPath, limit: 5 });
+        result = {
+          ok: true,
+          agent: {
+            available: status.available,
+            file: status.file,
+            name: status.name,
+            scopes: status.scopes,
+            createdAt: status.createdAt,
+            ...(status.reason ? { reason: status.reason } : {}),
+            ...(status.reasonDetail ? { reasonDetail: status.reasonDetail } : {}),
+          },
+          audit: status.audit,
+          auditTotal: status.auditTotal,
+          auditTruncated: status.auditTruncated,
+          ...(status.auditIntegrity ? { auditIntegrity: status.auditIntegrity } : {}),
+          ...(status.auditError ? { auditError: status.auditError } : {}),
+        };
+      } else if (method === 'GET' && url.pathname === '/api/agent/audit') {
+        // 审计只对 UI 会话开放；Agent token 在 denylist 已被 403，不会走到这里。
+        const requested = Number(new URL(request.url, 'http://127.0.0.1').searchParams.get('limit'));
+        const limit = Number.isFinite(requested) && requested > 0 ? Math.min(1000, Math.floor(requested)) : 20;
+        const audit = await readAgentAudit({ auditFile: agentAuditPath, limit });
+        result = { ok: true, events: audit.events, total: audit.total, truncated: audit.truncated, badLines: audit.badLines, ...(audit.integrity ? { integrity: audit.integrity } : {}), ...(audit.error ? { error: audit.error } : {}) };
+      } else if (method === 'POST' && url.pathname === '/api/agent/token/rotate') {
+        // 仅 UI 会话：Agent token 对 /api/agent/* 的非 GET 请求已被 denylist 拒绝。
+        const rotated = await rotateAgentToken({ tokenFile: agentTokenPath });
+        // 轮换后必须刷新认证缓存，否则旧令牌会继续有效到 Runtime 重启。
+        storedAgentToken = readAgentToken(agentTokenPath).catch((error) => {
+          logger.error('Runtime', 'Rotated agent token could not be re-read; agent access disabled', { code: error?.code, message: error?.message });
+          return null;
+        });
+        recordAgentAudit({ kind: 'rotate', actor: 'ui', method, path: url.pathname, outcome: 'ok', status: 200 });
+        logger.info('Runtime', 'Agent token rotated', { file: rotated.file });
+        result = { ok: true, agent: rotated };
+      } else if (method === 'POST' && url.pathname === '/api/agent/plan-requests') {
+        /**
+         * 计划级待审批队列（task-40）：Agent（或本机 UI）登记“已生成、尚未执行”的计划，
+         * 只落队列、不签发 approval token、不执行写操作。Agent 只被放行这一条 POST 精确路径。
+         */
+        const body = await readBody(request);
+        const planRequest = requirePlanRequestStore().create(body);
+        recordAgentAudit({
+          kind: 'request',
+          actor: request.agent ? 'agent' : 'ui',
+          ...(request.agent ? { agent: request.agent.name } : {}),
+          method,
+          path: url.pathname,
+          outcome: 'created',
+          status: 200,
+          planHash: planRequest.planHash,
+          requestId: planRequest.requestId,
+        });
+        logger.info('PlanRequests', 'Plan approval request created', {
+          requestId: planRequest.requestId, kind: planRequest.kind, ...(request.agent ? { agent: request.agent.name } : {}),
+        });
+        result = { ok: true, request: planRequest };
+      } else if (method === 'GET' && url.pathname === '/api/agent/plan-requests') {
+        // 仅 UI 会话可见（Agent 令牌在 /api/agent/* 边界 403）；只读，不签 token。
+        const statusParam = url.searchParams.get('status') ?? 'pending';
+        if (!['pending', 'approved', 'all'].includes(statusParam)) {
+          throw Object.assign(new Error('status 只能是 pending/approved/all'), { code: 'PLAN_REQUEST_INVALID', status: 400 });
+        }
+        const rawLimit = url.searchParams.get('limit');
+        let limit = 100;
+        if (rawLimit !== null) {
+          if (!/^\d+$/.test(rawLimit)) throw Object.assign(new Error('limit 必须是 1..100 的整数'), { code: 'PLAN_REQUEST_INVALID', status: 400 });
+          limit = Number(rawLimit);
+          if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+            throw Object.assign(new Error('limit 必须是 1..100 的整数'), { code: 'PLAN_REQUEST_INVALID', status: 400 });
+          }
+        }
+        const requests = requirePlanRequestStore().list({ status: statusParam, limit });
+        result = { ok: true, total: requests.length, requests };
+      } else if (method === 'POST' && /^\/api\/agent\/plan-requests\/[^/]+\/decision$/.test(url.pathname)) {
+        // 仅 UI 会话（Agent 令牌在该路由 403）；approve/reject 只改队列记录，不签发 token。
+        const rawRequestId = url.pathname.split('/')[4] ?? '';
+        let requestId;
+        try {
+          requestId = decodeURIComponent(rawRequestId).trim();
+        } catch {
+          throw Object.assign(new Error('requestId 非法（URL 编码无法解析）'), { code: 'PLAN_REQUEST_INVALID', status: 400 });
+        }
+        const body = await readBody(request);
+        if (body?.confirm !== true) {
+          throw Object.assign(new Error('UI 决定待审批计划必须显式 confirm=true（批准/拒绝都不会签发 token）'), {
+            code: 'PLAN_REQUEST_CONFIRM_REQUIRED', status: 400,
+          });
+        }
+        const decided = requirePlanRequestStore().decide(requestId, { decision: body?.decision, note: body?.note });
+        recordAgentAudit({
+          kind: 'approve',
+          actor: 'ui',
+          method,
+          path: url.pathname,
+          outcome: decided.status === 'approved' ? 'approved' : 'rejected',
+          status: 200,
+          planHash: decided.planHash,
+          requestId: decided.requestId,
+        });
+        logger.info('PlanRequests', 'Plan approval request decided by UI', { requestId: decided.requestId, status: decided.status });
+        result = { ok: true, request: decided };
+      } else if (method === 'GET' && url.pathname === '/api/agent/approvals') {
+        // UI 待执行批准队列（只读，仅 UI 会话）：Agent 令牌对 /api/agent/* 只放行 status/health，
+        // 本路由不在 AGENT_PUBLIC_ROUTES，Agent 访问已在边界 403。
+        // 合并 design / pcb 两个 ApprovalStore；任一路由的 manager 缺 approvals.list 或读取失败时
+        // 降级为空列表（不 500，也不把“读不到”伪装成“没有待批准”之外的东西）。
+        const approvals = [];
+        for (const [kind, manager] of [['design', designManager], ['pcb', pcbManager]]) {
+          const store = manager?.approvals;
+          if (!store || typeof store.list !== 'function') continue;
+          let rows;
+          try {
+            rows = store.list();
+          } catch (error) {
+            logger.warn('Approvals', 'Pending approval list unavailable; returning empty', { kind, code: error?.code, message: error?.message });
+            continue;
+          }
+          if (!Array.isArray(rows)) continue;
+          for (const row of rows) {
+            if (!row || typeof row !== 'object') continue;
+            // 字段白名单：publicView 之外绝不下发 token/tokenDigest 或 Store 内部字段。
+            approvals.push({
+              approvalId: row.approvalId,
+              kind,
+              scope: row.scope,
+              bindings: row.bindings && typeof row.bindings === 'object' ? row.bindings : {},
+              note: row.note ?? '',
+              issuedAt: row.issuedAt,
+              expiresAt: row.expiresAt,
+            });
+          }
+        }
+        approvals.sort((a, b) => (a.expiresAt ?? 0) - (b.expiresAt ?? 0) || (a.issuedAt ?? 0) - (b.issuedAt ?? 0));
+        result = { ok: true, total: approvals.length, approvals };
+      } else if (method === 'POST' && /^\/api\/agent\/approvals\/[^/]+\/revoke$/.test(url.pathname)) {
+        // UI 按 approvalId 撤销“已签发未使用”的批准（不执行、不返回令牌）。
+        const rawApprovalId = url.pathname.split('/')[4] ?? '';
+        let approvalId;
+        try {
+          approvalId = decodeURIComponent(rawApprovalId).trim();
+        } catch {
+          throw Object.assign(new Error('批准 ID 非法（URL 编码无法解析）'), { code: 'APPROVAL_ID_INVALID', status: 400 });
+        }
+        if (!approvalId) throw Object.assign(new Error('批准不存在或已失效'), { code: 'APPROVAL_NOT_FOUND', status: 404 });
+
+        let revoked = null;
+        for (const [kind, manager] of [['design', designManager], ['pcb', pcbManager]]) {
+          const store = manager?.approvals;
+          if (!store || typeof store.revokeById !== 'function') continue;
+          try {
+            const record = store.revokeById(approvalId);
+            revoked = { kind, approvalId: record?.approvalId || approvalId };
+            break;
+          } catch (error) {
+            const reason = error?.details?.reason;
+            // 已使用/已过期：保留 APPROVAL_INVALID，走既有 409 映射，明确“不是找不到，而是已失效”。
+            if (reason === 'used' || reason === 'expired') throw error;
+            // missing / revoked：继续查另一个 Store；都不命中按“不存在”404（与二次撤销一致）。
+          }
+        }
+        if (!revoked) throw Object.assign(new Error('批准不存在或已失效'), { code: 'APPROVAL_NOT_FOUND', status: 404 });
+
+        // UI 审计：只记元数据（approvalId/路径/结果），不记令牌。
+        recordAgentAudit({ kind: 'approve', actor: 'ui', method, path: url.pathname, outcome: 'revoked', status: 200, approvalId: revoked.approvalId });
+        logger.info('Approvals', 'Pending approval revoked by UI', { kind: revoked.kind, approvalId: revoked.approvalId });
+        result = { ok: true, cancelled: true, kind: revoked.kind, approvalId: revoked.approvalId };
+      } else if (method === 'GET' && url.pathname === '/api/write-gate') {
+        // P0-8：写暂停的只读镜像。UI 启动/保存设置后都以这里为准，不再只信 localStorage。
+        const gate = await writeGate.load();
+        result = { ok: true, gate };
+      } else if (method === 'POST' && url.pathname === '/api/write-gate') {
+        /**
+         * P0-8：设置/恢复全局写暂停（唯一权威在 Runtime）。
+         * 恢复也必须能在这个路由里完成——所以它不在 EDA_WRITE_ROUTES 里（否则暂停后无法解除）。
+         */
+        const body = await readBody(request);
+        // P0-5 复审：会话级暂停也由 Runtime 权威执行（scope='session'），不再只是前端自觉。
+        const gate = await writeGate.set({ paused: body?.paused, reason: body?.reason, actor: body?.actor, scope: body?.scope === 'session' ? 'session' : 'global' });
+        logger.warn('WriteGate', gate.paused || gate.sessionPaused ? 'EDA write pause enabled' : 'EDA write pause cleared', { scope: body?.scope === 'session' ? 'session' : 'global', reason: gate.reason, actor: gate.actor, version: gate.version });
+        result = { ok: true, gate };
       } else if (method === 'GET' && url.pathname === '/api/project-state') {
         const loaded = projectStateStore.read();
         result = { ok: true, state: loaded.state, savedAt: loaded.savedAt };
@@ -838,6 +1879,16 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           throw Object.assign(new Error('问题状态请求体必须是 {state:{issues}}'), { code: 'ISSUE_STATE_INVALID', status: 400 });
         }
         const saved = issueStateStore.save(body.state);
+        result = { ok: true, state: saved.state, savedAt: saved.savedAt, truncated: saved.truncated, total: saved.total };
+      } else if (method === 'GET' && url.pathname === '/api/validation-state') {
+        const loaded = validationStateStore.load();
+        result = { ok: true, state: loaded.state, savedAt: loaded.savedAt, truncated: loaded.truncated, total: loaded.total };
+      } else if (method === 'PUT' && url.pathname === '/api/validation-state') {
+        const body = await readBody(request);
+        if (!body || typeof body !== 'object' || !body.state || typeof body.state !== 'object' || Array.isArray(body.state)) {
+          throw Object.assign(new Error('验证状态请求体必须是 {state:{validations}}'), { code: 'VALIDATION_STATE_INVALID', status: 400 });
+        }
+        const saved = validationStateStore.save(body.state);
         result = { ok: true, state: saved.state, savedAt: saved.savedAt, truncated: saved.truncated, total: saved.total };
       } else if (method === 'PUT' && url.pathname === '/api/trace-state') {
         const body = await readBody(request);
@@ -992,26 +2043,360 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         // G4：脱敏预览（与日志/诊断包同一套 redactSecrets；不改发送行为）。
         const body = await readBody(request);
         result = previewProviderEgress(body?.payload);
+      } else if (method === 'GET' && url.pathname === '/api/eda/gates/status') {
+        const status = gateService.status({ pcbUuid: url.searchParams.get('pcbUuid') || '' });
+        // P0-9：门禁建议只取 approved + 未过期知识，并写 usage；未审核条目不进入。
+        const knowledgeAdvice = buildGateKnowledgeAdvice({ store: knowledgeStore, report: status.report, record: false });
+        result = { ok: true, ...status, knowledgeAdvice };
+      } else if (method === 'POST' && url.pathname === '/api/eda/gates/collect') {
+        // P0-2 复审：把 G2–G4 的证据生产者接到产品入口。缺输入只回报 missing，绝不伪造 pass。
+        const body = await readBody(request);
+        let pcbUuid = typeof body?.pcbUuid === 'string' && body.pcbUuid.trim() ? body.pcbUuid.trim() : '';
+        let projectId = typeof body?.projectId === 'string' ? body.projectId.trim() : '';
+        if (!pcbUuid || !projectId) {
+          const fingerprint = await currentEdaFingerprint().catch(() => null);
+          pcbUuid = pcbUuid || fingerprint?.fingerprint?.pcbUuid || '';
+          projectId = projectId || fingerprint?.fingerprint?.projectUuid || '';
+        }
+        // 取证必须取"这块板/这个工程"的证据：无过滤的 latest 会把别的项目 ERC/DRC 当成本项目结论。
+        const ercEntry = projectId
+          ? evidenceStore.latest('schematic-erc', { fingerprint: { projectUuid: projectId } })
+          : evidenceStore.latest('schematic-erc');
+        const drcEntry = pcbUuid
+          ? evidenceStore.latest('drc-report', { fingerprint: { pcbUuid } })
+          : evidenceStore.latest('drc-report');
+        const erc = body?.erc ?? (ercEntry?.payload?.report ?? ercEntry?.payload ?? null);
+        const drc = body?.drc ?? (drcEntry?.payload?.report ?? drcEntry?.payload ?? null);
+        // G1：spec 可以由调用方传已校验对象，也可以传 specInput 由服务端 buildDesignSpec 生成（不要信客户端自报“已校验”）。
+        let spec = body?.spec && typeof body.spec === 'object' ? body.spec : null;
+        let specError = null;
+        if (!spec && body?.specInput && typeof body.specInput === 'object') {
+          try { spec = buildDesignSpec(body.specInput); } catch (error) { specError = String(error?.message || error).slice(0, 200); }
+        }
+        // G2 器件清单优先用请求体，否则用 Runtime 持久化的当前项目器件（不再要求前端自备一份）。
+        let components = Array.isArray(body?.components) ? body.components : [];
+        if (!components.length && projectId) {
+          try { components = projectScopedStore.read(projectId)?.state?.components ?? []; } catch { components = []; }
+        }
+        // G3 实际网表：请求体没给就读 EDA 当前原理图导出（只读命令）；桥不可用/读失败只进 missing，绝不伪造。
+        let actualNetlist = body?.actualNetlist ?? null;
+        let actualNetlistError = null;
+        if (!actualNetlist && body?.readActualNetlist !== false && bridge && typeof bridge.execute === 'function') {
+          try {
+            const exported = await exportSchematicNetlistText((commandId, args, options) => bridge.execute(commandId, args, options));
+            actualNetlist = exported?.text || null;
+            if (!actualNetlist) actualNetlistError = exported?.reason || 'EDA 未返回网表文本';
+          } catch (error) {
+            actualNetlistError = String(error?.message || error).slice(0, 200);
+          }
+        }
+        // G5/G6 证据由产品动作在服务端生成（placement/apply、release/gate 已自动落盘）；
+        // collect 不接受调用方自报的 placement/fabricationRelease，避免“客户端自证通过”。
+        const collected = collectGateEvidence({
+          evidenceStore,
+          pcbUuid,
+          projectId,
+          boardId: body?.boardId ?? null,
+          components,
+          erc,
+          drc,
+          intentNetlist: body?.intentNetlist ?? null,
+          actualNetlist,
+          spec,
+          ercExemptions: Array.isArray(body?.ercExemptions) ? body.ercExemptions : [],
+          drcExemptions: Array.isArray(body?.drcExemptions) ? body.drcExemptions : [],
+        });
+        if (specError) collected.missing.push({ kind: 'design-spec', reason: `specInput 无法生成合法 design-spec：${specError}` });
+        if (actualNetlistError && !actualNetlist) collected.missing.push({ kind: 'netlist-diff', reason: `读取 EDA 实际网表失败：${actualNetlistError}` });
+        const status = gateService.status({ pcbUuid });
+        // `report` 保留门禁裁决报告（UI 按六门展示）；取证自身的汇总放 evidenceReport，避免两个 report 互相覆盖。
+        result = { ok: true, saved: collected.saved, missing: collected.missing, skipped: collected.skipped, evidenceReport: collected.report, ...status };
+        logger.info('Gates', 'Gate evidence collected', { pcbUuid, projectId, saved: collected.saved?.length ?? 0, missing: collected.missing?.length ?? 0, verdict: status.report?.verdict ?? null });
+      } else if (method === 'POST' && url.pathname === '/api/eda/gates/evaluate') {
+        const body = await readBody(request);
+        const evaluated = gateService.evaluate({ pcbUuid: body?.pcbUuid });
+        const knowledgeAdvice = buildGateKnowledgeAdvice({ store: knowledgeStore, report: evaluated.report });
+        result = { ok: true, ...evaluated, knowledgeAdvice };
+        logger.info('Gates', 'Gate report archived', { pcbUuid: body?.pcbUuid ?? null, verdict: result.report?.verdict ?? null });
+      } else if (method === 'POST' && url.pathname === '/api/eda/gates/signoff') {
+        const body = await readBody(request);
+        result = { ok: true, ...gateService.signoff({ pcbUuid: body?.pcbUuid, signedBy: body?.signedBy, decision: body?.decision, note: body?.note }) };
+        logger.info('Gates', 'Human signoff recorded', { pcbUuid: body?.pcbUuid ?? null, decision: body?.decision ?? null, signedBy: body?.signedBy ?? null });
+      } else if (method === 'GET' && url.pathname === '/api/eda/gates/approvals') {
+        result = { ok: true, ...approvalLedger.snapshot({ limit: Number(url.searchParams.get('limit')) || 100 }) };
+      } else if (method === 'GET' && url.pathname === '/api/knowledge/entries') {
+        result = { ok: true, knowledge: knowledgeApi.list({
+          kind: url.searchParams.get('kind') || null,
+          trust: url.searchParams.get('trust') || null,
+          reviewState: url.searchParams.get('reviewState') || null,
+          entityKey: url.searchParams.get('entityKey') || null,
+          text: url.searchParams.get('text') || null,
+          includeExpired: url.searchParams.get('includeExpired') === '1' || url.searchParams.get('includeExpired') === 'true',
+        }) };
+      } else if (method === 'POST' && url.pathname === '/api/knowledge/entries') {
+        const body = await readBody(request);
+        result = { ok: true, ...knowledgeApi.save({ kind: body?.kind, title: body?.title, payload: body?.payload, provenance: body?.provenance, trust: body?.trust, ttlDays: body?.ttlDays }) };
+        logger.info('Knowledge', 'Knowledge entry saved as candidate', { kind: body?.kind, id: result.entry?.id ?? null });
+      } else if (method === 'POST' && /^\/api\/knowledge\/entries\/[^/]+\/review$/.test(url.pathname)) {
+        const id = decodeURIComponent(url.pathname.split('/')[4]);
+        const body = await readBody(request);
+        result = { ok: true, ...knowledgeApi.review({ id, state: body?.state, reviewedBy: body?.reviewedBy }) };
+        logger.info('Knowledge', 'Knowledge entry reviewed', { id, state: body?.state, reviewedBy: body?.reviewedBy ?? null });
+      } else if (method === 'GET' && url.pathname === '/api/knowledge/review-queue') {
+        result = { ok: true, ...buildReviewQueue({ store: knowledgeStore }) };
+      } else if (method === 'GET' && url.pathname === '/api/knowledge/health') {
+        result = { ok: true, metrics: healthMetrics({ store: knowledgeStore }) };
+      } else if (method === 'GET' && url.pathname === '/api/knowledge/conflicts') {
+        result = { ok: true, ...knowledgeApi.conflicts({ entityKey: url.searchParams.get('entityKey') || '' }) };
+      } else if (method === 'GET' && url.pathname === '/api/knowledge/usage') {
+        result = { ok: true, ...knowledgeApi.usage({ id: url.searchParams.get('id') || '' }) };
+      } else if (method === 'POST' && url.pathname === '/api/knowledge/usage') {
+        const body = await readBody(request);
+        result = { ok: true, ...knowledgeApi.recordUsage({ id: body?.id, agent: body?.agent, outcome: body?.outcome, note: body?.note }) };
+      } else if (method === 'GET' && url.pathname === '/api/knowledge/agent/status') {
+        result = { ok: true, scheduler: knowledgeScheduler.status(), manager: knowledgeManager.status() };
+      } else if (method === 'POST' && url.pathname === '/api/knowledge/agent/run') {
+        const body = await readBody(request);
+        const task = String(body?.task || 'all');
+        if (!['all', 'badcases', 'web', 'maintain'].includes(task)) {
+          throw Object.assign(new Error('task 只能是 all/badcases/web/maintain'), { code: KNOWLEDGE_API_CODES.INVALID, status: 400 });
+        }
+        const tasks = task === 'all' ? ['badcases', 'web', 'maintain'] : [task];
+        const cycle = await knowledgeScheduler.runNow({ reason: 'manual', tasks });
+        result = { ok: cycle.ok !== false, cycle };
+        logger.info('Knowledge', 'KMA run completed', { task, ok: cycle.ok !== false });
+      } else if (method === 'GET' && url.pathname === '/api/knowledge/retro/status') {
+        result = { ok: true, agent: retrospectiveLearner.status() };
+      } else if (method === 'POST' && url.pathname === '/api/knowledge/retro/run') {
+        // W5-01：复盘学习 Agent。默认自动采集证据；lessons 由人或 AI 显式提交（AI 产出同样只能当候选）。
+        const body = await readBody(request);
+        const lessons = Array.isArray(body?.lessons) ? body.lessons : [];
+        const evidence = body?.includeEvidence === false ? [] : collectRetroEvidence();
+        const payload = {
+          projectId: typeof body?.projectId === 'string' ? body.projectId : null,
+          boardId: typeof body?.boardId === 'string' ? body.boardId : null,
+          pcbUuid: typeof body?.pcbUuid === 'string' ? body.pcbUuid : null,
+          projectName: typeof body?.projectName === 'string' ? body.projectName : null,
+          evidence,
+          release: body?.release && typeof body.release === 'object' ? body.release : null,
+          gates: body?.gates && typeof body.gates === 'object' ? body.gates : null,
+          changes: Array.isArray(body?.changes) ? body.changes : [],
+          notes: typeof body?.notes === 'string' ? body.notes : null,
+          docRefs: Array.isArray(body?.docRefs) ? body.docRefs : [],
+          lessons,
+        };
+        const outcome = retrospectiveLearner.runSafely(payload);
+        if (!outcome.ok) {
+          logger.warn('Knowledge', 'RLA run failed', { code: outcome.code, message: outcome.message });
+          throw Object.assign(new Error(outcome.message), { code: outcome.code, status: outcome.code === 'RETRO_NO_EVIDENCE' ? 409 : 400, details: outcome.details ?? null });
+        }
+        // 复盘写入 candidate 后立刻让 KMA 做一次整理（去重/冲突/过期/积压看板），
+        // 但整理报告只是候选状态体检，不改变审核结论——审核仍由人工在「审核队列」完成。
+        let maintenance = null;
+        try {
+          const report = knowledgeManager.maintain();
+          maintenance = { ok: true, pendingReview: report.pendingReview, conflicts: report.conflicts.count, expired: report.expired.count, staleCandidates: report.staleCandidates.count, evidencePath: report.evidencePath ?? null };
+        } catch (error) {
+          maintenance = { ok: false, code: error?.code ?? 'KMA_MAINTAIN_FAILED', message: String(error?.message || error).slice(0, 200) };
+        }
+        // 再由已有整理能力做第二轮：跨项目按缺陷码合并（只写 candidate）。
+        let merged = null;
+        try { merged = retrospectiveLearner.merge(); } catch (error) { merged = { ok: false, code: error?.code ?? 'RETRO_MERGE_FAILED', message: String(error?.message || error).slice(0, 200) }; }
+        result = { ok: true, run: outcome.run, maintenance, merged };
+        logger.info('Knowledge', 'RLA run completed', { projectId: outcome.run.projectId, created: outcome.run.summary.created, duplicates: outcome.run.summary.duplicates, pendingReview: maintenance?.pendingReview ?? null, merged: merged?.created ?? 0 });
+      } else if (method === 'POST' && url.pathname === '/api/knowledge/retro/draft') {
+        // W5-02：让已配置的大模型"起草"复盘经验——只回草案，不直接写库；草案仍是不可信文本。
+        const body = await readBody(request);
+        const evidence = body?.includeEvidence === false ? [] : collectRetroEvidence();
+        const facts = collectRetroFacts({
+          projectId: typeof body?.projectId === 'string' ? body.projectId : null,
+          boardId: typeof body?.boardId === 'string' ? body.boardId : null,
+          pcbUuid: typeof body?.pcbUuid === 'string' ? body.pcbUuid : null,
+          projectName: typeof body?.projectName === 'string' ? body.projectName : null,
+          evidence,
+          release: body?.release && typeof body.release === 'object' ? body.release : null,
+          gates: body?.gates && typeof body.gates === 'object' ? body.gates : null,
+          changes: Array.isArray(body?.changes) ? body.changes : [],
+          notes: typeof body?.notes === 'string' ? body.notes : null,
+          docRefs: Array.isArray(body?.docRefs) ? body.docRefs : [],
+        });
+        const hasFacts = facts.defects.length > 0 || Boolean(facts.release) || Boolean(facts.gates) || facts.changes.length > 0 || Boolean(facts.notes);
+        if (!hasFacts) throw Object.assign(new Error('没有可复盘事实：起草经验需要证据/交付结论/变更或给定 notes'), { code: 'RETRO_NO_EVIDENCE', status: 409 });
+        const generated = await chatManager.generate(
+          { provider: body?.provider, model: body?.model },
+          { instructions: RETRO_LESSON_DRAFT_INSTRUCTIONS, input: buildLessonDraftPrompt({ facts, maxLessons: Number(body?.maxLessons) || 6 }), schema: RETRO_LESSON_DRAFT_SCHEMA, timeoutMs: 150_000 },
+        );
+        const rawLessons = Array.isArray(generated?.json?.lessons) ? generated.json.lessons : [];
+        if (!rawLessons.length) throw Object.assign(new Error('模型没有给出可解析的 lessons，请重试或更换模型'), { code: 'RETRO_DRAFT_EMPTY', status: 502 });
+        const normalized = normalizeLessons({ lessons: rawLessons.map((lesson) => ({ ...(lesson && typeof lesson === 'object' ? lesson : {}), origin: 'ai' })) });
+        result = {
+          ok: true,
+          draft: {
+            provider: generated.providerId ?? null, model: generated.model ?? null,
+            lessons: normalized.lessons, problems: normalized.problems,
+            facts: { defects: facts.defects.length, evidenceKinds: facts.evidenceKinds, evidenceDigests: facts.evidenceDigests },
+            note: '草案是模型输出（不可信），需再走 POST /api/knowledge/retro/run 并以 unverified 入库、人工审核后才可用',
+          },
+        };
+        logger.info('Knowledge', 'RLA lesson draft generated', { provider: generated.providerId ?? null, lessons: normalized.lessons.length, problems: normalized.problems.length });
+      } else if (method === 'POST' && url.pathname === '/api/knowledge/retro/export') {
+        // W5-03：导出"经验包"供人工提交（GitHub Issue / 邮件 / 共享盘）——服务端不落盘、不上传。
+        const body = await readBody(request);
+        const evidence = body?.includeEvidence === false ? [] : collectRetroEvidence();
+        const facts = collectRetroFacts({
+          projectId: typeof body?.projectId === 'string' ? body.projectId : null,
+          boardId: typeof body?.boardId === 'string' ? body.boardId : null,
+          pcbUuid: typeof body?.pcbUuid === 'string' ? body.pcbUuid : null,
+          projectName: typeof body?.projectName === 'string' ? body.projectName : null,
+          evidence,
+          release: body?.release && typeof body.release === 'object' ? body.release : null,
+          gates: body?.gates && typeof body.gates === 'object' ? body.gates : null,
+          changes: Array.isArray(body?.changes) ? body.changes : [],
+          notes: typeof body?.notes === 'string' ? body.notes : null,
+          docRefs: Array.isArray(body?.docRefs) ? body.docRefs : [],
+        });
+        const normalized = Array.isArray(body?.lessons) && body.lessons.length
+          ? normalizeLessons({ lessons: body.lessons.map((lesson) => ({ ...(lesson && typeof lesson === 'object' ? lesson : {}) })) })
+          : { lessons: [], problems: [] };
+        const hasFacts = facts.defects.length > 0 || Boolean(facts.release) || Boolean(facts.gates) || facts.changes.length > 0 || Boolean(facts.notes) || normalized.lessons.length > 0;
+        if (!hasFacts) throw Object.assign(new Error('没有可导出的内容：需要证据/交付结论/变更/经验或给定 notes'), { code: 'RETRO_NO_EVIDENCE', status: 409 });
+        const bundle = buildExperienceBundle({
+          facts,
+          lessons: normalized.lessons,
+          appVersion: process.env.CIRCUITPILOT_APP_VERSION ?? null,
+          runtimeVersion: RUNTIME_VERSION,
+          includeProjectName: body?.includeProjectName === true,
+          includeMessages: body?.includeMessages === true,
+          includeLessons: body?.includeLessons !== false,
+          note: typeof body?.note === 'string' ? body.note : null,
+        });
+        result = { ok: true, bundle, preview: experienceBundlePreview(bundle) };
+        logger.info('Knowledge', 'RLA experience bundle exported', { defects: facts.defects.length, lessons: normalized.lessons.length, bytes: bundle.bytes, sha256: bundle.bundleSha256 });
+      } else if (method === 'POST' && url.pathname === '/api/knowledge/retro/merge') {
+        const body = await readBody(request);
+        const minProjects = Number(body?.minProjects);
+        result = { ok: true, merge: retrospectiveLearner.merge(Number.isFinite(minProjects) ? { minProjects } : {}) };
+        logger.info('Knowledge', 'RLA cross-project merge completed', { groups: result.merge.groups, created: result.merge.created });
+      } else if (method === 'GET' && url.pathname === '/api/rag/status') {
+        result = { ok: true, rag: ragStore.status() };
+      } else if (method === 'POST' && url.pathname === '/api/rag/reindex') {
+        const stats = ragStore.reindex();
+        result = { ok: true, rag: stats };
+        logger.info('RAG', 'Index rebuilt', { docs: stats.docs, chunks: stats.chunks, terms: stats.terms });
+      } else if (method === 'POST' && url.pathname === '/api/rag/query') {
+        const body = await readBody(request);
+        const queryText = typeof body?.query === 'string' ? body.query.trim() : '';
+        if (!queryText) throw Object.assign(new Error('检索 query 不能为空'), { code: 'RAG_QUERY_EMPTY', status: 400 });
+        const kinds = Array.isArray(body?.kinds) ? body.kinds.filter((kind) => typeof kind === 'string') : null;
+        result = { ok: true, rag: ragStore.query({ query: queryText, topK: Number(body?.topK) || 8, kinds: kinds && kinds.length ? kinds : null, minScore: Number(body?.minScore) || 0 }) };
+        logger.info('RAG', 'Query completed', { query: queryText.slice(0, 80), results: result.rag.results.length, total: result.rag.total });
+      } else if (method === 'GET' && url.pathname === '/api/knowledge/badcases') {
+        result = { ok: true, badcases: knowledgeManager.listBadcases({ limit: Number(url.searchParams.get('limit')) || 50 }) };
+      } else if (method === 'POST' && url.pathname === '/api/research/search') {
+        // S1：联网检索默认关闭。服务端不读“会话态开关”，要求每次请求显式 allowResearch:true，
+        // 避免用户关掉设置后，旧页面/旧请求仍在偷偷联网。
+        const body = await readBody(request);
+        if (body?.allowResearch !== true) throw Object.assign(new Error('联网检索未开启：请先在设置中允许 AI 查询公网'), { code: RESEARCH_CODES.DISABLED, status: 403 });
+        const research = await searchWeb({ query: body?.query, provider: body?.provider || null, limit: body?.limit });
+        if (!research.ok) throw Object.assign(new Error(research.message), { code: research.code, status: research.code === RESEARCH_CODES.NO_RESULTS ? 404 : 502 });
+        result = { ok: true, research };
+        logger.info('Research', 'Web search completed', { provider: research.provider, results: research.results.length, query: String(body?.query || '').slice(0, 80), digest: research.digest.slice(0, 12) });
+      } else if (method === 'POST' && url.pathname === '/api/research/fetch') {
+        const body = await readBody(request);
+        if (body?.allowResearch !== true) throw Object.assign(new Error('联网检索未开启：请先在设置中允许 AI 查询公网'), { code: RESEARCH_CODES.DISABLED, status: 403 });
+        const page = await fetchPage({ url: body?.url });
+        if (!page.ok) throw Object.assign(new Error(page.message), { code: page.code, status: page.code === RESEARCH_CODES.URL_BLOCKED ? 400 : 502 });
+        result = { ok: true, page };
+        logger.info('Research', 'Web page fetched', { host: new URL(page.finalUrl).host, bytes: page.bytes, digest: page.digest.slice(0, 12) });
+      } else if (method === 'GET' && url.pathname === '/api/research/config') {
+        const config = await researchConfig.load();
+        result = { ok: true, config };
+      } else if (method === 'POST' && url.pathname === '/api/research/config') {
+        const body = await readBody(request);
+        if (typeof body?.enabled !== 'boolean') throw Object.assign(new Error('research.enabled 必须是布尔值'), { code: 'RESEARCH_CONFIG_INVALID', status: 400 });
+        const config = await researchConfig.set({ enabled: body.enabled, actor: body.actor });
+        await applyResearchSchedule(config);
+        result = { ok: true, config, schedulerRunning: knowledgeSchedulerRunning };
+        logger.info('Research', config.enabled ? 'Web research enabled' : 'Web research disabled', { actor: config.actor ?? null, schedulerRunning: knowledgeSchedulerRunning });
+      } else if (method === 'GET' && url.pathname === '/api/research/status') {
+        const config = await researchConfig.load();
+        result = { ok: true, research: { enabled: config.enabled === true, schedulerRunning: knowledgeSchedulerRunning, sources: [{ id: 'duckduckgo', label: 'DuckDuckGo（无需 API Key）' }, { id: 'bing', label: 'Bing（无需 API Key）' }], note: config.enabled ? '联网检索已开启：后台知识维护随之启动；请求仍需显式 allowResearch 放行；只读取证、不写工程' : '联网默认关闭：后台知识维护不启动；设置中开启后，由请求显式 allowResearch 放行；只读取证、不写工程' } };
       } else if (method === 'GET' && url.pathname === '/api/providers') {
-        result = { ok: true, providers: await providerStatuses(keychain) };
+        // 同一份列表里给前端"内置平台 + 注册表自定义 Provider"：内置在前，摘要形状见契约 §3。
+        // 自定义摘要是从公开配置 + 钥匙串"是否存在凭据"派生的，天然不含密钥字段。
+        result = {
+          ok: true,
+          providers: [...await providerStatuses(keychain), ...await customProviders.statuses(keychain)],
+          // 只在降级时出现：让前端能把"自定义 Provider 列表为空"和"状态文件坏了"区分开。
+          ...(customProvidersDegraded ? { customProviders: { available: false, ...customProvidersDegraded } } : {}),
+        };
+      } else if (method === 'PUT' && /^\/api\/custom-providers\/[^/]+$/.test(url.pathname)) {
+        // 新建/更新自定义模型 Provider。id 只允许在路径里出现一次（body 里的 id 必须与之一致，
+        // 否则会出现"PUT /acme 实际改了 beta"这种无法排查的静默错改）。
+        assertCustomProvidersWritable();
+        const id = decodeURIComponent(url.pathname.split('/')[3]);
+        const body = await readBody(request);
+        const { created, provider } = customProviders.upsert(body, { idFromPath: id });
+        let configured = false;
+        // 凭据状态只是界面提示：读不到钥匙串时按"未配置"显示，不因此回滚已经保存的配置。
+        try { configured = Boolean(await keychain.configured(provider.id)); } catch { configured = false; }
+        result = { ok: true, customProvider: { ...provider, configured, ready: configured } };
+        logger.info('CustomProviders', created ? 'Created custom model provider' : 'Updated custom model provider', {
+          provider: provider.id, protocol: provider.protocol, models: provider.models.length, configured,
+        });
+      } else if (method === 'DELETE' && /^\/api\/custom-providers\/[^/]+$/.test(url.pathname)) {
+        // 删除配置 + 撤销该 Provider 的钥匙串条目：只删配置会留下一个"孤儿密钥"，
+        // 用户以为已经删干净了。配置先删（可重建），密钥删除失败只如实回报，不假装成功。
+        assertCustomProvidersWritable();
+        const id = decodeURIComponent(url.pathname.split('/')[3]);
+        const removed = customProviders.remove(id);
+        let credential = { configured: false };
+        try {
+          await keychain.remove(id);
+        } catch (error) {
+          logger.error('CustomProviders', '自定义 Provider 已删除，但钥匙串条目删除失败', { provider: id, code: error?.code });
+          credential = { configured: false, removed: false, note: '配置已删除，但钥匙串条目删除失败，请到"钥匙串访问"里手动删除该条目' };
+        }
+        result = { ok: true, removed: removed.removed, credential };
+        logger.warn('CustomProviders', 'Removed custom model provider and its Keychain entry', { provider: id });
+      } else if (method === 'POST' && /^\/api\/custom-providers\/[^/]+\/models$/.test(url.pathname)) {
+        // "获取可用模型"：先确认存过 Key（否则会得到一句让人摸不着头脑的 401），
+        // 再按注册表里的地址/协议打 {base}/models。请求构造与连接测试共用 testProvider，
+        // 避免这里再复制一份超时/错误映射。
+        assertCustomProvidersWritable();
+        const id = decodeURIComponent(url.pathname.split('/')[3]);
+        const descriptor = customProviders.resolve(id);
+        if (!descriptor) throw customProviderNotFound(id);
+        let configured = false;
+        try { configured = Boolean(await keychain.configured(id)); } catch { configured = false; }
+        if (!configured) throw Object.assign(new Error(`${descriptor.label} 尚未保存 API 密钥，请先保存密钥再获取可用模型`), { code: 'CUSTOM_PROVIDER_KEY_REQUIRED', status: 409 });
+        const probed = await testProvider(id, keychain, { provider: descriptor });
+        result = { ok: true, models: (Array.isArray(probed?.models) ? probed.models : []).map((modelId) => ({ id: modelId })) };
+        logger.info('CustomProviders', 'Probed custom provider model list', { provider: id, models: result.models.length });
       } else if (method === 'POST' && /^\/api\/providers\/[^/]+\/login$/.test(url.pathname)) {
         const id = url.pathname.split('/')[3];
         result = { ok: true, login: await startProviderLogin(id) };
         logger.info('Provider', 'Started official provider login', { provider: id });
       } else if (method === 'POST' && /^\/api\/providers\/[^/]+\/key$/.test(url.pathname)) {
         const id = url.pathname.split('/')[3];
+        requireKnownProvider(id);
         const body = await readBody(request);
         result = { ok: true, credential: await keychain.store(id, body.key) };
+        // 请求体用完立即抹掉明文 Key，避免它继续流经后续任何可能记录 body 的代码路径。
         if (body && typeof body === 'object') body.key = undefined;
         logger.info('Credential', 'Stored provider credential in Keychain', { provider: id });
       } else if (method === 'DELETE' && /^\/api\/providers\/[^/]+\/key$/.test(url.pathname)) {
         const id = url.pathname.split('/')[3];
+        requireKnownProvider(id);
         result = { ok: true, credential: await keychain.remove(id) };
         logger.warn('Credential', 'Removed provider credential from Keychain', { provider: id });
       } else if (method === 'POST' && /^\/api\/providers\/[^/]+\/test$/.test(url.pathname)) {
         const id = url.pathname.split('/')[3];
+        requireKnownProvider(id);
         const testBody = await readBody(request);
-        result = { ok: true, test: await testProvider(id, keychain, { baseUrl: testBody?.baseUrl }) };
+        // 自定义 Provider 的地址以注册表为准：不允许请求体覆盖成任意 URL（那会绕开用户保存的配置）。
+        const customDescriptor = PROVIDERS[id] ? null : customProviders.resolve(id);
+        result = { ok: true, test: await testProvider(id, keychain, customDescriptor ? { provider: customDescriptor } : { baseUrl: testBody?.baseUrl }) };
         logger.info('Provider', 'Provider connection test completed', { provider: id });
       } else if (method === 'POST' && /^\/api\/providers\/[^/]+\/console$/.test(url.pathname)) {
         // 只传 Provider id，URL 由 Runtime 侧声明表决定；详情见 providers.mjs 的 openProviderConsole。
@@ -1047,8 +2432,18 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         // 统一裁决：本地门禁 + 落盘的人工证据（在线 DFM / 终审签核）只有一条结论。
         // 给了 PCB/计划标识就强制校验证据绑定：不能拿别的板/别的计划的 DFM 或签核来充数。
         const releaseBinding = { pcbUuid: text(body.pcbUuid) || null, planHash: text(body.planHash) || null };
-        const releaseDecision = buildReleaseDecision({ gate, dfm: evidenceStore.latest('dfm-evidence'), signoff: evidenceStore.latest('signoff'), binding: releaseBinding });
-        result = { ...gate, releaseDecision };
+        const releaseDecision = buildReleaseDecision({ gate, dfm: evidenceStore.latest('dfm-evidence'), signoff: latestReleaseSignoff(), binding: releaseBinding });
+        // P0-2/G6：每次真实放行判定都固化一份 fabrication-release 门禁证据（可按请求关闭）。
+        if (text(body.pcbUuid) && body.recordGateEvidence !== false) {
+          try {
+            const collected = collectGateEvidence({ evidenceStore, pcbUuid: text(body.pcbUuid), projectId: text(body.projectId) || null, fabricationRelease: gate });
+            result = { ...gate, releaseDecision, gateEvidence: { saved: collected.saved, missing: collected.missing } };
+          } catch (error) {
+            result = { ...gate, releaseDecision, gateEvidence: { saved: [], missing: [{ kind: 'fabrication-release', reason: String(error?.message || error).slice(0, 200) }] } };
+          }
+        } else {
+          result = { ...gate, releaseDecision };
+        }
       } else if (method === 'POST' && url.pathname === '/api/production/release') {
         /**
          * 产出决策：门禁没通过就只能出草稿，正式命名一律拒绝。
@@ -1061,7 +2456,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         const releaseDecision = buildReleaseDecision({
           gate,
           dfm: evidenceStore.latest('dfm-evidence'),
-          signoff: evidenceStore.latest('signoff'),
+          signoff: latestReleaseSignoff(),
           binding: { pcbUuid: text(body.pcbUuid) || null, planHash: text(body.planHash) || null },
         });
         result = { ...decideProductionOutput({ gate, requested, artifacts: evidence.artifacts }), releaseDecision };
@@ -1070,35 +2465,62 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         const body = await readBody(request);
         const evidence = await gatherReleaseEvidence(body);
         const gate = gateFabricationRelease({ ...evidence, constraints: Array.isArray(body.constraints) ? body.constraints : [], designFacts: body.designFacts ?? null, draftPathsReplaced: selfDraftReplacedPaths(body), engineering: body.engineering && typeof body.engineering === 'object' ? body.engineering : null, layoutAudit: body.layoutAudit && typeof body.layoutAudit === 'object' ? body.layoutAudit : null, engineeringExemptions: Array.isArray(body.engineeringExemptions) ? body.engineeringExemptions : [] });
-        const artifactsDirResolved = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? resolvePath(body.artifactsDir) : join(process.cwd(), 'deliverables');
-        const signoffEvidence = evidenceStore.latest('signoff');
+        const artifactsDirResolved = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? resolvePath(body.artifactsDir) : productionArtifactsRoot;
+        const signoffEvidence = latestReleaseSignoff();
         // planHash 优先取显式传入；没传则取人工签核证据里绑定的 planHash（签核对象本身就是这次放行的计划）。
         const archivePlanHash = text(body.planHash) || (typeof signoffEvidence?.payload?.planHash === 'string' ? signoffEvidence.payload.planHash : null);
-        let manifestHash = null;
-        try { manifestHash = inspectProductionArtifacts(artifactsDirResolved, { pcbUuid: text(body.pcbUuid) || null, planHash: archivePlanHash }).manifest?.manifestHash ?? null; } catch { manifestHash = null; }
+        // 不再用稀疏 binding 自行重算（那必然与导出/签核哈希不等）。优先用签核里绑定的清单哈希；
+        // 完整 binding 时会由 release-archive 在服务端用同一 binding 重算并校验。
+        const manifestHash = text(body.manifestHash) || (typeof signoffEvidence?.payload?.manifestHash === 'string' ? signoffEvidence.payload.manifestHash : null);
         const releaseDecision = buildReleaseDecision({
           gate,
           dfm: evidenceStore.latest('dfm-evidence'),
           signoff: signoffEvidence,
           binding: { pcbUuid: text(body.pcbUuid) || null, planHash: archivePlanHash, manifestHash },
         });
+        // P1-6 复审：归档 binding 必须与导出/签核同域，服务端才能重算 manifestHash（稀疏 binding 会结构性 400/409）。
+        const archiveBinding = {
+          planHash: archivePlanHash,
+          semanticPlanHash: text(body.semanticPlanHash) || (typeof signoffEvidence?.payload?.semanticPlanHash === 'string' ? signoffEvidence.payload.semanticPlanHash : null),
+          compiledPlanHash: text(body.compiledPlanHash) || null,
+          pcbUuid: text(body.pcbUuid) || null,
+          pcbExecutionId: text(body.pcbExecutionId) || null,
+          executionId: text(body.executionId) || text(body.pcbExecutionId) || null,
+          projectId: text(body.projectId) || null,
+          documentId: text(body.documentId) || null,
+          sourceDigest: text(body.sourceDigest) || null,
+          reviewHash: text(body.reviewHash) || signoffEvidence?.digest || null,
+          manifestHash: text(body.manifestHash) || manifestHash || (typeof signoffEvidence?.payload?.manifestHash === 'string' ? signoffEvidence.payload.manifestHash : null),
+        };
         const release = releaseArchives.archive({
           gate,
           releaseDecision,
-          binding: {
-            planHash: archivePlanHash,
-            compiledPlanHash: text(body.compiledPlanHash) || null,
-            pcbUuid: text(body.pcbUuid) || null,
-            pcbExecutionId: text(body.pcbExecutionId) || null,
-            reviewHash: text(body.reviewHash) || signoffEvidence?.digest || null,
-            manifestHash,
-          },
+          binding: archiveBinding,
           artifactsDir: artifactsDirResolved,
           files: evidence.artifacts.map((artifact) => ({ path: artifact.path, role: artifact.kind })),
           notes: body.notes,
         });
         result = { ok: true, release };
         logger.info('Production', 'Archived immutable release version', { releaseId: release.releaseId, manifestHash: release.binding.manifestHash, planHash: release.binding.planHash });
+        // W5-01：交付归档 = "项目做完"的机器信号 → 自动跑一次复盘学习（只写 candidate）。
+        // 复盘失败不回滚归档：归档是事实，复盘是经验；失败原因写进返回体，可手动重跑。
+        if (retroAutoEnabled) {
+          try {
+            const retro = retrospectiveLearner.runSafely({
+              projectId: text(body.projectId), boardId: text(body.boardId), pcbUuid: text(body.pcbUuid),
+              evidence: collectRetroEvidence(),
+              release: { releaseId: release.releaseId, gateVerdict: gate?.verdict ?? 'unknown', decision: releaseDecision?.verdict ?? null, binding: release.binding },
+            });
+            result.retro = retro.ok
+              ? { ok: true, created: retro.run.summary.created, duplicates: retro.run.summary.duplicates, evidencePath: retro.run.evidencePath }
+              : { ok: false, code: retro.code, message: retro.message, details: retro.details ?? null };
+            if (retro.ok) logger.info('Knowledge', 'RLA auto retrospective completed', { releaseId: release.releaseId, created: retro.run.summary.created });
+            else logger.warn('Knowledge', 'RLA auto retrospective failed', { code: retro.code, message: retro.message });
+          } catch (error) {
+            result.retro = { ok: false, code: 'RETRO_AUTO_FAILED', message: String(error?.message || error).slice(0, 200) };
+            logger.warn('Knowledge', 'RLA auto retrospective failed', { code: 'RETRO_AUTO_FAILED', message: String(error?.message || error).slice(0, 200) });
+          }
+        }
       } else if (method === 'GET' && url.pathname === '/api/production/releases') {
         // B8：发布版本列表（只读；每条都带证据文件重校验结果，不把"记录还在"当"证据可信"）。
         result = { ok: true, ...releaseArchives.list() };
@@ -1117,15 +2539,26 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         const evidence = await gatherReleaseEvidence(body);
         const requestedManifestHash = typeof body.manifestHash === 'string' && body.manifestHash.trim() ? body.manifestHash.trim() : null;
         const providedBinding = body.binding && typeof body.binding === 'object' ? body.binding : {};
+        // P0-3/P1-7 复审：导出/签核/归档共用同一套完整 binding（缺域由生产方按 body 补齐）。
+        const exportBinding = {
+          pcbUuid: text(body.pcbUuid) || text(providedBinding.pcbUuid) || null,
+          planHash: text(body.planHash) || text(body.semanticPlanHash) || text(providedBinding.planHash) || null,
+          semanticPlanHash: text(body.semanticPlanHash) || text(providedBinding.semanticPlanHash) || null,
+          compiledPlanHash: text(body.compiledPlanHash) || text(providedBinding.compiledPlanHash) || null,
+          executionId: text(body.executionId) || text(body.pcbExecutionId) || text(providedBinding.executionId) || null,
+          projectId: text(body.projectId) || text(providedBinding.projectId) || null,
+          documentId: text(body.documentId) || text(providedBinding.documentId) || null,
+          sourceDigest: text(body.sourceDigest) || text(providedBinding.sourceDigest) || null,
+        };
         // B1/B4：正式导出必须证明"签核的物料 = 本次要导出的物料"。
         // 用与 readiness 相同的 binding 重算当前 artifactsDir 的 manifestHash；拿不到就当作不匹配（fail-closed）。
         let recomputedManifestHash = null;
         try {
-          const artifactsDir = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? resolvePath(body.artifactsDir) : join(process.cwd(), 'deliverables');
-          recomputedManifestHash = inspectProductionArtifacts(artifactsDir, providedBinding).manifest?.manifestHash ?? null;
+          const artifactsDir = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? resolvePath(body.artifactsDir) : productionArtifactsRoot;
+          recomputedManifestHash = inspectProductionArtifacts(artifactsDir, exportBinding).manifest?.manifestHash ?? null;
         } catch { recomputedManifestHash = null; }
         const requestedFinal = body.requested === 'final';
-        const signoffEvidence = evidenceStore.latest('signoff');
+        const signoffEvidence = latestReleaseSignoff();
         const manifestCheck = verifyExportManifestBinding({
           requested: requestedFinal ? 'final' : 'draft',
           providedManifestHash: requestedManifestHash,
@@ -1146,7 +2579,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           dfm: evidenceStore.latest('dfm-evidence'),
           signoff: signoffEvidence,
           // B1/B4：把本次重算的 manifestHash 放进裁决 binding，签核/DFM 的指纹校验才会真正生效。
-          binding: { pcbUuid: text(body.pcbUuid) || null, planHash: text(body.planHash) || null, manifestHash: manifestCheck.manifestHash },
+          binding: { ...exportBinding, manifestHash: manifestCheck.manifestHash },
         });
         const manifestBinding = {
           requested: manifestCheck.checks.requested,
@@ -1182,22 +2615,35 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         } else if (!decision.allowed) {
           result = { ...decision, exported: false, wrote: [], outDir: null, releaseDecision, manifestBinding };
         } else {
+          // P0-3/P0-7 复审：首件导出默认写回被签核/被闸门检查的产物根，而不是另一个 release/<日期> 目录。
+          // 修复前干净机器上导出写 release/、闸门读 deliverables/，正式导出永远不可达，也导致“签核的物料 ≠ 导出的物料”。
           const outDir = typeof body.outDir === 'string' && body.outDir.trim()
             ? resolvePath(body.outDir)
-            : join(process.cwd(), 'release', new Date().toISOString().slice(0, 10));
+            : productionArtifactsRoot;
           const kinds = Array.isArray(body.kinds) && body.kinds.length ? body.kinds : DEFAULT_EXPORT_KINDS;
           const run = await runProductionExport({
-            decision, outDir, kinds,
+            decision, outDir, artifactsRoot: productionArtifactsRoot, kinds,
             execute: (commandId, args, options) => bridge.execute(commandId, args, options),
             design: evidence.design ?? null,
+            // B1/B4 + P0-A：正式导出必须用与签核相同的完整 binding 复算产物清单，并做输出锚点校验。
+            binding: exportBinding,
+            signoffManifestHash: requestedFinal && releaseDecision.ready ? (signoffEvidence?.payload?.manifestHash ?? null) : null,
             // 复核用的就是门禁那套规则：Gerber 铜层数 vs 板子层数、BOM 位号集合、CPL 坐标容差、STEP 头
-            verify: ({ files }) => sanitizeArtifactVerification({
+            verify: ({ files, outputClass }) => sanitizeArtifactVerification({
               report: gateArtifacts({ artifacts: collectArtifacts({ files }), design: evidence.design ?? {} }),
-              outputClass: decision.outputClass, kinds,
+              outputClass: outputClass ?? decision.outputClass, kinds,
             }),
           });
           // 形状说清楚：`exported` 是布尔（这次导出成不成），`files` 是确实落盘的文件清单。
-          result = { ...run, decision, releaseDecision, manifestBinding, exported: run.ok === true, files: run.exported ?? [], wrote: (run.exported ?? []).map((item) => item.path), outDir };
+          result = {
+            ...run, decision, releaseDecision, manifestBinding,
+            exported: run.ok === true,
+            files: run.files ?? run.exported ?? [],
+            wrote: (run.exported ?? []).map((item) => item.path ?? item),
+            outDir: run.outputDir ?? outDir,
+            final: run.final === true,
+            manifestHash: run.manifestHash ?? null,
+          };
         }
       } else if (method === 'POST' && url.pathname === '/api/eda/schematic/repair') {
         /**
@@ -1273,7 +2719,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           result = { dryRun: true, plan, devices: summarizeDevices() };
         } else if (plan.operations.length === 0) {
           // 幂等命中：设计已经合格，**一个字节都不许写**。但仍然重跑验收——"不用改"也要有证据。
-          const acceptance = await runSchematicAcceptance({ execute: bridgeExecute, plan: body.plan || null, skipSimulation: body.skipSimulation === true });
+          const acceptance = await runSchematicAcceptance({ execute: bridgeExecute, plan: body.plan || null, skipSimulation: body.skipSimulation === true, ...acceptanceExtraOptions });
           result = {
             dryRun: false,
             skipped: true,
@@ -1286,7 +2732,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         } else {
           const applied = await applySchematicRepair({ execute: bridgeExecute, plan, readNetlist, save: true });
           // 改完立刻重跑验收：写入本身不算"修好了"，仿真数值才算
-          const acceptance = await runSchematicAcceptance({ execute: bridgeExecute, plan: body.plan || null, skipSimulation: body.skipSimulation === true });
+          const acceptance = await runSchematicAcceptance({ execute: bridgeExecute, plan: body.plan || null, skipSimulation: body.skipSimulation === true, ...acceptanceExtraOptions });
           result = {
             dryRun: false,
             devices: resolved.map((item) => ({ id: item.id, mpn: item.device.mpn ?? null, net: item.net, otherNet: item.otherNet, valueOhm: item.valueOhm, position: item.position })),
@@ -1332,9 +2778,12 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         const planView = planned.plan ? {
           apiVersion: 1, kind: 'schematic-net-connect', planHash: planned.planHash,
           nets: planned.plan.nets,
-          operations: planned.plan.operations.map((item) => ({ net: item.net, uniqueId: item.uniqueId, designator: item.designator, pinNumber: item.pinNumber, x: item.args.x, y: item.args.y })),
+          // rotation 是 R1 标签朝向的可审计字段：计划阶段就算好，写盘时原样消费；不投影出去，界面/审批看不到它。
+          operations: planned.plan.operations.map((item) => ({ net: item.net, uniqueId: item.uniqueId, designator: item.designator, pinNumber: item.pinNumber, x: item.args.x, y: item.args.y, rotation: item.args.rotation })),
           satisfied: planned.satisfied, findings: planned.findings,
-        } : { apiVersion: 1, kind: 'schematic-net-connect', planHash: null, nets: [], operations: [], satisfied: planned.satisfied, findings: planned.findings };
+          // 可读性摘要（朝外/换向/低置信度/残留估算重叠）：审批时先看它决定是否真写，别只看 ok。
+          readability: planned.labelSummary ?? null,
+        } : { apiVersion: 1, kind: 'schematic-net-connect', planHash: null, nets: [], operations: [], satisfied: planned.satisfied, findings: planned.findings, readability: planned.labelSummary ?? null };
         if (body.dryRun !== false) {
           result = { dryRun: true, ok: planned.ok, plan: planView, suggestedConnections: connections, candidates, netlist: { components: 0, pins: 0 }, willSave: body.save !== false };
         } else {
@@ -1344,7 +2793,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           const loadComponents = async () => unwrapResult(await bridge.execute('schematic.components')) || {};
           const applied = await applyNetConnect({ execute: bridgeExecute, plan: planned.plan, beforeNetlist: before, readNetlist, loadComponents, save: body.save !== false });
           // 写完重跑验收：连线本身不算"收敛"，ERC/网表指标才算（ERC 失败会如实记为 warning，不伪造通过）
-          const acceptance = await runSchematicAcceptance({ execute: bridgeExecute, plan: body.plan || null, skipSimulation: body.skipSimulation === true });
+          const acceptance = await runSchematicAcceptance({ execute: bridgeExecute, plan: body.plan || null, skipSimulation: body.skipSimulation === true, ...acceptanceExtraOptions });
           result = {
             dryRun: false,
             plan: planView,
@@ -1469,7 +2918,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           files = (manifest.files || []).map((item) => ({ kind: item.kind, name: item.name ?? item.path, path: item.path, bytes: item.bytes }));
         }
         if (!files.length) {
-          const dir = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? body.artifactsDir : join(process.cwd(), 'deliverables');
+          const dir = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? resolvePath(body.artifactsDir) : productionArtifactsRoot;
           const prefixes = { gerber: 'GERBER_', bom: 'BOM_', cpl: 'CPL_', step: 'STEP_' };
           if (existsSync(dir)) {
             for (const name of readdirSync(dir)) for (const [kind, prefix] of Object.entries(prefixes)) if (name.startsWith(prefix)) files.push({ kind, name, path: join(dir, name), bytes: statSync(join(dir, name)).size });
@@ -1512,6 +2961,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       } else if (method === 'POST' && url.pathname === '/api/eda/pcb/placement/plan') {
         // 板框 → 自动布局 → 独立复核 → 与现状 diff。只读，不写 EDA。
         const body = await readBody(request);
+        const layoutIntent = (body.designIntent ?? body.intent) ? normalizeLayoutIntent(body.designIntent ?? body.intent) : null;
         await ensureEdaSession();
         // 调用方可以只给 pcbUuid，由运行时负责把 PCB 文档打开并**等它成为活动文档**——小白用户不该手动切文档
         let readback;
@@ -1526,39 +2976,108 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           throw Object.assign(new Error(`读不到 PCB 放置数据（${String(error?.code || 'ERROR')}）：当前活动文档可能不是 PCB。请填 PCB 文档 UUID 让运行时替你打开，或先在嘉立创EDA 中打开 PCB 文档。`), { code: 'EDA_DOCUMENT_REQUIRED', status: 409 });
         }
         const outline = parsePolygonSource(readback?.outline?.[0]?.source);
+        const outlineBounds = polygonBounds(outline?.points || []);
         const { components, unknown } = readComponentGeometry(readback);
         const affinity = netAffinity(components);
+        // R3–R6：设计意图里的功能分区 → 每器件区域约束 + 保持相对位置的锚定 + 分区图。
+        // 注意：区域是“用户约定的调整范围”，不是绝对位置锁；锚定只是高权重的 near，不承诺锁定。
+        // board 用真实板框包围盒（parsePolygonSource 只返回点列，bounds 要显式算），越界 region 才会被裁剪。
+        const functionalBlocks = planFunctionalBlocks({
+          blocks: layoutIntent?.blocks,
+          board: outlineBounds ? { minX: outlineBounds.minX, minY: outlineBounds.minY, maxX: outlineBounds.maxX, maxY: outlineBounds.maxY } : null,
+          components,
+        });
+        // 把 componentRegions 合并到对应器件上（ref 已由 functional-blocks 统一成布局数据里的实际位号大小写）。
+        const componentRegions = functionalBlocks.componentRegions || {};
+        const regionedComponents = components.map((component) => (componentRegions[component.ref] ? { ...component, region: componentRegions[component.ref] } : component));
+        // 用户显式 anchors 优先于“保持相对位置”的默认锚定。
+        const anchors = {
+          ...functionalBlocks.anchors,
+          ...(body.anchors && typeof body.anchors === 'object' && !Array.isArray(body.anchors) ? body.anchors : {}),
+        };
         const edgeClearanceMm = Number.isFinite(body.edgeClearanceMm) ? body.edgeClearanceMm : 1;
         const spacingMm = Number.isFinite(body.spacingMm) ? body.spacingMm : 0.5;
         const gridMm = Number.isFinite(body.gridMm) ? body.gridMm : 0.5;
-        const plan = planOutlinePlacement({ outline, components, affinity, edgeClearanceMm, spacingMm, gridMm, anchors: body.anchors && typeof body.anchors === 'object' ? body.anchors : {} });
-        const verifyOptions = { outline, edgeClearanceMm, spacingMm, overhangAllowances: body.overhangAllowances && typeof body.overhangAllowances === 'object' ? body.overhangAllowances : {} };
-        const currentPlacements = components.filter((component) => component.current && component.widthMm).map((component) => ({ ref: component.ref, xMm: component.current.xMm, yMm: component.current.yMm, widthMm: component.widthMm, heightMm: component.heightMm, rotationDeg: component.current.rotationDeg }));
+        // 焊盘包络（D-33-1）：库房焊盘常伸出本体，规划/复核都必须按"本体 ∪ 焊盘"占位，
+        // 否则会出现"本体离板边 1mm 合规、焊盘却压/越板框"（真机 U1 顶排 12 个焊盘）。
+        let copperPads = [];
+        let copperRead = null;
+        let padOutlineCheck = null;
+        try {
+          copperRead = (await bridge.execute('pcb.copper.read', {}))?.result;
+          copperPads = Array.isArray(copperRead?.pads) ? copperRead.pads : [];
+          padOutlineCheck = checkPadOutlineClearance({ pads: copperPads, outline, clearanceMil: Number(body.padOutlineClearanceMil ?? 11.8) });
+        } catch (error) {
+          padOutlineCheck = { ok: null, checked: 0, violations: [], findings: [], note: `读不到铜皮，无法做焊盘级板框复核：${String(error?.message || error).slice(0, 160)}` };
+        }
+        const layoutEvidence = await readLayoutEvidence(resolvedPcbUuid, copperRead);
+        // 可选：读板/预演时自动跑一次官方 DRC（只读 validate，不写板）。默认关闭，
+        // 由调用方显式给 autoDrc=true；失败不阻断布局，只让 GATE-02 保持 REVIEW。
+        let autoDrcReport = null;
+        let autoDrcError = null;
+        if (body.autoDrc === true && !(body.drcReport && typeof body.drcReport === 'object')) {
+          try { autoDrcReport = (await bridge.execute('pcb.drc', {}))?.result ?? null; }
+          catch (error) { autoDrcError = String(error?.message || error).slice(0, 200); }
+        }
+        const padEnvelopes = buildPadEnvelopes(copperPads, components);
+        const outlineField = buildOutlineField(outline);
+        const plan = planOutlinePlacement({ outline, components: regionedComponents, affinity, edgeClearanceMm, spacingMm, gridMm, padEnvelopes, outlineField, regions: componentRegions, anchors });
+        const verifyOptions = { outline, edgeClearanceMm, spacingMm, outlineField, overhangAllowances: body.overhangAllowances && typeof body.overhangAllowances === 'object' ? body.overhangAllowances : {} };
+        const plannedPlacements = plan.placements.map((item) => ({ ...item, padEnvelope: item.padEnvelope || padEnvelopes[item.ref] || null }));
+        // 复核现状必须带上 side：双面板上"底面器件"与"顶面器件"的包围盒重叠不代表碰撞（D-62）。
+        const currentPlacements = components.filter((component) => component.current && component.widthMm).map((component) => ({ ref: component.ref, xMm: component.current.xMm, yMm: component.current.yMm, widthMm: component.widthMm, heightMm: component.heightMm, rotationDeg: component.current.rotationDeg, side: component.side || 'top', padEnvelope: padEnvelopes[component.ref] || null }));
         result = {
-          ok: true, outline: { points: outline.points, bounds: outline.bounds, source: readback?.outline?.[0]?.source ?? null, closed: outline.closed },
+          ok: true, outline: { points: outline.points, bounds: outlineBounds ? { minX: outlineBounds.minX, minY: outlineBounds.minY, maxX: outlineBounds.maxX, maxY: outlineBounds.maxY } : null, source: readback?.outline?.[0]?.source ?? null, closed: outline.closed },
           source: 'eda-live', componentCount: components.length, unknownSize: unknown.map((item) => item.ref),
           affinity: { netCount: affinity.netCount, topPairs: [...affinity.pairs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12) },
-          plan, verification: verifyOutlinePlacement({ placements: plan.placements, ...verifyOptions }),
+          plan: { ...plan, placements: plannedPlacements }, verification: verifyOutlinePlacement({ placements: plannedPlacements, ...verifyOptions }),
           currentVerification: verifyOutlinePlacement({ placements: currentPlacements, ...verifyOptions }),
-          diff: diffPlacement(currentPlacements, plan.placements), verifyOptions, pcbUuid: resolvedPcbUuid,
-          layoutAudit: auditPlacementPlan({ plan, readback, outline }),
+          padOutlineCheck, padEnvelopes,
+          // R6：先出“原理图 → 分区/区域布局图”（块 → 区域 → 成员），再允许写回；
+          // 没有 blocks 时也返回空数组，UI 不会因为 undefined 崩。
+          blockMap: functionalBlocks.blockMap,
+          blocks: { ok: functionalBlocks.ok, blockMap: functionalBlocks.blockMap, findings: functionalBlocks.findings },
+          diff: diffPlacement(currentPlacements, plannedPlacements), verifyOptions, pcbUuid: resolvedPcbUuid,
+          layoutAudit: auditPlacementPlan({ plan: { ...plan, placements: plannedPlacements }, readback, outline, ...layoutEvidence, intent: layoutIntent, drcReport: body.drcReport && typeof body.drcReport === 'object' ? body.drcReport : autoDrcReport, drcScope: typeof body.drcScope === 'string' && body.drcScope ? body.drcScope : `${resolvedPcbUuid}/plan` }),
+          drcAuto: { requested: body.autoDrc === true, used: Boolean(autoDrcReport), error: autoDrcError },
         };
       } else if (method === 'POST' && url.pathname === '/api/eda/pcb/placement/apply') {
         // 写回布局：默认 dryRun，逐项回读比对 + 几何复核，不通过自动回滚；永不自动保存。
         const body = await readBody(request);
+        const layoutIntent = (body.designIntent ?? body.intent) ? normalizeLayoutIntent(body.designIntent ?? body.intent) : null;
         if (!body.plan || !Array.isArray(body.plan.placements)) throw Object.assign(new Error('缺少 plan.placements'), { code: 'EDA_COMMAND_ARGS_INVALID', status: 400 });
         if (body.dryRun === false) await requireWriteApproval(body);
         await ensureEdaSession();
-        const { readback } = await readPcbPlacement(body.pcbUuid);
+        const { readback, pcbUuid: resolvedPcbUuid } = await readPcbPlacement(body.pcbUuid);
         const outline = body.outline?.points ? { points: body.outline.points } : parsePolygonSource(readback?.outline?.[0]?.source);
-        const verifyOptions = { outline, edgeClearanceMm: Number.isFinite(body.edgeClearanceMm) ? body.edgeClearanceMm : 1, spacingMm: Number.isFinite(body.spacingMm) ? body.spacingMm : 0.5, overhangAllowances: body.overhangAllowances && typeof body.overhangAllowances === 'object' ? body.overhangAllowances : {} };
-        // A9：写回前先过 128 条规则审计；硬门禁里"真的量到违规"的项阻断写入。
-        const layoutAudit = auditPlacementPlan({ plan: body.plan, readback, outline });
+        const verifyOptions = { outline, outlineField: buildOutlineField(outline), edgeClearanceMm: Number.isFinite(body.edgeClearanceMm) ? body.edgeClearanceMm : 1, spacingMm: Number.isFinite(body.spacingMm) ? body.spacingMm : 0.5, overhangAllowances: body.overhangAllowances && typeof body.overhangAllowances === 'object' ? body.overhangAllowances : {} };
+        // A9：写回前先过 151 条规则审计；硬门禁里"真的量到违规"的项阻断写入。
+        const layoutEvidence = await readLayoutEvidence(resolvedPcbUuid);
+        let autoDrcReport = null;
+        let autoDrcError = null;
+        if (body.autoDrc === true && !(body.drcReport && typeof body.drcReport === 'object')) {
+          try { autoDrcReport = (await bridge.execute('pcb.drc', {}))?.result ?? null; }
+          catch (error) { autoDrcError = String(error?.message || error).slice(0, 200); }
+        }
+        const layoutAudit = auditPlacementPlan({ plan: body.plan, readback, outline, ...layoutEvidence, intent: layoutIntent, drcReport: body.drcReport && typeof body.drcReport === 'object' ? body.drcReport : autoDrcReport, drcScope: typeof body.drcScope === 'string' && body.drcScope ? body.drcScope : `${resolvedPcbUuid}/apply` });
         if (body.dryRun === false && !layoutAudit.ok) {
           throw Object.assign(new Error(`布局计划未通过规则审计：${layoutAudit.blocking.map((item) => `${item.ruleId} ${item.message}`).join('；') || '命中硬门禁'}`), { code: 'PLACEMENT_RULES_BLOCKED', status: 409, details: { audit: layoutAudit } });
         }
         result = await applyPlacementPlan({ execute: (commandId, args, options) => bridge.execute(commandId, args, options), plan: body.plan, readback, dryRun: body.dryRun !== false, verifyOptions, save: false });
         result.layoutAudit = layoutAudit;
+        result.drcAuto = { requested: body.autoDrc === true, used: Boolean(autoDrcReport), error: autoDrcError };
+        // P0-2/G5：真实写回成功后把布局复核落成门禁证据（默认开启，可显式关闭）。失败不影响写回结果，但要如实回报。
+        if (body.dryRun === false && resolvedPcbUuid && body.recordGateEvidence !== false) {
+          try {
+            const gateEvidence = collectGateEvidence({
+              evidenceStore, pcbUuid: resolvedPcbUuid, projectId: text(body.projectId) || null,
+              placement: { verification: result.verification ?? null, writeback: result, userConfirmed: body.userConfirmed === true },
+            });
+            result.gateEvidence = { saved: gateEvidence.saved, missing: gateEvidence.missing };
+          } catch (error) {
+            result.gateEvidence = { saved: [], missing: [{ kind: 'placement', reason: String(error?.message || error).slice(0, 200) }] };
+          }
+        }
       } else if (method === 'POST' && url.pathname === '/api/eda/pins/evidence') {
         /**
          * A4：引脚证据采集（只读，不改板）。
@@ -1607,6 +3126,17 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         const { connections, analysis } = buildRepairConnections(geometry, requestedNets ? { maxConnections: 5000 } : { maxConnections });
         const targets = (requestedNets ? connections.filter((connection) => requestedNets.has(connection.net)) : connections).slice(0, maxConnections);
         const options = body.options && typeof body.options === 'object' ? { ...body.options } : {};
+        // 真机缺陷（第 58 轮）：规划器默认只认 [1,2,17,18] 层，把 4 层板的内层写成 17/18（不存在的层），
+        // 于是计划里出现 layer 17 → 应用到 EDA 必然 Bridge 500。这里按**实机铜层列表**覆盖 layers，
+        // 内层默认取实机第一张内层（4 层板=15），保证"计划写的就是板子真有的层"。
+        try {
+          const layerReadback = (await bridge.execute('pcb.layers.read', {}))?.result;
+          const selection = selectRoutableLayers(layerReadback);
+          if (selection) {
+            options.layers = selection.layers;
+            if (!Number.isInteger(Number(options.innerLayer)) && selection.innerLayer) options.innerLayer = selection.innerLayer;
+          }
+        } catch { /* 读层失败就保留默认，由后续复核拦截 */ }
         // 自主规划：三种顺序各算一遍（原序/反序/按起点拥挤度），挑"全通且复核通过"的那份。
         // 每规划成一条就把它的铜当作互斥障碍，后面的路线必须绕开它——否则同批计划会互相交叉。
         const planned = planRepairRoutes({ geometry, connections: targets, options });
@@ -1630,13 +3160,18 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         await ensureEdaSession();
         await ensurePcbDocument();
         const snapshot = await bridge.execute('pcb.copper.read', {});
-        result = await applyRoutingPlan({
+        // 真机教训：计划复核通过 ≠ EDA 精确几何 DRC 通过。真实写入后必须跑一次官方 DRC，
+        // 只比较"新增"违规；有新增就自动回滚本批铜（见 engineering/routing-drc.mjs）。
+        // body.verifyDrc === false 是显式逃生门（会记录在返回里，便于审计"为什么没校验"）。
+        result = await applyRoutingWithDrcGuard({
           execute: (commandId, args, options) => bridge.execute(commandId, args, options),
           plan: body.plan,
           geometry: snapshot?.result ?? snapshot,
           dryRun: body.dryRun !== false,
           save: body.save === true,
           options: body.options && typeof body.options === 'object' ? body.options : {},
+          verifyDrc: body.verifyDrc !== false,
+          logger,
         });
       } else if (method === 'POST' && url.pathname === '/api/eda/pcb/routing/rollback') {
         // 受控回滚：把上一批不合规的铜删掉，并回读确认真的删干净了
@@ -1776,8 +3311,9 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           throw Object.assign(new Error(`读取 PCB 铜层数失败：${JSON.stringify(copperCount)}`), { code: 'PCB_LAYER_COUNT_READ_FAILED', status: 409 });
         }
         const layerList = (await bridge.execute('pcb.layers.read'))?.result;
-        const layers = Array.isArray(layerList) ? layerList : [];
-        result = { ok: true, layers: { copperCount, count: layers.length, layers } };
+        // 桥层自第 60 轮起返回 {layers,enabledCopperIds,configuredCount}（归一化），旧桥仍可能返回数组。
+        const layers = Array.isArray(layerList) ? layerList : Array.isArray(layerList?.layers) ? layerList.layers : [];
+        result = { ok: true, layers: { copperCount, count: layers.length, layers, enabledCopperIds: Array.isArray(layerList?.enabledCopperIds) ? layerList.enabledCopperIds : null, configuredCount: layerList?.configuredCount ?? null } };
       } else if (method === 'POST' && url.pathname === '/api/eda/pcb/layers') {
         /**
          * 设置叠层铜层数（2,4,6,…,32）。
@@ -1808,7 +3344,8 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
             throw Object.assign(new Error(`读取 PCB 铜层数失败：${JSON.stringify(copperCountNow)}`), { code: 'PCB_LAYER_COUNT_READ_FAILED', status: 409 });
           }
           const listed = (await bridge.execute('pcb.layers.read'))?.result;
-          return { copperCount: copperCountNow, layers: Array.isArray(listed) ? listed : [] };
+          const listedLayers = Array.isArray(listed) ? listed : Array.isArray(listed?.layers) ? listed.layers : [];
+          return { copperCount: copperCountNow, layers: listedLayers };
         };
         const before = await readLayerStack();
         const setOutcome = await bridge.execute('pcb.layers.setCount', { layers: copperLayers }, { allowWrite: true });
@@ -1843,9 +3380,9 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         }
         const changed = before.copperCount !== after.copperCount;
         // 取证：把 before/after/expected/saved 落成可复核证据，而不是只活在这一次 HTTP 响应里。
-        // 注意：evidenceStore 的类型是封闭白名单（evidence-store.mjs EVIDENCE_KINDS 尚未登记
-        // pcb-layer-stack，本任务不允许改那个文件），因此这里 best-effort：
-        // 证据写不进去时如实记日志，但绝不把已经生效/已保存的写板判成失败，也绝不假装证据已落盘。
+        // 证据类型 pcb-layer-stack 已登记在 evidence-store.mjs 的 EVIDENCE_KINDS 白名单。
+        // 取证仍按 best-effort：证据写不进去时如实记日志，但绝不把已经生效/已保存的写板判成失败，
+        // 也绝不假装证据已落盘（前端/发布门禁读取证据账本，不以 HTTP 200 当证据）。
         try {
           const entry = evidenceStore.save({
             kind: 'pcb-layer-stack',
@@ -1875,11 +3412,14 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         };
       } else if (method === 'POST' && url.pathname === '/api/eda/pcb/drc/start') {
         await ensureEdaSession();
-        await ensurePcbDocument();
+        // 修复：错误信息一直提示"可在请求里填 PCB 文档 UUID"，但这里从未读取 body.pcbUuid，
+        // 于是 EDA 重启/切文档后必然 409（PCB_DOCUMENT_REQUIRED），DRC 无法启动。
+        const drcStartBody = await readBody(request);
+        await ensurePcbDocument(typeof drcStartBody.pcbUuid === 'string' && drcStartBody.pcbUuid ? drcStartBody.pcbUuid : undefined);
         // DRC 只能"受理 + 轮询"：它是渲染进程里的长任务，塞进一个同步 HTTP 请求里
         // 就是本项目反复踩的那个坑（超时后没人知道它是否还在跑）。
         const jobId = crypto.randomUUID();
-        const started = await bridge.execute('pcb.drc.job.start', { jobId, userInterface: (await readBody(request)).userInterface === true }, { allowWrite: true });
+        const started = await bridge.execute('pcb.drc.job.start', { jobId, userInterface: drcStartBody.userInterface === true }, { allowWrite: true });
         result = { ok: true, jobId, state: (started.result ?? started)?.state || 'running', startedAt: (started.result ?? started)?.startedAt ?? null };
       } else if (method === 'POST' && url.pathname === '/api/eda/pcb/drc/cancel') {
         await ensureEdaSession();
@@ -1925,10 +3465,12 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           };
         }
       } else if (method === 'GET' && url.pathname === '/api/eda/pcb/drc/exemptions') {
-        result = { ok: true, ...loadExemptionFile(defaultExemptionPath()) };
+        result = { ok: true, ...(await loadDrcExemptionFileForCurrentProject()) };
       } else if (method === 'PUT' && url.pathname === '/api/eda/pcb/drc/exemptions') {
         const body = await readBody(request);
-        result = { ok: true, ...saveExemptionFile(defaultExemptionPath(), Array.isArray(body.exemptions) ? body.exemptions : []) };
+        // 写到"当前工程"的豁免文件（不写到全局文件，避免跨项目污染）
+        const current = await loadDrcExemptionFileForCurrentProject();
+        result = { ok: true, ...saveExemptionFile(current.path, Array.isArray(body.exemptions) ? body.exemptions : []) };
       } else if (method === 'GET' && url.pathname === '/api/eda/pcb/drc/latest') {
         // 最近一次真机 DRC 取证（落盘文件）。UI 用它自动填充闸门证据，不再手抄路径。
         const pcbUuid = url.searchParams.get('pcbUuid');
@@ -1936,26 +3478,64 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       } else if (method === 'POST' && url.pathname === '/api/eda/schematic/erc/run') {
         // 原理图 ERC 取证（只读）：执行 EDA 的 schematic.drc → 归一化/分类 → 套用豁免 → 落盘证据。
         // 与 PCB DRC 一样，缺明细时如实标注 aggregateOnly，绝不把聚合计数当逐条结论。
+        const body = await readBody(request);
         await ensureEdaSession();
+        // 真机验收（第 60 轮）：明细只能从"当前活动原理图"的 ERC 面板抓；如果活动文档是 PCB，
+        // 面板里是 PCB DRC（或根本没有 ERC 面板），绝不能拿它冒充 ERC 明细。
+        const schematicTarget = await ensureSchematicDocument(typeof body.schematicUuid === 'string' && body.schematicUuid ? body.schematicUuid : null);
         const raw = await bridge.execute('schematic.drc', {});
         const normalized = normalizeErcReport(raw?.result ?? raw);
-        const exemptionFile = loadErcExemptionFile();
-        const applied = applyErcExemptions(normalized, exemptionFile.exemptions);
-        const target = await currentEdaFingerprint();
+        // EDA 扩展 API 只给聚合计数；明细从 EDA 检查面板抓（产品能力，见 eda-erc-detail.mjs）。
+        // 抓到就升级成逐条结论；抓不到就保留聚合结论并如实说明原因，不静默吞掉。
+        let ercDetailMeta = null;
+        let report = normalized;
+        let targetBefore = null;
+        if (normalized.aggregateOnly && (normalized.counts.error > 0 || normalized.counts.fatal > 0 || normalized.counts.warning > 0)) {
+          // 明细是从"当前 EDA 界面"抓的：抓之前和抓之后必须是同一个窗口/工程/文档，
+          // 否则明细可能属于别的文档（EDA 面板可能残留上一块板的结果）——宁可不用，也不能张冠李戴。
+          targetBefore = await currentEdaFingerprint().catch(() => null);
+          // ERC 明细可能是"点击检查 → EDA 现场跑一遍 → 流式出结果"，预算给足 45s；
+          // 内部有截止时间，最坏情况返回部分明细，不会让整条 ERC 取证失败。
+          const detail = await extractErcDetail({ gui: guiClient, timeoutMs: 45_000, expectedCounts: normalized.counts });
+          const targetAfterDetail = await currentEdaFingerprint().catch(() => null);
+          const targetStable = !targetBefore || !targetAfterDetail || targetBefore.fingerprint === targetAfterDetail.fingerprint;
+          const merged = targetStable ? mergeErcDetail(normalized, detail) : null;
+          if (merged && merged.detailSource) {
+            report = merged;
+            ercDetailMeta = { ok: true, source: merged.detailSource, counts: merged.detailCounts ?? null };
+          } else {
+            ercDetailMeta = {
+              ok: false,
+              reason: targetStable ? String(detail?.reason || 'DETAIL_UNAVAILABLE').slice(0, 200) : 'EDA_TARGET_CHANGED_DURING_DETAIL',
+              targetBefore: targetBefore?.fingerprint ?? null,
+              targetAfter: targetAfterDetail?.fingerprint ?? null,
+            };
+          }
+        }
+        const exemptionFile = await loadErcExemptionFileForCurrentProject();
+        const applied = applyErcExemptions(report, exemptionFile.exemptions);
+        // 多板工程必须能回答"这次 ERC 到底检查的是哪一页原理图"：否则全 0 结果无法判断是
+        // 设计干净还是切到了空板（真机第 60 轮踩过：默认取第一块板，得到假 0）。
+        applied.documentUuid = schematicTarget?.schematicUuid ?? null;
+        const target = targetBefore && (await currentEdaFingerprint().catch(() => null))?.fingerprint === targetBefore.fingerprint
+          ? targetBefore
+          : await currentEdaFingerprint();
         const entry = evidenceStore.save({
           kind: 'schematic-erc',
-          payload: { report: applied, exemptionFile: { path: exemptionFile.path, exists: exemptionFile.exists, invalid: exemptionFile.invalid } },
+          payload: { report: applied, exemptionFile: { path: exemptionFile.path, exists: exemptionFile.exists, invalid: exemptionFile.invalid }, ercDetail: ercDetailMeta },
           fingerprint: { windowId: target.windowId, projectUuid: target.projectUuid, documentUuid: target.documentUuid },
           note: '原理图 ERC 取证（只读）',
         });
-        result = { ok: true, erc: applied, summary: summarizeErcConvergence(applied), saved: { path: entry.path, digest: entry.digest, savedAt: entry.savedAt } };
+        result = { ok: true, erc: applied, summary: summarizeErcConvergence(applied), ercDetail: ercDetailMeta, saved: { path: entry.path, digest: entry.digest, savedAt: entry.savedAt } };
       } else if (method === 'GET' && url.pathname === '/api/eda/schematic/erc/latest') {
         result = { ok: true, evidence: evidenceStore.latest('schematic-erc') };
       } else if (method === 'GET' && url.pathname === '/api/eda/schematic/erc/exemptions') {
-        result = { ok: true, ...loadErcExemptionFile() };
+        result = { ok: true, ...(await loadErcExemptionFileForCurrentProject()) };
       } else if (method === 'PUT' && url.pathname === '/api/eda/schematic/erc/exemptions') {
         const body = await readBody(request);
-        const saved = saveErcExemptionFile(Array.isArray(body.exemptions) ? body.exemptions : []);
+        // 写到"当前工程"的 ERC 豁免文件，不写全局文件
+        const currentExemptions = await loadErcExemptionFileForCurrentProject();
+        const saved = saveErcExemptionFile(Array.isArray(body.exemptions) ? body.exemptions : [], currentExemptions.path);
         result = { ok: true, saved };
       } else if (method === 'POST' && url.pathname === '/api/production/dfm-evidence') {
         // 在线 DFM 只能人工做：这里只登记“人看过的结果”，不让本地检查冒充。
@@ -2008,6 +3588,8 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         const entry = evidenceStore.save({
           kind: 'signoff',
           payload: {
+            // P0-5：统一“交付签核”类型标识，latestReleaseSignoff 据此过滤掉历史 gate-report。
+            kind: 'signoff-record',
             passed: true,
             operator: text(body.operator) || 'human',
             planHash: text(body.planHash) || null,
@@ -2051,6 +3633,25 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           keepDays: Number(body.keepDays) || undefined,
         });
         result = { ok: true, plan };
+      } else if (method === 'POST' && url.pathname === '/api/evidence/retention/prune') {
+        // 证据清理：**破坏性操作**，必须显式 confirm + 服务端写批准；默认 dryRun，只清理超出保留额度的旧条目，
+        // 并返回可审计的 removed 列表（路径/摘要/落盘时间/原因）。产品默认策略仍是"只计划不删除"（上面的 plan 路由）。
+        const body = await readBody(request);
+        if (body.confirm !== 'prune-evidence') throw Object.assign(new Error('证据清理是破坏性操作，必须带 confirm:"prune-evidence"'), { code: 'EVIDENCE_PRUNE_CONFIRM_REQUIRED', status: 400 });
+        const requestedKinds = Array.isArray(body.kinds) && body.kinds.length ? body.kinds.map((item) => text(item)) : [...EVIDENCE_KINDS];
+        const unknownKinds = requestedKinds.filter((kind) => !EVIDENCE_KINDS.includes(kind));
+        if (unknownKinds.length) throw Object.assign(new Error(`未知证据类型：${unknownKinds.join('、')}`), { code: 'EVIDENCE_KIND_INVALID', status: 400 });
+        const dryRun = body.dryRun !== false;
+        if (!dryRun) await requireWriteApproval(body);
+        const reports = requestedKinds.map((kind) => pruneEvidenceStore({
+          store: evidenceStore,
+          kind,
+          dryRun,
+          maxAgeMs: Number(body.maxAgeDays) > 0 ? Number(body.maxAgeDays) * 86_400_000 : undefined,
+          maxCount: Number(body.maxCount) > 0 ? Number(body.maxCount) : undefined,
+          minKeep: Number(body.minKeep) >= 0 ? Number(body.minKeep) : undefined,
+        }));
+        result = { ok: true, dryRun, reports };
       } else if (method === 'POST' && url.pathname === '/api/artifacts/retention/plan') {
         // B10：制造物保留计划（dry-run）。只扫描进程工作目录下的白名单子目录，不接受任意路径。
         const body = await readBody(request);
@@ -2080,7 +3681,9 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         result = { ok: true, plan, scanned: { dirs: roots, entries: entries.length } };
       } else if (method === 'GET' && url.pathname === '/api/production/signoff/latest') {
         const manifestHash = url.searchParams.get('manifestHash');
-        result = { ok: true, evidence: evidenceStore.latest('signoff', manifestHash ? { fingerprint: { manifestHash } } : {}) };
+        // P0-5：这条“最新签核”查询也必须过滤 payload 类型，不能把历史 gate-report 当签核返回。
+        const entry = latestReleaseSignoff(manifestHash ? { fingerprint: { manifestHash } } : {});
+        result = { ok: true, evidence: entry };
       } else if (method === 'POST' && url.pathname === '/api/eda/schematic/simulation/run') {
         /**
          * A14：SPICE 仿真证据取证（真跑求解器）。
@@ -2158,6 +3761,12 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         const body = await readBody(request);
         // 自己把原理图切成活动文档：否则只会拿到"当前活动文档不是原理图"的阻断结论。
         await ensureEdaSession();
+        // 网络连通性核对需要 PCB 文档 UUID。**必须在切到原理图之前解析**：
+        // 解析 PCB 会把活动文档切到 PCB，若放在 ensureSchematicDocument 之后，
+        // 验收一开始就会读到"当前文档不是原理图"（2026-10-22 真机踩到）。
+        const pcbUuidForAcceptance = typeof body.pcbUuid === 'string' && body.pcbUuid.trim()
+          ? body.pcbUuid.trim()
+          : ((await readPcbPlacement(null).catch(() => null))?.pcbUuid ?? null);
         const schematic = await ensureSchematicDocument(body?.schematicUuid || null);
         const acceptance = await runSchematicAcceptance({
           execute: (commandId, args) => bridge.execute(commandId, args),
@@ -2166,6 +3775,8 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           expectations: body.expectations || null,
           timeoutMs: Number.isFinite(body.timeoutMs) ? body.timeoutMs : undefined,
           solverPath: typeof body.solverPath === 'string' && body.solverPath ? body.solverPath : undefined,
+          pcbUuid: pcbUuidForAcceptance,
+          ...acceptanceExtraOptions,
         });
         // A14：验收里的仿真结论（真实求解器或设计检查点）必须落盘，否则"跑过"只是一次性响应。
         // 只在真的 simulated 时落盘；没有仿真就如实返回 simulation:null，不落一份"看起来像证据"的空壳。
@@ -2187,6 +3798,96 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           if (entry) savedSimulation = { path: entry.path, digest: entry.digest, savedAt: entry.savedAt };
         }
         result = { ok: true, schematic, acceptance, savedSimulation };
+      } else if (method === 'POST' && url.pathname === '/api/eda/footprint/integrity') {
+        /**
+         * 封装完整性预检（只读）。
+         *
+         * 真机教训（2026-10-22）：MK1 的 MEMS 麦克风封装在本地库里不存在，放置/连线都成功，
+         * 只有 ERC 冒一句"引脚没有对应焊盘"，人只能从聚合错误里反推根因。
+         * 这里提前把"原理图引脚集合 ↔ PCB 焊盘集合"逐位号比对，输出可定位的结论
+         * （哪个位号、缺哪几个焊盘），供 PM/自动化在出制造文件前拦截。
+         *
+         * 只读：仅切换文档（schematic.open / pcb.open）读回，不 save、不写任何图元。
+         */
+        const body = await readBody(request);
+        const pageUuid = typeof body.schematicPageUuid === 'string' && body.schematicPageUuid
+          ? body.schematicPageUuid
+          : (typeof body.pageUuid === 'string' && body.pageUuid ? body.pageUuid : null);
+        const pcbUuid = typeof body.pcbUuid === 'string' && body.pcbUuid ? body.pcbUuid : null;
+        if (!pageUuid || !pcbUuid) throw Object.assign(new Error('封装预检需要 schematicPageUuid 与 pcbUuid（只读检查，不做任何猜测）'), { code: 'EDA_COMMAND_ARGS_INVALID', status: 400 });
+        await ensureEdaSession();
+        const steps = [];
+        // bridge.execute 返回的是 { success, result, windowId } 包装体（与 bridge 的 wire 协议一致），
+        // 这里统一拆一次 result；否则所有"看起来读到了"的判断都会变成 undefined（真机本轮踩到）。
+        const call = async (commandId, args) => {
+          const raw = await bridge.execute(commandId, args);
+          return raw && typeof raw === 'object' && 'result' in raw ? raw.result : raw;
+        };
+        const schematicDoc = await ensureSchematicDocument(pageUuid);
+        steps.push({ step: 'schematic.open', ok: Boolean(schematicDoc) });
+        const readback = await call('schematic.components', {});
+        const components = Array.isArray(readback?.components) ? readback.components : [];
+        const pinsByPrimitive = readback?.pins && typeof readback.pins === 'object' ? readback.pins : {};
+        const parts = components
+          .filter((item) => String(item?.componentType) === 'part')
+          .map((item) => ({
+            designator: String(item?.designator || ''),
+            primitiveId: item?.primitiveId ?? null,
+            footprint: item?.footprint ? { uuid: item.footprint.uuid ?? null, name: item.footprint.name ?? null } : null,
+            pinNumbers: (pinsByPrimitive[item?.primitiveId] || []).map((pin) => pin?.pinNumber ?? ''),
+          }));
+        steps.push({ step: 'schematic.read', ok: parts.length > 0, components: components.length, parts: parts.length });
+        const pcbOpened = await call('pcb.open', { documentUuid: pcbUuid });
+        steps.push({ step: 'pcb.open', ok: Boolean(pcbOpened?.opened) });
+        if (!pcbOpened?.opened) throw Object.assign(new Error(`PCB 打开失败：${pcbUuid}（无法读焊盘，不能把"没读到"当成没问题）`), { code: 'EDA_PCB_OPEN_FAILED', status: 409 });
+        // 打开 PCB 后立刻读会读到"0 个器件"——不是"PCB 空"，而是文档还在加载（真机本轮踩到）。
+        // 读回必须等到有内容或明确超时；把重试次数如实写进 steps，避免"一次读不到就当空板"。
+        let placement = null;
+        let placementAttempts = 0;
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          placementAttempts = attempt + 1;
+          placement = await call('pcb.placement.read', {}).catch((error) => ({ error: String(error?.message || error).slice(0, 160) }));
+          const count = Array.isArray(placement?.components) ? placement.components.length : 0;
+          if (count > 0) break;
+          await new Promise((resolve) => setTimeout(resolve, 800));
+        }
+        const pcbItems = Array.isArray(placement?.components) ? placement.components : [];
+        const wanted = new Map(parts.map((part) => [part.designator, part]));
+        const padsByDesignator = {};
+        const padReadErrors = [];
+        for (const item of pcbItems) {
+          const designator = String(item?.designator || '');
+          if (!designator) continue;
+          if (!wanted.has(designator)) { padsByDesignator[designator] = []; continue; }
+          try {
+            const pads = await call('pcb.pins.read', { primitiveId: item.primitiveId });
+            padsByDesignator[designator] = (Array.isArray(pads) ? pads : []).map((pad) => pad?.padNumber ?? '');
+          } catch (error) {
+            padReadErrors.push({ designator, error: String(error?.message || error).slice(0, 160) });
+          }
+        }
+        steps.push({ step: 'pcb.read', ok: pcbItems.length > 0, components: pcbItems.length, placementAttempts, padReadErrors: padReadErrors.length ? padReadErrors : null });
+        // 恢复活动文档到原理图页：预检不能把用户/后续步骤留在 PCB 上。
+        await call('schematic.open', { pageUuid }).catch(() => null);
+        steps.push({ step: 'schematic.restore', ok: true });
+        const evaluated = evaluateFootprintIntegrity({
+          schematicParts: parts,
+          pcbComponents: pcbItems.map((item) => ({ designator: item?.designator ?? '' })),
+          padsByDesignator,
+        });
+        result = {
+          ok: true,
+          readOnly: true,
+          targets: { schematicPageUuid: pageUuid, pcbUuid },
+          ready: evaluated.ready,
+          summary: evaluated.summary,
+          findings: evaluated.findings,
+          steps,
+          assumptions: [
+            '只判断引脚号/焊盘号集合一致性，不判断焊盘几何是否符合 datasheet（几何需人工 DFM）',
+            '任一侧读不到时 fail-closed：padReadErrors 非空表示部分焊盘未读到，结论不可当成"通过"',
+          ],
+        };
       } else if (method === 'POST' && url.pathname === '/api/eda/library/search/fallback') {
         // A2：只读回退检索诊断。给"某型号 0 命中"排查用：逐级变形重试并保留每次尝试，
         // 命中来源如实标注；不写工程、不改身份、不缓存。
@@ -2259,8 +3960,22 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         result = { ok: true, plan: planPinFirstNetlistFlow({ pcbExecutionId: body.pcbExecutionId, pinEvidence, pinAudit, assumptionAudit, notes: body.notes }) };
       } else if (method === 'POST' && url.pathname === '/api/design/approve') {
         const body = await readBody(request);
-        result = { ok: true, approval: designManager.approve(body) };
-        logger.info('Design', 'Issued bound design approval', { planHash: result.approval.planHash, windowId: body.windowId, expiresAt: result.approval.expiresAt });
+        // Agent 对话审批（approvalMode='chat'）必须显式带 confirm=true，且只能由插件在
+        // 用户确认后调用；普通 UI token 不要求这两个字段（保持原行为）。
+        if (request.agent && (body?.confirm !== true || body?.approvalMode !== 'chat')) {
+          throw Object.assign(new Error('Agent 对话审批必须显式 confirm=true 且 approvalMode=chat'), { code: 'AGENT_APPROVAL_CONFIRMATION_REQUIRED', status: 403 });
+        }
+        // task-40：带 approvalRequestId 时必须先消费“已批准且绑定一致”的待审批请求；
+        // 不带该字段的旧对话审批路径完全不变（manager 收到的 body 也不多字段）。
+        const approvalRequestId = normalizeApprovalRequestId(body?.approvalRequestId);
+        result = {
+          ok: true,
+          approval: approvalRequestId
+            ? approveWithPlanRequest({ kind: 'design', manager: designManager, body, approvalRequestId })
+            : designManager.approve(body),
+        };
+        logger.info('Design', 'Issued bound design approval', { planHash: result.approval.planHash, windowId: body.windowId, expiresAt: result.approval.expiresAt, ...(request.agent ? { agent: request.agent.name } : {}) });
+        if (request.agent) recordAgentAudit({ kind: 'approve', actor: 'agent', agent: request.agent.name, method, path: url.pathname, outcome: 'issued', status: 200, planHash: result.approval.planHash, approvalId: result.approval.approvalId });
       } else if (method === 'POST' && url.pathname === '/api/design/cancel') {
         const body = await readBody(request);
         result = { ok: true, cancellation: designManager.cancel(body) };
@@ -2272,6 +3987,12 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         logger.info('Design', 'Controlled schematic execution finished', { executionId: result.execution.id, state: result.execution.state, planHash: result.execution.planHash });
       } else if (method === 'GET' && url.pathname === '/api/design/executions') {
         result = { ok: true, executions: designManager.list(), persistenceError: designManager.persistenceError || null };
+      } else if (method === 'GET' && url.pathname === '/api/pcb/write-lock') {
+        result = { ok: true, writeLock: pcbManager.writeLockStatus() };
+      } else if (method === 'POST' && url.pathname === '/api/pcb/write-lock/release') {
+        const body = await readBody(request);
+        result = { ok: true, writeLock: pcbManager.releaseSafetyLock({ operator: text(body.operator) || '本机用户', note: text(body.note) || '' }) };
+        logger.warn('PCB', 'PCB safety write lock released', { operator: text(body.operator) || null, note: text(body.note) || null });
       } else if (method === 'GET' && url.pathname === '/api/pcb/executions') {
         result = { ok: true, executions: pcbManager.list(), persistenceError: pcbManager.persistenceError || null };
       } else if (method === 'GET' && /^\/api\/pcb\/executions\/[^/]+$/.test(url.pathname)) {
@@ -2454,7 +4175,19 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         result = { ok: true, planning: compileCh32v003Fixture(body || {}) };
       } else if (method === 'POST' && url.pathname === '/api/pcb/approve') {
         const body = await readBody(request);
-        result = { ok: true, approval: pcbManager.approve(body) };
+        if (request.agent && (body?.confirm !== true || body?.approvalMode !== 'chat')) {
+          throw Object.assign(new Error('Agent 对话审批必须显式 confirm=true 且 approvalMode=chat'), { code: 'AGENT_APPROVAL_CONFIRMATION_REQUIRED', status: 403 });
+        }
+        // task-40：同上；无 approvalRequestId 时行为与旧路径完全一致。
+        const approvalRequestId = normalizeApprovalRequestId(body?.approvalRequestId);
+        result = {
+          ok: true,
+          approval: approvalRequestId
+            ? approveWithPlanRequest({ kind: 'pcb', manager: pcbManager, body, approvalRequestId })
+            : pcbManager.approve(body),
+        };
+        if (request.agent) logger.info('Pcb', 'Agent chat approval issued', { agent: request.agent.name, windowId: body?.windowId });
+        if (request.agent) recordAgentAudit({ kind: 'approve', actor: 'agent', agent: request.agent.name, method, path: url.pathname, outcome: 'issued', status: 200, planHash: result.approval.planHash, approvalId: result.approval.approvalId });
       } else if (method === 'POST' && url.pathname === '/api/pcb/execute') {
         const body = await readBody(request);
         await ensureEdaSession();
@@ -2467,7 +4200,26 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         if (body?.action === 'eval' && process.env.CIRCUITPILOT_ALLOW_GUI_EVAL !== '1') {
           throw Object.assign(new Error('GUI eval 默认禁用：任意 JS 注入不是产品能力；需要本地诊断时显式设置 CIRCUITPILOT_ALLOW_GUI_EVAL=1'), { code: 'GUI_EVAL_DISABLED', status: 403 });
         }
-        result = { ok: true, execution: await guiClient.execute(body.action, body.params || {}) };
+        // P0-8：GUI 通道也能点"应用修改"写板；暂停期间只放行 state/screenshot 两个只读动作。
+        if (!GUI_READONLY_ACTIONS.has(String(body?.action || ''))) await assertEdaWritesOpen(url.pathname);
+        const execution = await guiClient.execute(body.action, body.params || {});
+        // 截图是唯一会返回 MB 级 base64 的 GUI 动作：小图内联、大图落盘 + sha256，
+        // 否则响应体过大在传输层被截断，调用方只会拿到半截 base64（真机第 59 轮踩过）。
+        if (body.action === 'screenshot' && typeof execution?.base64 === 'string') {
+          const materialized = materializeGuiScreenshot({
+            base64: execution.base64,
+            bytes: execution.bytes ?? null,
+            outDir: process.env.CIRCUITPILOT_GUI_EVIDENCE_DIR || join(process.cwd(), 'artifacts/gui-capabilities'),
+            namePrefix: 'gui-execute-screenshot',
+          });
+          if (materialized.ok) {
+            result = { ok: true, execution: { ...execution, ...materialized } };
+          } else {
+            result = { ok: false, execution: { error: materialized.reason ?? 'SCREENSHOT_MATERIALIZE_FAILED', bytes: execution?.bytes ?? null } };
+          }
+        } else {
+          result = { ok: true, execution };
+        }
       } else if (method === 'POST' && url.pathname === '/api/eda/gui/capabilities/probe') {
         /**
          * E9：GUI 兜底能力只读探测。findTexts 不点击/不输入；可选 viewport 用 CDP Emulation
@@ -2599,7 +4351,12 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
               approvals = resolved.approvals;
             }
             // 响应里的 runId 必须与 journal/审计里的 runId 一致，否则 "用返回的 runId 去查审计" 会 404。
-            return runRecipe({ recipe, executors: createRuntimeExecutors({ bridge, gui: guiClient }), params: body.params || {}, approvals, approvalIds, approvalFingerprint: resolvedFingerprint, journal: automationJournal, runId, signal: abortController.signal });
+            return runRecipe({
+              recipe, executors: createRuntimeExecutors({ bridge, gui: guiClient }), params: body.params || {},
+              approvals, approvalIds, approvalFingerprint: resolvedFingerprint, journal: automationJournal, runId, signal: abortController.signal,
+              // P1-11 复审：暂停不只在 run 开始时检查，还要在途每个写步骤前检查；命中即 aborted（不是 failed）。
+              assertWritesOpen: () => assertEdaWritesOpen('/api/automation/run'),
+            });
           })();
           automationRunCache.set(runId, { promise: executeRun, expiresAt: Infinity });
           try {
@@ -2761,7 +4518,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
           ok: true,
           readiness: productionManager.readiness(body, {
             dfm: evidenceStore.latest('dfm-evidence', planHash ? { fingerprint: { planHash } } : {}),
-            signoff: evidenceStore.latest('signoff'),
+            signoff: latestReleaseSignoff(),
           }),
         };
       } else if (method === 'POST' && url.pathname === '/api/production/reviews/final') {
@@ -2771,7 +4528,7 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       } else if (method === 'GET' && url.pathname === '/api/engineering/profiles') {
         result = { ok: true, profiles: engineeringProfiles(), fixtures: Object.keys(engineeringFixtures) };
       } else if (method === 'GET' && url.pathname === '/api/engineering/layout-rules') {
-        // 只回元信息（128 条正文在 pack 文件里），并列出可直接审计的样板
+        // 只回元信息（151 条正文在 pack 文件里），并列出可直接审计的样板
         result = { ok: true, pack: layoutRulePackSummary(), fixtures: Object.keys(LAYOUT_RULE_FIXTURES) };
       } else if (method === 'POST' && url.pathname === '/api/engineering/layout-rules/audit') {
         const body = await readBody(request);
@@ -2780,6 +4537,66 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         const audit = evaluateLayoutRules(fixture ? fixture() : body.input || {});
         result = { ok: true, audit };
         logger.info('Engineering', 'PCBA layout rule audit completed', { fixtureId: body.fixtureId || null, passed: audit.passed, releaseReady: audit.releaseReady, blocking: audit.summary.blockingFailures, review: audit.summary.REVIEW, auditHash: audit.auditHash });
+      } else if (method === 'GET' && url.pathname === '/api/engineering/fab-rules') {
+        // 板厂能力只回元信息，30 条限值留在 rules/fab-capabilities.json
+        result = { ok: true, pack: fabProfileSummary(), fixtures: Object.keys(FAB_RULE_FIXTURES) };
+      } else if (method === 'POST' && url.pathname === '/api/engineering/fab-rules/audit') {
+        const body = await readBody(request);
+        const fixture = body.fixtureId ? FAB_RULE_FIXTURES[body.fixtureId] : null;
+        if (body.fixtureId && !fixture) throw Object.assign(new Error('板厂规则样板不存在'), { code: 'FAB_RULE_FIXTURE_NOT_FOUND', status: 404 });
+        let audit;
+        try {
+          audit = evaluateFabRules(fixture ? fixture() : body.input || {});
+        } catch (error) {
+          if (String(error?.code || '').startsWith('FAB_PROFILE_')) throw Object.assign(error, { status: 400 });
+          throw error;
+        }
+        result = { ok: true, audit };
+        logger.info('Engineering', 'Fab capability audit completed', { fixtureId: body.fixtureId || null, fab: audit.fab, variant: audit.variant, passed: audit.passed, releaseReady: audit.releaseReady, blocking: audit.summary.blockingFailures, review: audit.summary.REVIEW, auditHash: audit.auditHash });
+      } else if (method === 'GET' && url.pathname === '/api/engineering/net-rules') {
+        result = { ok: true, ...netRuleSummary() };
+      } else if (method === 'POST' && url.pathname === '/api/engineering/net-rules/audit') {
+        const body = await readBody(request);
+        const fixture = body.fixtureId ? NET_RULE_FIXTURES[body.fixtureId] : null;
+        if (body.fixtureId && !fixture) throw Object.assign(new Error('网络规则样板不存在'), { code: 'NET_RULE_FIXTURE_NOT_FOUND', status: 404 });
+        const audit = evaluateNetRules(fixture ? fixture() : body.input || {});
+        result = { ok: true, audit };
+        logger.info('Engineering', 'Net rule audit completed', { fixtureId: body.fixtureId || null, passed: audit.passed, releaseReady: audit.releaseReady, blocking: audit.summary.blockingFailures, review: audit.summary.REVIEW, auditHash: audit.auditHash });
+      } else if (method === 'GET' && url.pathname === '/api/engineering/constraint-rules') {
+        result = { ok: true, ...skillRuleSummary() };
+      } else if (method === 'POST' && url.pathname === '/api/engineering/constraint-rules/audit') {
+        const body = await readBody(request);
+        const fixture = body.fixtureId ? SKILL_RULE_FIXTURES[body.fixtureId] : null;
+        if (body.fixtureId && !fixture) throw Object.assign(new Error('Skill 规则样板不存在'), { code: 'SKILL_RULE_FIXTURE_NOT_FOUND', status: 404 });
+        const audit = evaluateSkillRules(fixture ? fixture() : body.input || {});
+        result = { ok: true, audit };
+        logger.info('Engineering', 'Skill rule audit completed', { fixtureId: body.fixtureId || null, passed: audit.passed, releaseReady: audit.releaseReady, blocking: audit.summary.blockingFailures, review: audit.summary.REVIEW, auditHash: audit.auditHash });
+      } else if (method === 'POST' && url.pathname === '/api/engineering/constraint-rules/bridge-audit') {
+        const body = await readBody(request);
+        await ensureEdaSession();
+        const unwrapBridge = (value) => value?.result ?? value;
+        const document = unwrapBridge(await bridge.execute('document.current', {}));
+        if (Number(document?.documentType) !== 3) {
+          throw Object.assign(new Error(`当前文档不是 PCB（documentType=${document?.documentType ?? 'unknown'}），请先打开 PCB 或调用 pcb.open`), { code: 'NOT_A_PCB_DOCUMENT', status: 409, details: { documentType: document?.documentType ?? null, uuid: document?.uuid ?? null } });
+        }
+        const design = body.design && typeof body.design === 'object' && !Array.isArray(body.design) ? body.design : {};
+        const read = async (commandId) => unwrapBridge(await bridge.execute(commandId, {}));
+        const placement = await read('pcb.placement.read');
+        const regions = await read('pcb.regions.detail');
+        const texts = await read('pcb.texts.detail');
+        const pours = await read('pcb.pours.detail');
+        const outline = await read('pcb.outline.read');
+        const includeCopper = body.includeCopper === true || Boolean(design.netClasses && design.netClassMap);
+        const copper = includeCopper ? await read('pcb.copper.read') : null;
+        const input = buildSkillInput({ placement, regions, texts, pours, outline, copper, design });
+        const audit = evaluateSkillRules(input);
+        result = {
+          ok: true,
+          bridge: { document: { uuid: document.uuid ?? null, tabId: document.tabId ?? null, documentType: document.documentType }, reads: ['pcb.placement.read', 'pcb.regions.detail', 'pcb.texts.detail', 'pcb.pours.detail', 'pcb.outline.read', ...(includeCopper ? ['pcb.copper.read'] : [])] },
+          collected: { components: input.placements.length, regions: input.regions.length, silkTexts: input.silkTexts.length, pours: input.pours.length, tracks: Array.isArray(input.tracks) ? input.tracks.length : 0, board: input.board },
+          audit,
+        };
+        logger.info('Engineering', 'Bridge skill audit completed', { documentUuid: document.uuid || null, components: input.placements.length, passed: audit.passed, releaseReady: audit.releaseReady, blocking: audit.summary.blockingFailures, review: audit.summary.REVIEW, auditHash: audit.auditHash });
       } else if (method === 'POST' && url.pathname === '/api/engineering/analyze') {
         const body = await readBody(request);
         const fixture = body.fixtureId ? engineeringFixtures[body.fixtureId] : null;
@@ -2791,8 +4608,21 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       } else if (method === 'POST' && /^\/api\/chat\/sessions\/[^/]+\/messages$/.test(url.pathname)) {
         const sessionId = decodeURIComponent(url.pathname.split('/')[4]);
         const body = await readBody(request);
-        result = { ok: true, chat: await chatManager.send(sessionId, body) };
+        // P1-10 复审：只把 approved+未过期的知识摘要作为证据注入对话，并把 citations 原样回传。
+        let knowledgeContext = { contexts: [], citations: [], note: '未启用知识检索' };
+        try {
+          knowledgeContext = await buildKnowledgeChatContext({ ragStore, knowledgeStore, query: body?.message, topK: 3 });
+        } catch {
+          knowledgeContext = { contexts: [], citations: [], note: '知识检索失败：本回答未引用知识库' };
+        }
+        const enrichedBody = knowledgeContext.contexts.length
+          ? { ...body, context: { ...(body?.context && typeof body.context === 'object' ? body.context : {}), knowledge: knowledgeContext.contexts } }
+          : body;
+        const chat = await chatManager.send(sessionId, enrichedBody);
+        result = { ok: true, chat: { ...chat, knowledgeCitations: knowledgeContext.citations, knowledgeNote: knowledgeContext.note } };
         logger.info('Chat', 'Codex PCBA chat turn completed', { sessionId, suggestions: result.chat.requirementSuggestions.length, edaStatus: result.chat.eda.status });
+      } else if (method === 'GET' && url.pathname === '/api/chat/sessions') {
+        result = { ok: true, sessions: chatManager.listSessions() };
       } else if (method === 'GET' && /^\/api\/chat\/sessions\/[^/]+\/transcript$/.test(url.pathname)) {
         const sessionId = decodeURIComponent(url.pathname.split('/')[4]);
         result = { ok: true, transcript: chatManager.transcript(sessionId) };
@@ -2817,7 +4647,9 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
       return sendJson(response, 200, result, origin);
     } catch (error) {
       logger.error('Http', 'Request failed', { requestId, method, path: url.pathname, code: error.code, message: error.message });
-      return sendJson(response, error.status || 400, runtimeError(error), origin);
+      // 桥连通性错误（BRIDGE_UNREACHABLE/TIMEOUT/NOT_FOUND）→ 503；显式 status 优先；
+      // 其余未知错误维持历史兜底 400。见 httpStatusForError 的注释。
+      return sendJson(response, httpStatusForError(error), runtimeError(error), origin);
     }
   });
   // 没有 error 监听器时，EADDRINUSE / EACCES 会变成未捕获异常直接击穿进程；
@@ -2904,6 +4736,13 @@ async function main() {
   // 只记录令牌“来源”，绝不记录令牌本身：这是可观测证据，用来核实发布版到底走的哪条通道
   // （stdin=壳层管道，env=开发/测试，none=随机令牌+受信 Origin 引导）。
   logger.info('Runtime', 'Session token source resolved', { source: resolved.source });
+  try {
+    // Agent 令牌文件是 DSH 插件/外部 Agent 的唯一凭据；缺失则签发，损坏/权限过宽则
+    // 只关闭 Agent 通道并留审计，不阻塞 UI 会话（fail-closed 在认证层）。
+    await ensureAgentTokenFile();
+  } catch (error) {
+    logger.error('Runtime', 'Agent token file unavailable; agent access disabled', { code: error?.code, message: error?.message });
+  }
   return startRuntime({ runtimeToken: resolved.runtimeToken });
 }
 

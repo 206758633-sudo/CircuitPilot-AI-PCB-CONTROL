@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { createRuntimeServer } from '../server.mjs';
 
 const fakeKeychain = { async configured() { return false; }, async read() { throw new Error('unused'); } };
@@ -29,11 +29,18 @@ async function startServer(context, root) {
 test('产物下载：放行目录内已知类型可下载；目录外/逃逸/未知类型/缺文件一律拒绝；无令牌 401', async (context) => {
   const root = mkdtempSync(join(tmpdir(), 'cp-download-'));
   const outside = mkdtempSync(join(tmpdir(), 'cp-download-outside-'));
+  const secondRoot = mkdtempSync(join(tmpdir(), 'cp-download-second-'));
   try {
     const good = join(root, 'GERBER_board.zip');
     writeFileSync(good, 'zip-bytes', 'utf8');
     const scriptFile = join(root, 'run.sh');
     writeFileSync(scriptFile, 'echo pwn', 'utf8');
+    const secondFile = join(secondRoot, 'second.zip');
+    writeFileSync(secondFile, 'second-zip', 'utf8');
+    const tokenFile = join(root, 'agent-token.json');
+    writeFileSync(tokenFile, JSON.stringify({ token: `cpa_${'a'.repeat(48)}` }), 'utf8');
+    const auditKey = join(root, 'agent-audit.key.json');
+    writeFileSync(auditKey, JSON.stringify({ key: 'b'.repeat(64) }), 'utf8');
     const secret = join(outside, 'secret.zip');
     writeFileSync(secret, 'secret', 'utf8');
     const { base, headers } = await startServer(context, root);
@@ -62,8 +69,27 @@ test('产物下载：放行目录内已知类型可下载；目录外/逃逸/未
 
     const noToken = await fetch(`${base}/api/production/download?path=${encodeURIComponent(good)}`);
     assert.equal(noToken.status, 401);
+
+    // 凭据/审计密钥即使落在放行目录，也绝不能通过下载路由取走。
+    for (const file of [tokenFile, auditKey]) {
+      const blocked = await fetch(`${base}/api/production/download?path=${encodeURIComponent(file)}`, { headers });
+      assert.equal(blocked.status, 403);
+      assert.equal((await blocked.json()).error.code, 'DOWNLOAD_SENSITIVE_FORBIDDEN');
+    }
+
+    // POSIX roots 用 ':' 分隔（历史 bug：曾按 ';' 判断，导致第二根静默失效）。
+    const previousRoots = process.env.CIRCUITPILOT_DOWNLOAD_ROOTS;
+    process.env.CIRCUITPILOT_DOWNLOAD_ROOTS = `${root}${delimiter}${secondRoot}`;
+    try {
+      const second = await fetch(`${base}/api/production/download?path=${encodeURIComponent(secondFile)}`, { headers });
+      assert.equal(second.status, 200);
+      assert.equal(await second.text(), 'second-zip');
+    } finally {
+      if (previousRoots === undefined) delete process.env.CIRCUITPILOT_DOWNLOAD_ROOTS; else process.env.CIRCUITPILOT_DOWNLOAD_ROOTS = previousRoots;
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
+    rmSync(secondRoot, { recursive: true, force: true });
   }
 });

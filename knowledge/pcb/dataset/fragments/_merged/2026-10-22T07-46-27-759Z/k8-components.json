@@ -1,0 +1,2234 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-10-22T07:38:15.351Z",
+  "domain": "pcb-components",
+  "notes": "K8 元件域 fragment（08 电感/磁珠/保险丝、09 传感器/执行器、10 接口保护）。所有 part 的 lcscId 均未确认，lcscIdVerified=false，使用前必须经 Librarian 三源核验；module/failure 为 reference 参考知识，ID 前缀 CMP-MOD-* / CMP-FAIL-*。",
+  "entries": [
+    {
+      "kind": "part",
+      "title": "4.7µH 6×6 屏蔽功率电感（VLS6045EX-4R7M）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "VLS6045EX-4R7M",
+        "manufacturer": "TDK",
+        "value": "4.7µH ±20% 级",
+        "footprint": "SMD 6.0×6.0×4.5mm（屏蔽）",
+        "category": "电感",
+        "description": "6×6 屏蔽型功率电感，常见于 1~3A 级 Buck/DC-DC 储能。Isat/Irms/DCR 须按 datasheet，选型按 I_peak ≤0.8×Isat 与温升双线复核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（按本体方向标识装配）",
+        "keyRatings": [
+          "感值 4.7µH 档（±20% 级，按 datasheet）",
+          "Isat/Irms/DCR 按 datasheet 复核",
+          "屏蔽结构，降低漏磁与邻近耦合"
+        ],
+        "selectionNotes": [
+          "先按 Buck 公式算 L，再核 Isat/Irms/DCR",
+          "I_peak ≤0.8×Isat（含启动/堵转冲击）",
+          "电感下方禁布区与反馈线避让按 datasheet"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "电感",
+          "功率电感",
+          "屏蔽",
+          "Buck",
+          "磁性元件"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "10µH 5×5 功率电感（SWPA5040S100MT）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SWPA5040S100MT",
+        "manufacturer": "Sunlord（顺络）",
+        "value": "10µH ±20% 级",
+        "footprint": "SMD 5.0×5.0×4.0mm",
+        "category": "电感",
+        "description": "5×5 通用功率电感档，适合中等电流 Buck/Boost。感值、Isat、Irms、DCR 均须按具体 datasheet 复核，不能按封装推断。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（按本体方向标识装配）",
+        "keyRatings": [
+          "感值 10µH 档（按 datasheet）",
+          "Isat/Irms/DCR 按 datasheet 复核",
+          "屏蔽型可选，按型号后缀确认"
+        ],
+        "selectionNotes": [
+          "按 fsw 与 ΔI 计算感值",
+          "峰值电流含纹波与冲击",
+          "DCR 铜损计入效率预算"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "电感",
+          "功率电感",
+          "Buck",
+          "磁性元件"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "22µH 3×3 小体积功率电感（VLS3015ET-220M）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "VLS3015ET-220M",
+        "manufacturer": "TDK",
+        "value": "22µH ±20% 级",
+        "footprint": "SMD 3.0×3.0×1.5mm",
+        "category": "电感",
+        "description": "3×3 小体积功率电感，适合小电流/空间受限的 DC-DC。小体积散热与饱和余量较小，必须按实际峰值电流与温升复核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（按本体方向标识装配）",
+        "keyRatings": [
+          "感值 22µH 档（按 datasheet）",
+          "小体积，Isat/Irms 余量需重点核对",
+          "DCR 按 datasheet，计入压降预算"
+        ],
+        "selectionNotes": [
+          "小电流 Buck/LDO 前级滤波可用",
+          "峰值电流不得接近 Isat",
+          "温升按满载实测复核"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "电感",
+          "功率电感",
+          "小体积",
+          "磁性元件"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0402 高频磁珠 600Ω@100MHz（BLM15AG601SN1D）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "BLM15AG601SN1D",
+        "manufacturer": "Murata（村田）",
+        "value": "600Ω@100MHz 档",
+        "footprint": "0402（1.0×0.5mm）",
+        "category": "磁珠",
+        "description": "0402 高频铁氧体磁珠，用于时钟/信号线/小电流电源线的高频噪声抑制。额定电流与直流偏置下的阻抗下降须按 datasheet 复核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "100MHz 阻抗 600Ω 档（按 datasheet）",
+          "额定电流/DCR 按 datasheet",
+          "直流偏置下阻抗下降需查曲线"
+        ],
+        "selectionNotes": [
+          "额定电流 ≥1.5×工作电流",
+          "DCR 压降计入信号/电源预算",
+          "低频滤波用 LC，不靠磁珠"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "磁珠",
+          "铁氧体",
+          "EMI",
+          "0402"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0603 大电流磁珠 120Ω@100MHz（BLM18PG121SN1D）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "BLM18PG121SN1D",
+        "manufacturer": "Murata（村田）",
+        "value": "120Ω@100MHz 档",
+        "footprint": "0603（1.6×0.8mm）",
+        "category": "磁珠",
+        "description": "0603 大电流系列磁珠，适合电源/接口线高频抑制。大电流下磁珠饱和会使阻抗大幅下降，必须按偏置曲线与额定电流选型。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "100MHz 阻抗 120Ω 档（按 datasheet）",
+          "大电流系列，额定电流按 datasheet",
+          "直流偏置降额曲线须核对"
+        ],
+        "selectionNotes": [
+          "工作电流下阻抗仍满足要求",
+          "DCR 压降 ≤电源轨 1% 量级（按预算）",
+          "大电流主电源优先功率电感"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "磁珠",
+          "大电流",
+          "EMI",
+          "0603"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "USB 2.0 共模电感 90Ω（DLW21SN900SQ2L）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "DLW21SN900SQ2L",
+        "manufacturer": "Murata（村田）",
+        "value": "共模阻抗 90Ω@100MHz 档",
+        "footprint": "0805 级（约 2.0×1.2mm）",
+        "category": "共模电感",
+        "description": "USB 2.0 差分线用共模电感，抑制共模噪声且差模插损低。差分对必须同层、等长、对称穿过器件，否则共模抑制会明显下降。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "线圈 A 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "线圈 A 端 2（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "3",
+            "name": "线圈 B 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "4",
+            "name": "线圈 B 端 2（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（差分对须对称布线）",
+        "keyRatings": [
+          "共模阻抗 90Ω@100MHz 档（按 datasheet）",
+          "额定电流/DCR 按 datasheet",
+          "差模插损低，适合 USB 2.0"
+        ],
+        "selectionNotes": [
+          "放在连接器与 ESD 保护之后、靠近入口",
+          "差分对不换层、不等长会降低共模抑制",
+          "额定电流按接口最大电流留余量"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "共模电感",
+          "USB",
+          "EMI",
+          "差分"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "CAN 总线共模电感（ACT45B-101-2P）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ACT45B-101-2P",
+        "manufacturer": "TDK",
+        "value": "共模电感量 100µH 级（按 datasheet）",
+        "footprint": "1812 级",
+        "category": "共模电感",
+        "description": "CAN 总线用共模电感，抑制总线共模噪声并提升抗扰度。电感量、额定电流、DCR 与总线速率/终端电阻须一起校核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "线圈 A 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "线圈 A 端 2（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "3",
+            "name": "线圈 B 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "4",
+            "name": "线圈 B 端 2（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（差分对须对称布线）",
+        "keyRatings": [
+          "共模电感量 100µH 级（按 datasheet）",
+          "额定电流按总线电流",
+          "需与终端电阻/共模电压配合"
+        ],
+        "selectionNotes": [
+          "CANH/CANL 对称穿过，避免换层",
+          "与 120Ω 终端、共模偏置一起核",
+          "工业场景配合隔离收发器"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "共模电感",
+          "CAN",
+          "总线",
+          "EMI"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "1A 1206 快断贴片保险丝（SF-1206F100-2）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SF-1206F100-2",
+        "manufacturer": "Bourns",
+        "value": "1A 快断（按 datasheet）",
+        "footprint": "1206",
+        "category": "保险丝",
+        "description": "1206 一次性快断保险丝，用于电源输入/电池输出过流与短路保护。额定电流须按 ≤0.75 降额，并核对 DC 额定电压、分断能力与 I²t。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "额定电流 1A 档，连续工作 ≤0.75×I_rated（25°C）",
+          "额定电压/分断能力按 datasheet（须 DC 额定）",
+          "I²t 与浪涌/启动电流匹配"
+        ],
+        "selectionNotes": [
+          "先算正常工作电流再反推额定值",
+          "环境温度升高按厂家曲线降额",
+          "与 TVS/后级耐压做保护配合"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "保险丝",
+          "过流保护",
+          "1206",
+          "安规"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "0.5A 1812 PPTC 自恢复保险丝（MF-MSMF050-2）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "MF-MSMF050-2",
+        "manufacturer": "Bourns",
+        "value": "I_hold 0.5A 档（按 datasheet）",
+        "footprint": "1812",
+        "category": "PPTC",
+        "description": "1812 聚合物自恢复保险丝，用于 USB/电池输出等可恢复过流保护。I_hold 随环境温度下降，必须按最高工作温度降额选型。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "I_hold/I_trip 按 datasheet（25°C 定义）",
+          "最高环境温度下 I_hold 需 ≥1.2×工作电流",
+          "动作后漏电流/残余电阻按 datasheet"
+        ],
+        "selectionNotes": [
+          "温度降额曲线是选型关键",
+          "动作后需断电冷却恢复，不适合频繁自恢复",
+          "安全关键场景仍用一次性保险丝"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "PPTC",
+          "自恢复保险丝",
+          "过流保护",
+          "1812"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "10kΩ B=3380 NTC 热敏电阻（NCP15XH103F03RC）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "NCP15XH103F03RC",
+        "manufacturer": "Murata（村田）",
+        "value": "10kΩ ±1% B=3380 级",
+        "footprint": "0402（1.0×0.5mm）",
+        "category": "热敏电阻",
+        "description": "0402 NTC 测温热敏电阻，R25=10kΩ 档、B 值按 datasheet。分压电阻取 R25 附近灵敏度最高，须评估自热与引线电阻误差。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性",
+        "keyRatings": [
+          "R25 10kΩ 档、B 值按 datasheet",
+          "阻值精度/公差按 datasheet",
+          "自热系数/耗散系数按 datasheet"
+        ],
+        "selectionNotes": [
+          "分压 R_fix ≈ R25",
+          "限制测量电流降低自热",
+          "0/25/85°C 三点校准"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "NTC",
+          "热敏电阻",
+          "测温",
+          "0402"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "数字温湿度传感器（SHT30-DIS-B）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SHT30-DIS-B",
+        "manufacturer": "Sensirion",
+        "value": "±2%RH / ±0.2°C 级（按 datasheet）",
+        "footprint": "DFN-8 2.5×2.5×0.9mm",
+        "category": "传感器",
+        "description": "I2C 数字温湿度传感器，精度与响应处于消费/工业常用档。读数受传感器本体温度与腔体气流影响，开孔与远离热源比换型号更关键。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "SDA",
+            "type": "bidirectional"
+          },
+          {
+            "number": "2",
+            "name": "ADDR",
+            "type": "input"
+          },
+          {
+            "number": "3",
+            "name": "ALERT",
+            "type": "output"
+          },
+          {
+            "number": "4",
+            "name": "SCL",
+            "type": "input"
+          },
+          {
+            "number": "5",
+            "name": "VDD",
+            "type": "power_in"
+          },
+          {
+            "number": "6",
+            "name": "VSS",
+            "type": "ground"
+          },
+          {
+            "number": "7",
+            "name": "NC（按 datasheet）",
+            "type": "no_connect"
+          },
+          {
+            "number": "8",
+            "name": "NC（按 datasheet）",
+            "type": "no_connect"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "湿度精度 ±2%RH 级、温度 ±0.2°C 级（按 datasheet）",
+          "I2C 接口，供电范围按 datasheet",
+          "需开孔/透气膜保证气流"
+        ],
+        "selectionNotes": [
+          "远离 MCU/DC-DC/阳光等热源",
+          "外壳开孔+防尘透气膜",
+          "产测做两点校准并记录"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "温湿度",
+          "I2C",
+          "SHT30"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "数字压力传感器（BMP280）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "BMP280",
+        "manufacturer": "Bosch Sensortec",
+        "value": "300~1100hPa / ±1hPa 级（按 datasheet）",
+        "footprint": "LGA-8 2.0×2.5×0.95mm",
+        "category": "传感器",
+        "description": "数字气压/温度传感器，适合海拔/气压/室内环境测量。量程与过压按 datasheet，I2C/SPI 模式由 CSB 等引脚配置。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "2",
+            "name": "CSB",
+            "type": "input"
+          },
+          {
+            "number": "3",
+            "name": "SDI/SDA",
+            "type": "bidirectional"
+          },
+          {
+            "number": "4",
+            "name": "SCK/SCL",
+            "type": "input"
+          },
+          {
+            "number": "5",
+            "name": "SDO",
+            "type": "bidirectional"
+          },
+          {
+            "number": "6",
+            "name": "VDDIO",
+            "type": "power_in"
+          },
+          {
+            "number": "7",
+            "name": "GND（按 datasheet）",
+            "type": "ground"
+          },
+          {
+            "number": "8",
+            "name": "VDD",
+            "type": "power_in"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "压力量程 300~1100hPa 档（按 datasheet）",
+          "压力精度 ±1hPa 级（按 datasheet）",
+          "I2C/SPI 可选，按 CSB 配置"
+        ],
+        "selectionNotes": [
+          "量程按工作压力 1/3~2/3 选",
+          "开孔导压，避免胶/三防漆堵塞",
+          "校准零点与量程"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "压力",
+          "I2C",
+          "SPI"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "6 轴 IMU（MPU-6050）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "MPU-6050",
+        "manufacturer": "TDK InvenSense",
+        "value": "±2~16g / ±250~2000dps（按 datasheet）",
+        "footprint": "QFN-24 4×4mm",
+        "category": "传感器",
+        "description": "经典 6 轴消费级 IMU（3 轴加速度 + 3 轴陀螺），I2C 数字接口。零偏与灵敏度误差必须校准，安装应力与振动会直接污染输出。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "SDA",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "SCL",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "INT",
+            "type": "output"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "AD0",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VDD",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VDDIO",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "FSYNC",
+            "type": "input"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "加速度 ±2/4/8/16g 可选（按 datasheet）",
+          "角速度 ±250/500/1000/2000dps 可选",
+          "16bit 输出、I2C 接口（按 datasheet）"
+        ],
+        "selectionNotes": [
+          "六面静态校准后使用",
+          "远离板边/连接器受力点",
+          "ODR/滤波按应用带宽设置"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "IMU",
+          "6轴",
+          "MPU-6050"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "低噪声 6 轴 IMU（ICM-42688-P）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ICM-42688-P",
+        "manufacturer": "TDK InvenSense",
+        "value": "低噪声 6 轴档（按 datasheet）",
+        "footprint": "LGA-14 2.5×3.0mm",
+        "category": "传感器",
+        "description": "低噪声 6 轴 IMU，适合姿态/振动/运动检测。噪声密度、量程、ODR 与接口模式按 datasheet，安装与减震设计决定实际可用精度。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "VDD",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VDDIO",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "SCLK/SCL",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "SDI/SDA",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "SDO",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "CS",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "INT1/INT2",
+            "type": "output"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "低噪声密度档（按 datasheet）",
+          "SPI/I2C 接口，量程档位按 datasheet",
+          "内置滤波/ODR 配置按 datasheet"
+        ],
+        "selectionNotes": [
+          "按振动/姿态频段选 ODR 与滤波",
+          "六面校准+温度补偿",
+          "减震安装，避免 PCB 应力"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "IMU",
+          "低噪声",
+          "ICM-42688"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "霍尔开关（A3144EUA-T）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "A3144EUA-T",
+        "manufacturer": "Allegro MicroSystems",
+        "value": "单极霍尔开关（操作点几十 Gauss 级）",
+        "footprint": "TO-92（UA）",
+        "category": "传感器",
+        "description": "单极霍尔开关，磁场超过操作点输出翻转、低于释放点恢复。开漏输出需上拉，磁铁极性/气隙/磁滞必须按 datasheet 校核。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "VCC",
+            "type": "power_in"
+          },
+          {
+            "number": "2",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "3",
+            "name": "OUT（开漏）",
+            "type": "output"
+          }
+        ],
+        "polarity": "有极性（VCC/GND 不可反接）",
+        "keyRatings": [
+          "单极开关型，操作点/释放点按 datasheet",
+          "开漏输出需上拉电阻",
+          "工作电压范围按 datasheet"
+        ],
+        "selectionNotes": [
+          "上拉 4.7k~10k（按电流/速率）",
+          "气隙按磁铁规格留余量",
+          "长线加 RC 与 ESD 保护"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "霍尔",
+          "开关型",
+          "磁路"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "槽型光电开关（ITR9608）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ITR9608",
+        "manufacturer": "Everlight（亿光）",
+        "value": "槽型对射光电（槽宽/响应按 datasheet）",
+        "footprint": "DIP-4 插件",
+        "category": "传感器",
+        "description": "槽型红外对射光电开关，用于限位/计数/到位检测。LED 需限流、接收侧需上拉/比较器，遮光结构与环境光是误触发主因。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "LED 阳极",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "LED 阴极",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "接收输出/集电极",
+            "type": "output"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "接收地/发射极",
+            "type": "ground"
+          }
+        ],
+        "polarity": "有极性（LED 与接收侧极性不可反接）",
+        "keyRatings": [
+          "槽宽/检测距离按 datasheet",
+          "LED 正向电流按 datasheet（常见 10~20mA 级）",
+          "响应时间按 datasheet"
+        ],
+        "selectionNotes": [
+          "LED 串限流电阻并留 20% 余量",
+          "结构加遮光筋避免漏光串扰",
+          "输出加施密特/软件去抖"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "光电",
+          "对射",
+          "限位"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "模拟 MEMS 麦克风（SPU0410LR5H-QB）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SPU0410LR5H-QB",
+        "manufacturer": "Knowles",
+        "value": "灵敏度 −38dBV/Pa 级、SNR 65dB 级（按 datasheet）",
+        "footprint": "LGA 3.76×3.00×1.10mm",
+        "category": "传感器",
+        "description": "模拟输出 MEMS 麦克风，适合语音采集。模拟小信号需隔直/偏置与 ADC 共模匹配，声孔密封与防尘网直接影响灵敏度。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "VDD",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "OUT",
+            "type": "output"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          }
+        ],
+        "polarity": "有极性（VDD/GND 不可反接）",
+        "keyRatings": [
+          "灵敏度 −38dBV/Pa 级、SNR 65dB 级（按 datasheet）",
+          "AOP/功耗按 datasheet",
+          "声孔位置与密封按 datasheet 推荐"
+        ],
+        "selectionNotes": [
+          "隔直电容与 ADC 输入阻抗匹配",
+          "声孔正对外壳开孔、加防尘网",
+          "远离电源/振动源，差分/屏蔽走线"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "传感器",
+          "麦克风",
+          "MEMS",
+          "模拟"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "压电蜂鸣器 4kHz 12mm（PS1240P02BT）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "PS1240P02BT",
+        "manufacturer": "TDK",
+        "value": "压电无源蜂鸣器、谐振 4kHz 级（按 datasheet）",
+        "footprint": "插件 12.2mm 级",
+        "category": "执行器",
+        "description": "压电无源蜂鸣器，需外部方波驱动在谐振频率附近发声。不能直接加直流，驱动频率与占空比决定声压，声孔/腔体影响音量。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "正极（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "负极（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "有极性（引脚正负按 datasheet）",
+        "keyRatings": [
+          "谐振频率 4kHz 级（按 datasheet）",
+          "声压/驱动电压按 datasheet",
+          "容性负载，需方波驱动"
+        ],
+        "selectionNotes": [
+          "MCU PWM 方波驱动，频率取谐振点",
+          "占空比 50% 声压最大",
+          "串小电阻限流，避免长期直流"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "执行器",
+          "蜂鸣器",
+          "压电",
+          "无源"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "5V 信号继电器（G5V-1-DC5）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "G5V-1-DC5",
+        "manufacturer": "Omron（欧姆龙）",
+        "value": "5V 线圈 / 1A 级触点（按 datasheet）",
+        "footprint": "DIP-6",
+        "category": "执行器",
+        "description": "5V 信号继电器，用于小功率负载通断与隔离。线圈是感性负载必须续流，触点额定须按阻性/感性/灯负载降额。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "线圈 +",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "线圈 −",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "COM",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "NO",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "NC",
+            "type": "passive"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "NC/空脚（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "有极性（线圈极性/触点方向按 datasheet）",
+        "keyRatings": [
+          "线圈 5V 档，线圈电阻/电流按 datasheet",
+          "触点额定按负载类型降额",
+          "机械/电气寿命按 datasheet"
+        ],
+        "selectionNotes": [
+          "线圈并续流二极管（阴极接 VCC）",
+          "驱动管按线圈电流×1.5~2 选",
+          "触点侧加 RC/压敏吸收"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "执行器",
+          "继电器",
+          "线圈",
+          "续流"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "双路 H 桥电机驱动（DRV8833PWPR）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "DRV8833PWPR",
+        "manufacturer": "Texas Instruments",
+        "value": "双路 H 桥、1.5A/路 级（按 datasheet）",
+        "footprint": "TSSOP-16（PW）",
+        "category": "电机驱动",
+        "description": "双路低电压 H 桥电机驱动，适合小型直流电机/步进电机。堵转与启动电流、PWM 频率、续流与散热是选型关键。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "nSLEEP（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "2",
+            "name": "AIN1（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "3",
+            "name": "AIN2（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "4",
+            "name": "BIN1（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "5",
+            "name": "BIN2（按 datasheet）",
+            "type": "input"
+          },
+          {
+            "number": "6",
+            "name": "nFAULT（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "7",
+            "name": "BISEN（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "8",
+            "name": "BOUT2（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "9",
+            "name": "BOUT1（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "10",
+            "name": "VCP（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "11",
+            "name": "VM（按 datasheet）",
+            "type": "power_in"
+          },
+          {
+            "number": "12",
+            "name": "GND（按 datasheet）",
+            "type": "ground"
+          },
+          {
+            "number": "13",
+            "name": "AISEN（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "14",
+            "name": "AOUT1（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "15",
+            "name": "AOUT2（按 datasheet）",
+            "type": "output"
+          },
+          {
+            "number": "16",
+            "name": "VINT（按 datasheet）",
+            "type": "power_out"
+          }
+        ],
+        "polarity": "有极性（VM/GND 不可反接）",
+        "keyRatings": [
+          "每路 1.5A RMS 级（按 datasheet）",
+          "工作电压 2.7~10.8V 档（按 datasheet）",
+          "内置过流/过热保护（按 datasheet）"
+        ],
+        "selectionNotes": [
+          "按堵转/启动电流选驱动并留余量",
+          "PWM 频率建议 ≥20kHz 避开音频",
+          "电机端加高频电容与共模抑制 EMI"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "执行器",
+          "电机驱动",
+          "H桥",
+          "DRV8833"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "USB 2.0 ESD 保护阵列（USBLC6-2SC6）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "USBLC6-2SC6",
+        "manufacturer": "STMicroelectronics",
+        "value": "2 路 ESD、5V 档（按 datasheet）",
+        "footprint": "SOT-23-6",
+        "category": "ESD 保护",
+        "description": "USB 2.0 D+/D− 用双路 ESD 保护阵列，低电容、同时保护 VBUS 与数据线。必须紧靠连接器，地回路短而宽。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "I/O1",
+            "type": "bidirectional"
+          },
+          {
+            "number": "2",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "3",
+            "name": "I/O2",
+            "type": "bidirectional"
+          },
+          {
+            "number": "4",
+            "name": "I/O2（按 datasheet）",
+            "type": "bidirectional"
+          },
+          {
+            "number": "5",
+            "name": "VBUS",
+            "type": "power_in"
+          },
+          {
+            "number": "6",
+            "name": "I/O1（按 datasheet）",
+            "type": "bidirectional"
+          }
+        ],
+        "polarity": "有极性（VBUS/GND 不可反接）",
+        "keyRatings": [
+          "2 路 ESD，低电容 pF 级（按 datasheet）",
+          "VRWM 5V 档、VC 按 datasheet",
+          "IEC 61000-4-2 等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "放在 USB 连接器附近",
+          "差分对成对穿过，分支尽量短",
+          "地脚多过孔接保护地"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "ESD",
+          "TVS",
+          "USB",
+          "接口保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "4 通道低电容 ESD（TPD4E05U06）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "TPD4E05U06",
+        "manufacturer": "Texas Instruments",
+        "value": "4 通道、0.5pF 级（按 datasheet）",
+        "footprint": "USON-10（DQA，2.5×1.0mm）",
+        "category": "ESD 保护",
+        "description": "4 通道超低电容 ESD 保护，适合 USB/HDMI 等高速差分线。通道间参数匹配与布局对称决定信号完整性。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "I/O1",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O2",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O3",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O4",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          }
+        ],
+        "polarity": "无极性（按 pin map 接 I/O 与地）",
+        "keyRatings": [
+          "4 通道、0.5pF 级低电容（按 datasheet）",
+          "VRWM 5.5V 级档（按 datasheet）",
+          "IEC 61000-4-2 等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "差分对内通道成对使用",
+          "器件骑在走线上，分支短",
+          "GND 就近接保护地"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "ESD",
+          "低电容",
+          "高速接口",
+          "TVS阵列"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "4 通道 TVS 阵列（SRV05-4）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SRV05-4",
+        "manufacturer": "Semtech",
+        "value": "4 通道、5V 档（按 datasheet）",
+        "footprint": "SOT-23-6",
+        "category": "TVS",
+        "description": "4 路 TVS 阵列，用于多根低速/中速信号线的 ESD 与瞬态保护。结电容与钳位电压按信号速率/后级耐压复核。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "I/O1",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O2",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O3",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O4",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VCC/GND（按 datasheet）",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          }
+        ],
+        "polarity": "有极性（VCC/GND 按 pin map）",
+        "keyRatings": [
+          "4 路 I/O 保护、5V standoff 档",
+          "结电容 pF 级（按 datasheet）",
+          "ESD/浪涌等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "按信号电压选 VRWM",
+          "VC ≤后级绝对最大值×0.8",
+          "多路并联注意电容叠加"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "TVS",
+          "ESD",
+          "多路",
+          "接口保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "超低电容 4 通道 ESD（RClamp0524P）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "RClamp0524P",
+        "manufacturer": "Semtech",
+        "value": "4 通道、0.3pF 级（按 datasheet）",
+        "footprint": "SLP2510P8（DFN 10 脚）",
+        "category": "ESD 保护",
+        "description": "超低电容 4 通道 ESD 保护，用于高速差分/射频附近接口。器件寄生电容与分支长度对眼图/插损影响显著。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "I/O1",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O2",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O3",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "I/O4",
+            "type": "bidirectional"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND",
+            "type": "ground"
+          }
+        ],
+        "polarity": "无极性（按 pin map 接 I/O 与地）",
+        "keyRatings": [
+          "4 通道、0.3pF 级（按 datasheet）",
+          "VRWM 5V 档、VC 按 datasheet",
+          "IEC 61000-4-2 等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "超高速接口优先选此档",
+          "保护器件分支极短、地就近",
+          "加保护后复测眼图/插损"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "ESD",
+          "超低电容",
+          "高速",
+          "接口保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "单路 5V ESD 二极管（PESD5V0S1BA）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "PESD5V0S1BA",
+        "manufacturer": "Nexperia",
+        "value": "单路、5V 档（按 datasheet）",
+        "footprint": "SOD-323",
+        "category": "ESD 保护",
+        "description": "单路 5V ESD 保护二极管，适合按键/复位/单根 GPIO 等低速信号。单向/双向属性按型号后缀与 datasheet 确认。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "端子 1",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "端子 2",
+            "type": "passive"
+          }
+        ],
+        "polarity": "按 datasheet 确认单向/双向与极性",
+        "keyRatings": [
+          "VRWM 5V 档（按 datasheet）",
+          "结电容/钳位电压按 datasheet",
+          "ESD 等级按 datasheet"
+        ],
+        "selectionNotes": [
+          "单根信号就近放置",
+          "低速线可用几 pF 级器件",
+          "地回路短、避免 stub"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "ESD",
+          "单路",
+          "SOD-323",
+          "GPIO"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "200W 5V 单向 TVS（SMF5.0A）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "SMF5.0A",
+        "manufacturer": "Littelfuse",
+        "value": "5V standoff / 200W 级（按 datasheet）",
+        "footprint": "SOD-123FL",
+        "category": "TVS",
+        "description": "200W 级单向 TVS，用于电源/长线接口的 ESD 与浪涌钳位。VRWM 5V 档，必须核对 VC/IPP 与被保护器件耐压。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "阴极（色带）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "阳极",
+            "type": "passive"
+          }
+        ],
+        "polarity": "有极性（色带=阴极，单向）",
+        "keyRatings": [
+          "VRWM 5.0V 档、峰值功率 200W 级（按 datasheet）",
+          "VC/IPP 按 datasheet",
+          "单向，适用直流/单极性信号"
+        ],
+        "selectionNotes": [
+          "VRWM ≥1.1~1.2×最大工作电压",
+          "VC ≤后级绝对最大值×0.8",
+          "TVS 前必须有保险丝/PPTC"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "TVS",
+          "浪涌",
+          "单向",
+          "电源保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "共模滤波器 90Ω（ACM2012-900-2P）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ACM2012-900-2P",
+        "manufacturer": "TDK",
+        "value": "共模阻抗 90Ω@100MHz 级（按 datasheet）",
+        "footprint": "0805 级",
+        "category": "共模电感",
+        "description": "0805 级共模滤波器，用于 USB/通用差分接口的共模噪声抑制。差模插损低，但差分对布线不对称会抵消抑制效果。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "线圈 A 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "线圈 A 端 2（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "3",
+            "name": "线圈 B 端 1（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "4",
+            "name": "线圈 B 端 2（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "无极性（差分对须对称布线）",
+        "keyRatings": [
+          "共模阻抗 90Ω@100MHz 档（按 datasheet）",
+          "额定电流/DCR 按 datasheet",
+          "差模插损低"
+        ],
+        "selectionNotes": [
+          "放在 ESD 保护之后、进入板内前",
+          "差分对同层等长、不换层",
+          "额定电流按接口最大值留余量"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "共模电感",
+          "EMI",
+          "USB",
+          "滤波"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "双通道数字隔离器（ADuM1201ARZ）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "ADuM1201ARZ",
+        "manufacturer": "Analog Devices",
+        "value": "2 通道、2.5kVrms 级（按 datasheet）",
+        "footprint": "SOIC-8",
+        "category": "隔离器",
+        "description": "双通道数字隔离器，替代光耦用于 UART/SPI/GPIO 隔离。需要两侧独立供电，隔离等级/速率/CMTI/默认输出按 datasheet。",
+        "pins": [
+          {
+            "number": "按 datasheet",
+            "name": "VDD1",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND1",
+            "type": "ground"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VIA",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VOA",
+            "type": "output"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VDD2",
+            "type": "power_in"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "GND2",
+            "type": "ground"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VIB",
+            "type": "input"
+          },
+          {
+            "number": "按 datasheet",
+            "name": "VOB",
+            "type": "output"
+          }
+        ],
+        "polarity": "有极性（两侧 VDD/GND 分开，不可反接）",
+        "keyRatings": [
+          "隔离等级 2.5kVrms 级（按 datasheet）",
+          "速率/传播延迟按 datasheet",
+          "CMTI 按 datasheet"
+        ],
+        "selectionNotes": [
+          "两侧电源/地完全分开",
+          "按总线速率留 2 倍余量",
+          "确认失效默认输出状态"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "隔离器",
+          "数字隔离",
+          "SOIC-8",
+          "接口保护"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "高速光耦（6N137）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "6N137",
+        "manufacturer": "Vishay/onsemi 等（通用型号）",
+        "value": "10Mbps 级、逻辑输出（按 datasheet）",
+        "footprint": "DIP-8/SOP-8",
+        "category": "光耦",
+        "description": "高速逻辑输出光耦，用于数字信号隔离与电平转换。CTR/阈值电流随温度与老化变化，LED 驱动与输出上拉须留余量。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "NC（按 datasheet）",
+            "type": "no_connect"
+          },
+          {
+            "number": "2",
+            "name": "LED 阳极",
+            "type": "passive"
+          },
+          {
+            "number": "3",
+            "name": "LED 阴极",
+            "type": "passive"
+          },
+          {
+            "number": "4",
+            "name": "NC（按 datasheet）",
+            "type": "no_connect"
+          },
+          {
+            "number": "5",
+            "name": "GND",
+            "type": "ground"
+          },
+          {
+            "number": "6",
+            "name": "VO（开漏）",
+            "type": "output"
+          },
+          {
+            "number": "7",
+            "name": "VE（使能）",
+            "type": "input"
+          },
+          {
+            "number": "8",
+            "name": "VCC",
+            "type": "power_in"
+          }
+        ],
+        "polarity": "有极性（LED 与输出侧 VCC/GND 不可反接）",
+        "keyRatings": [
+          "速率 10Mbps 级（按 datasheet）",
+          "隔离电压按厂家规格（按 datasheet）",
+          "阈值电流/输出上拉按 datasheet"
+        ],
+        "selectionNotes": [
+          "LED 驱动电流按最坏 CTR 设计",
+          "输出开漏需上拉",
+          "高速线注意传播延迟/脉宽失真"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "光耦",
+          "隔离",
+          "高速",
+          "DIP-8"
+        ]
+      }
+    },
+    {
+      "kind": "part",
+      "title": "信号线 TBU 限流器（TBU-CA065-200-WH）",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "lcscId": null,
+        "lcscIdVerified": false,
+        "lcscIdVerificationNote": "待核验：LCSC 号未确认，禁止使用未核实料号；MPN 为公开常见型号，封装/引脚/参数须以该 MPN datasheet 为准，采购前须经 Librarian 三源核验（EDA 库/供应商/datasheet）",
+        "mpn": "TBU-CA065-200-WH",
+        "manufacturer": "Bourns",
+        "value": "200mA 级、650V 级（按 datasheet）",
+        "footprint": "DFN/SMD（按 datasheet）",
+        "category": "保护器件",
+        "description": "瞬态阻断单元（TBU），用于信号线的过流/浪涌限流，常与 TVS 配合构成二级保护。触发电流、峰值电压与动作时间按 datasheet。",
+        "pins": [
+          {
+            "number": "1",
+            "name": "线路输入侧（按 datasheet）",
+            "type": "passive"
+          },
+          {
+            "number": "2",
+            "name": "线路输出侧（按 datasheet）",
+            "type": "passive"
+          }
+        ],
+        "polarity": "有极性（线路输入/输出侧按 datasheet）",
+        "keyRatings": [
+          "保持/触发电流 200mA 级（按 datasheet）",
+          "峰值电压 650V 级（按 datasheet）",
+          "动作时间/复位特性按 datasheet"
+        ],
+        "selectionNotes": [
+          "与 TVS/后级耐压配合使用",
+          "放在连接器与后级之间",
+          "注意正常信号电流/压降"
+        ],
+        "identityVerification": "MPN/型号为公开常见型号；LCSC 号未确认（待核验）；引脚编号与功能须按 datasheet 逐脚复核，本条目不作已核验事实",
+        "tags": [
+          "TBU",
+          "过流保护",
+          "信号线",
+          "浪涌"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "输入保护与 EMI 滤波链（保险丝/PPTC → TVS → 共模 → 滤波）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-INPUT-PROTECT",
+        "category": "电源入口/保护",
+        "purpose": "在外部电源/信号进入板内之前，按能量顺序完成过流、过压与共模噪声抑制，保护后级 DC-DC 与 IC。",
+        "whenToUse": "存在外部电源输入、电池、USB 受电或长线接口，或产品需要通过 EMC/安规认证时。",
+        "designPoints": [
+          "保险丝/PPTC 紧靠连接器",
+          "TVS 放在保险丝之后、后级器件之前",
+          "共模电感/磁珠放在 TVS 之后",
+          "保护地与信号地在接口附近单点/电容连接",
+          "按 I²t/VC/IPP 校核器件间能量配合"
+        ],
+        "keyParameters": [
+          "保险丝 I_op ≤0.75×I_rated（25°C）",
+          "TVS VC ≤后级绝对最大额定值×0.8",
+          "共模阻抗@100MHz",
+          "I²t_surge ≤20%~30%×I²t_fuse"
+        ],
+        "schematic": "连接器 → 保险丝/PPTC → TVS（+ 串阻/限流）→ 共模电感/磁珠 → DC-DC/接口 IC；保护器件的地汇到保护地。",
+        "layout": "保护器件集中在连接器附近，地回路短而宽；高压区留爬电距离；功率地与信号地单点汇合；保险丝远离 NTC 等热敏器件避免热耦合。",
+        "pitfalls": [
+          "TVS 放在保险丝之前，浪涌能量全打在 TVS 上",
+          "保护器件离连接器太远导致残压升高",
+          "地回路过长，钳位电压被走线电感抬高",
+          "共模电感额定电流不足导致饱和"
+        ],
+        "tags": [
+          "输入保护",
+          "EMI",
+          "保险丝",
+          "TVS",
+          "共模滤波"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "磁性元件选型与布局（功率电感/磁珠/共模电感）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-MAGNETICS",
+        "category": "磁性元件/电源",
+        "purpose": "按电流波形、工作频率与直流偏置选择磁性元件，并通过布局控制漏磁、功率环路与温升。",
+        "whenToUse": "设计 DC-DC 储能电感、电源/接口 EMI 滤波、USB/CAN 共模抑制时。",
+        "designPoints": [
+          "功率电感同时满足 I_peak ≤0.8×Isat 与 I_rms ≤Irms",
+          "磁珠按额定电流与直流偏置曲线降额",
+          "共模电感差分对必须对称穿过",
+          "缩小高 di/dt 功率环路面积",
+          "电感禁布区/间距按 datasheet 执行"
+        ],
+        "keyParameters": [
+          "L 按 (Vin−Vout)×Vout/(Vin×fsw×ΔI) 计算",
+          "DCR 铜损 P=I_rms²×DCR",
+          "磁珠 100MHz 阻抗/额定电流/偏置降额",
+          "共模阻抗/漏感/额定电流"
+        ],
+        "schematic": "Buck：SW—电感—输出电容；输入/输出磁珠+电容组成高频滤波；差分接口共模电感串在连接器侧。",
+        "layout": "电感靠近 SW 以缩小环路；反馈线远离电感与 SW 节点；磁珠靠近入口；共模电感下方差分对连续、不换层。",
+        "pitfalls": [
+          "只看感值不看 Isat/Irms",
+          "磁珠串在大电流主电源路径",
+          "共模电感两线不对称导致共模抑制下降",
+          "电感下方随意铺铜/走线造成涡流损耗"
+        ],
+        "tags": [
+          "磁性元件",
+          "功率电感",
+          "磁珠",
+          "共模电感",
+          "布局"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "传感器接口与校准（I2C/SPI/模拟/脉冲）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-SENSOR-IF",
+        "category": "传感器接口",
+        "purpose": "为传感器提供正确的电平、时序、滤波与校准链路，使测量数据在目标工况下可信。",
+        "whenToUse": "接入温湿度、压力、IMU、霍尔、光电、麦克风等传感器时。",
+        "designPoints": [
+          "I2C 上拉按总线电容与上升时间计算",
+          "地址表核对无冲突",
+          "模拟链路做误差预算（激励/增益/ADC/噪声）",
+          "传感器电源去耦与基准稳定",
+          "产测校准并记录参数",
+          "长线接口加缓冲与 ESD 保护"
+        ],
+        "keyParameters": [
+          "I2C t_r ≤300ns（快速模式）、C_bus ≤400pF",
+          "模拟输出落在 ADC 量程 20%~80%",
+          "传感器精度/量程/响应时间按 datasheet",
+          "校准残差按产品规格"
+        ],
+        "schematic": "传感器 →（上拉/偏置/滤波）→ MCU I2C/SPI/ADC；模拟麦/电桥需偏置或仪表放大；数字麦需提供时钟。",
+        "layout": "传感器靠近开孔/被测点，远离热源与功率线；I2C/SPI 走线短并加 ESD；模拟小信号包地或差分走线。",
+        "pitfalls": [
+          "上拉过大导致上升沿慢、通信失败",
+          "多传感器地址冲突",
+          "三防漆/外壳堵住声孔或透气孔",
+          "未校准直接量产导致精度声明无法兑现"
+        ],
+        "tags": [
+          "传感器",
+          "I2C",
+          "SPI",
+          "校准",
+          "接口"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "执行器驱动与续流（蜂鸣器/继电器/电机/电磁阀）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-ACTUATOR-DRIVE",
+        "category": "执行器驱动",
+        "purpose": "用合适的驱动级与续流通路控制感性/容性负载，同时控制电流、EMI 与热。",
+        "whenToUse": "驱动继电器线圈、电磁阀、直流/步进电机、蜂鸣器等执行器时。",
+        "designPoints": [
+          "感性负载必须提供续流通路",
+          "驱动管按负载电流×1.5~2 选并核 SOA",
+          "电机 PWM 频率建议 ≥20kHz",
+          "高压/长线场景加光耦或数字隔离",
+          "电源入口加储能电容吸收启动电流",
+          "软件软启动/限流/过流保护"
+        ],
+        "keyParameters": [
+          "线圈电流/吸合电流/堵转电流",
+          "驱动管 Vds/Ic 与 SOA",
+          "关断尖峰 ≤驱动管耐压×0.8",
+          "PWM 频率/占空比/死区"
+        ],
+        "schematic": "MCU GPIO/PWM → 驱动管/H 桥/继电器驱动 → 负载；线圈并续流二极管；高压侧加隔离器。",
+        "layout": "续流回路面积最小，续流二极管贴负载端子；功率地与信号地单点；电机线加共模/电容滤波。",
+        "pitfalls": [
+          "无续流导致驱动管击穿",
+          "按保持电流选电磁阀驱动导致吸合瞬间过流",
+          "PWM 频率落入音频段产生啸叫",
+          "电机堵转电流超驱动能力烧毁"
+        ],
+        "tags": [
+          "执行器",
+          "驱动",
+          "续流",
+          "电机",
+          "继电器"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "接口 ESD/共模滤波保护链",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-ESD-FILTER",
+        "category": "接口保护",
+        "purpose": "在连接器入口把 ESD/浪涌电流旁路到保护地并抑制共模噪声，同时不破坏信号完整性。",
+        "whenToUse": "任何外露连接器或长线接口：USB/HDMI/以太网/CAN/RS485/音频/天线等。",
+        "designPoints": [
+          "保护器件紧靠连接器、先打后过",
+          "按信号速率选低电容 ESD 器件",
+          "共模电感差分对对称穿过",
+          "保护地与信号地单点/电容连接",
+          "TVS 能量与保险丝 I²t 配合",
+          "保护器件分支/stub 尽量短"
+        ],
+        "keyParameters": [
+          "IEC 61000-4-2 测试等级",
+          "TVS VRWM/VC/Cj/IPP",
+          "共模阻抗@100MHz",
+          "残压 ≤后级绝对最大值×0.8"
+        ],
+        "schematic": "连接器 → TVS/ESD 阵列（+串阻）→ 共模电感 → 接口 IC；VBUS 侧再加保险丝/PPTC。",
+        "layout": "保护器件分支短、地脚多过孔；差分对同层等长；保护地独立铜皮；隔离带禁布。",
+        "pitfalls": [
+          "TVS 离连接器远、地回路长",
+          "结电容过大破坏高速信号",
+          "保护器件放在保险丝之前",
+          "多级器件并联导致电容叠加/谐振"
+        ],
+        "tags": [
+          "ESD",
+          "TVS",
+          "共模滤波",
+          "接口保护",
+          "布局"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "隔离接口与隔离电源",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-ISOLATED-IF",
+        "category": "隔离接口",
+        "purpose": "在高压/长线/工业接口两侧建立电气隔离，阻断地环流并满足安规耐压要求。",
+        "whenToUse": "工业 RS485/CAN、市电侧检测、电机/继电器高压侧控制、需要断地环流的场景。",
+        "designPoints": [
+          "隔离器/光耦是唯一跨隔离栅器件",
+          "两侧电源独立或使用隔离电源",
+          "隔离带下方所有层禁铺铜/禁走线",
+          "爬电/电气间隙按标准计算",
+          "CMTI/速率留余量",
+          "确认失效默认输出状态"
+        ],
+        "keyParameters": [
+          "隔离等级（2.5kVrms/5kVrms 档，按认证）",
+          "CMTI（kV/µs）",
+          "爬电距离/电气间隙（按 IEC 62368-1/60664-1 查表）",
+          "数据速率/传播延迟"
+        ],
+        "schematic": "MCU → 数字隔离器/光耦 →（隔离电源）→ 收发器/驱动；隔离栅两侧地完全分开。",
+        "layout": "隔离带下所有层禁布；跨栅器件集中；高压侧留爬电；隔离电源变压器/隔离电容按认证选型。",
+        "pitfalls": [
+          "两侧地通过其他路径相连导致隔离失效",
+          "爬电距离不足导致认证失败",
+          "CMTI 不足时电机干扰造成误翻转",
+          "隔离电源供电能力/纹波不足"
+        ],
+        "tags": [
+          "隔离",
+          "数字隔离器",
+          "光耦",
+          "隔离电源",
+          "安规"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "电感饱和：大电流下感量崩塌导致掉压/复位",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-IND-SAT",
+        "code": "IND_SAT",
+        "category": "磁性/电源",
+        "severity": "error",
+        "symptom": "大电流/启动瞬间输出电压跌落、MCU 复位、电感啸叫或过热；满载纹波异常增大。",
+        "rootCause": "电感 Isat 余量不足，峰值电流（含纹波、启动、堵转冲击）超过饱和点，感量骤降使纹波与峰值电流正反馈上升。",
+        "detection": "电流探头/分流电阻测电感峰值电流与波形；满载+启动工况测输出电压；热成像测电感温升；对照 datasheet 的 Isat 定义。",
+        "prevention": [
+          "按 I_peak ≤0.8×Isat 选型（含冲击电流）",
+          "按拓扑公式与 IC 推荐值复核 L",
+          "满载+启动工况实测峰值电流与温升",
+          "选屏蔽型/更大尺寸或更高 Isat 型号"
+        ],
+        "refs": [
+          "docs/knowledge/components/08-inductors-ferrites-fuses.md"
+        ],
+        "tags": [
+          "电感",
+          "饱和",
+          "掉压复位",
+          "DC-DC"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "保险丝 I²t 失配：上电误断或短路不动作",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-FUSE-I2T",
+        "code": "FUSE_I2T",
+        "category": "保护/安规",
+        "severity": "error",
+        "symptom": "上电/热插拔/电机启动时保险丝随机熔断；或真实短路时保险丝不动作导致后级烧毁。",
+        "rootCause": "I²t 与浪涌/启动电流不匹配（余量过小误断，或额度过大不动作）；未按环境温度降额；额定电压/分断能力不足。",
+        "detection": "测浪涌/启动电流波形并积分 I²t；对照 datasheet 的 I²t/温度降额/分断能力；短路测试验证动作时间。",
+        "prevention": [
+          "I²t_surge ≤20%~30%×I²t_fuse",
+          "I_op ≤0.75×I_rated 并按温度降额",
+          "使用 DC 额定电压且分断能力足够的型号",
+          "与 TVS/后级耐压做保护配合"
+        ],
+        "refs": [
+          "docs/knowledge/components/08-inductors-ferrites-fuses.md"
+        ],
+        "tags": [
+          "保险丝",
+          "I²t",
+          "浪涌",
+          "误断"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "I2C 传感器通信失败/总线锁死",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-SENSOR-I2C",
+        "code": "SENSOR_I2C",
+        "category": "传感器/通信",
+        "severity": "error",
+        "symptom": "传感器上电无应答、读数时有时无、总线锁死（SDA 被拉低）；多传感器系统中部分器件失效。",
+        "rootCause": "I2C 上拉过大/总线电容超限导致上升沿过慢；地址冲突；电平不匹配；从机时钟拉伸未处理；总线无 ESD/滤波。",
+        "detection": "示波器测 SCL/SDA 上升时间、低电平与 ACK；扫描地址；估算总线电容；长线/多器件复现。",
+        "prevention": [
+          "按总线电容计算上拉并满足 t_r",
+          "地址表核对无冲突",
+          "5V/3.3V 之间加电平转换",
+          "加 I2C 缓冲/多路开关与 ESD 保护",
+          "软件加超时与总线复位"
+        ],
+        "refs": [
+          "docs/knowledge/components/09-sensors-actuators.md"
+        ],
+        "tags": [
+          "I2C",
+          "传感器",
+          "上拉",
+          "地址冲突"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "感性负载反电动势击穿驱动/干扰 MCU",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-INDUCTIVE-KICKBACK",
+        "code": "INDUCTIVE_KICKBACK",
+        "category": "执行器/驱动",
+        "severity": "error",
+        "symptom": "继电器/电机/电磁阀关断瞬间驱动管击穿、MCU 复位或死机；长期使用后驱动失效。",
+        "rootCause": "感性负载无续流通路或续流回路过长；驱动管耐压/SOA 不足；地弹通过公共地干扰 MCU。",
+        "detection": "示波器用高压差分探头测关断尖峰电压；检查续流二极管位置与回路面积；负载动作时监测 MCU 复位/ADC。",
+        "prevention": [
+          "线圈并续流二极管且贴负载端子",
+          "驱动管耐压 ≥2×电源电压并核 SOA",
+          "续流回路面积最小化",
+          "功率地与信号地单点汇合"
+        ],
+        "refs": [
+          "docs/knowledge/components/09-sensors-actuators.md"
+        ],
+        "tags": [
+          "续流",
+          "反电动势",
+          "驱动管",
+          "地弹"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "ESD 保护布局不当：TVS 有但后级仍被击穿",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-ESD-LAYOUT",
+        "code": "ESD_LAYOUT",
+        "category": "接口/ESD",
+        "severity": "error",
+        "symptom": "ESD 测试后接口 IC 损坏/功能异常；TVS 看似存在但未起保护作用；EMC 认证 ESD 项不通过。",
+        "rootCause": "保护器件离连接器远、地回路长导致残压升高；TVS 放在保险丝前；被保护走线在器件后分叉；保护地与信号地乱连。",
+        "detection": "按 IEC 61000-4-2 打 ESD，用高压差分探头测被保护节点残压；Layout 检查保护器件位置、地过孔与 stub 长度。",
+        "prevention": [
+          "保护器件紧靠连接器、先打后过",
+          "地脚多过孔短接保护地",
+          "TVS 放在保险丝之后",
+          "保护地与信号地单点/电容连接"
+        ],
+        "refs": [
+          "docs/knowledge/components/10-interface-protection.md"
+        ],
+        "tags": [
+          "ESD",
+          "TVS",
+          "布局",
+          "残压"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "保护器件结电容过大破坏高速信号",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-ESD-CAP",
+        "code": "ESD_CAP",
+        "category": "接口/信号完整性",
+        "severity": "warning",
+        "symptom": "加 ESD 保护后高速接口眼图闭合、误码或枚举失败；插损增大、TDR 出现阻抗跌落。",
+        "rootCause": "TVS/ESD 阵列结电容过大或多级并联叠加形成容性负载；保护器件分支 stub 过长；差分对内失配。",
+        "detection": "加保护前后眼图/插损/TDR 对比；datasheet Cj 与信号速率比对；测量差分对内偏斜。",
+        "prevention": [
+          "按速率选 Cj（USB 2.0 约 ≤1~2pF 量级，更高速率约 ≤0.5pF 量级，按 datasheet）",
+          "每线只放一颗低电容器件",
+          "差分对成对、分支短、不换层",
+          "加保护后复测眼图/插损"
+        ],
+        "refs": [
+          "docs/knowledge/components/10-interface-protection.md"
+        ],
+        "tags": [
+          "ESD",
+          "结电容",
+          "信号完整性",
+          "眼图"
+        ]
+      }
+    }
+  ]
+}

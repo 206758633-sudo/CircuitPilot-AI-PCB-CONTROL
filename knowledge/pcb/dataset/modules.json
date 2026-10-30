@@ -1,0 +1,3801 @@
+{
+  "version": "1.3.0",
+  "generatedAt": "2026-10-28T12:25:25.164Z",
+  "domain": "pcb-schematic-modules",
+  "notes": "模块知识=可复用的电路/板级设计模式；参数为典型值，落地需按器件 datasheet 与设计目标复核。",
+  "entries": [
+    {
+      "kind": "module",
+      "title": "四层板叠层设计（SIG-GND-PWR-SIG）",
+      "doc": "docs/knowledge/pcb/02-stackup-impedance.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-STACKUP-4L",
+        "category": "叠层/板级",
+        "purpose": "用两层完整内层提供参考平面与电源分配，兼顾成本与信号完整性。",
+        "whenToUse": "有 USB/以太网/SPI 高速信号、开关电源或 EMC 要求的中等复杂度板；两层板无法保证回流与屏蔽时。",
+        "designPoints": [
+          "L1 信号/L2 完整 GND/L3 电源/L4 信号",
+          "关键信号优先走 L1，参考 L2",
+          "电源层按电源域分区，避免细长瓶颈",
+          "L4 走线下方参考 L3，跨分割处加桥接",
+          "叠层对称（铜厚/介质）控制翘曲"
+        ],
+        "keyParameters": [
+          "总厚 1.6mm 常见",
+          "L1-L2 介质 0.1~0.2mm",
+          "铜厚 1oz 外层/0.5oz 内层常见"
+        ],
+        "schematic": "不涉及原理图，但需在叠层说明中标注阻抗目标与参考层。",
+        "layout": "先定叠层再布线；把高速接口靠近板边连接器，减少换层次数。",
+        "pitfalls": [
+          "L2 走长线破坏参考平面",
+          "电源层被切碎导致回流绕行",
+          "叠层不对称造成板翘"
+        ],
+        "tags": [
+          "叠层",
+          "四层",
+          "参考平面",
+          "回流"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "接地与地平面设计",
+      "doc": "docs/knowledge/pcb/03-placement-routing.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-GND",
+        "category": "接地/EMC",
+        "purpose": "为信号提供低阻抗回流路径，为 ESD/滤波提供泄放通道，降低共模与串扰。",
+        "whenToUse": "所有含数字、模拟、开关电源或接口防护的板。",
+        "designPoints": [
+          "优先完整地平面，少用地分割",
+          "模拟/数字分区不分割地，靠布局与供电隔离",
+          "ESD/滤波器件地端就近打孔",
+          "连接器金属壳地与信号地按需求单点/电容连接",
+          "晶振/复位等敏感区域地铜包围"
+        ],
+        "keyParameters": [
+          "地过孔间距 ≤λ/20（按最高频率）",
+          "缝合孔间距 3~5mm 常见",
+          "机壳地-信号地：0Ω/1MΩ/1nF 按安规选择"
+        ],
+        "schematic": "区分 GND、AGND、PGND、CHASSIS 的符号与单点连接位置，标注连接器件。",
+        "layout": "地平面完整优先；分割只在有明确回流控制需求时使用，并保证关键信号不跨分割。",
+        "pitfalls": [
+          "盲目分割地平面导致回流断裂",
+          "模拟地数字地多点连接形成地环路",
+          "ESD 地走长线残压高"
+        ],
+        "tags": [
+          "接地",
+          "地平面",
+          "回流",
+          "EMC",
+          "ESD"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "电源完整性与去耦网络",
+      "doc": "docs/knowledge/pcb/04-power-integrity-decoupling.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-PI",
+        "category": "电源完整性",
+        "purpose": "在芯片瞬态电流需求下维持电源电压在允许纹波内，降低电源噪声与辐射。",
+        "whenToUse": "所有含 MCU/FPGA/高速接口/开关电源的板；时钟与 ADC 精度要求高时尤其重要。",
+        "designPoints": [
+          "按目标阻抗 Ztarget=ΔV/ΔI 估算容值",
+          "体电容+近端 0.1µF 组合",
+          "电容到引脚 ≤2mm，电源-地回路最小",
+          "电容两端独立过孔直连平面",
+          "电源平面与地平面紧耦合（薄介质）"
+        ],
+        "keyParameters": [
+          "目标纹波：按器件规格（如 ±3%~±5%）",
+          "去耦电容 SRF 与 ESL",
+          "平面电容 C=εA/d"
+        ],
+        "schematic": "每个电源引脚画出去耦电容，电源入口画体电容与磁珠/电感，标注 DNP 与替代值。",
+        "layout": "先放去耦再布线；优先背面放置靠近引脚；避免去耦电容共享长支线。",
+        "pitfalls": [
+          "只放 0.1µF 忽略体电容",
+          "去耦电容走长线/单孔",
+          "电源平面被信号切碎"
+        ],
+        "tags": [
+          "电源完整性",
+          "去耦",
+          "目标阻抗",
+          "PDN"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "阻抗控制设计流程",
+      "doc": "docs/knowledge/pcb/02-stackup-impedance.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-IMPEDANCE",
+        "category": "高速/阻抗",
+        "purpose": "让高速信号在传输过程中阻抗连续，减少反射、振铃与 EMI。",
+        "whenToUse": "USB/以太网/HDMI/LVDS/DDR/RF 等有阻抗要求的接口。",
+        "designPoints": [
+          "定叠层与参考层",
+          "用场求解器算线宽/间距",
+          "生成阻抗计算单给板厂",
+          "加阻抗测试条（coupon）",
+          "首件 TDR 验证并记录"
+        ],
+        "keyParameters": [
+          "单端 50Ω；差分 90/100Ω",
+          "阻抗公差 ±10%（严格 ±5%）",
+          "TDR 上升时间按标准"
+        ],
+        "schematic": "在原理图标注接口阻抗要求与参考层；连接器/ESD 器件的寄生参数计入。",
+        "layout": "阻抗线全程同一参考层，禁止跨分割；过孔/连接器处做阻抗补偿。",
+        "pitfalls": [
+          "只按经验线宽不做计算",
+          "阻抗线跨分割/换层破坏连续性",
+          "忽略阻焊与铜厚影响"
+        ],
+        "tags": [
+          "阻抗",
+          "TDR",
+          "叠层",
+          "高速"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "热设计与散热路径",
+      "doc": "docs/knowledge/pcb/05-emc-esd-thermal.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-THERMAL",
+        "category": "热设计",
+        "purpose": "把功率器件热量通过铜皮/过孔/散热器导出，控制结温在规格内。",
+        "whenToUse": "LDO/DC-DC/功率 MOS/充电 IC/功放/LED 驱动等有功耗的板。",
+        "designPoints": [
+          "估算 P 与 Tj=Ta+θja·P",
+          "散热焊盘打孔阵列接内层地铜",
+          "大面积铜+多面铺铜",
+          "必要时加散热器/导热垫",
+          "热敏器件远离热源"
+        ],
+        "keyParameters": [
+          "θja 按 JEDEC 板或实际铜面积",
+          "过孔 0.3mm 间距 1.0~1.2mm",
+          "Tj 裕量 ≥20°C"
+        ],
+        "schematic": "标注功耗、热敏电阻/NTC 位置与温度保护网络。",
+        "layout": "功率器件靠近板边/散热面；热源与温度传感器隔离；避免热耦合到晶振/ADC。",
+        "pitfalls": [
+          "只按封装 θja 估算忽略铜面积",
+          "散热过孔未塞孔导致漏锡",
+          "热源紧贴电解电容"
+        ],
+        "tags": [
+          "热设计",
+          "Tj",
+          "θja",
+          "散热过孔"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "EMC 设计框架（辐射/传导/抗扰）",
+      "doc": "docs/knowledge/pcb/05-emc-esd-thermal.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-EMC",
+        "category": "EMC",
+        "purpose": "从源头（开关节点/时钟/高速线）、路径（回流/线缆）与受体（敏感电路）三方面控制电磁干扰。",
+        "whenToUse": "需要过 CE/FCC/CCC 或含开关电源、长线缆、无线模组的板。",
+        "designPoints": [
+          "减小高频电流环路面积",
+          "开关节点铜皮小、远离敏感线",
+          "接口滤波+TVS 靠连接器",
+          "时钟/高速线包地或远离板边",
+          "线缆共模扼流/屏蔽接地"
+        ],
+        "keyParameters": [
+          "辐射与环路面积/频率平方成正比",
+          "滤波截止频率按噪声频段",
+          "共模扼流阻抗按频段选"
+        ],
+        "schematic": "接口处画共模电感/磁珠/电容与 TVS，标注滤波参数与地连接方式。",
+        "layout": "按噪声源分区；电源入口与接口区隔离；避免长 stub 与悬空铜。",
+        "pitfalls": [
+          "只加 TVS 不做滤波",
+          "滤波器件地走长线",
+          "开关节点铜皮过大形成天线"
+        ],
+        "tags": [
+          "EMC",
+          "辐射",
+          "传导",
+          "滤波",
+          "共模"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "DFM 设计（可制造性）",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-DFM",
+        "category": "制造/DFM",
+        "purpose": "让设计落在板厂/贴片厂工艺窗口内，降低不良率、返工与成本。",
+        "whenToUse": "所有准备打样/量产的板；高密度、细间距、拼板设计时必须。",
+        "designPoints": [
+          "按板厂能力表设最小线宽/间距/孔",
+          "阻焊桥与开窗合规",
+          "器件间距满足贴片/返修",
+          "拼板与工艺边合规",
+          "制造文件齐套且版本一致"
+        ],
+        "keyParameters": [
+          "最小线宽/间距：按板厂（常见 0.1/0.1mm）",
+          "最小孔：0.2~0.3mm",
+          "板边器件：≥0.5mm"
+        ],
+        "schematic": "不涉及；DFM 问题多在封装/布局/制造文件阶段暴露。",
+        "layout": "使用板厂提供的 DFM 规则或模板；高密度区局部加严；导出前做 DFM 检查。",
+        "pitfalls": [
+          "用通用规则但板厂能力更严",
+          "密脚器件阻焊桥做不出",
+          "拼板工艺边不足"
+        ],
+        "tags": [
+          "DFM",
+          "工艺能力",
+          "拼板",
+          "制造文件"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "拼板设计（工艺边/V-cut/邮票孔）",
+      "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-PANEL",
+        "category": "拼板",
+        "purpose": "提高贴片效率、适配产线轨道，同时保证分板质量。",
+        "whenToUse": "小尺寸板、批量贴片、需要过回流焊/波峰焊的板。",
+        "designPoints": [
+          "工艺边 ≥5mm（可两侧或单侧）",
+          "V-cut 适合直边、邮票孔适合异形",
+          "拼板间距与阵列按轨道设计",
+          "加定位点与 mark 点",
+          "分板应力评估（器件距分板线 ≥1mm）"
+        ],
+        "keyParameters": [
+          "工艺边：≥5mm",
+          "邮票孔：0.5mm 孔径/0.8~1mm 孔距",
+          "V-cut 角度 30°/45°"
+        ],
+        "schematic": "不涉及。",
+        "layout": "拼板在 CAM 阶段完成；确认分板方式与板厂/贴片厂一致。",
+        "pitfalls": [
+          "工艺边不足导致无法上机",
+          "器件靠近 V-cut 分板开裂",
+          "拼板阵列与钢网不匹配"
+        ],
+        "tags": [
+          "拼板",
+          "工艺边",
+          "V-cut",
+          "邮票孔",
+          "分板"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "LDO 线性稳压电路",
+      "doc": "docs/knowledge/schematic/02-power-architecture.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-LDO",
+        "category": "电源",
+        "purpose": "把较高输入电压降到稳定低噪声输出电压，适合小电流、低噪声、低压差场景。",
+        "whenToUse": "输入输出压差小、负载电流小（数十~数百 mA）、对噪声敏感（ADC/RF/音频）的电源。",
+        "designPoints": [
+          "输入/输出各放 1µF~10µF 陶瓷电容（按 datasheet 的 ESR 要求）",
+          "压差 Vdrop=Vin−Vout 留 ≥0.2~0.5V 裕量",
+          "功耗 P=(Vin−Vout)·Iout+Vin·Iq，核对 θja 与散热",
+          "EN 脚不要悬空，按需上拉/下拉",
+          "ADJ/反馈分压电阻靠近 IC，反馈点接输出电容之后"
+        ],
+        "keyParameters": [
+          "Vdrop：按负载电流查 datasheet",
+          "Iq：静态电流",
+          "PSRR：按噪声频段",
+          "θja：SOT-223/DFN 不同"
+        ],
+        "schematic": "VIN→输入电容→LDO(VIN/EN/GND)→VOUT→输出电容；反馈分压从输出电容节点取；EN 接使能信号或 VIN（带上拉/分压）。",
+        "layout": "输入/输出电容紧贴引脚，GND 就近打孔；散热焊盘接大铜；反馈走线远离电感和开关节点。",
+        "pitfalls": [
+          "压差不足导致掉压",
+          "功耗估算不足过热保护",
+          "输出电容 ESR 不满足稳定性要求"
+        ],
+        "tags": [
+          "LDO",
+          "稳压",
+          "压差",
+          "热耗",
+          "PSRR"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "同步 Buck 降压电路",
+      "doc": "docs/knowledge/schematic/02-power-architecture.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-BUCK",
+        "category": "电源",
+        "purpose": "高效率地把较高输入电压降到较低输出电压，适合中大电流场景。",
+        "whenToUse": "输入输出压差大、负载电流 >0.3A、效率/发热敏感的场景（5V→3.3V、12V→5V）。",
+        "designPoints": [
+          "输入电容靠近 VIN-GND，输出电容靠近电感-负载",
+          "电感按纹波电流 20%~40% Iout 选择，饱和电流 >Iout+ΔI/2",
+          "反馈电阻按 Vout=Vref(1+R1/R2) 计算，反馈点接输出电容",
+          "SW 节点铜皮小、远离敏感线",
+          "EN/UVLO 分压设定启动电压，软启动按需"
+        ],
+        "keyParameters": [
+          "开关频率 0.5~2MHz 常见",
+          "电感纹波比 20%~40%",
+          "输出电容按纹波/瞬态要求"
+        ],
+        "schematic": "VIN→输入电容→Buck(VIN/EN/SW/GND/FB)→电感→输出电容→负载；FB 分压；BOOT 电容按 datasheet；输入加 TVS/保险丝。",
+        "layout": "输入电容-SW-电感-输出电容构成最小功率环路；反馈走线避开 SW；地平面完整，功率地与信号地在 IC 处单点。",
+        "pitfalls": [
+          "功率环路过大导致 EMI/振铃",
+          "电感饱和电流不足",
+          "反馈走线受 SW 干扰导致输出不稳"
+        ],
+        "tags": [
+          "Buck",
+          "DC-DC",
+          "开关电源",
+          "电感",
+          "环路"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "Boost 升压电路",
+      "doc": "docs/knowledge/schematic/02-power-architecture.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-BOOST",
+        "category": "电源",
+        "purpose": "把较低输入电压升到较高输出电压（如锂电池 3.7V→5V/12V）。",
+        "whenToUse": "输入电压低于负载需求、需要稳定高压输出且电流不大的场景。",
+        "designPoints": [
+          "电感、开关管、二极管（或同步管）按峰值电流选型",
+          "输入电容承受大纹波电流，靠近电感",
+          "输出电容按纹波与瞬态选",
+          "FB 分压与补偿按 datasheet",
+          "注意启动电流与输入电源限流"
+        ],
+        "keyParameters": [
+          "占空比 D≈1−Vin/Vout",
+          "电感峰值电流 >Iout/(1−D)",
+          "输出二极管耐压 >Vout+裕量"
+        ],
+        "schematic": "VIN→电感→SW（内部或外部 MOS）→二极管→VOUT；输入/输出电容；FB 分压；EN 控制。",
+        "layout": "SW 节点面积最小；电感-二极管-输出电容环路短；FB 远离 SW；地平面完整。",
+        "pitfalls": [
+          "电感饱和/二极管反向恢复导致效率低发热",
+          "启动时输入跌落复位",
+          "输出电容不足导致纹波大"
+        ],
+        "tags": [
+          "Boost",
+          "升压",
+          "DC-DC",
+          "电感"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "输入保护电路（反接/过压/过流）",
+      "doc": "docs/knowledge/schematic/05-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-PWR-PROTECT",
+        "category": "保护",
+        "purpose": "防止电源反接、过压、过流、浪涌损坏后级电路。",
+        "whenToUse": "外部电源输入、电池接口、热插拔接口、长线供电的板。",
+        "designPoints": [
+          "反接：P-MOS 低边/高边理想二极管或肖特基（注意压降）",
+          "过压：TVS+OVP 保护 IC 或稳压管",
+          "过流：保险丝/PTC/限流 IC",
+          "浪涌：TVS/压敏电阻+共模",
+          "保护顺序：先过流/浪涌，再反接，再稳压"
+        ],
+        "keyParameters": [
+          "P-MOS Vgs 耐压与 Rds(on)",
+          "TVS 钳位电压 <后级绝对最大额定",
+          "保险丝 I²t 与浪涌能量匹配"
+        ],
+        "schematic": "VIN→保险丝/PTC→TVS→反接 P-MOS→滤波→后级；栅极加稳压管/电阻限制 Vgs；标注极性与耐压。",
+        "layout": "保护器件靠连接器；TVS 地短而宽；P-MOS 散热与 Rds(on) 损耗评估。",
+        "pitfalls": [
+          "TVS 钳位电压高于后级耐压",
+          "P-MOS 栅极无钳位导致 Vgs 超限",
+          "保险丝选型过慢/过快"
+        ],
+        "tags": [
+          "保护",
+          "反接",
+          "过压",
+          "过流",
+          "TVS"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "USB-C 受电（Sink）电路",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-USBC-SINK",
+        "category": "接口/电源",
+        "purpose": "从 USB-C 充电器取 5V（或协商更高电压）给系统供电/充电。",
+        "whenToUse": "用 Type-C 口供电的消费类/便携设备；需要兼容 C-to-C 线缆。",
+        "designPoints": [
+          "CC1/CC2 各 5.1kΩ 下拉（Sink）",
+          "VBUS 加 ESD/TVS 与限流",
+          "D+/D- 走 90Ω 差分并加 ESD",
+          "需要 >5V 时用 PD 控制器/诱骗芯片并核验协议",
+          "VBUS 去耦与热插拔浪涌抑制"
+        ],
+        "keyParameters": [
+          "Rd=5.1kΩ±1%",
+          "VBUS 电容 1~10µF",
+          "ESD 结电容 <1pF（高速线）"
+        ],
+        "schematic": "Type-C(VBUS/GND/CC1/CC2/DP/DM/SBU)→CC 电阻→VBUS 保护→系统；DP/DM 到 USB 控制器或 MCU。",
+        "layout": "CC 电阻靠近连接器；ESD 靠连接器；VBUS 走线宽；差分对不跨分割。",
+        "pitfalls": [
+          "只接一个 CC 电阻导致 C-to-C 线不供电",
+          "CC 上拉/下拉搞反",
+          "VBUS 无浪涌抑制导致热插拔损坏"
+        ],
+        "tags": [
+          "USB-C",
+          "Sink",
+          "CC",
+          "PD",
+          "热插拔"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "锂电池充电管理电路",
+      "doc": "docs/knowledge/schematic/02-power-architecture.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-BAT-CHARGER",
+        "category": "电源/电池",
+        "purpose": "安全地给单节/多节锂电池恒流恒压充电，并提供状态指示与温度保护。",
+        "whenToUse": "内置锂电池的便携设备；需要 USB/适配器充电。",
+        "designPoints": [
+          "充电电流按电池容量 0.5C~1C 设置（PROG 电阻）",
+          "浮充电压按电池化学（4.2V/4.35V）设定",
+          "NTC 温度保护（JEITA 可选）",
+          "输入/输出电容靠近 IC，VBAT 走线宽",
+          "充电/充满状态 LED 与 MCU 检测"
+        ],
+        "keyParameters": [
+          "充电电流 I=K/PROG（按 IC 公式）",
+          "浮充电压精度 ±1%",
+          "热调节/结温"
+        ],
+        "schematic": "VBUS→输入电容→充电 IC(VIN/BAT/PROG/TEMP/CE)→电池；状态脚接 LED；NTC 接 TEMP。",
+        "layout": "充电 IC 散热焊盘接大铜；电池走线短而宽；NTC 贴近电芯；避免热源影响测温。",
+        "pitfalls": [
+          "浮充电压设错导致过充/充不满",
+          "PROG 电阻计算错误",
+          "无温度保护在高温下充电"
+        ],
+        "tags": [
+          "充电",
+          "锂电池",
+          "CC/CV",
+          "NTC",
+          "PROG"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "MCU 最小系统",
+      "doc": "docs/knowledge/schematic/03-mcu-minimal-system.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-MCU-CORE",
+        "category": "数字/最小系统",
+        "purpose": "让 MCU 可靠上电、复位、起振、可烧录、可调试。",
+        "whenToUse": "所有含 MCU/SoC 的板。",
+        "designPoints": [
+          "每个电源脚 0.1µF 去耦，VDDA 加 LC/磁珠滤波",
+          "复位脚 10k 上拉+0.1µF 到地（或专用复位 IC）",
+          "BOOT/模式脚按启动方式接固定电平",
+          "晶振按负载电容计算并靠近 MCU",
+          "SWD/UART 调试口引出，含 GND 与复位",
+          "未用引脚按 datasheet 处理（输出/上拉/下拉/模拟）"
+        ],
+        "keyParameters": [
+          "VDD 容差 ±5%~±10%",
+          "复位阈值与延时",
+          "BOOT 电平在上电期间稳定"
+        ],
+        "schematic": "VDD/VSS/VDDA/VSSA/VCAP/NRST/BOOT0/OSC_IN/OSC_OUT/SWDIO/SWCLK 全部处理；去耦按引脚画。",
+        "layout": "去耦靠近引脚；晶振靠近 MCU 且下方净空；复位线短；调试口靠板边。",
+        "pitfalls": [
+          "BOOT 脚悬空导致无法启动/进入错误模式",
+          "VCAP/内核电容漏画",
+          "复位电容过大导致烧录失败"
+        ],
+        "tags": [
+          "MCU",
+          "最小系统",
+          "复位",
+          "BOOT",
+          "SWD",
+          "去耦"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "无源晶振电路",
+      "doc": "docs/knowledge/components/06-crystals-oscillators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-CRYSTAL",
+        "category": "时钟",
+        "purpose": "为 MCU/时钟芯片提供稳定参考频率。",
+        "whenToUse": "MCU/无线/USB/音频等需要精确时钟的电路。",
+        "designPoints": [
+          "按 CL 计算负载电容：C1=C2≈2(CL−Cstray)",
+          "晶振 ESR 与驱动电平满足 IC 要求",
+          "布局靠近 IC，走线短且对称",
+          "晶振下方与周围净空/地保护",
+          "必要时并 1M~10M 反馈电阻（按 IC 要求）"
+        ],
+        "keyParameters": [
+          "CL：常见 8/10/12pF",
+          "频差：±10~±30ppm",
+          "ESR：按 datasheet"
+        ],
+        "schematic": "OSC_IN/OSC_OUT 之间接晶振，两侧各接负载电容到地；按 IC 要求加反馈电阻/串联电阻。",
+        "layout": "晶振紧贴 IC；负载电容地就近接地；不走长线、不与高速线并行。",
+        "pitfalls": [
+          "负载电容算错导致频偏",
+          "走线过长/不对称导致起振困难",
+          "晶振靠近开关电源受干扰"
+        ],
+        "tags": [
+          "晶振",
+          "负载电容",
+          "时钟",
+          "起振"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "复位与按键电路",
+      "doc": "docs/knowledge/schematic/03-mcu-minimal-system.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-RESET",
+        "category": "数字/最小系统",
+        "purpose": "提供可靠上电复位与手动复位，按键输入有去抖与保护。",
+        "whenToUse": "所有 MCU 系统；带用户按键的产品。",
+        "designPoints": [
+          "NRST 10k 上拉+0.1µF 到地；强干扰环境用专用复位 IC",
+          "按键一端接地一端接 GPIO，GPIO 上拉或外部 10k 上拉",
+          "按键并联 0.1µF/软件去抖",
+          "复位线远离高速/开关节点",
+          "ESD 防护按需加 TVS/RC"
+        ],
+        "keyParameters": [
+          "复位延时 = R·C（按 IC 要求）",
+          "去抖 RC：10k+0.1µF ≈1ms",
+          "按键上拉 10k"
+        ],
+        "schematic": "NRST 上拉+电容；按键 GPIO 上拉+电容到地；必要时串阻。",
+        "layout": "复位电容靠近 NRST 脚；按键走线短；ESD 器件靠按键/连接器。",
+        "pitfalls": [
+          "复位电容过大导致烧录器无法连接",
+          "按键无去抖导致误触发",
+          "复位线长受干扰"
+        ],
+        "tags": [
+          "复位",
+          "按键",
+          "去抖",
+          "NRST"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "I2C 总线电路",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-I2C",
+        "category": "总线",
+        "purpose": "用两根线连接多个传感器/EEPROM/PMIC，节省 IO。",
+        "whenToUse": "低速外设互联（100k/400kHz），器件地址不冲突的场景。",
+        "designPoints": [
+          "SDA/SCL 各一只上拉，阻值按总线电容/速率算",
+          "上拉拉到的电源轨需与 IO 电平一致",
+          "多器件时核对地址，避免冲突",
+          "长线/多器件加总线缓冲/隔离",
+          "电平不一致用 I2C 电平转换"
+        ],
+        "keyParameters": [
+          "上拉：2.2~10kΩ 常见",
+          "总线电容：≤400pF（标准模式）",
+          "地址：7 位"
+        ],
+        "schematic": "SDA/SCL 上拉到 VDD_IO；器件的 SDA/SCL/GND/VDD 连接；地址脚接固定电平；可选串联 22~100Ω 抑制振铃。",
+        "layout": "上拉靠近主机或总线中部；走线短、避免与高速线并行；长线加地线伴行。",
+        "pitfalls": [
+          "上拉过大上升沿慢",
+          "地址冲突",
+          "5V 器件直连 3.3V IO 损坏"
+        ],
+        "tags": [
+          "I2C",
+          "上拉",
+          "地址",
+          "总线"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "SPI 总线电路",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-SPI",
+        "category": "总线",
+        "purpose": "高速短距板内通信（Flash/显示/ADC/无线模组）。",
+        "whenToUse": "需要 >1Mbps 的板内通信；器件数量少、走线短。",
+        "designPoints": [
+          "每个从机独立 CS，避免总线争用",
+          "SCLK 高速时串阻 22~100Ω 抑制振铃",
+          "MISO/MOSI 方向与电平核对",
+          "长线/多从机降低速率或加缓冲",
+          "模式（CPOL/CPHA）与从机一致"
+        ],
+        "keyParameters": [
+          "速率：按器件与走线长度",
+          "上拉：CS 上拉保证默认不选中",
+          "串阻：22~100Ω"
+        ],
+        "schematic": "SCLK/MOSI/MISO/CS 连接；CS 上拉；必要时串阻；电源去耦。",
+        "layout": "SCLK 短且远离敏感模拟线；多从机星型/菊花链按拓扑；地回流连续。",
+        "pitfalls": [
+          "CS 未上拉上电瞬间误选中",
+          "SCLK 过长导致时序/EMI 问题",
+          "多个从机共用 CS"
+        ],
+        "tags": [
+          "SPI",
+          "CS",
+          "SCLK",
+          "串阻"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "UART/串口与电平转换",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-UART",
+        "category": "总线",
+        "purpose": "调试/通信的异步串口，必要时转换到 RS232/RS485 或隔离。",
+        "whenToUse": "调试口、模组通信、上位机通信。",
+        "designPoints": [
+          "TX/RX 交叉连接，电平匹配（3.3V/5V）",
+          "调试口留 GND 与可选 RTS/CTS",
+          "长线/工业环境加隔离/浪涌保护",
+          "RX 上拉避免悬空误触发",
+          "串阻抑制振铃（高速率）"
+        ],
+        "keyParameters": [
+          "波特率误差 <2%~3%",
+          "电平：3.3V/5V/RS232/RS485",
+          "隔离耐压按场景"
+        ],
+        "schematic": "TX→RX、RX←TX；电平转换器/隔离器；接口 TVS；调试座。",
+        "layout": "调试口靠板边；长线接口加保护；隔离器两侧地分开。",
+        "pitfalls": [
+          "TX/RX 接反",
+          "5V 电平直连 3.3V 引脚",
+          "长线无保护导致接口损坏"
+        ],
+        "tags": [
+          "UART",
+          "串口",
+          "电平转换",
+          "隔离",
+          "RS485"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "USB 2.0 设备接口",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-USB2",
+        "category": "接口",
+        "purpose": "实现与主机/充电器的 USB 2.0 通信与供电。",
+        "whenToUse": "MCU/桥接芯片需要 USB 通信或供电。",
+        "designPoints": [
+          "D+/D- 90Ω 差分、等长、不跨分割",
+          "ESD 器件靠连接器且结电容 <1pF",
+          "VBUS 加 TVS/限流与去耦",
+          "自供电设备注意 VBUS 检测分压",
+          "USB 枚举要求的晶振/时钟精度"
+        ],
+        "keyParameters": [
+          "差分 90Ω",
+          "ESD 结电容 <1pF",
+          "VBUS 检测分压比"
+        ],
+        "schematic": "连接器 DP/DM→ESD→USB 控制器；VBUS→分压/保护→系统；ID/CC 按角色。",
+        "layout": "差分对短、直、同层；ESD 靠连接器；晶振靠近控制器。",
+        "pitfalls": [
+          "差分对跨分割/等长差大",
+          "ESD 结电容过大导致眼图差",
+          "VBUS 无保护"
+        ],
+        "tags": [
+          "USB",
+          "差分",
+          "ESD",
+          "枚举"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "CAN/RS485 总线接口",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-CAN-RS485",
+        "category": "总线/工业",
+        "purpose": "工业现场长距离、抗干扰的差分总线通信。",
+        "whenToUse": "电机/传感器/工业设备互联，线缆较长或电磁环境恶劣。",
+        "designPoints": [
+          "CAN 两端 120Ω 终端，RS485 末端 120Ω",
+          "共模扼流与 TVS 保护",
+          "隔离型收发器注意两侧地/电源隔离",
+          "总线偏置（RS485 失效保护）",
+          "连接器与线序/终端电阻可配置"
+        ],
+        "keyParameters": [
+          "CAN 120Ω 终端",
+          "RS485 120Ω + 偏置 560~1k",
+          "共模电压范围 -7~+12V"
+        ],
+        "schematic": "MCU UART/CAN→收发器→共模扼流→TVS→连接器；终端电阻用跳帽/焊接选项。",
+        "layout": "差分对等长、靠近连接器；隔离器两侧爬电距离；保护器件靠连接器。",
+        "pitfalls": [
+          "终端电阻数量错误",
+          "多节点共地导致地环流",
+          "无隔离在长线雷击下损坏"
+        ],
+        "tags": [
+          "CAN",
+          "RS485",
+          "终端电阻",
+          "隔离",
+          "共模"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "电平转换电路",
+      "doc": "docs/knowledge/schematic/04-interfaces.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-LEVELSHIFT",
+        "category": "接口/电平",
+        "purpose": "在 1.8V/3.3V/5V 等不同逻辑电平之间安全传递信号。",
+        "whenToUse": "新旧器件电平不一致、IO 耐压不足、长线需要驱动增强。",
+        "designPoints": [
+          "单向信号用单向缓冲/分压（注意速度）",
+          "双向 I2C/SMBus 用专用双向电平转换",
+          "推挽输出可用 MOS 双向转换（注意上拉）",
+          "开漏信号必须上拉到目标电平",
+          "高速信号选低传播延迟/低寄生电容器件"
+        ],
+        "keyParameters": [
+          "VIL/VIH 兼容",
+          "传播延迟 <信号周期 1/10",
+          "双向转换的驱动能力"
+        ],
+        "schematic": "按方向选器件；开漏加双侧上拉；使能/OE 接正确电平。",
+        "layout": "转换器靠近信号源或连接器；高速线短；上拉靠近器件。",
+        "pitfalls": [
+          "用电阻分压驱动高速/双向信号",
+          "开漏未加上拉",
+          "OE 悬空导致总线争用"
+        ],
+        "tags": [
+          "电平转换",
+          "开漏",
+          "双向",
+          "IO"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "接口 ESD 防护电路",
+      "doc": "docs/knowledge/schematic/05-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-ESD",
+        "category": "保护",
+        "purpose": "吸收人体/线缆 ESD 能量，保护接口芯片不被击穿。",
+        "whenToUse": "所有对外连接器：USB/HDMI/按键/天线/排线/传感器接口。",
+        "designPoints": [
+          "ESD 器件靠连接器、在受保护线与地之间",
+          "高速线选低结电容（<0.5~1pF）",
+          "TVS 钳位电压低于芯片绝对最大额定",
+          "地端多过孔短接到地平面",
+          "必要时串联电阻/共模扼流配合"
+        ],
+        "keyParameters": [
+          "IEC 61000-4-2 接触 ±8kV/空气 ±15kV",
+          "结电容 <1pF（高速）",
+          "钳位电压 <芯片耐压"
+        ],
+        "schematic": "连接器→ESD 阵列→信号线；VBUS 单独 TVS；地接到 GND。",
+        "layout": "ESD 与连接器之间无分支；地回路短宽；避免 ESD 电流穿过敏感区域。",
+        "pitfalls": [
+          "ESD 器件放在芯片侧",
+          "结电容过大影响高速信号",
+          "地走长线导致残压高"
+        ],
+        "tags": [
+          "ESD",
+          "TVS",
+          "IEC61000-4-2",
+          "接口"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "LED 指示与限流",
+      "doc": "docs/knowledge/components/02-diodes-tvs.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-LED",
+        "category": "显示/指示",
+        "purpose": "用 LED 指示电源、状态、故障，并保证亮度一致、寿命可靠。",
+        "whenToUse": "需要人机状态提示的产品。",
+        "designPoints": [
+          "限流电阻 R=(Vsupply−Vf)/Iled",
+          "按亮度分档选电流（1~5mA 指示常见）",
+          "多 LED 并联各自限流，不共用电阻",
+          "PWM 调光注意频率/EMI",
+          "高亮 LED 注意散热与光衰"
+        ],
+        "keyParameters": [
+          "Vf：按颜色/器件（红 1.8~2.2V，蓝/白 2.8~3.4V）",
+          "Iled：1~10mA",
+          "电阻精度 1% 保证亮度一致"
+        ],
+        "schematic": "VDD→电阻→LED→GND（或 GPIO 灌电流）；GPIO 驱动注意灌/拉电流能力。",
+        "layout": "LED 靠板边/导光柱；限流电阻靠近 LED；避免与热源相邻。",
+        "pitfalls": [
+          "多 LED 共用一只电阻导致亮度不均",
+          "忽略 GPIO 驱动能力",
+          "Vf 离散导致亮度差异"
+        ],
+        "tags": [
+          "LED",
+          "限流",
+          "指示",
+          "亮度"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "WS2812 可寻址 RGB 灯串",
+      "doc": "docs/knowledge/components/02-diodes-tvs.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-RGB",
+        "category": "显示/驱动",
+        "purpose": "单线级联控制多颗 RGB 灯，实现灯效。",
+        "whenToUse": "状态灯效、氛围灯、灯带。",
+        "designPoints": [
+          "数据线 DIN/DOUT 级联，首颗前串 22~100Ω 并加电平匹配",
+          "每颗灯电源脚就近 0.1µF 去耦",
+          "5V 灯串注意数据电平（3.3V 需电平提升/首颗特殊处理）",
+          "长灯串电源分段供电，避免压降",
+          "刷新率/复位时间按 datasheet"
+        ],
+        "keyParameters": [
+          "数据电平 VIH≈0.7×VDD",
+          "每灯电流 ~20mA/色",
+          "刷新率 800kHz"
+        ],
+        "schematic": "MCU GPIO→串阻→DIN；VDD/GND 每颗去耦；灯串末端留测试点。",
+        "layout": "数据线短、远离电源；大面积地铜散热；电源分段。",
+        "pitfalls": [
+          "3.3V 驱动 5V 灯串不识别高电平",
+          "长灯串末端压降导致偏色",
+          "去耦缺失导致闪烁"
+        ],
+        "tags": [
+          "WS2812",
+          "RGB",
+          "灯串",
+          "电平",
+          "去耦"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "音频功放与喇叭接口",
+      "doc": "docs/knowledge/schematic/07-analog-audio.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-AUDIO",
+        "category": "模拟/音频",
+        "purpose": "把音频信号放大驱动喇叭，控制底噪、失真与 EMI。",
+        "whenToUse": "语音提示、音乐播放、对讲产品。",
+        "designPoints": [
+          "功放电源去耦与 LC 滤波，避免开关噪声入音频",
+          "输入差分/单端按 datasheet，输入串阻+RC 滤波",
+          "输出 LC 滤波器（D 类）抑制辐射",
+          "喇叭走线成对、短，避免与敏感线并行",
+          "增益/限幅/静音脚处理"
+        ],
+        "keyParameters": [
+          "THD+N 按 datasheet",
+          "输出功率 vs 电源/负载",
+          "D 类载波 300~500kHz"
+        ],
+        "schematic": "音频源→输入滤波→功放(IN+/IN−/VDD/GND/OUT+/OUT−)→LC→喇叭；静音/使能控制。",
+        "layout": "功放靠喇叭接口；输出 LC 靠近功放；电源与地回路短；避免与麦克风/天线耦合。",
+        "pitfalls": [
+          "D 类输出无 LC 导致 EMI 超标",
+          "电源纹波进入音频产生底噪",
+          "喇叭线长形成天线"
+        ],
+        "tags": [
+          "音频",
+          "功放",
+          "D类",
+          "LC滤波",
+          "底噪"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "模拟采样与 ADC 前端",
+      "doc": "docs/knowledge/schematic/07-analog-audio.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-ADC",
+        "category": "模拟/采样",
+        "purpose": "把传感器/分压信号干净地送入 ADC，保证精度与抗干扰。",
+        "whenToUse": "电池电压检测、传感器采样、电流检测。",
+        "designPoints": [
+          "分压/运放缓冲后接 ADC，源阻抗满足采样要求",
+          "ADC 输入加 RC 低通（截止频率按信号带宽）",
+          "参考电压/VDDA 加 LC/磁珠滤波并去耦",
+          "采样线远离开关电源/数字高速线",
+          "必要时差分输入/屏蔽"
+        ],
+        "keyParameters": [
+          "ADC 输入阻抗与采样时间",
+          "RC 截止频率",
+          "分辨率/有效位数 ENOB"
+        ],
+        "schematic": "信号→分压/缓冲→RC→ADC；VREF/VDDA 滤波；必要时加 TVS/钳位。",
+        "layout": "模拟走线短、包地；ADC 地/参考去耦靠近引脚；避免数字回流穿过模拟区。",
+        "pitfalls": [
+          "源阻抗过高导致采样误差",
+          "参考电压噪声大",
+          "数字线与模拟线并行耦合"
+        ],
+        "tags": [
+          "ADC",
+          "采样",
+          "分压",
+          "滤波",
+          "参考电压"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "无线模组与天线净空",
+      "doc": "docs/knowledge/components/05-mcu-wireless-connectors.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-RF",
+        "category": "RF/无线",
+        "purpose": "让 Wi-Fi/蓝牙/LoRa 等模组获得良好射频性能与认证合规。",
+        "whenToUse": "需要无线通信的产品。",
+        "designPoints": [
+          "按模组 datasheet 留天线净空（板边/无铜/无器件）",
+          "模组下方地平面与散热焊盘按手册处理",
+          "电源加 LC/磁珠滤波，避免开关噪声入射频",
+          "天线馈线 50Ω 受控阻抗，短且直",
+          "认证（CE/FCC/SRRC）按模组预认证条件使用"
+        ],
+        "keyParameters": [
+          "天线净空：按模组手册（常见 15×8mm 以上）",
+          "馈线 50Ω",
+          "电源纹波要求"
+        ],
+        "schematic": "模组 VDD/GND/EN/UART/天线脚；电源滤波；天线匹配网络按参考设计。",
+        "layout": "模组靠板边，天线朝外；净空区禁铜禁器件；馈线不跨分割。",
+        "pitfalls": [
+          "天线净空不足导致距离/吞吐下降",
+          "电源噪声耦合导致灵敏度下降",
+          "金属外壳/电池遮挡天线"
+        ],
+        "tags": [
+          "无线",
+          "RF",
+          "天线净空",
+          "50Ω",
+          "认证"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "调试接口（SWD/UART）",
+      "doc": "docs/knowledge/schematic/03-mcu-minimal-system.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-SWD",
+        "category": "调试/生产",
+        "purpose": "提供固件烧录、断点调试与产线测试通道。",
+        "whenToUse": "所有 MCU 板；量产需要烧录与测试。",
+        "designPoints": [
+          "SWDIO/SWCLK/NRST/GND/3V3 引出",
+          "调试座靠板边、方向明确",
+          "SWDIO 上拉/SWCLK 下拉按 MCU 要求",
+          "UART TX/RX 预留测试点",
+          "调试口加 ESD/串阻保护（可选）"
+        ],
+        "keyParameters": [
+          "SWD 速率按 MCU",
+          "上拉 10k（SWDIO）",
+          "调试座 1.27/2.54mm"
+        ],
+        "schematic": "MCU SWDIO/SWCLK/NRST→调试座；3V3 参考；UART 测试点。",
+        "layout": "调试座靠板边；走线短；避免被结构件遮挡。",
+        "pitfalls": [
+          "调试口被外壳遮挡",
+          "NRST 电容过大影响连接",
+          "调试口无 GND 参考"
+        ],
+        "tags": [
+          "SWD",
+          "调试",
+          "烧录",
+          "产线"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "6 层叠层：S-G-S-S-G-S / S-G-S-P-G-S",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-STACKUP-6L",
+        "category": "叠层/板级",
+        "purpose": "用 6 层提供 3–4 个信号层、完整地与电源平面，支撑千兆级接口与中等复杂度高速总线。",
+        "whenToUse": "有 DDR/千兆以太网/USB3 等 ≥1Gbps 接口，或 4 层无法保证参考平面与电源域隔离时。",
+        "designPoints": [
+          "两种典型：S-G-S-S-G-S（对称/EMC 好）与 S-G-S-P-G-S（电源完整性好）",
+          "每个信号层相邻完整 GND；L3/L4 相邻时正交布线并加厚芯板",
+          "高速线优先内层带状线；电源平面分割避开高速线投影",
+          "叠层对称、铜平衡控制翘曲",
+          "阻抗计算书 + 测试条闭环"
+        ],
+        "keyParameters": [
+          "总厚 1.6mm 常见",
+          "内层介质 0.10–0.20mm",
+          "差分 90/100Ω 按协议"
+        ],
+        "schematic": "不涉及原理图；需在叠层说明标注阻抗目标、参考层与板材。",
+        "layout": "先定叠层与阻抗，再布局；高速接口靠板边缩短换层；跨分割点加缝合电容。",
+        "pitfalls": [
+          "L3/L4 长距离平行造成串扰",
+          "电源平面被切碎导致 L3 参考不完整",
+          "叠层不对称导致翘曲"
+        ],
+        "tags": [
+          "叠层",
+          "六层",
+          "参考平面",
+          "高速"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "8 层叠层：多参考面与内层带状线",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-STACKUP-8L",
+        "category": "叠层/板级",
+        "purpose": "用 8 层提供多个信号/地平面对，支撑 DDR、PCIe、多路千兆接口与复杂电源域。",
+        "whenToUse": "6 层布线密度/电源域/参考面不足，或需要多个内层带状线跑 ≥5Gbps 链路时。",
+        "designPoints": [
+          "典型 S-G-S-P-G-S-G-S 或 S-G-S-G-P-G-S-S（按板厂/阻抗复核）",
+          "每个信号层相邻完整平面；电源/地平面成对",
+          "高速层优先内层带状线，外层只走低速/短距离",
+          "HDI/背钻按 BGA pitch 与速率选择",
+          "叠层对称 + 铜平衡 + 阻抗测试条"
+        ],
+        "keyParameters": [
+          "总厚 1.6–2.0mm 常见",
+          "L1–L2 介质 0.08–0.15mm",
+          "盲埋孔/背钻按板厂能力"
+        ],
+        "schematic": "不涉及原理图；叠层说明标注板材 Df/Dk、阻抗目标与过孔策略。",
+        "layout": "按总线分组规划层；高速过孔集中区域做 fanout 规划；电源平面成对并覆盖负载。",
+        "pitfalls": [
+          "层数增加但参考面不完整，性能不如好 6 层",
+          "过孔 stub 未控制导致高频谐振",
+          "混压材料 CTE 不匹配导致分层"
+        ],
+        "tags": [
+          "叠层",
+          "八层",
+          "高速",
+          "HDI"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "HDI 微孔与盲埋孔设计",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-HDI",
+        "category": "过孔/高密度",
+        "purpose": "用激光微孔/盲埋孔解决 0.4/0.5mm pitch BGA、连接器与高密度扇出。",
+        "whenToUse": "BGA pitch ≤0.5mm、引脚密度高、通孔无法扇出，或需要盘中孔缩短 stub 时。",
+        "designPoints": [
+          "微孔孔径 0.075–0.15mm，深径比按板厂能力（常见 ≤1:1）",
+          "优先 stagger 错位；stacked 需填铜/电镀能力",
+          "盘中孔必须树脂塞孔+电镀填平",
+          "盲埋孔叠构（1+N+1/2+N+2）与压合次数确认",
+          "微孔到焊盘/铜皮留够环宽；首件 X-Ray/切片"
+        ],
+        "keyParameters": [
+          "激光孔 0.075–0.15mm",
+          "深径比 ≤1:1 经验值",
+          "叠构按板厂 HDI 能力"
+        ],
+        "schematic": "不涉及原理图；需在制造说明标注 HDI 叠构、微孔位置与塞孔要求。",
+        "layout": "先做 BGA fanout 规划；微孔与地孔成组布置；盘中孔区域钢网开窗协同。",
+        "pitfalls": [
+          "深径比过大孔底空洞",
+          "stacked 微孔热循环开裂",
+          "盘中孔未填平导致虚焊"
+        ],
+        "tags": [
+          "HDI",
+          "微孔",
+          "盲埋孔",
+          "BGA"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "DDR 高速存储接口设计",
+      "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-DDR",
+        "category": "高速/存储",
+        "purpose": "为 DDR3/4/5 提供拓扑、等长、终端与电源去耦的设计框架。",
+        "whenToUse": "板上有 DDR 内存，需要保证读写时序与信号完整性时。",
+        "designPoints": [
+          "按控制器选 fly-by 或 T 拓扑；末端终端/ODT 按颗粒要求",
+          "DQ/DQS/DM 按 byte lane 组内等长；地址/命令/控制按拓扑等长",
+          "VREF/VTT/VDDQ 按颗粒要求去耦与终端",
+          "DDR 电源平面完整、低阻抗；避免跨分割",
+          "DDR 训练/读写测试与协议一致性验收"
+        ],
+        "keyParameters": [
+          "组内等长 ±5mil 量级（按速率复核）",
+          "VDDQ 常见 1.2/1.35/1.5V（按代数）",
+          "ODT/终端按控制器/颗粒 datasheet"
+        ],
+        "schematic": "原理图需核对 VREF/VTT/ODT 与控制器连接；电源域标注清晰。",
+        "layout": "先定拓扑再布线；byte lane 分组；地址/命令树状/菊花链按拓扑；电源去耦靠颗粒。",
+        "pitfalls": [
+          "全局等长替代分组时序",
+          "DQS/DQ 不同组",
+          "VREF 噪声/终端缺失导致读写错误"
+        ],
+        "tags": [
+          "DDR",
+          "高速",
+          "等长",
+          "ODT"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "元器件布局依据与决策流程",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-PLACEMENT",
+        "category": "布局/方法论",
+        "purpose": "把‘凭经验摆件’变成可追溯的依据链：安全→datasheet→IPC→板厂工艺→市场证据→仿真实测。",
+        "whenToUse": "任何新板布局、布局评审、规则冲突裁决，或从参考设计迁移布局时。",
+        "designPoints": [
+          "布局顺序：结构/连接器→分区→大件→小件→机械/测试→布线预演",
+          "每条规则标注依据类型/来源/适用条件/验证方法",
+          "关键器件建 datasheet 布局卡片",
+          "规则冲突按安全>功能>EMC/SI>DFM>成本裁决",
+          "布局与叠层/布线联合评审，例外记录批准人"
+        ],
+        "keyParameters": [
+          "依据等级 S/A/B/C/D/E",
+          "courtyard 按 IPC-7351B",
+          "关键距离按 datasheet/仿真"
+        ],
+        "schematic": "原理图阶段标注关键网络/器件优先级，为布局提供输入；电源树/接口分区与布局一致。",
+        "layout": "先定分区与连接器，再摆大件/去耦/晶振/ESD/热源，最后补测试点/Mark/拼板；布局完成做布线预演。",
+        "pitfalls": [
+          "只凭经验不留依据",
+          "把市场做法当标准",
+          "布局完再想布线/层数",
+          "规则冲突无记录"
+        ],
+        "tags": [
+          "布局",
+          "依据链",
+          "评审",
+          "方法论"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "装配与可制造性布局（DFM/DFA）",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-ASSEMBLY",
+        "category": "装配/DFM",
+        "purpose": "把贴装、焊接、分板、测试、返修约束前置到布局阶段，降低量产良率与返修成本。",
+        "whenToUse": "有细间距/BGA/连接器/拼板/波峰焊/ICT 要求的板，或试产前 DFM 评审。",
+        "designPoints": [
+          "间距取 courtyard/吸嘴/返修/高件遮挡最大值",
+          "同类同向、极性一致、连接器开口朝外",
+          "板边≥3–5mm、分板应力区避让、Mark/工艺边满足贴片厂",
+          "波峰焊阴影/偷锡焊盘、选择性焊按工艺",
+          "测试点按探针网格、返修空间/屏蔽罩可拆"
+        ],
+        "keyParameters": [
+          "courtyard 按 IPC-7351B",
+          "板边/工艺边经验 3–5mm",
+          "返修空间 1–2mm（经验）"
+        ],
+        "schematic": "不涉及原理图；BOM 标注 MSL/封装/极性，供布局与工艺使用。",
+        "layout": "布局阶段与贴片厂/板厂确认能力；拼板图与布局同步；DFM/DFA 报告闭环。",
+        "pitfalls": [
+          "间距只按焊盘",
+          "高件遮挡 AOI/返修",
+          "分板应力伤板边器件",
+          "测试点被遮挡"
+        ],
+        "tags": [
+          "DFM",
+          "DFA",
+          "装配",
+          "拼板",
+          "返修"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "市场产品布局惯例与证据使用",
+      "doc": "docs/knowledge/pcb/08-component-placement.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-MARKET-LAYOUT",
+        "category": "市场/参考设计",
+        "purpose": "理解消费电子/工业/开发板的布局优先级差异，正确使用市场证据而不盲抄。",
+        "whenToUse": "新产品定义布局优先级、参考同类产品、或评审‘市场这么做’类意见时。",
+        "designPoints": [
+          "消费电子：结构/天线/电池占位优先，高密度小封装+屏蔽罩",
+          "工业：隔离/爬电/端子/散热/维护优先",
+          "开发板：排针/跳线/测试点/调试口优先",
+          "市场证据标注来源/日期/验证状态，D 级不得当标准",
+          "用 datasheet/标准解释原理，再用仿真/试产验证"
+        ],
+        "keyParameters": [
+          "证据等级 D（市场）",
+          "参考设计优先官方原理图/评估板",
+          "关键结论需实测闭环"
+        ],
+        "schematic": "市场产品的接口/电源架构可参考，但需按本项目需求裁剪。",
+        "layout": "先定市场与认证，再排布局约束；参考同类但逐条验证。",
+        "pitfalls": [
+          "照搬消费板到工业板踩爬电/隔离坑",
+          "拆解照片误读",
+          "把成本妥协当最佳实践"
+        ],
+        "tags": [
+          "市场",
+          "消费电子",
+          "工业",
+          "开发板",
+          "参考设计"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "原理图评审门禁：电源/复位时钟/接口/保护/可制造性五段走查",
+      "doc": "docs/knowledge/checklists/schematic-review.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-REVIEW-SCHEMATIC",
+        "category": "评审/门禁",
+        "purpose": "把原理图冻结前的检查固化为可签字、可追溯的五段门禁，避免“看一遍 PDF 就算评审”。",
+        "whenToUse": "原理图完成、ERC 处理后，投板/导出网表前的评审会；也用于设计自查。",
+        "designPoints": [
+          "按电源→复位/时钟/BOOT→数字接口→保护/ESD→可制造性/测试点五段走查",
+          "每条检查项必须给证据：网络名/位号/计算/datasheet 页码",
+          "ERC 告警逐条归属，豁免留痕",
+          "结论三选一：通过/有条件通过/不通过，附问题单与责任人"
+        ],
+        "keyParameters": [
+          "证据覆盖率 100%",
+          "阻断问题关闭率 100%",
+          "ERC 未归属告警 0",
+          "评审签字与版本绑定"
+        ],
+        "schematic": "评审对象是受控原理图 PDF + 源文件 + ERC 报告 + BOM；先看电源树，再看最小系统，最后接口与保护。",
+        "layout": [
+          "评审记录归档到项目证据目录",
+          "问题单编号并与整改提交关联",
+          "下一版复审只复查未关闭项+变更影响面"
+        ],
+        "pitfalls": [
+          "只看 PDF 不看源文件/网表",
+          "ERC 报告不是当前版本",
+          "检查项打勾但没有证据",
+          "有条件通过没有期限和责任人"
+        ],
+        "tags": [
+          "原理图评审",
+          "门禁",
+          "证据",
+          "checklist"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "Layout 评审门禁：叠层/电源完整性/信号完整性/EMC/热/DFM/测试",
+      "doc": "docs/knowledge/checklists/layout-review.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-REVIEW-LAYOUT",
+        "category": "评审/门禁",
+        "purpose": "在导出制造文件前，用可取证的清单检查叠层、PI/SI、EMC、热、DFM 与可测试性，形成投板放行结论。",
+        "whenToUse": "PCB 布线完成、DRC 处理后、Gerber/坐标文件导出前；改版后复审。",
+        "designPoints": [
+          "先查叠层与参考平面，再查 PI/SI，最后 EMC/热/DFM/测试",
+          "每条给证据：DRC 项/截图/计算/叠层单/阻抗计算书",
+          "跨分割、stub、孤立铜、天线化铜皮必须逐条确认",
+          "结论与 DRC 豁免清单一起归档"
+        ],
+        "keyParameters": [
+          "DRC 未解释项 0",
+          "关键信号跨分割 0（或逐条豁免）",
+          "去耦距离/回路面积达标",
+          "测试点覆盖率按产品要求",
+          "Gerber/BOM/坐标版本一致"
+        ],
+        "schematic": "不直接改原理图；发现原理图问题时开问题单回到原理图评审门禁。",
+        "layout": [
+          "按叠层→PI→SI→EMC→热→DFM→测试顺序走查",
+          "用截图/测量值做证据，不用口头结论",
+          "放行前与板厂 DFM 报告对齐"
+        ],
+        "pitfalls": [
+          "只跑 DRC 不做清单走查",
+          "叠层/阻抗计算书与实物不符",
+          "测试点被结构件遮挡",
+          "Gerber 与 BOM 版本不一致"
+        ],
+        "tags": [
+          "Layout评审",
+          "门禁",
+          "DFM",
+          "SI",
+          "PI"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "选型评审门禁：身份/电气余量/工艺/一致性四段检查",
+      "doc": "docs/knowledge/checklists/component-selection.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-REVIEW-SELECTION",
+        "category": "评审/门禁",
+        "purpose": "BOM 冻结/采购前确认器件身份可追溯、电气与工艺余量可计算、供应与认证风险可控。",
+        "whenToUse": "BOM 冻结、采购下单、替代料导入、EOL 换料前。",
+        "designPoints": [
+          "身份：MPN/制造商/封装/LCSC 或替代方案，三源核验",
+          "电气：电阻功率/电容耐压与偏压降容/电感饱和电流/二极管 TVS 钳位/MOSFET 热",
+          "工艺：封装能力/MSL/极性/返修可行性",
+          "一致性：料号归一、单一来源、温度范围、认证器件"
+        ],
+        "keyParameters": [
+          "关键器件 100% 有 datasheet 依据",
+          "替代料 pin-to-pin 核验",
+          "降额比满足规则",
+          "EOL/交期满足项目计划"
+        ],
+        "schematic": "选型变更必须同步原理图符号/封装/BOM 版本，并重跑 ERC。",
+        "layout": [
+          "封装与焊盘按 datasheet 核验",
+          "散热焊盘/大焊盘评估钢网与回流",
+          "连接器插拔寿命与结构空间确认"
+        ],
+        "pitfalls": [
+          "只有 LCSC 号没有 MPN/制造商",
+          "替代料只看参数不看封装/极性",
+          "忽略 MLCC 直流偏压降容",
+          "关键器件单一来源无备选"
+        ],
+        "tags": [
+          "选型评审",
+          "BOM",
+          "门禁",
+          "降额",
+          "替代料"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "输入保护与 EMI 滤波链（保险丝/PPTC → TVS → 共模 → 滤波）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-INPUT-PROTECT",
+        "category": "电源入口/保护",
+        "purpose": "在外部电源/信号进入板内之前，按能量顺序完成过流、过压与共模噪声抑制，保护后级 DC-DC 与 IC。",
+        "whenToUse": "存在外部电源输入、电池、USB 受电或长线接口，或产品需要通过 EMC/安规认证时。",
+        "designPoints": [
+          "保险丝/PPTC 紧靠连接器",
+          "TVS 放在保险丝之后、后级器件之前",
+          "共模电感/磁珠放在 TVS 之后",
+          "保护地与信号地在接口附近单点/电容连接",
+          "按 I²t/VC/IPP 校核器件间能量配合"
+        ],
+        "keyParameters": [
+          "保险丝 I_op ≤0.75×I_rated（25°C）",
+          "TVS VC ≤后级绝对最大额定值×0.8",
+          "共模阻抗@100MHz",
+          "I²t_surge ≤20%~30%×I²t_fuse"
+        ],
+        "schematic": "连接器 → 保险丝/PPTC → TVS（+ 串阻/限流）→ 共模电感/磁珠 → DC-DC/接口 IC；保护器件的地汇到保护地。",
+        "layout": "保护器件集中在连接器附近，地回路短而宽；高压区留爬电距离；功率地与信号地单点汇合；保险丝远离 NTC 等热敏器件避免热耦合。",
+        "pitfalls": [
+          "TVS 放在保险丝之前，浪涌能量全打在 TVS 上",
+          "保护器件离连接器太远导致残压升高",
+          "地回路过长，钳位电压被走线电感抬高",
+          "共模电感额定电流不足导致饱和"
+        ],
+        "tags": [
+          "输入保护",
+          "EMI",
+          "保险丝",
+          "TVS",
+          "共模滤波"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "磁性元件选型与布局（功率电感/磁珠/共模电感）",
+      "doc": "docs/knowledge/components/08-inductors-ferrites-fuses.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-MAGNETICS",
+        "category": "磁性元件/电源",
+        "purpose": "按电流波形、工作频率与直流偏置选择磁性元件，并通过布局控制漏磁、功率环路与温升。",
+        "whenToUse": "设计 DC-DC 储能电感、电源/接口 EMI 滤波、USB/CAN 共模抑制时。",
+        "designPoints": [
+          "功率电感同时满足 I_peak ≤0.8×Isat 与 I_rms ≤Irms",
+          "磁珠按额定电流与直流偏置曲线降额",
+          "共模电感差分对必须对称穿过",
+          "缩小高 di/dt 功率环路面积",
+          "电感禁布区/间距按 datasheet 执行"
+        ],
+        "keyParameters": [
+          "L 按 (Vin−Vout)×Vout/(Vin×fsw×ΔI) 计算",
+          "DCR 铜损 P=I_rms²×DCR",
+          "磁珠 100MHz 阻抗/额定电流/偏置降额",
+          "共模阻抗/漏感/额定电流"
+        ],
+        "schematic": "Buck：SW—电感—输出电容；输入/输出磁珠+电容组成高频滤波；差分接口共模电感串在连接器侧。",
+        "layout": "电感靠近 SW 以缩小环路；反馈线远离电感与 SW 节点；磁珠靠近入口；共模电感下方差分对连续、不换层。",
+        "pitfalls": [
+          "只看感值不看 Isat/Irms",
+          "磁珠串在大电流主电源路径",
+          "共模电感两线不对称导致共模抑制下降",
+          "电感下方随意铺铜/走线造成涡流损耗"
+        ],
+        "tags": [
+          "磁性元件",
+          "功率电感",
+          "磁珠",
+          "共模电感",
+          "布局"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "传感器接口与校准（I2C/SPI/模拟/脉冲）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-SENSOR-IF",
+        "category": "传感器接口",
+        "purpose": "为传感器提供正确的电平、时序、滤波与校准链路，使测量数据在目标工况下可信。",
+        "whenToUse": "接入温湿度、压力、IMU、霍尔、光电、麦克风等传感器时。",
+        "designPoints": [
+          "I2C 上拉按总线电容与上升时间计算",
+          "地址表核对无冲突",
+          "模拟链路做误差预算（激励/增益/ADC/噪声）",
+          "传感器电源去耦与基准稳定",
+          "产测校准并记录参数",
+          "长线接口加缓冲与 ESD 保护"
+        ],
+        "keyParameters": [
+          "I2C t_r ≤300ns（快速模式）、C_bus ≤400pF",
+          "模拟输出落在 ADC 量程 20%~80%",
+          "传感器精度/量程/响应时间按 datasheet",
+          "校准残差按产品规格"
+        ],
+        "schematic": "传感器 →（上拉/偏置/滤波）→ MCU I2C/SPI/ADC；模拟麦/电桥需偏置或仪表放大；数字麦需提供时钟。",
+        "layout": "传感器靠近开孔/被测点，远离热源与功率线；I2C/SPI 走线短并加 ESD；模拟小信号包地或差分走线。",
+        "pitfalls": [
+          "上拉过大导致上升沿慢、通信失败",
+          "多传感器地址冲突",
+          "三防漆/外壳堵住声孔或透气孔",
+          "未校准直接量产导致精度声明无法兑现"
+        ],
+        "tags": [
+          "传感器",
+          "I2C",
+          "SPI",
+          "校准",
+          "接口"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "执行器驱动与续流（蜂鸣器/继电器/电机/电磁阀）",
+      "doc": "docs/knowledge/components/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-ACTUATOR-DRIVE",
+        "category": "执行器驱动",
+        "purpose": "用合适的驱动级与续流通路控制感性/容性负载，同时控制电流、EMI 与热。",
+        "whenToUse": "驱动继电器线圈、电磁阀、直流/步进电机、蜂鸣器等执行器时。",
+        "designPoints": [
+          "感性负载必须提供续流通路",
+          "驱动管按负载电流×1.5~2 选并核 SOA",
+          "电机 PWM 频率建议 ≥20kHz",
+          "高压/长线场景加光耦或数字隔离",
+          "电源入口加储能电容吸收启动电流",
+          "软件软启动/限流/过流保护"
+        ],
+        "keyParameters": [
+          "线圈电流/吸合电流/堵转电流",
+          "驱动管 Vds/Ic 与 SOA",
+          "关断尖峰 ≤驱动管耐压×0.8",
+          "PWM 频率/占空比/死区"
+        ],
+        "schematic": "MCU GPIO/PWM → 驱动管/H 桥/继电器驱动 → 负载；线圈并续流二极管；高压侧加隔离器。",
+        "layout": "续流回路面积最小，续流二极管贴负载端子；功率地与信号地单点；电机线加共模/电容滤波。",
+        "pitfalls": [
+          "无续流导致驱动管击穿",
+          "按保持电流选电磁阀驱动导致吸合瞬间过流",
+          "PWM 频率落入音频段产生啸叫",
+          "电机堵转电流超驱动能力烧毁"
+        ],
+        "tags": [
+          "执行器",
+          "驱动",
+          "续流",
+          "电机",
+          "继电器"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "接口 ESD/共模滤波保护链",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-ESD-FILTER",
+        "category": "接口保护",
+        "purpose": "在连接器入口把 ESD/浪涌电流旁路到保护地并抑制共模噪声，同时不破坏信号完整性。",
+        "whenToUse": "任何外露连接器或长线接口：USB/HDMI/以太网/CAN/RS485/音频/天线等。",
+        "designPoints": [
+          "保护器件紧靠连接器、先打后过",
+          "按信号速率选低电容 ESD 器件",
+          "共模电感差分对对称穿过",
+          "保护地与信号地单点/电容连接",
+          "TVS 能量与保险丝 I²t 配合",
+          "保护器件分支/stub 尽量短"
+        ],
+        "keyParameters": [
+          "IEC 61000-4-2 测试等级",
+          "TVS VRWM/VC/Cj/IPP",
+          "共模阻抗@100MHz",
+          "残压 ≤后级绝对最大值×0.8"
+        ],
+        "schematic": "连接器 → TVS/ESD 阵列（+串阻）→ 共模电感 → 接口 IC；VBUS 侧再加保险丝/PPTC。",
+        "layout": "保护器件分支短、地脚多过孔；差分对同层等长；保护地独立铜皮；隔离带禁布。",
+        "pitfalls": [
+          "TVS 离连接器远、地回路长",
+          "结电容过大破坏高速信号",
+          "保护器件放在保险丝之前",
+          "多级器件并联导致电容叠加/谐振"
+        ],
+        "tags": [
+          "ESD",
+          "TVS",
+          "共模滤波",
+          "接口保护",
+          "布局"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "隔离接口与隔离电源",
+      "doc": "docs/knowledge/components/10-interface-protection.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-ISOLATED-IF",
+        "category": "隔离接口",
+        "purpose": "在高压/长线/工业接口两侧建立电气隔离，阻断地环流并满足安规耐压要求。",
+        "whenToUse": "工业 RS485/CAN、市电侧检测、电机/继电器高压侧控制、需要断地环流的场景。",
+        "designPoints": [
+          "隔离器/光耦是唯一跨隔离栅器件",
+          "两侧电源独立或使用隔离电源",
+          "隔离带下方所有层禁铺铜/禁走线",
+          "爬电/电气间隙按标准计算",
+          "CMTI/速率留余量",
+          "确认失效默认输出状态"
+        ],
+        "keyParameters": [
+          "隔离等级（2.5kVrms/5kVrms 档，按认证）",
+          "CMTI（kV/µs）",
+          "爬电距离/电气间隙（按 IEC 62368-1/60664-1 查表）",
+          "数据速率/传播延迟"
+        ],
+        "schematic": "MCU → 数字隔离器/光耦 →（隔离电源）→ 收发器/驱动；隔离栅两侧地完全分开。",
+        "layout": "隔离带下所有层禁布；跨栅器件集中；高压侧留爬电；隔离电源变压器/隔离电容按认证选型。",
+        "pitfalls": [
+          "两侧地通过其他路径相连导致隔离失效",
+          "爬电距离不足导致认证失败",
+          "CMTI 不足时电机干扰造成误翻转",
+          "隔离电源供电能力/纹波不足"
+        ],
+        "tags": [
+          "隔离",
+          "数字隔离器",
+          "光耦",
+          "隔离电源",
+          "安规"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "降额与应力比设计流程",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-REL-DERATING",
+        "category": "可靠性/降额",
+        "purpose": "把器件额定值翻译成可执行的工作裕量，建立“工作点→应力比→超限清单→签核”的降额闭环。",
+        "whenToUse": "所有含功率/高压/大电流/热敏器件的板子；电源、充电、电机驱动、工业接口板必须做；产品降额规范建立或评审时使用。",
+        "designPoints": [
+          "先定任务剖面与最恶劣工作点，再选器件额定值",
+          "按器件类型分别计算功率/电压/电流/结温应力比",
+          "MLCC 按 DC bias 修正容值，钽电容禁反接/浪涌",
+          "电感同时校核 Isat/Irms/DCR，MOSFET 校核 SOA/EAS",
+          "连接器按每触点电流与温升降额，大电流多针并联",
+          "超限项必须更换/改设计/书面让步并签核"
+        ],
+        "keyParameters": [
+          "应力比 = 实际工作值 ÷ 额定值",
+          "工程起点：电阻功率≤60%、MLCC 电压≤80%、钽电容≤50%、连接器触点≤70%",
+          "结温目标 Tj ≤ Tjmax − 20~40°C",
+          "限值以企业规范/器件 datasheet 为准"
+        ],
+        "schematic": "原理图阶段标注关键工作点（电压/电流/功耗/温度），对功率与高压网络建降额检查表；换料走应力比复算。",
+        "layout": "降额与热布局联动：功率器件分散、热过孔/铜皮按功耗设计，避免局部热点叠加。",
+        "pitfalls": [
+          "只按平均电流选型，漏掉峰值/浪涌",
+          "MLCC 只看额定电压，忽略 DC bias 容值下降",
+          "钽电容反接或低阻浪涌导致短路失效",
+          "换料不复算应力比，量产高温时集中失效"
+        ],
+        "tags": [
+          "降额",
+          "应力比",
+          "热设计",
+          "选型",
+          "可靠性"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "环境与可靠性试验矩阵（IEC 60068/JESD/IPC-9592B）",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-REL-ENV",
+        "category": "可靠性/试验",
+        "purpose": "用任务剖面驱动的试验矩阵证明板级/整机在温度、湿热、机械、腐蚀应力下扛得住，并保留可追溯证据。",
+        "whenToUse": "新产品鉴定、设计变更、换板厂/换料、客户要求环境试验报告、认证前的可靠性摸底。",
+        "designPoints": [
+          "从任务剖面生成试验矩阵（温度/湿热/振动/冲击/跌落/腐蚀）",
+          "每项写标准方法、严酷等级、样本量、监测项、失效判据",
+          "湿热项必须含偏压与在线监测（THB/HAST）",
+          "温度循环确认整板均温，区分热冲击与温度循环",
+          "机械试验分使用环境与运输环境两套条件",
+          "失效必须做失效分析并回写设计/工艺"
+        ],
+        "keyParameters": [
+          "试验标准：IEC 60068-2-1/-2-2/-2-14/-2-27/-2-64/-2-78、JESD22-A101/A104/A110、IPC-9592B §5",
+          "样本量/判据按产品等级与客户要求",
+          "允许失效数通常为 0（按规范）",
+          "加速试验外推前先确认失效机理一致"
+        ],
+        "schematic": "不涉及原理图；需确认试验通电状态、偏压值与监测点定义。",
+        "layout": "布局上为大热质量/高件/连接器预留热电偶与监测点位置；试验夹具模拟实际安装。",
+        "pitfalls": [
+          "试验项与任务剖面不对应，漏掉湿热/振动",
+          "无样本量/判据，报告无法支撑结论",
+          "湿热不加偏压，测不到电化学迁移",
+          "加速应力过高引入新失效机理，外推失真"
+        ],
+        "tags": [
+          "环境试验",
+          "IEC 60068",
+          "JESD22",
+          "IPC-9592B",
+          "鉴定"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "FMEA/HALT/MTBF 可靠性分析与增长",
+      "doc": "docs/knowledge/pcb/09-reliability-derating.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-REL-FMEA",
+        "category": "可靠性/分析",
+        "purpose": "用 FMEA 找高风险失效模式、用 HALT 找设计极限、用 MTBF/寿命模型量化风险，并形成可靠性增长闭环。",
+        "whenToUse": "新设计评审、关键单点识别、可靠性目标分解、客户要求 FMEA/MTBF 报告、现场失效复盘。",
+        "designPoints": [
+          "DFMEA 覆盖功能块：失效模式/后果/原因/探测/措施",
+          "高严重度单点失效必须冗余/保护/加严",
+          "HALT 找工作/破坏极限，HASS 由 HALT 定限",
+          "MTBF 必须写标准/版本/假设，不可与寿命混淆",
+          "FTA 识别最小割集与关键单点",
+          "现场数据/ORT 回写 FMEA 与选型"
+        ],
+        "keyParameters": [
+          "FMEA 方法：IEC 60812 / AIAG-VDA FMEA（AP 替代 RPN）",
+          "MTBF 方法：Telcordia SR-332 / MIL-HDBK-217F / IEC 61709（需声明）",
+          "HALT/HASS：IPC-9592B §5.2.3 / §7.3.2",
+          "FIT = 10^9 / MTBF(h)"
+        ],
+        "schematic": "FMEA 从原理图功能块/电源树/接口清单展开；关键单点在原理图标注保护/冗余。",
+        "layout": "布局评审把 FMEA 高风险项（热、隔离、连接器应力）作为检查项；HALT 失效位置回写布局规则。",
+        "pitfalls": [
+          "FMEA 只打分不闭环措施",
+          "把 HALT 通过当作鉴定/寿命证明",
+          "MTBF 不同标准/假设直接横比",
+          "忽略单点失效，平均失效率低但事故严重"
+        ],
+        "tags": [
+          "FMEA",
+          "HALT",
+          "HASS",
+          "MTBF",
+          "FTA",
+          "可靠性增长"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "测试点与 ICT 治具设计",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-DFT-ICT",
+        "category": "可测试性/ICT",
+        "purpose": "通过测试点、测试盘几何与治具设计，让针床 ICT 能稳定测到开路/短路/元件值/极性，并控制误判与漏判。",
+        "whenToUse": "有批量生产计划的板子；高密度/BGA/双面/屏蔽罩产品；治具设计与 ICT 程序开发阶段。",
+        "designPoints": [
+          "测试盘直径/间距/网格与治具厂规格一致（100mil/50mil）",
+          "测试盘阻焊开窗露铜，不被塞孔/盖油",
+          "测试点单面集中，避开高件/板边/V-CUT/屏蔽罩遮挡",
+          "每个电源域/地/复位/时钟/调试口必测",
+          "并联网络用 guarding，大电容/低阻节点设稳定时间",
+          "治具定义探针力/导向/防呆/寿命与点检"
+        ],
+        "keyParameters": [
+          "常见测试盘 0.9~1.3mm，中心距 2.54mm 或 1.27mm（按治具厂）",
+          "探针弹簧力常见 1.5~2.5N/支（按型号）",
+          "ICT 测试电压/电流限制避免导通半导体结",
+          "误判率/漏判率分开统计"
+        ],
+        "schematic": "原理图给测试点独立位号/命名规范，标注 ICT 难点网络（并联/大电容/低阻/高压）。",
+        "layout": "布局把测试点作为约束层：单面、网格对齐、避遮挡；测试过孔开窗；与拼板/治具 3D 联合检查。",
+        "pitfalls": [
+          "测试盘太小/太密导致探针打滑误触",
+          "测试点被高件/屏蔽罩遮挡，治具无法到达",
+          "并联网络未 guarding 导致误判",
+          "探针磨损/测试盘氧化导致接触不良"
+        ],
+        "tags": [
+          "ICT",
+          "测试点",
+          "治具",
+          "探针",
+          "可测试性"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "FCT 与量产测试流程",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-DFT-FCT",
+        "category": "可测试性/产测",
+        "purpose": "用功能测试与产测流程覆盖 ICT 测不到的功能/参数/接口，并通过防错、版本对齐、数据闭环保证量产质量。",
+        "whenToUse": "新产品导入（NPI）、产线建设、测试程序开发、量产良率/误判率异常分析。",
+        "designPoints": [
+          "FCT 覆盖上电/复位/电源时序/通信/IO/传感器/软件版本",
+          "覆盖边界条件（最低/最高输入、空载/满载）",
+          "流程：SPI→AOI→X-ray→ICT→FCT→老化→终检",
+          "条码/MES 防错，机型与程序自动绑定",
+          "测试程序/治具/固件/BOM 同版本基线",
+          "采集 FPY/DPPM/误判率/漏判率并做趋势"
+        ],
+        "keyParameters": [
+          "FCT 判据必须量化（电压范围/误码/响应时间）",
+          "复测次数上限与不合格品处理规则",
+          "老化条件按产品等级（见 09 篇）",
+          "测试节拍与产能匹配"
+        ],
+        "schematic": "原理图定义调试口/测试连接器与关键功能测试节点；FCT 工装接口与板级连接器匹配。",
+        "layout": "布局预留 FCT 连接器/指示灯可视/探针空间；调试口可达；测试点与工装对位。",
+        "pitfalls": [
+          "FCT 只测“能开机”，漏掉电源时序/通信/边界条件",
+          "程序/治具/BOM 版本不一致导致批量误判",
+          "没有防错，不同机型程序混用",
+          "老化被当作 ICT/FCT 的替代"
+        ],
+        "tags": [
+          "FCT",
+          "产测",
+          "NPI",
+          "防错",
+          "良率",
+          "追溯"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "边界扫描（JTAG）测试设计",
+      "doc": "docs/knowledge/pcb/10-testability-production-test.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-DFT-BSCAN",
+        "category": "可测试性/边界扫描",
+        "purpose": "利用器件边界扫描单元测试高密度互连（BGA/连接器），在不加测试点的情况下验证开路/短路与器件存在。",
+        "whenToUse": "含 MCU/FPGA/CPLD/支持 JTAG 接口芯片的板子；BGA 密集、测试点空间不足、连接器互连需验证时。",
+        "designPoints": [
+          "选型确认器件支持 IEEE 1149.1（AC 耦合/差分评估 1149.6）",
+          "TAP 信号引到调试口，链路短、分支少",
+          "未用 TAP 引脚按 datasheet 上拉/下拉，不悬空",
+          "链路长度/TCK 频率满足时序，必要时多链/缓冲",
+          "BSDL 版本与 BOM 器件一致",
+          "互连覆盖率与器件覆盖率分开统计"
+        ],
+        "keyParameters": [
+          "TAP：TCK/TMS/TDI/TDO（可选 TRST）",
+          "参考电压/电平与器件 IO 匹配",
+          "互连覆盖率目标按项目定义（高密度板建议 ≥90%，需实测）",
+          "AC 耦合链路用 IEEE 1149.6"
+        ],
+        "schematic": "原理图画出 TAP 链路拓扑/链序/上拉下拉/串联电阻/ESD，标注每颗器件的 BSDL 版本。",
+        "layout": "TAP 走线短、参考地完整、避免跨分割；调试口靠板边；链路器件按链序布局减少绕线。",
+        "pitfalls": [
+          "TAP 引脚悬空或上下拉错误，链路不通",
+          "链路过长/TCK 过快导致时序失败",
+          "BSDL 与器件版本不符，测试向量错误",
+          "AC 耦合链路未用 1149.6，误以为已覆盖"
+        ],
+        "tags": [
+          "边界扫描",
+          "JTAG",
+          "IEEE 1149.1",
+          "BGA",
+          "互连测试"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "安规设计：能量源分级、间距、隔离与耐压",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-CERT-SAFETY",
+        "category": "安规/认证",
+        "purpose": "按 IEC 62368-1/60664-1 体系完成能量源分级、绝缘配合、爬电/间隙、隔离与耐压设计，形成可认证的板级安规证据。",
+        "whenToUse": "含市电/适配器输入、高压、隔离接口或对外可触及金属的产品；CCC/CE/UL/CB 认证前。",
+        "designPoints": [
+          "先定产品类别/适用标准/目标市场",
+          "画能量源分级（ES/PS/TS/RS）与可触及部件关系",
+          "每处跨接标注绝缘类型（功能/基本/附加/双重/加强）",
+          "间距四输入：工作电压/污染等级/材料组/过压类别+海拔",
+          "隔离带 keepout，隔离器件用认证件",
+          "耐压分型式/例行，失效分析可追溯"
+        ],
+        "keyParameters": [
+          "标准：IEC 62368-1、IEC 60664-1、IEC 60112（CTI）",
+          "材料组：I≥600 / II 400~599 / IIIa 175~399 / IIIb 100~174",
+          "常见引用（非标准原文）：250V RMS/PD2/IIIa 基本绝缘爬电约 2.5mm 量级",
+          "具体数值必须按标准正本/认证机构文件"
+        ],
+        "schematic": "原理图划分危险电压区/一次侧/二次侧/SELV/可触及件；标注跨接器件与绝缘类型；市电区保护器件按安规选型。",
+        "layout": "隔离带所有层禁铜/走线；爬电/间隙按标准表留裕量；需要时开槽/加筋/涂覆并验证；市电区 L/N/PE 与保护器件位置合规。",
+        "pitfalls": [
+          "标准选错或版本过期，整套测试无效",
+          "间距套固定经验毫米数，未按污染等级/材料组计算",
+          "隔离带下走线/铺铜短路隔离",
+          "耐压参数过高损伤绝缘或过低漏检"
+        ],
+        "tags": [
+          "安规",
+          "IEC 62368-1",
+          "爬电距离",
+          "隔离",
+          "耐压"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "EMC 认证与预测试",
+      "doc": "docs/knowledge/pcb/11-safety-certification.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-CERT-EMC",
+        "category": "认证/EMC",
+        "purpose": "按目标市场把发射/抗扰/谐波/闪烁标准列全，用预测试与裕量管理降低正式认证失败风险。",
+        "whenToUse": "CE/FCC/CCC 认证前、EMC 整改、产品换板/换结构/换线缆、客户要求 EMC 报告时。",
+        "designPoints": [
+          "按市场列 EMC 标准矩阵（发射/抗扰/谐波/闪烁）",
+          "认证前做预测试，发射项留 ≥6dB 量级裕量",
+          "送样按最不利配置（最长线缆/最大负载/量产外壳）",
+          "整改顺序：接口/线缆→滤波/回流→屏蔽→改板",
+          "整改单项验证，避免多项同改无法归因",
+          "关键件（Y 电容/共模电感/屏蔽件）与量产一致"
+        ],
+        "keyParameters": [
+          "发射：CISPR 32 / EN 55032 / GB/T 9254.1 / FCC Part 15B",
+          "抗扰：CISPR 35 / EN 55035 / IEC 61000-4 系列 / GB/T 17626",
+          "谐波/闪烁：IEC 61000-3-2 / -3-3",
+          "裕量 ≥6dB 为经验值，按标准/产品调整"
+        ],
+        "schematic": "原理图接口处预留共模电感/TVS/滤波位置；电源入口滤波与 Y 电容按安规选型；时钟/开关频率可配置以避开敏感频点。",
+        "layout": "接口靠板边、滤波靠接口、回流短；屏蔽罩/板边过孔墙按最高频率；线缆屏蔽与板地低阻抗连接。",
+        "pitfalls": [
+          "只做辐射发射，漏掉抗扰/谐波/闪烁",
+          "用理想配置过认证，量产线缆/外壳后超标",
+          "裕量不足，正式测试“差一点”反复送样",
+          "一次改多项，无法判断哪项有效"
+        ],
+        "tags": [
+          "EMC",
+          "预测试",
+          "CE",
+          "FCC",
+          "认证",
+          "裕量"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 12：消费电子 TWS / 可穿戴参考设计（结构先行、电源与天线硬约束）",
+      "doc": "docs/knowledge/cases/12-consumer-tws.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-TWS",
+        "category": "参考设计案例",
+        "boardType": "消费级 TWS 充电盒 + 耳机小板（公开参考设计与公开工程实践的典型组合）",
+        "sourceType": "public-reference",
+        "evidence": [
+          "USB Type-C / USB PD 规范（公开，未联网逐页核对）",
+          "锂离子电池充电与保护公开常识",
+          "蓝牙 RF/天线设计公开指南与消费电子 DFM 工程常识"
+        ],
+        "summary": "用 TWS/可穿戴说明超小板的联合约束：先定结构与堆叠（外形、FPC、触点、天线区），再定充电盒/耳机两套电源树与电池保护，最后才是音频、ESD 与热；天线净空与电池占位是不可布线的硬约束。",
+        "designPrinciples": [
+          "结构/堆叠先行：外形、板厚、天线区、电池占位、触点、FPC 出线在原理图前锁定",
+          "充电盒与耳机分别画电源树，触点两侧都做 ESD 与反灌阻断",
+          "充电电流/截止电压/温度保护与电池规格逐项匹配，NTC 贴电芯本体",
+          "电池独立保护（过充/过放/过流/短路），过放后先预充再满载",
+          "天线净空所有层禁铜、天线朝外并远离电池/金属件，按佩戴状态评估",
+          "射频走线 50Ω、短、包地，匹配网络靠近天线且地端多过孔",
+          "功放电源去耦 + AU_GND 单点 + 默认静音，避免爆音",
+          "超小板按引脚就近去耦（0.1µF ≤2mm），充电+射频+音频同时工作做热降额",
+          "细间距/拼板/分板避开易损件，关键网络与天线口留测试点"
+        ],
+        "keyCircuits": [
+          "USB-C 受电与充电",
+          "电池保护与电量计",
+          "蓝牙射频与天线",
+          "音频功放与喇叭",
+          "充电触点 ESD 与反灌阻断",
+          "电源树与去耦"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-CHARGER-001",
+            "note": "充电电流/截止电压/温度保护与电池规格匹配"
+          },
+          {
+            "ruleId": "PCB-RULE-BOARD2BOARD-001",
+            "note": "充电触点/板间连接器防呆与 TVS"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "触点/接口 ESD 靠连接器、地短宽"
+          },
+          {
+            "ruleId": "PCB-RULE-RF-001",
+            "note": "天线净空区所有层禁铜禁线禁器件"
+          },
+          {
+            "ruleId": "PCB-RULE-IMPEDANCE-001",
+            "note": "射频走线 50Ω，线宽按叠层计算"
+          },
+          {
+            "ruleId": "PCB-RULE-AUDIO-001",
+            "note": "功放去耦、AU_GND 单点、默认静音"
+          },
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "每个电源引脚 0.1µF ≤2mm"
+          },
+          {
+            "ruleId": "PCB-RULE-THERMAL-001",
+            "note": "充电/功放热预算与降额"
+          },
+          {
+            "ruleId": "PCB-RULE-TESTPOINT-001",
+            "note": "关键网络与射频口可测"
+          }
+        ],
+        "lessons": [
+          "超小板的性能取决于结构/热/射频/装配的联合约束，不是单纯电气设计",
+          "天线净空与电池占位一旦定死无法布线补救，设计顺序必须服从约束刚性",
+          "触点 ESD 与充电盒/耳机两套电源树是最容易被忽略的失效点"
+        ],
+        "reviewFocus": [
+          "结构与堆叠是否先锁定、3D 是否无干涉",
+          "天线净空是否所有层生效、电池/金属件是否远离",
+          "充电参数与电池规格是否匹配、NTC 是否贴电芯",
+          "触点 ESD 与反灌阻断是否两侧都做",
+          "音频 mute/AU_GND 与去耦是否到位",
+          "热与 DFM/测试点是否覆盖"
+        ],
+        "verificationNotes": "公开资料级别（B 级）：本机无外网，未逐页核对官方文件，未做拆解或实测；层数/尺寸/器件参数/电池规格/天线净空/认证要求均需按 datasheet、电池规格书与认证要求复核。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "tws",
+          "wearable"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 13：工业控制器参考设计（宽压输入、隔离总线、宽温与抗扰）",
+      "doc": "docs/knowledge/cases/13-industrial-controller.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-INDUSTRIAL",
+        "category": "参考设计案例",
+        "boardType": "工业控制器/远程 I/O 节点（公开参考设计与公开工程实践的典型组合）",
+        "sourceType": "public-reference",
+        "evidence": [
+          "RS485/CAN 标准与收发器公开设计指南（未联网逐页核对）",
+          "IEC 61000-4 系列抗扰标准常识",
+          "工业电源/隔离/宽温设计公开资料"
+        ],
+        "summary": "用工业控制器说明四条硬边界：24V 宽压输入要扛浪涌与反接、现场总线要电气隔离且隔离带真正断开、-40~85°C 按降额设计、EMC 抗扰按 IEC 61000-4 系列逐项落实。",
+        "designPrinciples": [
+          "输入保护顺序：保险丝→TVS/压敏→反接阻断→滤波→DC-DC",
+          "隔离接口用独立隔离电源+数字隔离器+收发器，两侧地/去耦完全独立",
+          "隔离带所有层无铜无过孔，爬电/间隙按标准查表并留裕量，必要时开槽",
+          "RS485/CAN 终端、偏置、TVS/共模电感位置正确，总线成对无 stub",
+          "24V DI 经限流+隔离+滤波，阈值/反接保护按标准",
+          "宽温设计=选型+降额+布局，按最高环境温度算 Tj",
+          "掉电检测+保持电容+独立看门狗，把断电当常态",
+          "分流电阻开尔文接法、成对走线、功率降额",
+          "端子可靠边固定，三防/灌封与测试点/隔离调试口在布局阶段定"
+        ],
+        "keyCircuits": [
+          "24V 输入保护与宽压 DC-DC",
+          "数字隔离器与隔离电源",
+          "RS485/CAN 收发与总线保护",
+          "24V 数字输入",
+          "电流采样/4-20mA",
+          "掉电保持与看门狗"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-ISO-001",
+            "note": "隔离带无铜无过孔、隔离电源独立"
+          },
+          {
+            "ruleId": "PCB-RULE-CREEPAGE-001",
+            "note": "爬电距离按标准查表并留裕量"
+          },
+          {
+            "ruleId": "PCB-RULE-CLEARANCE-001",
+            "note": "高低压间距分级"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "接口 TVS 位置与地回路"
+          },
+          {
+            "ruleId": "PCB-RULE-POWERMUX-001",
+            "note": "多电源优先级与防倒灌"
+          },
+          {
+            "ruleId": "PCB-RULE-SHUNT-001",
+            "note": "分流电阻开尔文接法与降额"
+          },
+          {
+            "ruleId": "PCB-RULE-THERMAL-001",
+            "note": "宽温下的热预算与散热"
+          },
+          {
+            "ruleId": "PCB-RULE-TESTPOINT-001",
+            "note": "现场排障与量产测试点"
+          },
+          {
+            "ruleId": "PCB-RULE-PLACE-CONN-001",
+            "note": "端子靠板边、机械固定"
+          }
+        ],
+        "lessons": [
+          "工业板的差别在四条硬边界同时成立，而不是器件更贵",
+          "隔离必须切断所有导电通路（含电源/地/铜/过孔），否则等于没隔离",
+          "宽温与抗扰必须按最高环境温度和标准等级验证，常温通过不代表现场可用"
+        ],
+        "reviewFocus": [
+          "24V 输入保护顺序与额定值是否覆盖浪涌",
+          "隔离电源是否独立、隔离带是否真正断开",
+          "爬电/间隙是否按标准计算",
+          "总线终端/偏置/TVS 位置与走线",
+          "宽温降额与掉电保持/看门狗",
+          "采样精度与机械防护/可测试性"
+        ],
+        "verificationNotes": "公开资料级别（B 级）：本机无外网，未逐页核对标准或官方参考设计，未做拆解或实测；隔离等级/爬电间隙/浪涌等级/器件型号/温度范围均需按标准版本、datasheet 与认证要求复核。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "industrial",
+          "isolation"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 14：AC-DC / 适配器参考设计（安规隔离带与初级热环路）",
+      "doc": "docs/knowledge/cases/14-ac-dc-power.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-ACDC",
+        "category": "参考设计案例",
+        "boardType": "AC-DC 开关电源/适配器（公开参考设计与公开应用笔记的通用做法）",
+        "sourceType": "public-reference",
+        "evidence": [
+          "开关电源公开应用笔记（未联网逐页核对）",
+          "IEC 60950/62368 安规常识（具体条款与数值需查标准）",
+          "EMI 与热设计工程常识"
+        ],
+        "summary": "用 AC-DC 适配器说明：安规（绝缘等级/污染等级/海拔/OVC）在画线前就决定隔离带与间距；初级热环路面积决定 EMI 与效率；Y 电容是共模回流也是漏电流来源；耐压/绝缘/爬电/漏电流必须实测验证。",
+        "designPrinciples": [
+          "先建安规输入表（电压/OVC/污染等级/海拔/绝缘类型）再查表定间距",
+          "隔离带所有层禁铜禁孔，必要时开槽，跨带仅限变压器/光耦",
+          "Y 电容容值受漏电流限值约束，须用安规认证器件",
+          "输入保护顺序：保险丝→压敏→NTC→X 电容/共模→整流，X 电容配放电电阻",
+          "初级热环路（输入电容-开关管-变压器）面积最小",
+          "跨带器件周边仍守爬电/间隙，反馈全程在次级侧",
+          "次级整流-输出电容环路最小，取样在输出电容之后",
+          "热：Tj 估算+电解电容寿命降额，封闭外壳按最恶劣工况",
+          "耐压/绝缘电阻/爬电实测/漏电流四件套验证并归档",
+          "高压区丝印警示、开槽、三防遮蔽与认证标识齐全"
+        ],
+        "keyCircuits": [
+          "输入保护与 EMI 滤波",
+          "初级开关与热环路",
+          "变压器/光耦隔离反馈",
+          "次级整流与输出滤波",
+          "Y 电容与共模回流",
+          "散热结构"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-CREEPAGE-001",
+            "note": "隔离带宽度与爬电距离按标准查表"
+          },
+          {
+            "ruleId": "PCB-RULE-CLEARANCE-001",
+            "note": "高压区电气间隙分级"
+          },
+          {
+            "ruleId": "PCB-RULE-ISO-001",
+            "note": "隔离带无铜无过孔、跨带仅限隔离器件"
+          },
+          {
+            "ruleId": "PCB-RULE-POWERMUX-001",
+            "note": "输入保护与放电路径的先后互锁"
+          },
+          {
+            "ruleId": "PCB-RULE-FEEDBACK-001",
+            "note": "反馈取样在输出电容之后"
+          },
+          {
+            "ruleId": "PCB-RULE-THERMAL-001",
+            "note": "功率器件热预算与寿命降额"
+          },
+          {
+            "ruleId": "PCB-RULE-MEASURE-001",
+            "note": "纹波/高压测量方法"
+          },
+          {
+            "ruleId": "PCB-RULE-GERBER-001",
+            "note": "开槽/三防/拼板信息随制造文件交付"
+          }
+        ],
+        "lessons": [
+          "安规是设计输入而非事后测试，间距与隔离带必须在画线前确定",
+          "初级热环路面积是 EMI 与效率的共同根因，输入电容必须紧贴开关管与变压器",
+          "Y 电容同时影响 EMC 与人身安全，只能在交集内取值"
+        ],
+        "reviewFocus": [
+          "安规输入表与查表结果是否落地为布局约束",
+          "隔离带是否所有层无铜无过孔、宽度含裕量",
+          "Y 电容容值与认证等级、X 电容放电电阻",
+          "初级热环路与次级输出环路面积",
+          "热与电解电容寿命、耐压/绝缘/漏电流验证",
+          "高压区丝印/开槽/三防/认证标识"
+        ],
+        "verificationNotes": "公开资料级别（B 级）：本机无外网，未逐页核对标准原文或官方参考设计，未做拆解或实测；本文不提供任何保证通过认证的安规数值，爬电/间隙/漏电流/耐压必须由具备资质的工程师按标准版本与认证机构要求确定并由实验室确认。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "ac-dc",
+          "safety"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 15：RF 模组 / 天线参考设计（50Ω、净空、共存与认证）",
+      "doc": "docs/knowledge/cases/15-rf-module.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-RFMOD",
+        "category": "参考设计案例",
+        "boardType": "RF 模组底板/无线产品主板（公开模组厂商设计指南与公开工程实践）",
+        "sourceType": "public-reference",
+        "evidence": [
+          "模组厂商公开硬件设计指南（未联网逐页核对）",
+          "天线设计公开资料",
+          "EMC/无线认证工程常识"
+        ],
+        "summary": "用 RF 模组底板说明底板可做的只有三件事：50Ω 链路、天线净空、接地回流；天线性能在结构定型时已决定，底板真正能优化的是电源噪声、共存干扰与量产一致性，认证按整机行为设计。",
+        "designPrinciples": [
+          "划清模组与底板责任边界，底板不设计射频",
+          "射频走线 50Ω、短、包地、参考面连续，换层补回流孔",
+          "射频远离 DC-DC/晶振/高速数字/金属件",
+          "天线净空所有层禁铜禁器件，天线伸出板边、远离电池/金属/外壳",
+          "匹配网络 π 型留焊盘、元件靠天线端、地端多过孔",
+          "电源按发射峰值电流去耦与选型，DC-DC 远离射频区",
+          "多射频共存做滤波/隔离/时分并整机实测",
+          "天线座 ESD 用低电容器件、靠接口、地短宽",
+          "认证按整机设计：测试口、测试模式、结构一致",
+          "量产一致性靠抽检判据（RSSI/吞吐/功率/频偏）与工艺固化"
+        ],
+        "keyCircuits": [
+          "50Ω 射频传输线",
+          "天线匹配网络",
+          "天线净空与地平面",
+          "模组电源去耦",
+          "共存滤波",
+          "天线座 ESD"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-RF-001",
+            "note": "天线净空所有层禁铜禁线禁器件"
+          },
+          {
+            "ruleId": "PCB-RULE-PLACE-RF-001",
+            "note": "模组靠板边、天线朝外"
+          },
+          {
+            "ruleId": "PCB-RULE-PLACE-ANTENNA-15MM-001",
+            "note": "整机天线净空尺寸"
+          },
+          {
+            "ruleId": "PCB-RULE-IMPEDANCE-001",
+            "note": "射频走线 50Ω 与叠层计算"
+          },
+          {
+            "ruleId": "PCB-RULE-RETURN-001",
+            "note": "换层补回流地孔"
+          },
+          {
+            "ruleId": "PCB-RULE-STACKUP-001",
+            "note": "优先 4 层保证参考面完整"
+          },
+          {
+            "ruleId": "PCB-RULE-DECOUPLE-001",
+            "note": "模组电源脚就近去耦"
+          },
+          {
+            "ruleId": "PCB-RULE-PLACE-DCDC-001",
+            "note": "DC-DC 远离射频区"
+          },
+          {
+            "ruleId": "PCB-RULE-ESD-001",
+            "note": "天线座低电容 ESD"
+          }
+        ],
+        "lessons": [
+          "底板能优化的只有电源噪声、共存与量产一致性，天线性能在结构定型时已决定",
+          "净空不足损失的是辐射效率，匹配网络只能调谐振、救不回来",
+          "共存干扰靠软件时分只能缓解，硬件隔离度与滤波才是根本"
+        ],
+        "reviewFocus": [
+          "模组边界与选型（含天线/认证）",
+          "天线净空是否所有层生效、结构是否干涉",
+          "射频走线 50Ω/参考面/回流孔/远离噪声源",
+          "匹配网络与测试口、电源去耦与峰值电流",
+          "共存方案与天线座 ESD",
+          "认证预测试与量产抽检判据"
+        ],
+        "verificationNotes": "公开资料级别（B 级）：本机无外网，未逐页核对官方文件，未做拆解或实测；模组型号/频段/天线净空/匹配元件/叠层阻抗/认证要求均需按模组 datasheet、天线指南与认证要求复核，最终以暗室/OTA 实测与认证报告为准。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "rf",
+          "antenna"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 16：柔性 / 刚挠结合板参考设计（弯折区、补强、过渡区与可靠性）",
+      "doc": "docs/knowledge/cases/16-flex-rigid-board.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-FLEX",
+        "category": "参考设计案例",
+        "boardType": "FPC / 刚挠结合板（公开厂商工艺指南与公开工程实践）",
+        "sourceType": "public-reference",
+        "evidence": [
+          "FPC/刚挠板厂商公开工艺指南（未联网逐页核对）",
+          "IPC-2223 柔性板设计常识",
+          "装配与可靠性工程常识"
+        ],
+        "summary": "用柔性/刚挠板说明：把刚性区/柔性区/过渡区/连接器区当四种结构设计；弯折区走线垂直弯折线、禁过孔、禁元件，半径与板厚决定寿命；补强避开弯折区，刚挠过渡区禁布禁孔，覆盖膜开窗按板厂能力，装配要托着柔性区，可靠性按弯折/湿热/冷热冲击/插拔四类验证。",
+        "designPrinciples": [
+          "布局前先分四区：刚性/柔性/过渡/连接器，并作为布局约束",
+          "弯折区走线垂直弯折线、禁过孔、禁元件、禁补强",
+          "最小弯折半径按板厚与覆盖膜核算并留裕量，弯折区减薄",
+          "补强覆盖连接器/焊接区但避开弯折区，边缘做过渡",
+          "FPC 连接器翻盖方向/Pin1/插拔空间与结构匹配",
+          "刚挠过渡区禁布禁孔、外形圆弧、结合宽度足够",
+          "覆盖膜开窗包住焊盘并留压边，远离弯折区",
+          "柔性区阻抗按柔性材料+覆盖膜重算并做测试条",
+          "装配工装支撑柔性区，回流/分板/装配不拉扯弯折区",
+          "可靠性验证：弯折寿命/湿热/冷热冲击/插拔，并测参数漂移"
+        ],
+        "keyCircuits": [
+          "刚挠过渡区",
+          "弯折区走线",
+          "FPC 连接器与金手指",
+          "补强与覆盖膜开窗",
+          "柔性区阻抗控制",
+          "屏蔽与接地"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-FPC-001",
+            "note": "弯折区/补强/覆盖膜/连接器规则"
+          },
+          {
+            "ruleId": "PCB-RULE-PLACE-CONN-001",
+            "note": "连接器靠板边、补强固定"
+          },
+          {
+            "ruleId": "PCB-RULE-BOARD2BOARD-001",
+            "note": "板间/FPC 连接器防呆线序"
+          },
+          {
+            "ruleId": "PCB-RULE-MASK-001",
+            "note": "覆盖膜开窗按板厂能力"
+          },
+          {
+            "ruleId": "PCB-RULE-IMPEDANCE-001",
+            "note": "柔性区阻抗重算"
+          },
+          {
+            "ruleId": "PCB-RULE-DIFF-001",
+            "note": "柔性区差分等长对称"
+          },
+          {
+            "ruleId": "PCB-RULE-ML-WARP-001",
+            "note": "过渡区铜对称与翘曲控制"
+          },
+          {
+            "ruleId": "PCB-RULE-EDGE-001",
+            "note": "外形圆弧过渡、板边禁布"
+          },
+          {
+            "ruleId": "PCB-RULE-PANEL-001",
+            "note": "拼板与分板避开走线"
+          }
+        ],
+        "lessons": [
+          "柔性板的核心是结构分区，弯折区是结构件而不是普通布线区",
+          "弯折应变 ε≈t/(2R)，减薄+放大半径是最有效的两个手段",
+          "可靠性要同时测功能与参数漂移，渐进失效比立即失效更常见"
+        ],
+        "reviewFocus": [
+          "四区划分是否落地、弯折区是否禁过孔/元件/补强",
+          "弯折半径与板厚/铜厚是否核算并留裕量",
+          "补强与连接器方向/Pin1/插拔空间",
+          "刚挠过渡区与覆盖膜开窗",
+          "柔性区阻抗与装配工装",
+          "弯折/湿热/冷热冲击/插拔验证与参数漂移"
+        ],
+        "verificationNotes": "公开资料级别（B 级）：本机无外网，未逐页核对标准或官方指南，未做拆解或实测；层数/材料/最小弯折半径/补强/连接器/开窗能力/测试标准均需按材料规格、板厂工艺能力与结构仿真复核，可靠性结论以实测为准。",
+        "tags": [
+          "参考设计",
+          "案例分析",
+          "design-case",
+          "flex",
+          "rigid-flex"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "供应链风险看板与生命周期管理（状态/PCN/交期/库存/单点）",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "moduleId": "CMP-MOD-SC-001",
+        "category": "供应链/生命周期",
+        "purpose": "把 EOL/PCN/交期/库存/单点风险收敛成一张可评审的看板，在投产前暴露断供与改板风险，而不是量产后被动救火。",
+        "whenToUse": "BOM 定版、原理图冻结、量产维持、供应商变更或市场缺料时。",
+        "designPoints": [
+          "每个 BOM 行记录 lifecycleStatus/来源/日期/owner",
+          "PCN 台账闭环：分类→影响评估→验证→更新库与 BOM",
+          "单点清单（sourceCount=1）与缓解措施（双供/库存/可改设计）",
+          "交期数据带供应商与日期，关键件前置锁定",
+          "LTB 数量 = 剩余需求 + 安全库存 + 替代验证期用量",
+          "季度复盘断供/涨价/PCN 事件并更新风险清单"
+        ],
+        "keyParameters": [
+          "生命周期状态五态与数据 TTL（建议 90～180 天，按公司流程复核）",
+          "单点器件数量与覆盖率",
+          "关键件交期与库存覆盖周数",
+          "替代料批准状态（已批准/验证中/无）"
+        ],
+        "process": [
+          "BOM 导入 → 状态/来源字段补齐",
+          "关键件逐项查询原厂/代理生命周期与 PCN 订阅",
+          "风险分级（不可替代性×用量×交期×认证依赖）",
+          "缓解措施执行并跟踪闭环",
+          "投产前门禁复核并留风险批准记录"
+        ],
+        "pitfalls": [
+          "只记录“Active”不留来源/日期，数据过期仍被使用",
+          "PCN 收到但不评估，量产突然批量不良",
+          "LTB 只按当前订单量买，忽略剩余生命周期需求",
+          "单点风险停留在清单、没有缓解措施与责任人"
+        ],
+        "tags": [
+          "供应链",
+          "EOL",
+          "PCN",
+          "交期",
+          "单点",
+          "库存"
+        ],
+        "schematic": "不涉及电路原理图；本模块是供应链/元件库流程，输入输出与判据见文档 KP 条目。",
+        "layout": "不涉及 PCB 布局；落地动作是 BOM/库字段检查与评审记录，不产生布局约束。"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "替代料准入与验证流程（7 项比对 → 样机 → 小批 → 量产）",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "moduleId": "CMP-MOD-SC-002",
+        "category": "供应链/替代料",
+        "purpose": "用统一模板与三阶段验证，把替代料从“看起来一样”变成“有证据可替换”，降低边界失效与认证失效风险。",
+        "whenToUse": "原厂停产/交期恶化/降本/双供建设/客户指定替代时。",
+        "designPoints": [
+          "7 项比对：电气/封装/温度/精度/寿命/认证/供货",
+          "pin-to-pin 只是入场券，参数与认证才是门槛",
+          "样机验证功能与边界，小批验证一致性与良率",
+          "切换时旧料新料分批隔离并记录批次",
+          "BOM 区分首选/已批准替代/仅库存替代/禁止替代"
+        ],
+        "keyParameters": [
+          "参数差异项数量与风险等级",
+          "样机/小批通过判据（按项目规格书定）",
+          "替代料良率与失效率对比",
+          "认证影响结论（需重测/不需重测及依据）"
+        ],
+        "process": [
+          "提出替代需求 → 初筛封装/pin map",
+          "7 项参数比对并记录 datasheet 页码",
+          "样机功能/边界/温循验证",
+          "小批一致性与良率验证",
+          "量产切换评审与 BOM/库更新"
+        ],
+        "pitfalls": [
+          "只比封装与价格，忽略 ESR/精度/温漂/寿命",
+          "实验室通过即上线，未做小批",
+          "替代料未更新库与 BOM，产线按旧料贴装",
+          "忽略认证影响，整机认证失效"
+        ],
+        "tags": [
+          "替代料",
+          "双供",
+          "验证",
+          "7项比对",
+          "认证"
+        ],
+        "schematic": "不涉及电路原理图；本模块是供应链/元件库流程，输入输出与判据见文档 KP 条目。",
+        "layout": "不涉及 PCB 布局；落地动作是 BOM/库字段检查与评审记录，不产生布局约束。"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "元件库分层与命名/版本体系（part-symbol-footprint-3D）",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-LIB-001",
+        "category": "元件库/体系",
+        "purpose": "建立四层链接、命名规范、受控版本与审核流程，让库成为可追溯、可复现、可审计的设计事实来源。",
+        "whenToUse": "新建 EDA 库体系、多团队协作、迁移工具链、量产前库治理时。",
+        "designPoints": [
+          "part/symbol/footprint/3D 四层独立且互链",
+          "命名：族+尺寸+变体+极性+密度等级",
+          "受控库版本化，变更记录含影响面与验证",
+          "四眼审核 + 高风险封装首件验证",
+          "已投产板冻结库版本或保存快照",
+          "废弃库标 deprecated 并保留只读快照"
+        ],
+        "keyParameters": [
+          "四层链接完整率",
+          "命名合规率与重复库数量",
+          "库审核覆盖率与首件拦截率",
+          "BOM-库版本映射完整率"
+        ],
+        "process": [
+          "定义库字段/命名规范/审核清单",
+          "建库并记录 datasheet 版本/页码",
+          "第二人复核（pin map/焊盘/Pin1/3D）",
+          "首件/试贴验证并回写问题",
+          "发布受控版本并更新 BOM 映射"
+        ],
+        "pitfalls": [
+          "库不版本化，静默修改导致新旧板不一致",
+          "命名随意，重复库与错用",
+          "只建库不审核，pin 错在贴片后才暴露",
+          "直接删除旧库，旧项目无法复现"
+        ],
+        "tags": [
+          "元件库",
+          "命名",
+          "版本",
+          "审核",
+          "3D",
+          "受控库"
+        ],
+        "schematic": "不涉及电路原理图；本模块是供应链/元件库流程，输入输出与判据见文档 KP 条目。",
+        "layout": "不涉及 PCB 布局；落地动作是 BOM/库字段检查与评审记录，不产生布局约束。"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "BOM-库双向一致性核对（料号/封装/符号/位号）",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-LIB-002",
+        "category": "元件库/一致性",
+        "purpose": "在投板前用双向核对闭环 BOM 与库，拦截错料、封装不符、断链与替代料未更新等问题。",
+        "whenToUse": "BOM 定版、发板/投产前、替代料切换、库版本升级后。",
+        "designPoints": [
+          "BOM 每行可解析到库中唯一 part",
+          "封装名与 footprint 一致或存在受控映射",
+          "反向核对 footprint → 使用板/位号",
+          "替代料/禁用替代字段随 BOM 同步",
+          "差异清单人工确认并闭环",
+          "核对结果进 release gate"
+        ],
+        "keyParameters": [
+          "BOM-库一致率（目标 100%）",
+          "断链/差异项数量与闭环周期",
+          "错料/返工事件数",
+          "映射表覆盖率（封装名差异场景）"
+        ],
+        "process": [
+          "导入 BOM 并解析 part 链接",
+          "正向核对料号/封装/符号字段",
+          "反向核对库被使用情况",
+          "差异分类（错料/断链/映射/替代）",
+          "修复并复跑，记录门禁结论"
+        ],
+        "pitfalls": [
+          "只做正向核对，漏“库里有但 BOM 没用”",
+          "替代料只在 BOM 改、库未改，产线贴错",
+          "封装名靠人工记忆映射，易错",
+          "核对报告不进门禁，问题遗留到量产"
+        ],
+        "tags": [
+          "BOM",
+          "一致性",
+          "双向核对",
+          "门禁",
+          "错料"
+        ],
+        "schematic": "不涉及电路原理图；本模块是供应链/元件库流程，输入输出与判据见文档 KP 条目。",
+        "layout": "不涉及 PCB 布局；落地动作是 BOM/库字段检查与评审记录，不产生布局约束。"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "柔性板叠层设计：PI 基材 + 铜 + 覆盖膜 + 补强的分层方法",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-FLEX-LAYUP",
+        "category": "柔性板/叠层",
+        "purpose": "给出单面/双面/多层挠性板的标准分层思路，明确铜厚、PI 厚度、覆盖膜、补强与弯折区的位置关系。",
+        "whenToUse": "需要弯折、轻薄、三维装配的互连（摄像头/电池/按键/天线/显示）或刚挠结合板。",
+        "designPoints": [
+          "先画叠层：铜/PI/胶/覆盖膜逐层标厚度",
+          "弯折区只保留必要铜层，总厚越薄越好",
+          "动态弯折区用 RA 铜 + 覆盖膜",
+          "补强放在连接器/SMT/螺钉区，远离弯折线",
+          "覆盖膜开窗按焊盘单边补偿 0.05–0.15 mm",
+          "刚挠结合区层数与铜厚尽量对称"
+        ],
+        "keyParameters": [
+          "PI 厚度常见 12.5/25/50 µm",
+          "铜厚常见 12/18/35 µm（1/3 oz、1/2 oz、1 oz）",
+          "覆盖膜常见 25 µm 膜 + 25 µm 胶",
+          "静态弯折 R ≥ 6–10×总厚，动态 R ≥ 20–100×总厚（需复核）"
+        ],
+        "schematic": "不涉及原理图；需在结构/装配图中标注弯折方向、弯折半径与补强位置。",
+        "layout": "先定弯折线与 keepout，再分区布线；弯折区走线垂直弯折线、圆弧过渡、少铜；连接器区加补强。",
+        "pitfalls": [
+          "弯折区放过孔/器件导致铜裂",
+          "覆盖膜开窗过小盖盘",
+          "补强跨弯折线造成应力集中",
+          "动态弯折用 ED 铜导致早期开裂",
+          "总厚超标使弯折半径无法满足"
+        ],
+        "tags": [
+          "柔性板",
+          "叠层",
+          "PI",
+          "覆盖膜",
+          "补强"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "动态弯折区设计：垂直走线、无过孔、RA 铜、圆弧过渡",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-FLEX-DYNAMIC",
+        "category": "柔性板/弯折",
+        "purpose": "把动态弯折区做成可反复弯折的高可靠结构，避免铜箔疲劳与覆盖膜分层。",
+        "whenToUse": "翻盖手机/笔记本铰链/可穿戴/机器人关节等需要反复弯折的 FPC。",
+        "designPoints": [
+          "走线方向垂直弯折线，禁止平行",
+          "弯折区禁过孔/焊盘/器件/丝印",
+          "铜面积最小化，大铜改网格/条纹",
+          "圆弧/45° 过渡，避免直角与宽度突变",
+          "使用 RA 铜 + 覆盖膜全覆",
+          "弯折半径按总厚 20–100 倍起步，最终实测寿命"
+        ],
+        "keyParameters": [
+          "动态弯折 R ≥ 20–100×总厚（经验，需按材料/寿命复核）",
+          "弯折区过孔/焊盘数量 = 0",
+          "覆盖膜开窗桥宽 ≥0.15–0.20 mm",
+          "弯折寿命按产品次数（如 1 万/10 万次）实测"
+        ],
+        "schematic": "不涉及；需在装配图标注弯折角度/次数/半径。",
+        "layout": "弯折区单独定义 keepout；进入弯折区前扇形展开并垂直穿过；弯折区外再换层/放器件。",
+        "pitfalls": [
+          "走线平行折线导致早期开裂",
+          "弯折区大铜约束变形",
+          "过孔孔壁铜裂",
+          "覆盖膜在弯折区起翘/分层",
+          "未做寿命试验直接量产"
+        ],
+        "tags": [
+          "动态弯折",
+          "柔性板",
+          "RA铜",
+          "keepout",
+          "寿命"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "刚挠结合板（Rigid-Flex）设计：过渡区应力释放与分层压合",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-FLEX-RIGIDFLEX",
+        "category": "柔性板/刚挠结合",
+        "purpose": "把刚性区的支撑/器件与挠性区的弯折互连结合，控制过渡区分层与铜裂风险。",
+        "whenToUse": "需要减少连接器/线缆、提高可靠性、做三维装配的复杂产品（医疗/工控/消费电子）。",
+        "designPoints": [
+          "刚性层与挠性层分别对称，刚挠区层数/铜厚尽量对称",
+          "过渡区做阶梯/斜角/圆角释放应力",
+          "覆盖膜与刚性板开窗对齐，防止胶流入弯折区",
+          "过渡区不得有镀通孔",
+          "压合次数按板厂能力控制",
+          "弯折区与安装点分开受力"
+        ],
+        "keyParameters": [
+          "过渡区刚性板开窗比挠性区大 0.2–0.5 mm（经验，按板厂复核）",
+          "过渡区无镀通孔",
+          "压合次数按板厂能力（多次压合增加对位误差/成本）",
+          "FR-4 与 PI 的 CTE 不匹配需评估分层"
+        ],
+        "schematic": "不涉及；需在结构图标注刚性区/挠性区/弯折线/安装点。",
+        "layout": "先定挠性叠层，再两侧加刚性层；过渡区做缓冲；安装孔/螺钉放刚性区。",
+        "pitfalls": [
+          "过渡区胶溢/覆盖膜搭接不当导致分层",
+          "压合次数过多导致挠性区老化",
+          "安装力作用在弯折区",
+          "刚性/挠性层不对称导致翘曲"
+        ],
+        "tags": [
+          "刚挠结合",
+          "rigid-flex",
+          "过渡区",
+          "压合",
+          "分层"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "BGA/QFN 装配工艺模块：焊盘—钢网—MSL—回流—检测闭环",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-PKG-BGA-ASSEMBLY",
+        "category": "封装/装配",
+        "purpose": "把 BGA/QFN 从焊盘设计到回流、检测的工艺参数串成可执行闭环。",
+        "whenToUse": "使用 BGA/QFN/WLCSP 的新板导入、工艺验证、量产良率提升。",
+        "designPoints": [
+          "焊盘按 IPC-7351/7093 与器件 datasheet",
+          "BGA 优先 NSMD，盘中孔塞孔填平",
+          "QFN 焊盘外延 0.05–0.10 mm，散热焊盘按 datasheet",
+          "钢网面积比 ≥0.66、QFN 散热焊盘 50%–80% 网格",
+          "MSL/floor life/烘烤按 J-STD-020/033",
+          "回流曲线用 profiler 实测，不抄通用曲线"
+        ],
+        "keyParameters": [
+          "BGA 单球空洞 ≤25%（Class 2 常见，需复核）",
+          "钢网厚 0.10–0.12 mm（细间距可更薄）",
+          "QFN 钢网面积比 ≥0.66、宽厚比 ≥1.5",
+          "MSL3 floor life 168 h 量级（按标准复核）"
+        ],
+        "schematic": "不涉及；需在 BOM 标注封装/MSL/耐温。",
+        "layout": "BGA 周围留返修/检测空间；QFN 散热焊盘下打过孔阵列；盘中孔塞孔。",
+        "pitfalls": [
+          "焊盘/开窗不符导致偏移/空洞",
+          "MSL 超期未烘烤导致爆米花",
+          "回流不足导致枕头效应",
+          "散热焊盘空洞导致导热/接地不良"
+        ],
+        "tags": [
+          "BGA",
+          "QFN",
+          "钢网",
+          "MSL",
+          "回流",
+          "空洞"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "BGA/QFN 返修模块：评估—拆焊—植球—检验—追溯",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-PKG-REWORK",
+        "category": "封装/返修",
+        "purpose": "建立可复现、可追溯的 BGA/QFN 返修流程，降低返修二次损伤。",
+        "whenToUse": "量产不良返修、样机调试、客退分析。",
+        "designPoints": [
+          "返修前评估层数/邻件/热敏/underfill/返修次数",
+          "底部预热 + 顶部加热，曲线按器件 datasheet",
+          "拆焊后清理焊盘/残胶，植球用治具",
+          "对位用光学/Split prism，回流后冷却",
+          "返修后 X-ray/AOI/电测，必要时切片",
+          "记录返修次数/曲线/操作人/结果"
+        ],
+        "keyParameters": [
+          "返修次数建议 ≤2–3 次（按产品规范复核）",
+          "返修峰值温度不超过器件耐温",
+          "返修后必须 X-ray + 电测",
+          "邻件热保护（高温胶带/屏蔽）"
+        ],
+        "schematic": "不涉及；返修涉及固件配置时需记录版本。",
+        "layout": "布局阶段留返修空间（热风喷嘴/烙铁）；屏蔽罩可拆。",
+        "pitfalls": [
+          "直接高温拆除导致板弯/爆板",
+          "焊盘清理不净导致植球不良",
+          "对位偏差导致连锡/偏移",
+          "多次返修累积坑裂/分层"
+        ],
+        "tags": [
+          "返修",
+          "BGA",
+          "QFN",
+          "植球",
+          "X-ray",
+          "追溯"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "USB3.x/USB4 接口设计模块：90 Ω 差分 + AC 耦合 + 低电容保护",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-HS-USB",
+        "category": "高速/接口",
+        "purpose": "给出 USB3.x/USB4 从连接器到芯片的通道设计要点与验证方法。",
+        "whenToUse": "USB3/4 外设、扩展坞、相机、存储等 ≥5 Gbps 接口设计。",
+        "designPoints": [
+          "差分 90 Ω（按规范版本复核），全链路参考连续",
+          "TX 对 AC 耦合电容靠近发送端（常见 0.1 µF，按规范/芯片）",
+          "连接器→ESD→共模→AC 电容→芯片，按参考设计顺序",
+          "ESD 低电容（≤0.5 pF 量级，按 datasheet 复核）",
+          "少换层，换层加回流地孔，连接器外壳 360° 接地",
+          "用 TDR/VNA/眼图/BER 与 USB-IF 一致性验收"
+        ],
+        "keyParameters": [
+          "USB3.2 Gen1/Gen2/Gen2x2：5/10/20 Gbps",
+          "USB4：20/40 Gbps（更高版本按规范）",
+          "差分阻抗 90 Ω（按规范复核）",
+          "AC 耦合常见 0.1 µF（按规范/芯片复核）"
+        ],
+        "schematic": "AC 耦合/ESD/共模器件位置与容值按芯片参考设计。",
+        "layout": "差分对直拉、少过孔；AC 电容焊盘按阻抗优化；参考平面不跨分割。",
+        "pitfalls": [
+          "AC 电容焊盘过大导致阻抗跌落",
+          "ESD 电容过大导致眼图闭合",
+          "换层无回流地孔",
+          "连接器外壳接地不良导致 EMI"
+        ],
+        "tags": [
+          "USB3",
+          "USB4",
+          "90Ω",
+          "AC耦合",
+          "ESD",
+          "眼图"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "PCIe Gen3–Gen5 通道设计模块：85 Ω + AC 耦合 + 参考时钟",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-HS-PCIE",
+        "category": "高速/接口",
+        "purpose": "给出 PCIe Gen3–Gen5 的阻抗、AC 耦合、参考时钟、连接器与测试要点。",
+        "whenToUse": "CPU/SoC 外接 PCIe 设备、NVMe、加速卡、背板连接。",
+        "designPoints": [
+          "差分阻抗常见 85 Ω（部分设计 90 Ω，按规范/连接器复核）",
+          "TX 对 AC 耦合（常见 0.1 µF，按规范/芯片）",
+          "参考时钟 100 MHz 差分，低抖动，远离噪声",
+          "连接器/金手指地针完整，扇出过孔短且加地孔",
+          "通道损耗/串扰按规范预算，必要时低损耗材料/背钻",
+          "用 TDR/VNA/眼图/BER 与 PCI-SIG 一致性验收"
+        ],
+        "keyParameters": [
+          "Gen3/4/5：8/16/32 GT/s（Gen6 64 GT/s PAM4，按规范）",
+          "差分阻抗 85 Ω（常见，按规范复核）",
+          "AC 耦合 0.1 µF（常见，按规范/芯片复核）",
+          "参考时钟 100 MHz 差分（按规范）"
+        ],
+        "schematic": "AC 耦合/ESD/参考时钟按芯片与规范要求。",
+        "layout": "差分对等长/等距/同参考；连接器扇出短；参考时钟包地。",
+        "pitfalls": [
+          "阻抗/AC 电容焊盘破坏回损",
+          "连接器地针不足导致串扰",
+          "参考时钟抖动超标",
+          "通道损耗超预算导致降速/误码"
+        ],
+        "tags": [
+          "PCIe",
+          "85Ω",
+          "AC耦合",
+          "参考时钟",
+          "眼图"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "以太网接口设计模块：100 Ω MDI + 变压器隔离 + PoE",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-HS-ETHERNET",
+        "category": "高速/接口",
+        "purpose": "给出 1G/2.5G/10G 以太网 MDI、变压器、隔离与 PoE 的设计要点。",
+        "whenToUse": "有线网络、工业网关、PoE 供电设备、板载 RJ45。",
+        "designPoints": [
+          "MDI 差分 100 Ω（按规范/PHY datasheet）",
+          "MDI 短、等长、同参考、不跨分割",
+          "变压器/共模扼流圈靠近连接器，中心抽头按 PHY 参考设计",
+          "隔离带按安规留爬电/电气间隙，隔离带下方禁走线/铜",
+          "PoE 通道按电流加宽，连接器/变压器选 PoE 额定",
+          "RJ45 外壳/地针低阻抗接地，ESD 放连接器侧"
+        ],
+        "keyParameters": [
+          "1000BASE-T/2.5G/5G/10GBASE-T：MDI 100 Ω",
+          "PoE：802.3af/at/bt，按等级算电流/线宽",
+          "隔离带爬电距离按安规（IEC 62368-1 等）复核",
+          "Y 电容位置/耐压按安规复核"
+        ],
+        "schematic": "变压器/中心抽头/Y 电容/ESD 按 PHY 与安规参考设计。",
+        "layout": "PHY 与 RJ45 之间留隔离带；MDI 不跨分割；PoE 加粗；外壳接地。",
+        "pitfalls": [
+          "MDI 跨分割/过长导致回损差",
+          "变压器中心抽头接错导致共模抑制差",
+          "隔离带被走线跨越导致耐压/EMC 失败",
+          "PoE 通道细线发热/压降"
+        ],
+        "tags": [
+          "以太网",
+          "MDI",
+          "100Ω",
+          "变压器",
+          "PoE",
+          "隔离"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "模拟信号链前端：从传感器到 ADC 的放大/滤波/偏置",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-ANALOG-FRONTEND",
+        "category": "模拟/信号链",
+        "purpose": "把 µV~mV 级传感器/信号源放大、滤波、偏置到 ADC 量程内，同时把噪声、失调与漂移控制在预算内。",
+        "whenToUse": "模拟传感器、电桥、RTD/热电偶、电流/电压检测等需要高精度采样的场景。",
+        "designPoints": [
+          "先算 LSB、增益与误差预算，再选运放/ADC",
+          "每级列增益、带宽、噪声、失调、漂移并入预算表",
+          "差分输入优先，用 INA/FDA 提高共模抑制",
+          "ADC 前做 RC 或有源抗混叠并核算采样建立",
+          "预留注入点与各级测试点，便于分段定位"
+        ],
+        "keyParameters": [
+          "目标分辨率与 LSB",
+          "源阻抗与输入共模范围",
+          "运放 GBW/SR/噪声/失调/漂移",
+          "ADC 采样时间与 Csh",
+          "基准精度/温漂/噪声"
+        ],
+        "schematic": "传感器/源 → 保护与滤波 → INA/FDA → 抗混叠 → ADC 驱动缓冲 → ADC；基准与 VDDA 独立去耦；每级留测试点与注入点。",
+        "layout": "模拟区独立且下方完整地平面；远离 DC-DC/时钟/功率回路；差分对等长；高阻节点包地并缩短走线。",
+        "pitfalls": [
+          "源阻抗超出 ADC 采样能力",
+          "容性负载导致运放振荡",
+          "基准噪声/漂移未入预算",
+          "单端长线引入地环流"
+        ],
+        "tags": [
+          "模拟前端",
+          "信号链",
+          "INA",
+          "ADC驱动",
+          "误差预算"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "基准与 VDDA 供电：低噪声参考、去耦与开尔文",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-ANALOG-REF",
+        "category": "模拟/基准",
+        "purpose": "为 ADC/DAC 提供低噪声、低温漂、可校准的参考电压，并把参考误差与噪声控制在系统预算内。",
+        "whenToUse": "分辨率 ≥12 位、需要绝对精度或宽温工作的采样/输出通道。",
+        "designPoints": [
+          "初始精度、温漂、噪声做 RSS 预算",
+          "基准输出电容按 datasheet 的容性负载范围",
+          "基准与 ADC 开尔文/短走线；多点负载星形引出",
+          "VDDA 用磁珠/LC 从系统电源隔离并独立去耦",
+          "必要时加基准缓冲或做满量程校准"
+        ],
+        "keyParameters": [
+          "初始精度（ppm）",
+          "温漂（ppm/°C）",
+          "0.1~10Hz 噪声与宽带噪声密度",
+          "负载调整率",
+          "输出电容允许范围"
+        ],
+        "schematic": "基准 IC 输出 → 去耦 → ADC VREF 或基准缓冲；sense 脚按 datasheet 开尔文；VDDA 经磁珠/LC 隔离并加 100nF+10µF。",
+        "layout": "基准与 ADC 就近；VREF 走线短而宽；远离开关节点与数字线；基准地回 AGND。",
+        "pitfalls": [
+          "基准与 VDDA 共用脏电源",
+          "VREF 走线过长或负载共阻抗调制",
+          "输出电容超出 datasheet 允许范围导致不稳定",
+          "不做满量程校准导致增益误差无法吸收"
+        ],
+        "tags": [
+          "基准",
+          "VREF",
+          "温漂",
+          "去耦",
+          "校准",
+          "VDDA"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "抗混叠与有源滤波：截止频率、Q 与容差最坏情况",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-ANALOG-FILTER",
+        "category": "模拟/滤波",
+        "purpose": "在 ADC 前或信号链中实现抗混叠、降噪与带宽限制，保证带外信号不混叠、带内平坦度与群延迟满足要求。",
+        "whenToUse": "有采样、噪声或 EMC 要求的模拟通道；单阶 RC 衰减不足或需要精确 Q 时。",
+        "designPoints": [
+          "先按 fs/2 与目标衰减算所需阶数",
+          "无源 RC 与有源拓扑按边界选择（源阻抗/负载/稳定性）",
+          "Sallen-Key/MFB 用公式定 fc 与 Q",
+          "元件容差与灵敏度按最坏情况核算",
+          "滤波与 ADC 采样建立时间联合校核"
+        ],
+        "keyParameters": [
+          "fc、Q、阶数",
+          "元件容差（建议 R 1%、C0G 1~2%）",
+          "运放 GBW ≥ fc×Q×50~100 量级",
+          "源阻抗与负载阻抗"
+        ],
+        "schematic": "无源 R-C 或运放 Sallen-Key/MFB；级间加缓冲；ADC 前 RC 与采样电容联合设计。",
+        "layout": "滤波元件靠近运放/ADC；反馈网络对称短走线；避免容性负载直接挂在运放输出。",
+        "pitfalls": [
+          "级联无源 RC 互相加载使 fc 偏移",
+          "用 X7R 做定时/滤波电容",
+          "Q 过高在 fc 附近峰化放大噪声",
+          "滤波后源阻抗不满足采样建立"
+        ],
+        "tags": [
+          "滤波",
+          "抗混叠",
+          "Sallen-Key",
+          "Q",
+          "容差"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "I2C 传感器接入：上拉、地址、中断与总线电容",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-SENSOR-I2C",
+        "category": "总线/传感器",
+        "purpose": "用 I2C 可靠接入温度/湿度/气压/IMU 等低速传感器，处理上拉、地址、中断与总线电容。",
+        "whenToUse": "板内/短距、多传感器、速率 ≤400kHz（快速模式）且可接受两线总线的场景。",
+        "designPoints": [
+          "上拉按 Rp(min)/Rp(max) 计算并留余量",
+          "地址引脚明确设置并维护地址分配表",
+          "中断开漏必上拉并接到可唤醒 GPIO",
+          "总线电容 ≤400pF，长线用缓冲器/分路器",
+          "传感器电源独立去耦并按 tPU 延时后再访问"
+        ],
+        "keyParameters": [
+          "VDD 与总线电容 Cb",
+          "Rp 取值与上升时间 tr",
+          "7 位地址与设置方式",
+          "中断极性与最小脉宽",
+          "上电稳定时间 tPU"
+        ],
+        "schematic": "主控 SCL/SDA → 上拉 → 各传感器；每颗传感器 VDD 加 100nF+1µF；INT 开漏上拉；ADDR 脚接 GND/VDD 明确设置。",
+        "layout": "总线短、少过孔；远离 DC-DC 与电机；必要时包地；传感器按 datasheet 开窗并远离热源。",
+        "pitfalls": [
+          "上拉过大导致上升沿慢",
+          "地址冲突或地址脚悬空",
+          "中断脚悬空导致漏事件",
+          "总线电容超限仍继续加大上拉"
+        ],
+        "tags": [
+          "I2C",
+          "传感器",
+          "上拉",
+          "地址",
+          "中断"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "电桥/RTD 传感器前端：激励、差分放大与引线补偿",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-SENSOR-BRIDGE",
+        "category": "模拟/传感器",
+        "purpose": "为电桥/应变片/RTD 提供稳定激励与差分放大，把 µV~mV 级变化放大到 ADC 量程并做引线补偿。",
+        "whenToUse": "称重、压力、应变、精密温度（RTD）等桥式/电阻式传感器。",
+        "designPoints": [
+          "激励方式（恒压/恒流）按传感器规格确定",
+          "尽量做比例式测量以抵消激励慢漂移",
+          "INA 增益/CMRR/REF 端缓冲按预算选型",
+          "长线用 3 线/4 线制补偿引线电阻",
+          "零点/满量程校准与温度补偿"
+        ],
+        "keyParameters": [
+          "激励电压/电流与精度",
+          "桥臂匹配（建议 0.1%）",
+          "灵敏度（mV/V）或 RTD 的 Ω/°C",
+          "INA 增益与 CMRR",
+          "自热功率与温升"
+        ],
+        "schematic": "激励源 → 电桥 → INA 差分输入 → RC 抗混叠 → ADC；INA REF 由基准/缓冲驱动；长线按 3/4 线接法。",
+        "layout": "电桥与 INA 靠近；差分对等长包地；激励与采样开尔文引出；远离功率回路。",
+        "pitfalls": [
+          "2 线制引线电阻造成零点与漂移误差",
+          "激励不稳导致灵敏度误差",
+          "INA REF 用高阻分压导致共模/偏置漂移",
+          "桥臂失配造成零点过大"
+        ],
+        "tags": [
+          "电桥",
+          "应变片",
+          "RTD",
+          "INA",
+          "激励",
+          "校准"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "H 桥电机驱动：死区、续流、电流采样与栅极驱动",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-SENSOR-MOTOR-HBRIDGE",
+        "category": "执行器/电机驱动",
+        "purpose": "用 H 桥双向驱动有刷直流电机/电磁阀类负载，实现 PWM 调速、方向与刹车，并提供续流与过流保护。",
+        "whenToUse": "需要正反转/调速的直流电机、推杆、电磁阀等感性负载，电流从数百 mA 到数 A。",
+        "designPoints": [
+          "上下管死区防直通，并按 MOS/驱动器 datasheet 校核",
+          "栅极驱动电平/电荷满足要求，栅极默认下拉关断",
+          "体二极管/外接续流与再生能量钳位",
+          "低边或在线电流采样开尔文走线",
+          "PWM 频率/斜率与 EMI、发热权衡"
+        ],
+        "keyParameters": [
+          "母线电压与峰值电流",
+          "Rds(on) 与热耗 P=I²(Rds_h+Rds_l)",
+          "死区时间（几十~几百 ns）",
+          "体电容容量与纹波电流",
+          "过流/堵转阈值与延时"
+        ],
+        "schematic": "MCU PWM/方向 → 栅极驱动 → H 桥双 NMOS；电机端子加续流/滤波；母线体电容 + TVS 钳位；电流采样进 ADC/比较器。",
+        "layout": "功率回路面积最小；体电容紧靠 H 桥；采样开尔文；功率地与信号地分开后单点汇合。",
+        "pitfalls": [
+          "死区不足导致直通炸管",
+          "栅极默认态导致上电误动",
+          "再生能量无泄放击穿 MOS",
+          "采样走线受功率回路干扰"
+        ],
+        "tags": [
+          "H桥",
+          "电机驱动",
+          "死区",
+          "续流",
+          "电流采样"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "1S 锂电保护板：OVP/UVP/OCP/SCP/OTP 与双 MOS",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-BMS-1S-PROTECT",
+        "category": "电源/电池保护",
+        "purpose": "为单节锂电提供过充/过放/过流/短路/过温保护，作为独立于充电 IC 的最后电气防线。",
+        "whenToUse": "1S 锂电/锂聚合物电池的便携产品，尤其是充电 IC 可能失效或电池不可由用户安全更换的场景。",
+        "designPoints": [
+          "OVP/UVP/OCP/SCP/OTP 阈值按电芯规格设定",
+          "双 NMOS 背靠背，核对体二极管方向",
+          "Rds(on) 与封装热阻按最大持续电流校核",
+          "NTC 贴电芯并支持开路/短路检测",
+          "与充电 IC、二次保护（保险丝/PTC）协调阈值"
+        ],
+        "keyParameters": [
+          "OVP 4.25~4.35V 级（按电芯规格）",
+          "UVP 2.4~3.0V 级（按电芯规格）",
+          "OCP 1.5~2 倍最大持续电流",
+          "SCP 延时 µs~ms 级",
+          "双 MOS Rds(on) 与热阻"
+        ],
+        "schematic": "电芯 → 保护 IC + 双 NMOS（充电/放电各一）→ 系统；NTC 分压进保护 IC TS 脚；采样开尔文。",
+        "layout": "MOS 与采样电阻靠近电芯连接器；大电流走线短粗；NTC 贴电芯；功率回路面积最小。",
+        "pitfalls": [
+          "单 MOS 反向仍经体二极管导通，等于没保护",
+          "低电量时 Vgs 不足使 MOS 进入线性区发热",
+          "NTC 开路被误判为正常温度",
+          "保护阈值未留保护 IC 精度余量"
+        ],
+        "tags": [
+          "1S",
+          "保护板",
+          "OVP",
+          "双MOS",
+          "NTC"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "电量计：Rsense、库仑积分与 SOC 校准锚点",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-BMS-GAUGE",
+        "category": "电源/电量计",
+        "purpose": "测量电池电压/电流/温度并估算 SOC/SOH，为系统提供电量显示、低电告警与充放电策略输入。",
+        "whenToUse": "需要电量显示、续航估算、低电保护或充电策略联动的 1S/多串电池系统。",
+        "designPoints": [
+          "按电流范围与精度选 Rsense，并做失调预算",
+          "以满充/满放/静置 OCV 作为 SOC 修正锚点",
+          "评估电压法在平台区的误差，避免单靠电压估 SOC",
+          "小电流/待机电流丢失与补偿策略",
+          "温度与老化对容量/SOC 的修正"
+        ],
+        "keyParameters": [
+          "Rsense 1~10mΩ 与 TCR",
+          "电流测量失调（µV 级）",
+          "电压测量精度",
+          "SOC 目标误差（常见 ±5%~±10%）",
+          "待机电流分辨力"
+        ],
+        "schematic": "电池 → Rsense（开尔文）→ 系统；电量计采样 V/I/NTC；I2C/SMBus 到主控；高压多串时加隔离。",
+        "layout": "Rsense 开尔文并紧靠电量计；采样线远离功率回路；NTC 贴电芯；电量计电源独立去耦。",
+        "pitfalls": [
+          "小失调×长时间积分导致 SOC 持续漂移",
+          "Rsense 温漂未计入",
+          "平台区只靠电压法估 SOC",
+          "不做满充/满放修正，误差只增不减"
+        ],
+        "tags": [
+          "电量计",
+          "SOC",
+          "库仑计",
+          "Rsense",
+          "校准"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "2.4GHz 匹配网络与巴伦前端",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-RF-001",
+        "category": "射频/前端",
+        "purpose": "把 RF 芯片的差分/单端阻抗在目标频段变换到 50Ω，完成差分到单端的转换，并用调试位支持量产匹配微调。",
+        "whenToUse": "WiFi/BLE/2.4GHz 私有协议等需要外置天线或模块天线的无线设计；芯片 datasheet 要求外部匹配/巴伦时。",
+        "designPoints": [
+          "按芯片参考设计选 L 型/π 型匹配与集成/分立巴伦",
+          "匹配网络紧贴芯片 RF 引脚，先预留 π 型调试位",
+          "差分对等长对称，巴伦下方地完整、地脚多过孔",
+          "匹配元件选高频 RF 专用、高 Q、SRF 足够、精度 0.1pF/0.1nH 级",
+          "巴伦到天线连接器全程 50Ω，馈线尽量短"
+        ],
+        "keyParameters": [
+          "单端参考阻抗 50Ω，差分阻抗按芯片 datasheet",
+          "匹配元件 SRF ≥2~3×工作频率（按 datasheet 复核）",
+          "巴伦插损典型 0.5~1.5dB（按具体器件 datasheet）",
+          "回波损耗目标按产品/芯片要求（如 ≤−10dB，需按项目定义）"
+        ],
+        "schematic": "芯片 RF 差分脚 → 匹配/巴伦 → 50Ω 馈线 → 天线连接器；π 型调试位放在芯片与天线之间；匹配元件地脚就近下地并标注精度。",
+        "layout": "匹配/巴伦区域下方保持完整参考地；RF 走线短直、包地、地过孔密集；远离开关电源、晶振与数字高速线；天线连接器地脚多过孔。",
+        "pitfalls": [
+          "匹配元件 SRF 不足导致高次谐波泄漏或失配",
+          "巴伦地不完整导致共模电流与方向图畸变",
+          "未预留调试位，量产无法微调匹配",
+          "匹配元件精度不足导致 S11 批次离散"
+        ],
+        "tags": [
+          "2.4GHz",
+          "匹配网络",
+          "巴伦",
+          "50欧姆",
+          "RF前端"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "天线净空、馈线与连接器",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-RF-002",
+        "category": "射频/天线",
+        "purpose": "保证天线在整机环境中的净空、馈线阻抗与接地回流，使天线效率与方向图符合设计预期。",
+        "whenToUse": "使用 PCB 走线天线、陶瓷贴片天线或外置天线（U.FL/SMA/IPEX）的无线产品；结构空间受限或金属件较多的产品必须重点评估。",
+        "designPoints": [
+          "按天线 datasheet 画出 keepout，禁止铺铜/走线/器件/金属",
+          "PCB 天线按参考设计尺寸 1:1 复制，放在板边",
+          "馈线 50Ω、尽量短，连接器地脚与天线地脚多过孔",
+          "外置天线核算线缆损耗并选低损线缆/连接器",
+          "电池、喇叭、屏蔽罩、金属结构远离天线"
+        ],
+        "keyParameters": [
+          "keepout 尺寸按天线 datasheet（不得套用其他型号）",
+          "馈线损耗按线缆 dB/m 计入链路预算（2.4GHz 低损线缆约 0.3~0.6dB/m，需按 datasheet 复核）",
+          "连接器插损按频率选型并计入预算",
+          "整机 TRP/TIS 或效率目标按产品定义"
+        ],
+        "schematic": "匹配网络输出 → 50Ω 馈线 → 天线连接器/天线焊盘；标注天线型号、阻抗与净空要求；外置天线标注线缆型号与长度。",
+        "layout": "keepout 内清空所有层铜箔；馈线包地、地过孔密集；天线远离电池/金属件；连接器地脚就近下地；外壳材料与天线距离在结构评审中确认。",
+        "pitfalls": [
+          "keepout 内有铜/电池导致频偏与效率下降",
+          "馈线过长/损耗未计入预算导致距离不足",
+          "连接器地回流不良导致方向图畸变",
+          "外壳金属涂层未评估导致整机性能不达标"
+        ],
+        "tags": [
+          "天线净空",
+          "馈线",
+          "连接器",
+          "TRP",
+          "整机"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "RF 前端滤波与多制式共存",
+      "doc": "docs/knowledge/schematic/11-rf-antenna.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-RF-003",
+        "category": "射频/滤波与共存",
+        "purpose": "用滤波/屏蔽/频率规划抑制谐波与邻频干扰，保证 WiFi/BT/LTE 等多制式同板共存时的灵敏度与吞吐。",
+        "whenToUse": "同板存在两个以上无线制式、发射谐波可能落入对方接收频段、或产品需要通过辐射/传导认证时。",
+        "designPoints": [
+          "按谐波频率（2×/3×f）选择低通/带通/SAW 滤波",
+          "发射链路滤波器插损计入 EIRP 预算，接收链路插损计入 NF",
+          "天线间距/极化/方向图优化以提高隔离度",
+          "必要时加屏蔽罩/吸波材料，屏蔽罩多点接地",
+          "软件侧使用时隙/仲裁机制"
+        ],
+        "keyParameters": [
+          "滤波器通带插损与带外抑制按 datasheet 与认证限值选",
+          "SAW 功率容量不得低于发射功率",
+          "天线隔离度目标按共存灵敏度回退要求定义",
+          "2.4GHz λ≈125mm，天线间距与隔离度需仿真/实测复核"
+        ],
+        "schematic": "发射链路：PA → 低通/带通 → 巴伦/匹配 → 天线；接收链路：天线 → 带通/SAW → LNA；滤波器前后保持 50Ω 并预留调试位。",
+        "layout": "滤波器靠近芯片/连接器；RF 与数字/电源分区；屏蔽罩四周连续接地；天线间距按仿真优化。",
+        "pitfalls": [
+          "只加发射滤波忽略接收带通导致灵敏度回退",
+          "SAW 功率容量不足被发射功率打坏",
+          "天线隔离度不足导致共存吞吐下降",
+          "屏蔽罩接地不良形成腔体谐振"
+        ],
+        "tags": [
+          "滤波器",
+          "共存",
+          "谐波",
+          "隔离度",
+          "认证"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "四开关 Buck-Boost 宽输入电源",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-PWR-001",
+        "category": "电源/非隔离拓扑",
+        "purpose": "在输入电压高于、低于或等于输出电压时都能稳定输出，用于宽输入（如 9~36V、电池 2.5~4.2V）场景。",
+        "whenToUse": "输入范围跨越输出电压、需要无缝升降压切换、或电池供电末端电压低于目标输出的产品。",
+        "designPoints": [
+          "按控制器 datasheet 设置 Buck/Buck-Boost/Boost 工作区与带滞回的切换阈值",
+          "电感按最恶劣工作区（通常过渡区）计算纹波与峰值电流",
+          "输入/输出电容按 RMS 纹波与瞬态选型",
+          "开关管 Vds ≥1.3×Vin(max)、Id ≥1.5×Iout(max) 并核算热",
+          "过渡区效率/纹波最差，尽量让工作点避开或快速穿越"
+        ],
+        "keyParameters": [
+          "开关管应力 Vds ≥1.3×Vin(max)，Id 按峰值电流降额",
+          "电感 ΔIL=Vin×D/(L×fsw)，峰值电流留 ≥20% 余量",
+          "输入电容 RMS 纹波按最恶劣工作区计算",
+          "效率与温升在全输入范围扫描"
+        ],
+        "schematic": "VIN → 输入电容 → 四开关半桥 → 电感 → 输出电容 → 负载；反馈分压与补偿按 datasheet；EN/UVLO 分压带滞回；预留电流采样与测试点。",
+        "layout": "功率环路面积最小；SW 节点短而宽；输入电容紧贴开关管；反馈开尔文采样；功率地与信号地单点汇合。",
+        "pitfalls": [
+          "过渡区未验证导致效率骤降/纹波超标",
+          "切换阈值无滞回导致反复切换",
+          "电感按单一工作区计算导致过渡区饱和",
+          "开关管应力按标称输入而非最高输入选型"
+        ],
+        "tags": [
+          "Buck-Boost",
+          "四开关",
+          "宽输入",
+          "升降压",
+          "过渡区"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "反激隔离电源（Flyback）",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-PWR-002",
+        "category": "电源/隔离拓扑",
+        "purpose": "用变压器实现输入输出隔离与电压变换，适合数十瓦以内的辅助电源、工业隔离电源与充电器。",
+        "whenToUse": "需要电气隔离、输入输出地不共地、或安规要求隔离的场合；功率通常在数十瓦以内（按器件与散热复核）。",
+        "designPoints": [
+          "按 Np/Ns=Vin×D/((Vout+Vf)×(1−D)) 设计匝比，D 取 0.4~0.5 附近",
+          "RCD/有源钳位吸收漏感能量，开关管 Vds 应力=Vin+Vclamp+尖峰",
+          "光耦/辅助绕组反馈的 CTR 与环路补偿按 datasheet，留温度/寿命裕度",
+          "输出整流管耐压 ≥Vin×Ns/Np+Vout 并留余量",
+          "变压器规格书写明匝比/电感/漏感/耐压/温升"
+        ],
+        "keyParameters": [
+          "匝比与占空比按最低输入电压核算，避免 D 越界",
+          "开关管 Vds 应力含钳位电压与尖峰，留 ≥20% 余量",
+          "RCD 钳位按漏感能量 E=½×Llk×Ipk² 设计",
+          "光耦 CTR 随温度/寿命变化，环路需留裕度"
+        ],
+        "schematic": "VIN → 输入滤波/电容 → 变压器初级 + 开关管 + RCD 钳位 → 次级整流/输出电容 → 反馈（光耦/辅助绕组）；隔离带两侧地分别为 GND/ISO_GND。",
+        "layout": "初级功率环路面积最小；RCD 钳位紧贴变压器初级；隔离带爬电/间隙按安规；反馈光耦跨隔离带；Y 电容位置按 EMC 方案。",
+        "pitfalls": [
+          "漏感能量未吸收导致开关管过压击穿",
+          "匝比/占空比设计不当导致输出不足或器件过压",
+          "光耦 CTR 衰减导致量产后期环路失效",
+          "隔离带爬电/间隙不足导致安规不通过"
+        ],
+        "tags": [
+          "反激",
+          "隔离电源",
+          "变压器",
+          "RCD钳位",
+          "光耦"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "多相 Buck 大电流电源",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-PWR-003",
+        "category": "电源/非隔离拓扑",
+        "purpose": "把大电流分配到多个错相功率级，降低单相损耗与输入/输出纹波，适合 CPU/FPGA/高电流负载。",
+        "whenToUse": "输出电流数十安以上、单相散热或纹波无法满足、或需要更小输出电容的产品。",
+        "designPoints": [
+          "相位数按总电流/纹波/成本选择（常见 2/3/4/6 相），相位差 360°/N",
+          "各相电感/开关管/驱动参数一致，布局对称",
+          "均流方案（droop/主动均流）按控制器 datasheet 配置",
+          "输出纹波频率 N×fsw，输出电容按纹波与瞬态核算",
+          "每相预留电流采样/温度监测点"
+        ],
+        "keyParameters": [
+          "均流误差目标 ≤10%，相间温升差 ≤10°C（按项目复核）",
+          "每相电流=总电流/N，电感与开关管按单相峰值降额",
+          "输出纹波频率=N×fsw",
+          "动态负载测试覆盖满载↔轻载切换"
+        ],
+        "schematic": "VIN → 输入电容 → N 个半桥/电感 → 输出电容 → 负载；PWM 控制器输出 N 路错相驱动；均流总线/采样电阻按 datasheet；每相 EN/PG 与故障汇总到控制器。",
+        "layout": "各相功率环路对称且面积最小；输出电容靠近负载；均流/采样走线等长抗干扰；功率地与信号地单点汇合；热设计按最热相核算。",
+        "pitfalls": [
+          "不均流导致单相过热/提前失效",
+          "相位错乱削弱纹波抵消",
+          "某一相布局远离控制器导致驱动/采样偏差",
+          "输出电容纹波电流不足导致寿命下降"
+        ],
+        "tags": [
+          "多相",
+          "大电流",
+          "均流",
+          "纹波",
+          "CPU供电"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "热插拔 / eFuse / ORing 电源入口",
+      "doc": "docs/knowledge/schematic/12-power-topologies.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-PWR-004",
+        "category": "电源/入口保护",
+        "purpose": "为带电插拔板卡或多电源输入提供浪涌限流、过流/过压保护与防倒灌，保护母线、连接器与下游电路。",
+        "whenToUse": "背板热插拔、双电源冗余、适配器+电池切换、需要可复位过流保护的产品。",
+        "designPoints": [
+          "热插拔控制器设置限流点、dV/dt 与故障响应（闭锁/自动重试）",
+          "eFuse 设置限流/OVP/热保护，核算 Rds(on) 功耗与散热",
+          "ORing 用理想二极管/ORing 控制器，核算反向关断与切换瞬态",
+          "输入加 TVS 抑制插拔瞬态，连接器长针地/短针电源",
+          "保护阈值与下游器件耐受/保险丝 I²t 协调"
+        ],
+        "keyParameters": [
+          "Iinrush=C×dV/dt，限流点按最大稳态电流 ×1.5 设置",
+          "MOSFET SOA 覆盖启动电压/电流/时间",
+          "eFuse Rds(on) 功耗 P=I²×Rds(on)，按 θJA 校核",
+          "ORing 压降：理想二极管几十 mV，肖特基 0.3~0.5V"
+        ],
+        "schematic": "连接器 → TVS → 热插拔控制器/eFuse（+采样电阻+MOSFET）→ 母线；多路输入各串 ORing 理想二极管后汇合；故障状态接 MCU。",
+        "layout": "功率路径短而宽；采样电阻开尔文走线；MOSFET 散热焊盘/过孔足够；TVS 地就近下地；连接器先接地。",
+        "pitfalls": [
+          "未限流导致母线跌落/连接器烧蚀",
+          "MOSFET SOA 不足在启动时失效",
+          "ORing 无反向关断导致电流倒灌",
+          "eFuse 限流/OVP 设置错误导致误触发或保护不足"
+        ],
+        "tags": [
+          "热插拔",
+          "eFuse",
+          "ORing",
+          "浪涌",
+          "母线保护"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "ECO 与版本矩阵管理流程",
+      "doc": "docs/knowledge/schematic/13-documentation-eco.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-DOC-001",
+        "category": "文件/变更控制",
+        "purpose": "用 ECO 作为变更唯一入口，维护原理图/BOM/PCB/固件/测试五件套的版本矩阵，保证发布、生产、返修与认证始终可追溯。",
+        "whenToUse": "任何影响受控设计文件的变更（器件、网络、布局、结构、固件接口、测试规范）以及新品发布/量产维护。",
+        "designPoints": [
+          "建立受控文件清单与版本矩阵（五件套+ECO 号）",
+          "任何变更先开 ECO：变更前后版本/内容/原因/影响文件/影响分析/验证计划/批准",
+          "原理图/BOM/PCB/固件同步变更，发布前做网表/BOM/PCB 一致性校验",
+          "旧版本归档只读、可回滚；变更后做回归测试",
+          "PCN/替代料按影响分析评估，必要时小批验证"
+        ],
+        "keyParameters": [
+          "版本矩阵字段：文件类型/编号/版本/日期/ECO/批准人/测试记录",
+          "一致性校验：网表↔BOM↔PCB 位号/网络/数量",
+          "归档含 SHA-256 清单，历史版本可打开",
+          "保留年限按质量体系与法规要求（需查体系文件/法规原文）"
+        ],
+        "schematic": "变更不直接改图：变更需求 → ECO 评审 → 修改文件 → 一致性校验 → 回归测试 → 更新版本矩阵 → 发布/归档。",
+        "layout": "不涉及 PCB 布局；但 ECO 必须列全影响文件，PCB 变更需同步 Gerber/坐标文件。",
+        "pitfalls": [
+          "改图不走 ECO 导致版本矩阵失配",
+          "原理图/BOM/PCB 分开发布，中间状态被误用",
+          "旧版本被覆盖无法回滚",
+          "认证相关变更未评估是否触发重新认证"
+        ],
+        "tags": [
+          "ECO",
+          "版本矩阵",
+          "变更控制",
+          "发布",
+          "归档"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "AI 辅助布局：先功能分区、再区域内就近、保持相对位置",
+      "doc": "docs/knowledge/pcb/22-ai-assisted-layout-and-readable-schematic.md",
+      "ttlDays": 180,
+      "payload": {
+        "moduleId": "PCB-MOD-AI-BLOCK-LAYOUT",
+        "category": "布局/方法论",
+        "purpose": "把 AI 自动布局从“把器件塞进板框”约束成“按功能块分区 + 用户约定区域内调整 + 尽量保持原相对位置”，让结果可解释、可复核、可回滚。",
+        "whenToUse": "已有原理图/网表、需要 AI 或脚本生成初始 PCB 布局时；连接器/结构件位置已确定、用户对某些区域有明确要求时。",
+        "designPoints": [
+          "先定功能块：DC-DC、电池管理、特殊芯片/模组、结构/3D、接口、高频等各占区域，同一器件只能属于一个块",
+          "每块有明确 mm 矩形区域，块区域落在板框内且两两不重叠",
+          "块内小件靠近其服务的主芯片/连接器两侧，简单网络就近，复杂远网单独评审",
+          "用户先圈定区域/锚点，AI 只在区域内调整；未被要求移动的器件用高权重“靠近当前坐标”锚定",
+          "第一步先输出“块 → 区域 → 成员”的分区图（含面积/利用率/发现项），人工确认后再写回",
+          "写回后仍要过板框/边距/间距/禁布规则与人工复核，不因“已分区”而跳过"
+        ],
+        "keyParameters": [
+          "块区域：mm 矩形 {xMinMm,yMinMm,xMaxMm,yMaxMm}，xMax>xMin、yMax>yMin",
+          "省略区域时的推导 margin：默认 3mm，且必须裁到板框内",
+          "保持相对位置锚定权重：高于普通网络亲和度（经验值，可按项目调整）",
+          "人工复核：建议 ≥30 分钟（经验值，板越复杂越长）"
+        ],
+        "schematic": "分区依据来自原理图的功能划分；原理图阶段就应把电源、电池管理、接口、高频等画成清晰的章节/页，便于 PCB 分区继承。",
+        "layout": "先放连接器与结构件，再放电源/电池块，再放数字/模拟/高频块，最后放小件；区域约束只限定器件中心候选点，物理规则（板框/间距/禁布）仍是硬约束。",
+        "pitfalls": [
+          "只按器件类型（电阻一堆、电容一堆）分区，拉长电源热环路与去耦回路",
+          "把 GND/电源大网络当亲和度主依据，导致整板被拉成一团",
+          "声称“保持相对位置”却实际把器件锁死或大幅重排，用户无法控制",
+          "区域推导过小导致放不下，却不报告 NO_SPACE/REGION_UNSATISFIED",
+          "没有分区图就直接写回，人工无法在写板前判断分区是否合理"
+        ],
+        "tags": [
+          "AI 辅助布局",
+          "功能分区",
+          "区域约束",
+          "保持相对位置",
+          "分区图",
+          "人工复核"
+        ]
+      }
+    }
+  ]
+}

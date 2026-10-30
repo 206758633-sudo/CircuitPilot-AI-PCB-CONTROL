@@ -1,0 +1,294 @@
+{
+  "version": "1.1.0",
+  "generatedAt": "2026-10-23T11:30:00.000Z",
+  "domain": "pcb-research-sources",
+  "notes": "公开资料研究来源登记。sha256 是 2026-10-23 抓取快照的哈希；HTML 页面会随发布更新，重新抓取后应更新哈希、fetchedAt 与 reviewBy。reviewBy 是强制复核期限（当前 2027-04-23），到期未复核由 scripts/check-knowledge-sources.mjs 报 SOURCE_REVIEW_OVERDUE。所有条目只作工程参考，量产/安规必须按标准原文、数据手册和板厂 EQ 复核。",
+  "sources": [
+    {
+      "id": "SRC-ESP32-HW",
+      "publisher": "Espressif Systems",
+      "title": "ESP Hardware Design Guidelines — ESP32 / PCB Layout Design",
+      "url": "https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32/pcb-layout-design.html",
+      "indexUrl": "https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32/index.html",
+      "type": "official-vendor-guideline",
+      "evidenceLevel": "A",
+      "revision": "latest (accessed 2026-10-23)",
+      "fetchedAt": "2026-10-23T11:05:00.000Z",
+      "snapshotSha256": "4831f5a99b627eb63f50016ae39915db9f731dfcb87c672a5317bbd55f9ce40e",
+      "topics": [
+        "RF",
+        "antenna",
+        "power",
+        "crystal",
+        "SDIO",
+        "typical failures"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-TI-QFN",
+      "publisher": "Texas Instruments",
+      "title": "QFN and SON PCB Attachment (SLUA271C)",
+      "url": "https://www.ti.com/lit/an/slua271a/slua271a.pdf",
+      "type": "official-vendor-application-report",
+      "evidenceLevel": "A",
+      "revision": "SLUA271C — revised December 2023",
+      "fetchedAt": "2026-10-23T11:05:00.000Z",
+      "snapshotSha256": "4693fd4df14f57f67088d881b9509a56db4a084a333caac53f81bc5c800b23ce",
+      "topics": [
+        "QFN",
+        "thermal pad",
+        "thermal via",
+        "stencil",
+        "void"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-TI-USB",
+      "publisher": "Texas Instruments",
+      "title": "High-Speed Layout Guidelines for Signal Conditioners and USB Hubs (SLLA414A)",
+      "url": "https://www.ti.com/lit/an/slla414/slla414.pdf",
+      "type": "official-vendor-application-report",
+      "evidenceLevel": "A",
+      "revision": "SLLA414A — revised January 2026",
+      "fetchedAt": "2026-10-23T11:05:00.000Z",
+      "snapshotSha256": "a5d930f7f6af20ddb04d8ab6fff62097a929a1141f5dffed184b6a8014ad0367",
+      "topics": [
+        "USB2",
+        "USB3",
+        "USB4",
+        "differential pair",
+        "ESD",
+        "reference plane"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-TI-AN1149",
+      "publisher": "Texas Instruments",
+      "title": "AN-1149 Layout Guidelines for Switching Power Supplies (SNVA021C)",
+      "url": "https://www.ti.com/lit/an/snva021c/snva021c.pdf",
+      "type": "official-vendor-application-report",
+      "evidenceLevel": "A/B",
+      "revision": "SNVA021C — revised April 2013 (original 1999)",
+      "fetchedAt": "2026-10-23T11:05:00.000Z",
+      "snapshotSha256": "b094d3c5a7b7cdd9dbe58da06b9127970fe596643123d6663f30313ebc57ce73",
+      "topics": [
+        "switching regulator",
+        "power loop",
+        "feedback",
+        "ground plane",
+        "via current"
+      ],
+      "caveat": "年代较早；15 mil/A 与 1 via/200 mA 只作方法起点，必须按 IPC-2152/板厂数据复算。",
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-TI-ESD",
+      "publisher": "Texas Instruments",
+      "title": "ESD Protection Layout Guide (SLVA680A)",
+      "url": "https://www.ti.com/lit/an/slva680/slva680.pdf",
+      "type": "official-vendor-application-report",
+      "evidenceLevel": "A",
+      "revision": "SLVA680A — revised April 2022",
+      "fetchedAt": "2026-10-23T11:05:00.000Z",
+      "snapshotSha256": "414236c18903e2489c6564c36718ed3743be9c595f4543098f167259b5ba8635",
+      "topics": [
+        "ESD",
+        "TVS",
+        "ground stitching",
+        "via",
+        "corner"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-TI-BOOST",
+      "publisher": "Texas Instruments",
+      "title": "Five Steps to a Good PCB Layout of a Boost Converter (SLVA773)",
+      "url": "https://www.ti.com/lit/an/slva773/slva773.pdf",
+      "type": "official-vendor-application-report",
+      "evidenceLevel": "A",
+      "revision": "SLVA773 — May 2016",
+      "fetchedAt": "2026-10-23T11:05:00.000Z",
+      "snapshotSha256": "f46712226d55015ee5e251159ca464738d9f4891a11b69c6dd2ad58b69d50139",
+      "topics": [
+        "boost",
+        "power loop",
+        "input/output capacitor",
+        "inductor",
+        "single-point ground"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-RPI-HW",
+      "publisher": "Raspberry Pi Ltd",
+      "title": "Hardware design with RP2040",
+      "url": "https://datasheets.raspberrypi.com/rp2040/hardware-design-with-rp2040.pdf",
+      "type": "official-vendor-design-guide",
+      "evidenceLevel": "A",
+      "revision": "accessed 2026-10-23; no revision string in PDF",
+      "fetchedAt": "2026-10-23T11:05:00.000Z",
+      "snapshotSha256": "51c4f430153fcdbf3209d9b3b41662c8527ff0150bc25777e3fcd6f5221a1c19",
+      "topics": [
+        "RP2040",
+        "Pico",
+        "decoupling",
+        "crystal",
+        "QSPI",
+        "USB 90 ohm"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-JLC-CAP",
+      "publisher": "JLCPCB",
+      "title": "PCB Manufacturing & Assembly Capabilities",
+      "url": "https://jlcpcb.com/capabilities/pcb-capabilities",
+      "type": "manufacturer-capability",
+      "evidenceLevel": "B",
+      "revision": "page snapshot 2026-10-23",
+      "fetchedAt": "2026-10-23T11:06:00.000Z",
+      "snapshotSha256": "897dfb4459db413f18bf3a5d93e0536bf11bcbc171343ff65813471df1d10aa8",
+      "topics": [
+        "trace/space",
+        "via",
+        "solder mask",
+        "silkscreen",
+        "V-cut",
+        "impedance"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-PCBWAY-CAP",
+      "publisher": "PCBWay",
+      "title": "PCB Capabilities",
+      "url": "https://www.pcbway.com/capabilities.html",
+      "type": "manufacturer-capability",
+      "evidenceLevel": "B",
+      "revision": "page snapshot 2026-10-23",
+      "fetchedAt": "2026-10-23T11:06:00.000Z",
+      "snapshotSha256": "42e366dbb8ecba7e72436265217ced47086e62013bf8853003c5e1f9841f5fb4",
+      "topics": [
+        "trace/space",
+        "annular ring",
+        "drill",
+        "silkscreen",
+        "panelization",
+        "V-score"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-SIERRA-IPC2221",
+      "publisher": "Sierra Circuits",
+      "title": "Applying IPC-2221 Standards in Circuit Board Design",
+      "url": "https://www.protoexpress.com/blog/ipc-2221-circuit-board-design/",
+      "type": "industry-technical-article",
+      "evidenceLevel": "B",
+      "revision": "published 2023-01-30; snapshot 2026-10-23",
+      "fetchedAt": "2026-10-23T11:07:00.000Z",
+      "snapshotSha256": "f92ebaf7d0af8ce4cdaf0c204d333efcbe9f71c6eeea0ed035dc94fcfbf5405a",
+      "topics": [
+        "IPC-2221",
+        "electrical clearance",
+        "assembled board clearance"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-SIERRA-CREEP",
+      "publisher": "Sierra Circuits",
+      "title": "The Importance of PCB Line Spacing, Creepage, and Clearance",
+      "url": "https://www.protoexpress.com/blog/importance-pcb-line-spacing-creepage-clearance/",
+      "type": "industry-technical-article",
+      "evidenceLevel": "B",
+      "revision": "published 2024-02-13; snapshot 2026-10-23",
+      "fetchedAt": "2026-10-23T11:07:00.000Z",
+      "snapshotSha256": "fef34395fc2cbaebc559745547149f87837475a77b6e3bb6e16b0e4a621199bf",
+      "topics": [
+        "creepage",
+        "clearance",
+        "CTI",
+        "pollution degree",
+        "altitude"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-SIERRA-THERMAL",
+      "publisher": "Sierra Circuits",
+      "title": "How Thermal Vias Enhance Heat Dissipation in PCBs",
+      "url": "https://www.protoexpress.com/kb/how-thermal-vias-enhance-heat-dissipation-in-pcbs/",
+      "type": "industry-knowledge-base",
+      "evidenceLevel": "B",
+      "revision": "snapshot 2026-10-23",
+      "fetchedAt": "2026-10-23T11:07:00.000Z",
+      "snapshotSha256": "d130f69f05ae45a43a45c727dbae65933b213f7f627023b12f6c5772d3ecbd05",
+      "topics": [
+        "thermal via",
+        "via pitch",
+        "aspect ratio",
+        "thermal pad"
+      ],
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-IPC-2221B",
+      "publisher": "IPC",
+      "title": "IPC-2221B Generic Standard on Printed Board Design (official TOC PDF)",
+      "url": "https://www.ipc.org/TOC/IPC-2221B.pdf",
+      "type": "standard-body-official-toc",
+      "evidenceLevel": "A",
+      "revision": "IPC-2221B — November 2012",
+      "fetchedAt": "2026-10-23T11:08:00.000Z",
+      "snapshotSha256": "6e83a9ee47f5740fe46b6372a840adba78067a32191507a16f19b4f0fb317358",
+      "topics": [
+        "IPC-2221B",
+        "scope",
+        "electrical clearance chapter/table index"
+      ],
+      "caveat": "官方 TOC 只用于确认标准范围和表号；数值表需购买标准原文/认证机构复核。",
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-IPC-2152",
+      "publisher": "IPC",
+      "title": "IPC-2152 Standard for Determining Current Carrying Capacity in Printed Board Design (official TOC PDF)",
+      "url": "https://www.ipc.org/TOC/IPC-2152.pdf",
+      "type": "standard-body-official-toc",
+      "evidenceLevel": "A",
+      "revision": "IPC-2152 — official TOC",
+      "fetchedAt": "2026-10-23T11:08:00.000Z",
+      "snapshotSha256": "4ae7507d3ed562590572ca62d0c5cd012a8ecbfda2767c73848c6127d27d3475",
+      "topics": [
+        "IPC-2152",
+        "current carrying capacity",
+        "scope"
+      ],
+      "caveat": "官方 TOC 只用于确认标准范围；具体曲线/表需标准原文。",
+      "reviewBy": "2027-04-23"
+    },
+    {
+      "id": "SRC-USBIF-TYPEC",
+      "publisher": "USB Implementers Forum",
+      "title": "USB Type-C Cable and Connector Specification Release 2.0",
+      "url": "https://www.usb.org/sites/default/files/USB%20Type-C%20Spec%20R2.0%20-%20August%202019.pdf",
+      "type": "standard-body-specification",
+      "evidenceLevel": "A",
+      "revision": "Release 2.0 — August 2019",
+      "fetchedAt": "2026-10-23T11:05:00.000Z",
+      "snapshotSha256": "87d15160bf8bd25129b27e0b7c5e261ed0b1806b3b0d3a7b5d8b1eb783dc9981",
+      "topics": [
+        "USB Type-C",
+        "connector pinout",
+        "cable pairs"
+      ],
+      "caveat": "连接器/线缆规范；PCB 布局与 ESD 仍以 PHY 厂商指南和 USB-IF 测试规范为准。",
+      "reviewBy": "2027-04-23"
+    }
+  ]
+}

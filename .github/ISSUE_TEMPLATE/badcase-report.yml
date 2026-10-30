@@ -1,0 +1,44 @@
+name: 提交 badcase（设计/门禁失败案例）
+description: 提交一次真实的设计失败或门禁误判，帮助改进规则与知识库
+title: "[badcase] "
+labels: ["badcase", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        适合提交：DRC/ERC 误报、规则漏检、网表修复失败、导出/交付链问题。
+        请先去掉工程文件与本机路径；能提供**规则 id + 证据类型 + 复现步骤**即可。
+  - type: input
+    id: app-version
+    attributes:
+      label: CircuitPilot 版本
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: rule-id
+    attributes:
+      label: 相关规则 / 门禁 id
+      description: 例如 DRC-CLEARANCE、GATE-03、PRJ-01；不确定可留空
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开 …
+        2. 运行 …
+        3. 期望 …，实际 …
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据摘要
+      description: DRC/ERC 报告片段、错误码、截图说明；不要贴密钥/客户信息
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: 授权
+      options:
+        - label: 我确认内容已脱敏，同意用于改进 CircuitPilot（可公开讨论）
+          required: true

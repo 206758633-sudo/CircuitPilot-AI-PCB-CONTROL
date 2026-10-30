@@ -17,7 +17,17 @@ import { join } from 'node:path';
  */
 
 export const EVIDENCE_SCHEMA_VERSION = 1;
-export const EVIDENCE_KINDS = Object.freeze(['drc-report', 'dfm-evidence', 'signoff', 'schematic-erc', 'spice-simulation', 'order-confirmation', 'pcb-layer-stack']);
+export const EVIDENCE_KINDS = Object.freeze([
+  'drc-report', 'dfm-evidence', 'signoff', 'schematic-erc', 'spice-simulation', 'order-confirmation', 'pcb-layer-stack',
+  // 通用 PCB 设计能力新增的证据类型：联网检索、器件身份核验、网表 diff、规则执行、样机回归、规格评审。
+  'research', 'lib-evidence', 'netlist-diff', 'rules', 'field-issue', 'design-spec', 'knowledge',
+  // 门禁 G5/G6：布局复核与制造放行证据
+  'placement', 'fabrication-release',
+  // P0-5：门禁评估报告与门禁终审签字必须独立 kind——不能再写进 'signoff' 遮蔽交付签核。
+  'gate-report', 'gate-signoff',
+  // W5-01 复盘学习 Agent（RLA）：项目收尾复盘的事实 → 知识候选，单独成类，不混进 signoff/gate-report。
+  'retrospective',
+]);
 
 const canonical = (value) => {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
@@ -100,8 +110,13 @@ export function createEvidenceStore({ root, now = () => new Date() } = {}) {
     if (!EVIDENCE_KINDS.includes(kind)) throw code(`未知证据类型：${String(kind)}`, 'EVIDENCE_KIND_INVALID', { allowed: EVIDENCE_KINDS });
     const dir = dirFor(kind);
     if (!existsSync(dir)) return [];
+    // 只认当前契约命名的证据文件（<kind>-<ISO时间戳>-<digest前12位>.json）。
+    // 旧版本工具/备份留下的 `*-summary.json`、别的东西不是"当前证据"，跳过而不是让一条历史文件
+    // 把整类证据打成 EVIDENCE_CORRUPT（真机 artifacts/evidence 里确实存在这类遗留文件）。
+    // 注意：命中当前命名的文件仍然逐个验哈希，被篡改依旧 fail-closed。
+    const namePattern = new RegExp(`^${safeName(kind).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}-\\d{3}Z-[0-9a-f]{12}\\.json$`);
     const files = readdirSync(dir)
-      .filter((name) => name.startsWith(`${safeName(kind)}-`) && name.endsWith('.json'))
+      .filter((name) => namePattern.test(name))
       .map((name) => join(dir, name))
       .sort((left, right) => (statSync(right).mtimeMs - statSync(left).mtimeMs) || right.localeCompare(left));
     return files.map((file) => verifyEntry(file, readFileSync(file, 'utf8')));

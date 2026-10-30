@@ -1,11 +1,13 @@
 import { useMemo, useRef, useState } from 'react';
 import { Check, Download, FileCheck2, FileText, Link2, PackageCheck, RefreshCw, Search, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import { useApp } from '../state/AppContext';
-import type { ComponentItem, EasyEdaDeviceSearchItem, FileAsset, ProductionInspection } from '../types';
+import type { ComponentItem, EasyEdaDeviceSearchItem, FileAsset, ProductionInspection, ProductionReadiness, SemanticPlanResult } from '../types';
 import { downloadDemoFile } from '../services/demoAdapter';
 import { Badge, Button, Field, Panel, SegmentedTabs, Stat, TableFrame, Toggle } from '../components/ui';
 import { ConfirmDialog, Drawer, Modal } from '../components/overlays';
-import { runtimeClient } from '../services/runtimeClient';
+import { runtimeClient, RuntimeApiError } from '../services/runtimeClient';
+import { readSemanticPlanDraft } from '../services/draftStore';
+import { pickReadinessPcbExecution, saveReadinessInputs } from '../services/releaseBindingStore';
 
 export function AssetsPage() {
   const { state, dispatch, notify, addAudit } = useApp();
@@ -17,6 +19,9 @@ export function AssetsPage() {
   const [removeTarget, setRemoveTarget] = useState<FileAsset | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [productionInspection, setProductionInspection] = useState<ProductionInspection | null>(null);
+  // 生产放行 readiness：本地门禁 + 落盘人工证据（DFM/终审）的服务端统一裁决，客户端不参与结论。
+  const [readiness, setReadiness] = useState<ProductionReadiness | null>(null);
+  const [readinessBusy, setReadinessBusy] = useState(false);
   const [inspectingProduction, setInspectingProduction] = useState(false);
   const [libraryTarget, setLibraryTarget] = useState<ComponentItem | null>(null);
   const [libraryQuery, setLibraryQuery] = useState('');
@@ -43,12 +48,88 @@ export function AssetsPage() {
       const context = await runtimeClient.pcbContext();
       const project = context.project as { uuid?: string; friendlyName?: string } | null;
       const document = context.pcb?.document as { uuid?: string } | null;
-      const inspection = await runtimeClient.inspectProductionArtifacts({ projectId: project?.uuid || '', projectName: project?.friendlyName || '', documentId: document?.uuid || '', sourceDigest: context.sourceDigest || '', semanticPlanHash: state.task.planHash || '', compiledPlanHash: state.task.planHash || '', executionId: state.task.id || '' });
+      // P0-7：产物清单只绑定真实工程/文档/源摘要；semantic/compiled/execution 不再用 AI 任务 id 冒充，
+      // 它们由 runReadiness 用服务端编译结果与真实 PCB 执行记录补进 binding。
+      const inspection = await runtimeClient.inspectProductionArtifacts({ projectId: project?.uuid || '', projectName: project?.friendlyName || '', documentId: document?.uuid || '', sourceDigest: context.sourceDigest || '' });
       setProductionInspection(inspection);
       addAudit('validation', '校验真实生产资料包', `${inspection.manifest.files.length}个文件 · ${inspection.manifest.manifestHash.slice(0, 12)}`, inspection.readyForHumanReview ? 'success' : 'warning');
       notify('生产资料检查完成', inspection.readyForHumanReview ? '文件和版本绑定完整，等待在线DFM与人工终审。' : `仍有${inspection.blockers.length}项阻断。`, inspection.readyForHumanReview ? 'success' : 'warning');
     } catch (error) { notify('生产资料检查失败', error instanceof Error ? error.message : 'Runtime不可用', 'danger'); }
     finally { setInspectingProduction(false); }
+  };
+
+  /**
+   * P0-7：readiness 的输入必须是真实可复核的引用。
+   * - semantic/compiled 计划哈希：服务端现场编译同一份语义计划后返回（不再拿 task.planHash 兼任两者）；
+   * - pcbExecutionId：真实 PCB 执行历史里 completed 且官方 DRC 通过的那条（不再拿 AI 任务 id）；
+   * - manifestHash：统一产物根（deliverables/）算出的清单哈希，经 sessionStorage 交给签核与正式导出。
+   * 任一缺失都给出精确错误码与补救路径，不降级成"用差不多的值凑一凑"。
+   */
+  const runReadiness = async () => {
+    if (!productionInspection) return notify('请先检查生产资料', 'readiness 需要先绑定项目/文档/清单，先点“检查生产资料”。', 'warning');
+    const draft = readSemanticPlanDraft();
+    if (!draft?.plan) {
+      notify('缺少已生成的语义计划', '[PRODUCTION_PLAN_MISSING] 先在 AI 任务页生成可验证 PCBA 语义计划并“进入 EDA 编译与审批”；readiness 不接受 AI 任务 id 当计划哈希。', 'danger');
+      addAudit('validation', 'readiness 输入缺失', 'PRODUCTION_PLAN_MISSING：没有可编译的语义计划草稿', 'error');
+      return;
+    }
+    setReadinessBusy(true);
+    try {
+      // 1) 现场登记 + 编译：拿服务端认可的 semanticPlanHash / compiledPlanHash。
+      let planning: SemanticPlanResult;
+      try {
+        planning = await runtimeClient.compileProductionPlan(draft.plan);
+      } catch (error) {
+        const detail = error instanceof RuntimeApiError ? `[${error.code}] ${error.message}` : error instanceof Error ? error.message : 'Runtime 不可用';
+        notify('语义计划编译失败', `[PRODUCTION_PLAN_COMPILE_FAILED] ${detail}`, 'danger');
+        addAudit('validation', 'readiness 语义计划编译失败', detail, 'error');
+        return;
+      }
+      if (!planning.compiled || !planning.compiledPlanHash) {
+        const blockers = [...(planning.blocking || []).map((item) => `${item.code}: ${item.message}`), ...(planning.issues || []).map((item) => `${item.code}: ${item.message}`)].slice(0, 5).join('；');
+        notify('语义计划编译被阻断', `[PRODUCTION_PLAN_COMPILE_BLOCKED] ${blockers || '计划未通过固定 Schema 校验'}。先在 EDA 页修正计划并重新编译。`, 'danger');
+        addAudit('validation', 'readiness 语义计划编译被阻断', blockers || 'compiledPlanHash 缺失', 'error');
+        return;
+      }
+      // 2) 真实 PCB 执行记录（completed + 官方 DRC 通过）。
+      const history = await runtimeClient.pcbExecutions();
+      const picked = pickReadinessPcbExecution(history.executions || []);
+      if ('error' in picked) {
+        notify('readiness 输入不完整', `[PRODUCTION_PCB_EXECUTION_MISSING] ${picked.error}`, 'danger');
+        addAudit('validation', 'readiness 输入缺失', picked.error, 'error');
+        return;
+      }
+      // 3) binding 只用真实值：工程/文档/源摘要来自“检查生产资料”，计划与执行来自第 1、2 步。
+      const manifest = productionInspection.manifest;
+      const binding = {
+        projectId: manifest.projectId,
+        projectName: manifest.projectName || '',
+        documentId: manifest.documentId,
+        sourceDigest: manifest.sourceDigest || '',
+        semanticPlanHash: planning.planHash,
+        compiledPlanHash: planning.compiledPlanHash,
+        executionId: picked.execution.id,
+      };
+      const result = await runtimeClient.productionReadiness({
+        semanticPlanHash: planning.planHash,
+        compiledPlanHash: planning.compiledPlanHash,
+        pcbExecutionId: picked.execution.id,
+        binding,
+      });
+      setReadiness(result);
+      saveReadinessInputs({ semanticPlanHash: planning.planHash, compiledPlanHash: planning.compiledPlanHash, pcbExecutionId: picked.execution.id, executionState: picked.execution.state, drcPassed: true });
+      // 交接：签核与正式导出必须用同一 binding 重算 manifestHash（P0-6）。
+      try {
+        sessionStorage.setItem('circuitpilot:release-binding', JSON.stringify({ manifestHash: result.referenced?.manifestHash ?? null, binding, savedAt: new Date().toISOString() }));
+      } catch { /* 存储不可用不阻塞 readiness */ }
+      addAudit('validation', '生产放行readiness复核', `${result.ready ? 'ready' : 'blocked'} · ${result.reason.slice(0, 80)}`, result.ready ? 'success' : 'warning');
+      notify(result.ready ? '生产放行就绪（不含下单）' : '生产放行仍被阻断', result.reason, result.ready ? 'success' : 'warning');
+    } catch (error) {
+      const detail = error instanceof RuntimeApiError ? `[${error.code}] ${error.message}` : error instanceof Error ? error.message : 'Runtime 不可用';
+      // 精确错误码：PRODUCTION_PLAN_UNKNOWN / PRODUCTION_EXECUTION_UNKNOWN / PRODUCTION_COMPILED_PLAN_MISMATCH ...
+      notify('readiness 复核失败', `${detail}；本次结论未落库，不会把旧结论当新证据。`, 'danger');
+      addAudit('validation', 'readiness 复核失败', detail, 'error');
+    } finally { setReadinessBusy(false); }
   };
 
   const openLibrarySearch = (item: ComponentItem) => {
@@ -99,12 +180,42 @@ export function AssetsPage() {
       <Panel eyebrow="IMMUTABLE PRODUCTION PACKAGE" title="真实生产资料与不可变清单" meta="读取 manufacturing 目录；不自动下单或支付" actions={<Button variant="primary" icon={inspectingProduction ? <RefreshCw className="spin" size={15} /> : <FileCheck2 size={15} />} onClick={inspectProduction} disabled={inspectingProduction}>{inspectingProduction ? '检查中' : '检查生产资料'}</Button>}>
         {!productionInspection ? <div className="empty-inline"><ShieldCheck size={25} /><strong>尚未执行生产资料校验</strong><span>检查会计算每个文件的SHA-256，校验BOM/CPL字段、位号及Gerber层集，并绑定当前真实PCB。</span></div> : <div className="detail-stack">
           <div className={`inline-alert ${productionInspection.readyForHumanReview ? 'inline-alert--success' : 'inline-alert--warning'}`}><ShieldCheck size={16} /><span><strong>{productionInspection.readyForHumanReview ? '本地资料校验通过' : '生产资料仍被阻断'}</strong> · 在线DFM和最终人工终审始终独立执行。</span></div>
-          <div className="stats-grid stats-grid--4"><Stat label="文件" value={productionInspection.manifest.files.length} hint="已计算SHA-256" /><Stat label="BOM位号" value={productionInspection.manifest.contentValidation.bomRefCount} hint="解析正式导出" /><Stat label="CPL贴片位号" value={productionInspection.manifest.contentValidation.cplRefCount} hint="已核对BOM集合" /><Stat label="生产放行" value="未放行" hint="等待在线DFM与人工终审" tone="warning" /></div>
+          <div className="stats-grid stats-grid--4"><Stat label="文件" value={productionInspection.manifest.files.length} hint="已计算SHA-256" /><Stat label="BOM位号" value={productionInspection.manifest.contentValidation.bomRefCount} hint="解析正式导出" /><Stat label="CPL贴片位号" value={productionInspection.manifest.contentValidation.cplRefCount} hint="已核对BOM集合" /><Stat label="生产放行" value={readiness ? readiness.ready ? 'ready' : 'blocked' : '未复核'} hint={readiness ? readiness.reason.slice(0, 30) : '运行一次 readiness 统一裁决'} tone={readiness ? readiness.ready ? 'success' : 'danger' : 'warning'} /></div>
           <div className="detail-block"><span>不可变清单哈希</span><code>{productionInspection.manifest.manifestHash}</code></div>
           <div className="detail-block"><span>嘉立创在线DFM交接</span><p>{productionInspection.manifest.dfm.reason}</p><div className="chip-list">{productionInspection.manifest.dfm.uploadFiles.map((file) => <span key={file}>{file}</span>)}</div><a className="button button--primary button--sm" href={productionInspection.manifest.dfm.portalUrl} target="_blank" rel="noreferrer">打开嘉立创DFM官网</a></div>
           <TableFrame label="生产资料文件哈希"><table><thead><tr><th>文件</th><th>类型</th><th>大小</th><th>SHA-256</th></tr></thead><tbody>{productionInspection.manifest.files.map((file) => <tr key={file.name}><td><strong>{file.name}</strong></td><td><Badge tone="info">{file.kind}</Badge></td><td>{file.size} B</td><td><code>{file.sha256}</code></td></tr>)}</tbody></table></TableFrame>
           {!!productionInspection.blockers.length && <div className="risk-box"><strong>尚未通过的生产门禁</strong>{productionInspection.blockers.map((blocker) => <p key={blocker}>• {blocker}</p>)}</div>}
         </div>}
+      </Panel>
+
+      <Panel
+        eyebrow="PRODUCTION READINESS"
+        title="生产放行统一裁决（本地门禁 + 人工证据）"
+        meta="服务端重算：本地检查 + 在线 DFM + 终审签核；客户端提交不被信任"
+        actions={<Button variant="primary" icon={<ShieldCheck size={15} />} loading={readinessBusy} disabled={readinessBusy || !productionInspection} title={!productionInspection ? '请先检查生产资料' : '由服务端重算所有门禁'} onClick={() => void runReadiness()}>运行 readiness 复核</Button>}
+      >
+        {!productionInspection ? <div className="empty-inline"><ShieldCheck size={24} /><strong>尚未绑定生产资料</strong><span>先“检查生产资料”得到 manifest（项目/文档/计划/执行/清单绑定），再做统一裁决。</span></div> : !readiness ? <div className="empty-inline"><ShieldCheck size={24} /><strong>尚未运行 readiness</strong><span>它会同时检查本地文件门禁、在线 DFM 证据、终审签核证据；缺任何一项都会明确 blocked。</span></div> : (
+          <div className="detail-stack">
+            <div className={`inline-alert ${readiness.ready ? 'inline-alert--success' : 'inline-alert--warning'}`}><ShieldCheck size={16} /><span><strong>{readiness.ready ? '生产放行就绪（仅文件与签核）' : '生产放行被阻断'}</strong> · {readiness.reason}</span></div>
+            <div className="row-actions"><Badge tone={readiness.ready ? 'success' : 'danger'}>{readiness.ready ? 'ready' : 'blocked'}</Badge><span>下单能力：<strong>{readiness.orderEnabled ? '启用' : '永久禁用'}</strong></span>{readiness.referenced ? <><span>清单 <code>{readiness.referenced.manifestHash?.slice(0, 12) || '—'}</code></span><span>终审 <code>{readiness.referenced.reviewHash?.slice(0, 12) || '未签核'}</code></span></> : null}</div>
+            <TableFrame label="门禁明细（服务端重算，不接受客户端结论）">
+              <table>
+                <thead><tr><th>门禁</th><th>结论</th><th>证据来源</th><th>原因</th></tr></thead>
+                <tbody>
+                  {readiness.gates.map((gate) => (
+                    <tr key={gate.id}>
+                      <td><code>{gate.id}</code></td>
+                      <td><Badge tone={gate.passed ? 'success' : 'danger'}>{gate.passed ? '通过' : '阻断'}</Badge></td>
+                      <td>{gate.source}</td>
+                      <td>{gate.reason || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableFrame>
+            {!readiness.ready ? <div className="inline-alert inline-alert--warning"><ShieldCheck size={16} /><span>缺口补齐路径：在线 DFM 到验证页登记；终审由三方签核（硬件/工艺/负责人）落盘；文件门禁到“检查生产资料”修文件。系统<b>不会</b>自动下单或支付。</span></div> : null}
+          </div>
+        )}
       </Panel>
 
       <Drawer open={Boolean(assetDetail)} onClose={() => setAssetDetail(null)} title={assetDetail?.name || '资料详情'} eyebrow="EVIDENCE INSPECTOR" footer={<>{assetDetail?.addedByUser && <Button variant="danger" icon={<Trash2 size={15} />} onClick={() => setRemoveTarget(assetDetail)}>移除记录</Button>}<Button icon={<Link2 size={15} />} onClick={() => assetDetail && void linkAssetToEdaProject(assetDetail)}>关联当前嘉立创EDA项目</Button><Button icon={<Link2 size={15} />} onClick={() => { if (assetDetail) updateAsset({ ...assetDetail, linkedTo: Array.from(new Set([...assetDetail.linkedTo, `AI任务 ${state.task.id}`])) }); }}>关联当前AI任务</Button><Button variant="primary" onClick={() => assetDetail && updateAsset({ ...assetDetail, authoritative: !assetDetail.authoritative, status: !assetDetail.authoritative ? 'official' : 'parsed' })}>{assetDetail?.authoritative ? '取消正式依据' : '设为正式依据'}</Button></>}>

@@ -1,0 +1,698 @@
+{
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "柔性板弯折半径：静态 6–10 倍总厚、动态 20–100 倍总厚，最终以弯折寿命实测为准",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-FLEX-BEND-001",
+        "category": "柔性板/弯折",
+        "severity": "error",
+        "statement": "弯折区必须按总厚度确定最小弯曲半径：静态弯折经验取 R ≥ 6–10×总厚，动态弯折经验取 R ≥ 20–100×总厚；动态弯折区优先 RA 铜、单面/薄层结构，最终以弯折寿命试验（角度/次数/电阻变化）判定。",
+        "limits": [
+          "静态弯折：R ≥ 6–10×总厚（工程经验，需按 IPC-2223 与材料 datasheet 复核）",
+          "动态弯折：R ≥ 20–100×总厚，具体按铜箔类型/层数/弯折次数确定",
+          "动态弯折区铜箔优先 RA（压延铜），避免 ED 铜",
+          "弯折区总厚越薄越好：单面常见 0.08–0.15 mm、双面 0.15–0.30 mm（按叠层复核）",
+          "弯折寿命必须实测，禁止仅用公式外推"
+        ],
+        "rationale": "弯折时外侧铜受拉、内侧受压；半径越小应变越大，超过材料延伸率即铜裂/分层。动态弯折为疲劳问题，寿命随半径减小呈指数下降。",
+        "check": "叠层图核对总厚；3D/结构件量实际弯曲半径；弯折工装验证；弯折寿命试验记录失效次数与电阻变化；失效样品切片看铜箔裂纹。",
+        "appliesTo": ["flex", "rigid-flex", "camera-module", "battery-connector", "wearable"],
+        "tags": ["柔性板", "弯折半径", "动态弯折", "RA铜", "寿命试验"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "覆盖膜开窗：比焊盘单边大 0.05–0.15 mm，不盖焊盘、桥宽 ≥0.15–0.20 mm",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-FLEX-COVERLAY-001",
+        "category": "柔性板/保护层",
+        "severity": "error",
+        "statement": "柔性板覆盖膜（coverlay）开窗应比焊盘单边大 0.05–0.15 mm（按板厂对位精度复核），不得盖住焊盘/金手指/测试点；相邻开窗之间保留 ≥0.15–0.20 mm 覆盖膜桥；动态弯折区必须覆盖膜而非阻焊油墨。",
+        "limits": [
+          "开窗相对焊盘单边补偿：0.05–0.15 mm（经验值，按板厂能力表复核）",
+          "相邻开窗覆盖膜桥宽：≥0.15–0.20 mm",
+          "覆盖膜厚度常见 25 µm 膜 + 25 µm 胶（按材料 datasheet 复核）",
+          "动态弯折区：覆盖膜全覆，禁止仅用阻焊油墨"
+        ],
+        "rationale": "覆盖膜对位公差大于阻焊；开窗过小会盖盘导致不上锡，过大则胶层暴露、吸湿分层；桥过窄会断裂。阻焊油墨在反复弯折下易开裂脱落。",
+        "check": "覆盖膜开窗 Gerber 与焊盘层 XOR；首件显微镜/目检；上锡与溢胶检查；弯折后覆盖膜起翘检查。",
+        "appliesTo": ["flex", "rigid-flex", "fpc-connector"],
+        "tags": ["柔性板", "覆盖膜", "coverlay", "开窗", "溢胶"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "补强板：连接器/SMT/插拔区必须局部加硬，且不得跨弯折线",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-FLEX-STIFFENER-001",
+        "category": "柔性板/机械",
+        "severity": "error",
+        "statement": "FPC 的 ZIF/FFC/板对板连接器、SMT 密集区、螺钉/定位区必须加补强；补强材料与厚度按受力选（FR-4 常见 0.2–1.0 mm、PI 0.1–0.3 mm、不锈钢 0.1–0.3 mm，需按板厂与受力复核）；补强边缘距弯折区 ≥1–2 mm，且不得跨越弯折线。",
+        "limits": [
+          "FR-4 补强厚度常见 0.2–1.0 mm",
+          "PI 补强厚度常见 0.1–0.3 mm",
+          "不锈钢/铝补强厚度常见 0.1–0.3 mm",
+          "补强边缘到弯折区：≥1–2 mm（经验值，按受力/板厂复核）"
+        ],
+        "rationale": "FPC 刚度低，连接器插拔力与 SMT 应力会使局部弯折、焊盘撕裂；补强把力分散到刚性区。补强跨弯折线会把刚性区应力直接传到弯折区。",
+        "check": "补强图与弯折线叠合；补强剥离/剪切测试；插拔力测试；3D 装配检查。",
+        "appliesTo": ["flex", "rigid-flex", "fpc-connector"],
+        "tags": ["柔性板", "补强", "stiffener", "连接器", "插拔力"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "BGA 空洞验收：按单球面积百分比与位置判定，不只看「有没有空洞」",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PKG-BGA-VOID-001",
+        "category": "封装/焊接",
+        "severity": "error",
+        "statement": "BGA 焊球空洞按单球面积百分比与位置验收：常见 Class 2 口径单球空洞 ≤25% 且不得集中在焊盘界面/焊球颈部，Class 3 更严；具体限值必须按 IPC-A-610 等级、IPC-7093 与客户规范复核；界面空洞/大空洞判不合格。",
+        "limits": [
+          "单球空洞面积：≤25%（Class 2 常见口径，需按标准/客户规范复核）",
+          "空洞不得集中在焊盘界面或焊球颈部",
+          "Class 3/高可靠产品限值更严，按客户规范执行",
+          "空洞总面积/位置需逐球统计并记录"
+        ],
+        "rationale": "空洞降低焊点机械强度与导热；界面空洞在热循环下扩展成裂纹；分散小空洞通常可接受，界面大空洞不可接受。",
+        "check": "X-ray 2D 初筛 + 3D/切片确认位置；逐球统计面积；超标调整钢网/回流/焊膏/焊盘；热循环/跌落验证。",
+        "appliesTo": ["bga", "wlcsp", "qfn", "smt"],
+        "tags": ["BGA", "空洞", "X-ray", "IPC-A-610", "焊点"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "MSL 湿度等级与 floor life：超期/受潮必须按 J-STD-033 烘烤",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PKG-MSL-001",
+        "category": "封装/工艺",
+        "severity": "error",
+        "statement": "按 J-STD-020 的 MSL 等级控制 floor life（常见 MSL3 168 h、MSL4 72 h、MSL5 48 h、MSL5a 24 h、MSL6 使用前烘烤，需按标准原文复核）；超期或湿度指示卡变色时按 J-STD-033 烘烤（常见 125 °C 24 h 量级，按厚度/等级复核），烘烤后限时使用并记录。",
+        "limits": [
+          "MSL3 floor life 常见 168 h",
+          "MSL4 常见 72 h、MSL5 常见 48 h、MSL5a 常见 24 h",
+          "MSL6 使用前必须烘烤",
+          "烘烤条件常见 125 °C/24 h 量级，按 J-STD-033 与器件厚度复核"
+        ],
+        "rationale": "塑封料吸湿，回流时水汽膨胀导致爆米花/分层/焊球损伤；MSL 越高越敏感，超期使用风险不可控。",
+        "check": "湿度指示卡；MSL 标签/批次记录；开封计时；烘烤记录；回流后 C-SAM/外观/切片。",
+        "appliesTo": ["bga", "qfn", "wlcsp", "smt"],
+        "tags": ["MSL", "J-STD-020", "J-STD-033", "烘烤", "爆米花"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "BGA/QFN 返修：预热—拆除—清理—植球—对位—回流—检验，且记录返修次数",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-PKG-REWORK-001",
+        "category": "封装/返修",
+        "severity": "warning",
+        "statement": "BGA/QFN 返修必须按「底部预热 → 顶部加热拆除 → 清理焊盘/残胶 → 植球/换球 → 助焊剂/对位 → 回流 → 冷却 → X-ray/AOI/电测」执行；返修温度曲线按返修台与器件 datasheet，峰值不超过器件耐温；同一器件返修次数建议 ≤2–3 次（按产品规范复核），超限评估报废。",
+        "limits": [
+          "返修次数建议 ≤2–3 次（经验值，按板层数/焊盘/客户规范复核）",
+          "返修峰值温度不得超过器件 datasheet 耐温",
+          "返修后必须做 X-ray/AOI/电测，必要时切片",
+          "邻件需热保护，热敏器件评估是否可返修"
+        ],
+        "rationale": "返修热与机械应力会损伤邻件、内层与焊盘；多次返修累积损伤（坑裂/分层），外观正常不代表可靠。",
+        "check": "返修曲线记录；X-ray 焊球/空洞/偏移；AOI 极性/连锡；电测；切片/染色抽检；返修记录与次数。",
+        "appliesTo": ["bga", "qfn", "wlcsp", "rework"],
+        "tags": ["返修", "BGA", "QFN", "植球", "X-ray"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速链路阻抗：按协议定 85/90/100 Ω，TDR 验收并做测试条",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-HS-IMPEDANCE-001",
+        "category": "高速/阻抗",
+        "severity": "error",
+        "statement": "高速接口差分阻抗按协议/连接器要求设计（USB 常见 90 Ω、以太网/HDMI/MIPI 常见 100 Ω、PCIe 常见 85 Ω，均需按规范版本复核）；阻抗公差按协议（常见 ±10%）；必须用与产品同叠层的阻抗测试条 + TDR 验收，不能只看计算书。",
+        "limits": [
+          "USB3.x/USB4：差分 90 Ω（按规范版本复核）",
+          "PCIe Gen3–5：差分常见 85 Ω（部分设计 90 Ω，按规范/连接器复核）",
+          "以太网/HDMI/MIPI D-PHY：差分常见 100 Ω",
+          "阻抗公差常见 ±10%，具体按协议/客户规范复核",
+          "每批/每拼板附阻抗测试条，TDR 实测"
+        ],
+        "rationale": "阻抗偏离导致反射、回损变差、眼图闭合；公式/计算书与实际叠层、蚀刻、阻焊存在偏差，只有实测能闭环。",
+        "check": "板厂阻抗计算书；同叠层测试条 TDR；VNA 回损；眼图/BER；超差整批隔离追溯。",
+        "appliesTo": ["usb", "pcie", "ethernet", "hdmi", "mipi"],
+        "tags": ["阻抗", "TDR", "USB", "PCIe", "以太网", "测试条"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速 AC 耦合电容：容值/位置按协议，焊盘保持阻抗连续",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-HS-AC-COUPLING-001",
+        "category": "高速/无源器件",
+        "severity": "warning",
+        "statement": "高速串行链路的 AC 耦合电容按协议/芯片要求选容值（USB3/PCIe TX 常见 0.1 µF，需按规范版本复核），放在靠近发送端或芯片推荐位置；电容焊盘/挖空必须保持差分阻抗连续，电容下方参考平面连续，不得在此处换层。",
+        "limits": [
+          "USB3/PCIe TX AC 耦合常见 0.1 µF（按规范/芯片复核）",
+          "电容靠近 TX 端或按芯片推荐位置",
+          "焊盘/挖空按差分阻抗优化，避免大焊盘造成阻抗跌落",
+          "电容下方参考平面连续，不在电容处换层"
+        ],
+        "rationale": "AC 耦合隔直流、允许两端共模不同；但电容焊盘比走线宽，是阻抗不连续点，焊盘越大/越近越严重，会恶化回损与眼图。",
+        "check": "TDR 看电容处阻抗跌落；VNA 插损/回损；眼图/BER；与仿真对比。",
+        "appliesTo": ["usb", "pcie", "sata", "high-speed"],
+        "tags": ["AC耦合", "电容", "阻抗连续", "USB3", "PCIe"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "柔性板叠层设计：PI 基材 + 铜 + 覆盖膜 + 补强的分层方法",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-FLEX-LAYUP",
+        "category": "柔性板/叠层",
+        "purpose": "给出单面/双面/多层挠性板的标准分层思路，明确铜厚、PI 厚度、覆盖膜、补强与弯折区的位置关系。",
+        "whenToUse": "需要弯折、轻薄、三维装配的互连（摄像头/电池/按键/天线/显示）或刚挠结合板。",
+        "designPoints": [
+          "先画叠层：铜/PI/胶/覆盖膜逐层标厚度",
+          "弯折区只保留必要铜层，总厚越薄越好",
+          "动态弯折区用 RA 铜 + 覆盖膜",
+          "补强放在连接器/SMT/螺钉区，远离弯折线",
+          "覆盖膜开窗按焊盘单边补偿 0.05–0.15 mm",
+          "刚挠结合区层数与铜厚尽量对称"
+        ],
+        "keyParameters": [
+          "PI 厚度常见 12.5/25/50 µm",
+          "铜厚常见 12/18/35 µm（1/3 oz、1/2 oz、1 oz）",
+          "覆盖膜常见 25 µm 膜 + 25 µm 胶",
+          "静态弯折 R ≥ 6–10×总厚，动态 R ≥ 20–100×总厚（需复核）"
+        ],
+        "schematic": "不涉及原理图；需在结构/装配图中标注弯折方向、弯折半径与补强位置。",
+        "layout": "先定弯折线与 keepout，再分区布线；弯折区走线垂直弯折线、圆弧过渡、少铜；连接器区加补强。",
+        "pitfalls": [
+          "弯折区放过孔/器件导致铜裂",
+          "覆盖膜开窗过小盖盘",
+          "补强跨弯折线造成应力集中",
+          "动态弯折用 ED 铜导致早期开裂",
+          "总厚超标使弯折半径无法满足"
+        ],
+        "tags": ["柔性板", "叠层", "PI", "覆盖膜", "补强"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "动态弯折区设计：垂直走线、无过孔、RA 铜、圆弧过渡",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-FLEX-DYNAMIC",
+        "category": "柔性板/弯折",
+        "purpose": "把动态弯折区做成可反复弯折的高可靠结构，避免铜箔疲劳与覆盖膜分层。",
+        "whenToUse": "翻盖手机/笔记本铰链/可穿戴/机器人关节等需要反复弯折的 FPC。",
+        "designPoints": [
+          "走线方向垂直弯折线，禁止平行",
+          "弯折区禁过孔/焊盘/器件/丝印",
+          "铜面积最小化，大铜改网格/条纹",
+          "圆弧/45° 过渡，避免直角与宽度突变",
+          "使用 RA 铜 + 覆盖膜全覆",
+          "弯折半径按总厚 20–100 倍起步，最终实测寿命"
+        ],
+        "keyParameters": [
+          "动态弯折 R ≥ 20–100×总厚（经验，需按材料/寿命复核）",
+          "弯折区过孔/焊盘数量 = 0",
+          "覆盖膜开窗桥宽 ≥0.15–0.20 mm",
+          "弯折寿命按产品次数（如 1 万/10 万次）实测"
+        ],
+        "schematic": "不涉及；需在装配图标注弯折角度/次数/半径。",
+        "layout": "弯折区单独定义 keepout；进入弯折区前扇形展开并垂直穿过；弯折区外再换层/放器件。",
+        "pitfalls": [
+          "走线平行折线导致早期开裂",
+          "弯折区大铜约束变形",
+          "过孔孔壁铜裂",
+          "覆盖膜在弯折区起翘/分层",
+          "未做寿命试验直接量产"
+        ],
+        "tags": ["动态弯折", "柔性板", "RA铜", "keepout", "寿命"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "刚挠结合板（Rigid-Flex）设计：过渡区应力释放与分层压合",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-FLEX-RIGIDFLEX",
+        "category": "柔性板/刚挠结合",
+        "purpose": "把刚性区的支撑/器件与挠性区的弯折互连结合，控制过渡区分层与铜裂风险。",
+        "whenToUse": "需要减少连接器/线缆、提高可靠性、做三维装配的复杂产品（医疗/工控/消费电子）。",
+        "designPoints": [
+          "刚性层与挠性层分别对称，刚挠区层数/铜厚尽量对称",
+          "过渡区做阶梯/斜角/圆角释放应力",
+          "覆盖膜与刚性板开窗对齐，防止胶流入弯折区",
+          "过渡区不得有镀通孔",
+          "压合次数按板厂能力控制",
+          "弯折区与安装点分开受力"
+        ],
+        "keyParameters": [
+          "过渡区刚性板开窗比挠性区大 0.2–0.5 mm（经验，按板厂复核）",
+          "过渡区无镀通孔",
+          "压合次数按板厂能力（多次压合增加对位误差/成本）",
+          "FR-4 与 PI 的 CTE 不匹配需评估分层"
+        ],
+        "schematic": "不涉及；需在结构图标注刚性区/挠性区/弯折线/安装点。",
+        "layout": "先定挠性叠层，再两侧加刚性层；过渡区做缓冲；安装孔/螺钉放刚性区。",
+        "pitfalls": [
+          "过渡区胶溢/覆盖膜搭接不当导致分层",
+          "压合次数过多导致挠性区老化",
+          "安装力作用在弯折区",
+          "刚性/挠性层不对称导致翘曲"
+        ],
+        "tags": ["刚挠结合", "rigid-flex", "过渡区", "压合", "分层"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "BGA/QFN 装配工艺模块：焊盘—钢网—MSL—回流—检测闭环",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-PKG-BGA-ASSEMBLY",
+        "category": "封装/装配",
+        "purpose": "把 BGA/QFN 从焊盘设计到回流、检测的工艺参数串成可执行闭环。",
+        "whenToUse": "使用 BGA/QFN/WLCSP 的新板导入、工艺验证、量产良率提升。",
+        "designPoints": [
+          "焊盘按 IPC-7351/7093 与器件 datasheet",
+          "BGA 优先 NSMD，盘中孔塞孔填平",
+          "QFN 焊盘外延 0.05–0.10 mm，散热焊盘按 datasheet",
+          "钢网面积比 ≥0.66、QFN 散热焊盘 50%–80% 网格",
+          "MSL/floor life/烘烤按 J-STD-020/033",
+          "回流曲线用 profiler 实测，不抄通用曲线"
+        ],
+        "keyParameters": [
+          "BGA 单球空洞 ≤25%（Class 2 常见，需复核）",
+          "钢网厚 0.10–0.12 mm（细间距可更薄）",
+          "QFN 钢网面积比 ≥0.66、宽厚比 ≥1.5",
+          "MSL3 floor life 168 h 量级（按标准复核）"
+        ],
+        "schematic": "不涉及；需在 BOM 标注封装/MSL/耐温。",
+        "layout": "BGA 周围留返修/检测空间；QFN 散热焊盘下打过孔阵列；盘中孔塞孔。",
+        "pitfalls": [
+          "焊盘/开窗不符导致偏移/空洞",
+          "MSL 超期未烘烤导致爆米花",
+          "回流不足导致枕头效应",
+          "散热焊盘空洞导致导热/接地不良"
+        ],
+        "tags": ["BGA", "QFN", "钢网", "MSL", "回流", "空洞"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "BGA/QFN 返修模块：评估—拆焊—植球—检验—追溯",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-PKG-REWORK",
+        "category": "封装/返修",
+        "purpose": "建立可复现、可追溯的 BGA/QFN 返修流程，降低返修二次损伤。",
+        "whenToUse": "量产不良返修、样机调试、客退分析。",
+        "designPoints": [
+          "返修前评估层数/邻件/热敏/underfill/返修次数",
+          "底部预热 + 顶部加热，曲线按器件 datasheet",
+          "拆焊后清理焊盘/残胶，植球用治具",
+          "对位用光学/Split prism，回流后冷却",
+          "返修后 X-ray/AOI/电测，必要时切片",
+          "记录返修次数/曲线/操作人/结果"
+        ],
+        "keyParameters": [
+          "返修次数建议 ≤2–3 次（按产品规范复核）",
+          "返修峰值温度不超过器件耐温",
+          "返修后必须 X-ray + 电测",
+          "邻件热保护（高温胶带/屏蔽）"
+        ],
+        "schematic": "不涉及；返修涉及固件配置时需记录版本。",
+        "layout": "布局阶段留返修空间（热风喷嘴/烙铁）；屏蔽罩可拆。",
+        "pitfalls": [
+          "直接高温拆除导致板弯/爆板",
+          "焊盘清理不净导致植球不良",
+          "对位偏差导致连锡/偏移",
+          "多次返修累积坑裂/分层"
+        ],
+        "tags": ["返修", "BGA", "QFN", "植球", "X-ray", "追溯"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "USB3.x/USB4 接口设计模块：90 Ω 差分 + AC 耦合 + 低电容保护",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-HS-USB",
+        "category": "高速/接口",
+        "purpose": "给出 USB3.x/USB4 从连接器到芯片的通道设计要点与验证方法。",
+        "whenToUse": "USB3/4 外设、扩展坞、相机、存储等 ≥5 Gbps 接口设计。",
+        "designPoints": [
+          "差分 90 Ω（按规范版本复核），全链路参考连续",
+          "TX 对 AC 耦合电容靠近发送端（常见 0.1 µF，按规范/芯片）",
+          "连接器→ESD→共模→AC 电容→芯片，按参考设计顺序",
+          "ESD 低电容（≤0.5 pF 量级，按 datasheet 复核）",
+          "少换层，换层加回流地孔，连接器外壳 360° 接地",
+          "用 TDR/VNA/眼图/BER 与 USB-IF 一致性验收"
+        ],
+        "keyParameters": [
+          "USB3.2 Gen1/Gen2/Gen2x2：5/10/20 Gbps",
+          "USB4：20/40 Gbps（更高版本按规范）",
+          "差分阻抗 90 Ω（按规范复核）",
+          "AC 耦合常见 0.1 µF（按规范/芯片复核）"
+        ],
+        "schematic": "AC 耦合/ESD/共模器件位置与容值按芯片参考设计。",
+        "layout": "差分对直拉、少过孔；AC 电容焊盘按阻抗优化；参考平面不跨分割。",
+        "pitfalls": [
+          "AC 电容焊盘过大导致阻抗跌落",
+          "ESD 电容过大导致眼图闭合",
+          "换层无回流地孔",
+          "连接器外壳接地不良导致 EMI"
+        ],
+        "tags": ["USB3", "USB4", "90Ω", "AC耦合", "ESD", "眼图"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "PCIe Gen3–Gen5 通道设计模块：85 Ω + AC 耦合 + 参考时钟",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-HS-PCIE",
+        "category": "高速/接口",
+        "purpose": "给出 PCIe Gen3–Gen5 的阻抗、AC 耦合、参考时钟、连接器与测试要点。",
+        "whenToUse": "CPU/SoC 外接 PCIe 设备、NVMe、加速卡、背板连接。",
+        "designPoints": [
+          "差分阻抗常见 85 Ω（部分设计 90 Ω，按规范/连接器复核）",
+          "TX 对 AC 耦合（常见 0.1 µF，按规范/芯片）",
+          "参考时钟 100 MHz 差分，低抖动，远离噪声",
+          "连接器/金手指地针完整，扇出过孔短且加地孔",
+          "通道损耗/串扰按规范预算，必要时低损耗材料/背钻",
+          "用 TDR/VNA/眼图/BER 与 PCI-SIG 一致性验收"
+        ],
+        "keyParameters": [
+          "Gen3/4/5：8/16/32 GT/s（Gen6 64 GT/s PAM4，按规范）",
+          "差分阻抗 85 Ω（常见，按规范复核）",
+          "AC 耦合 0.1 µF（常见，按规范/芯片复核）",
+          "参考时钟 100 MHz 差分（按规范）"
+        ],
+        "schematic": "AC 耦合/ESD/参考时钟按芯片与规范要求。",
+        "layout": "差分对等长/等距/同参考；连接器扇出短；参考时钟包地。",
+        "pitfalls": [
+          "阻抗/AC 电容焊盘破坏回损",
+          "连接器地针不足导致串扰",
+          "参考时钟抖动超标",
+          "通道损耗超预算导致降速/误码"
+        ],
+        "tags": ["PCIe", "85Ω", "AC耦合", "参考时钟", "眼图"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "以太网接口设计模块：100 Ω MDI + 变压器隔离 + PoE",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-MOD-HS-ETHERNET",
+        "category": "高速/接口",
+        "purpose": "给出 1G/2.5G/10G 以太网 MDI、变压器、隔离与 PoE 的设计要点。",
+        "whenToUse": "有线网络、工业网关、PoE 供电设备、板载 RJ45。",
+        "designPoints": [
+          "MDI 差分 100 Ω（按规范/PHY datasheet）",
+          "MDI 短、等长、同参考、不跨分割",
+          "变压器/共模扼流圈靠近连接器，中心抽头按 PHY 参考设计",
+          "隔离带按安规留爬电/电气间隙，隔离带下方禁走线/铜",
+          "PoE 通道按电流加宽，连接器/变压器选 PoE 额定",
+          "RJ45 外壳/地针低阻抗接地，ESD 放连接器侧"
+        ],
+        "keyParameters": [
+          "1000BASE-T/2.5G/5G/10GBASE-T：MDI 100 Ω",
+          "PoE：802.3af/at/bt，按等级算电流/线宽",
+          "隔离带爬电距离按安规（IEC 62368-1 等）复核",
+          "Y 电容位置/耐压按安规复核"
+        ],
+        "schematic": "变压器/中心抽头/Y 电容/ESD 按 PHY 与安规参考设计。",
+        "layout": "PHY 与 RJ45 之间留隔离带；MDI 不跨分割；PoE 加粗；外壳接地。",
+        "pitfalls": [
+          "MDI 跨分割/过长导致回损差",
+          "变压器中心抽头接错导致共模抑制差",
+          "隔离带被走线跨越导致耐压/EMC 失败",
+          "PoE 通道细线发热/压降"
+        ],
+        "tags": ["以太网", "MDI", "100Ω", "变压器", "PoE", "隔离"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "柔性板弯折区铜箔疲劳裂纹：电阻增大/开路",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-FLEX-TRACE-CRACK",
+        "code": "FLEX-TRACE-CRACK",
+        "category": "柔性板/失效",
+        "severity": "error",
+        "symptom": "FPC 经过多次弯折或装配后，弯折区走线电阻增大、间歇开路，严重时完全断开；切片可见铜箔沿晶界裂纹。",
+        "rootCause": "弯折半径小于材料允许值、走线平行弯折线、弯折区有宽度突变/过孔、使用 ED 铜、覆盖膜/胶层缺陷、装配拉扯。",
+        "detection": "弯折寿命试验监测电阻；通断/飞针测试；显微/切片看裂纹；失效位置与弯折线对照。",
+        "prevention": [
+          "增大弯折半径，按总厚 20–100 倍起步（动态，需实测）",
+          "走线垂直弯折线，圆弧过渡，禁止宽度突变",
+          "动态区用 RA 铜，弯折区禁过孔/焊盘/器件",
+          "覆盖膜全覆，开窗桥宽足够",
+          "装配工装限位，避免手工拉扯"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/12-flex-rigid-flex.md",
+          "KP-PCB-262",
+          "KP-PCB-263",
+          "KP-PCB-264"
+        ],
+        "tags": ["柔性板", "铜裂", "弯折", "疲劳", "开路"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "柔性板分层/起泡：PI 与胶层或覆盖膜分离",
+      "doc": "docs/knowledge/pcb/12-flex-rigid-flex.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-FLEX-DELAM",
+        "code": "FLEX-DELAM",
+        "category": "柔性板/失效",
+        "severity": "error",
+        "symptom": "FPC 表面起泡、发白、覆盖膜起翘，严重时铜箔与基材分离；回流/高温高湿后更明显。",
+        "rootCause": "材料吸湿未烘烤、压合参数不当、覆盖膜/胶层污染、补强与基材 CTE 不匹配、弯折应力集中、存储环境超标。",
+        "detection": "外观/显微镜；C-SAM/超声；切片；高温高湿/回流后复检；剥离强度测试。",
+        "prevention": [
+          "按 MSL/材料要求存储与烘烤（J-STD-033）",
+          "控制压合温度/压力/时间，按板厂工艺",
+          "覆盖膜/补强前清洁，避免污染",
+          "补强边缘圆角，避免跨弯折线",
+          "来料检验与供应商 8D"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/12-flex-rigid-flex.md",
+          "KP-PCB-258",
+          "KP-PCB-265",
+          "KP-PCB-277"
+        ],
+        "tags": ["柔性板", "分层", "起泡", "覆盖膜", "吸湿"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "BGA 焊球空洞超标：强度/导热下降，热循环开裂",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PKG-BGA-VOID",
+        "code": "BGA-VOID",
+        "category": "封装/焊接失效",
+        "severity": "error",
+        "symptom": "X-ray 显示 BGA 焊球内空洞面积超限或集中在焊盘界面，焊点强度/导热下降，热循环后开裂/开路。",
+        "rootCause": "焊膏助焊剂挥发不畅、回流曲线不当、焊盘/焊球氧化、盘中孔未填平、钢网开窗/焊膏量不当、MSL 受潮。",
+        "detection": "X-ray 2D/3D 逐球统计空洞面积与位置；切片确认界面空洞；热循环/跌落验证。",
+        "prevention": [
+          "优化回流曲线（预热/均温/液相时间）",
+          "焊盘/焊球清洁，控制 MSL 与烘烤",
+          "盘中孔塞孔电镀填平",
+          "钢网开窗/焊膏量按计算，QFN 散热焊盘网格开窗",
+          "来料检验与供应商协同"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/13-package-assembly-rework.md",
+          "KP-PCB-287",
+          "KP-PCB-294",
+          "KP-PCB-306"
+        ],
+        "tags": ["BGA", "空洞", "X-ray", "回流", "焊点"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "枕头效应（Head-in-Pillow）：焊球与焊膏未熔合，X-ray 难发现",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PKG-HOP",
+        "code": "HEAD-IN-PILLOW",
+        "category": "封装/焊接失效",
+        "severity": "error",
+        "symptom": "BGA 功能间歇失效/开路，X-ray 可能显示正常；切片/染色可见焊球坐在焊膏上但未形成冶金结合，界面有缝隙。",
+        "rootCause": "封装/PCB 回流翘曲、焊膏量不足、回流温度/时间不足、焊球氧化、MSL 受潮、支撑/夹具不当。",
+        "detection": "切片/染色渗透；热循环后电测；翘曲测量（shadow moiré）；回流曲线复核；X-ray 3D 辅助。",
+        "prevention": [
+          "控制来料翘曲与 MSL/烘烤",
+          "优化回流曲线（峰值/液相时间）",
+          "保证焊膏量与钢网开窗",
+          "必要时氮气/助焊剂/支撑治具",
+          "高风险 BGA 做切片抽检"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/13-package-assembly-rework.md",
+          "KP-PCB-288",
+          "KP-PCB-292",
+          "KP-PCB-294"
+        ],
+        "tags": ["BGA", "枕头效应", "HoP", "翘曲", "回流"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "焊盘坑裂（Pad Cratering）：焊盘从树脂拔出，板弯/返修后开路",
+      "doc": "docs/knowledge/pcb/13-package-assembly-rework.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PKG-PAD-CRATER",
+        "code": "PAD-CRATERING",
+        "category": "封装/焊接失效",
+        "severity": "error",
+        "symptom": "板弯/跌落/返修后焊点开路，切片/染色可见焊盘连同树脂从 PCB 拔出形成坑状，焊球本身可能完好。",
+        "rootCause": "无铅焊点强度高使应力传到焊盘/树脂界面；焊盘小、树脂/玻纤差、板弯大、返修次数多、分板/螺钉应力。",
+        "detection": "染色渗透+拉拔；切片；IST；板弯测试；失效位置与受力点对照。",
+        "prevention": [
+          "优化焊盘（NSMD/尺寸按 IPC-7351）",
+          "减少板弯：支撑/拼板/低应力分板",
+          "控制返修次数与温度",
+          "高可靠产品做 IST/热循环验证",
+          "连接器/螺钉受力区远离小焊盘"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/13-package-assembly-rework.md",
+          "KP-PCB-291",
+          "KP-PCB-299",
+          "KP-PCB-303"
+        ],
+        "tags": ["坑裂", "pad cratering", "板弯", "返修", "无铅"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "高速链路阻抗失配：TDR 过冲/回损超标、眼图闭合",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-HS-IMPEDANCE",
+        "code": "HS-IMPEDANCE-MISMATCH",
+        "category": "高速/信号完整性",
+        "severity": "error",
+        "symptom": "TDR 显示阻抗偏离目标（过冲/下陷），VNA 回损超标，眼图闭合/误码率升高，协议一致性失败。",
+        "rootCause": "叠层/线宽计算错误、参考平面不连续/跨分割、AC 电容/ESD 焊盘过大、过孔反焊盘不当、连接器阻抗不匹配、阻焊/蚀刻偏差。",
+        "detection": "TDR 逐段测阻抗；VNA 回损/插损；眼图/BER；与仿真对比；切片测线宽/介质厚度。",
+        "prevention": [
+          "按协议/板厂计算书设计线宽/叠层",
+          "参考平面连续，跨分割 = 0",
+          "AC 电容/ESD 焊盘按阻抗优化",
+          "过孔反焊盘/换层加地孔",
+          "加阻抗测试条并 TDR 验收"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/14-high-speed-protocols.md",
+          "KP-PCB-309",
+          "KP-PCB-312",
+          "KP-PCB-327",
+          "KP-PCB-328"
+        ],
+        "tags": ["阻抗", "TDR", "回损", "眼图", "跨分割"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "高速通道损耗超预算：插损过大、眼图闭合/降速",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-HS-LOSS",
+        "code": "HS-LOSS-BUDGET",
+        "category": "高速/信号完整性",
+        "severity": "error",
+        "symptom": "长链路/高损耗材料下插损超标，眼图幅度/张开度不足，链路降速、误码或训练失败。",
+        "rootCause": "板材 Df 高、走线过长、铜粗糙度大、过孔 stub 长、连接器/线缆损耗大、AC 电容/ESD 器件损耗、叠层设计不当。",
+        "detection": "VNA 插损/回损；眼图/BER；通道损耗预算与实际对比；仿真-实测相关性；TDR 看反射。",
+        "prevention": [
+          "按速率/长度选低损耗板材（Df 按 datasheet）",
+          "缩短走线、减少过孔/连接器",
+          "背钻/盲埋孔控制 stub",
+          "低损耗连接器/线缆/AC 电容",
+          "做完整通道损耗预算并留余量"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/14-high-speed-protocols.md",
+          "KP-PCB-309",
+          "KP-PCB-327",
+          "KP-PCB-329",
+          "KP-PCB-337"
+        ],
+        "tags": ["插损", "损耗预算", "眼图", "低损耗材料", "背钻"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "高速差分对串扰超标：噪声底抬高、眼图恶化",
+      "doc": "docs/knowledge/pcb/14-high-speed-protocols.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-HS-CROSSTALK",
+        "code": "HS-CROSSTALK",
+        "category": "高速/信号完整性",
+        "severity": "error",
+        "symptom": "相邻高速对/并行总线之间近端/远端串扰超标，噪声底抬高、眼图闭合、误码率升高。",
+        "rootCause": "差分对间距不足、长距离平行、参考平面不完整、连接器引脚分配不当、过孔密集耦合、地屏蔽不足。",
+        "detection": "SI 仿真串扰；VNA 近端/远端串扰；眼图/BER；近场扫描；协议一致性。",
+        "prevention": [
+          "差分对间距 ≥3W（底线）/5W（更稳），按预算复核",
+          "高速对之间加地线/地孔隔离",
+          "避免长距离平行，正交布线",
+          "连接器引脚分配隔开高速对",
+          "参考平面完整，过孔区域加地孔"
+        ],
+        "refs": [
+          "docs/knowledge/pcb/14-high-speed-protocols.md",
+          "KP-PCB-338",
+          "KP-PCB-328",
+          "KP-PCB-325"
+        ],
+        "tags": ["串扰", "crosstalk", "3W", "眼图", "连接器"]
+      }
+    }
+  ]
+}

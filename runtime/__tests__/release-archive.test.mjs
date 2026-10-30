@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { createReleaseArchiveStore } from '../release-archive.mjs';
 import { createRuntimeServer } from '../server.mjs';
+import { inspectProductionArtifacts } from '../production.mjs';
 
 const readyGate = () => ({
   ready: true,
@@ -139,4 +140,114 @@ test('B8 HTTP：未 ready 归档 409、发布版本列表可读、未知 id 404'
   const missing = await fetch(`${base}/api/production/releases/rel-does-not-exist-123`, { headers });
   assert.equal(missing.status, 404);
   assert.equal((await missing.json()).error.code, 'RELEASE_ARCHIVE_NOT_FOUND');
+});
+
+/**
+ * P1-6：归档 manifestHash 必须由服务端用**与导出/签核相同的完整 binding**对 artifactsDir 重算。
+ * 旧实现用稀疏 binding（只有 planHash/pcbUuid/…）重算，与导出/签核的完整 binding 哈希必然不等，
+ * B8 归档结构性 400/409；另一方面 planHash 硬要求又和 UI"语义计划哈希可留空"矛盾。
+ */
+
+const fullBinding = () => ({
+  projectId: 'proj-1',
+  projectName: '测试工程',
+  documentId: 'doc-1',
+  sourceDigest: 'd'.repeat(64),
+  semanticPlanHash: 'p'.repeat(64),
+  compiledPlanHash: 'c'.repeat(64),
+  executionId: 'exec-1',
+  pcbUuid: 'pcb-1',
+  pcbExecutionId: 'exec-1',
+  reviewHash: 'r'.repeat(64),
+});
+const fullReadyBinding = (manifestHash) => ({ ...fullBinding(), manifestHash });
+
+test('P1-6：完整 binding + 正确 manifestHash → 服务端重算一致、归档成功并记录完整绑定', () => {
+  const { root, evidenceDir, store } = fixture();
+  try {
+    const bindingBase = fullBinding();
+    const recomputed = inspectProductionArtifacts(evidenceDir, bindingBase).manifest.manifestHash;
+    const release = store.archive({
+      gate: readyGate(), releaseDecision: readyDecision(), artifactsDir: evidenceDir,
+      binding: fullReadyBinding(recomputed),
+      files: [{ path: join(evidenceDir, 'GERBER_board.zip'), role: 'gerber' }],
+    });
+    assert.equal(release.binding.manifestHash, recomputed);
+    assert.equal(release.binding.manifestRecomputed, recomputed, '必须记下"服务端重算过"的事实');
+    assert.equal(release.binding.semanticPlanHash, 'p'.repeat(64));
+    assert.equal(release.binding.executionId, 'exec-1');
+    assert.equal(release.binding.projectId, 'proj-1');
+    assert.equal(release.binding.documentId, 'doc-1');
+    assert.equal(release.verification.verified, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('P1-6：稀疏 binding 显式要求重算 → RELEASE_ARCHIVE_BINDING_INCOMPLETE（明确 400，不再产假哈希）', () => {
+  const { root, evidenceDir, store } = fixture();
+  try {
+    assert.throws(
+      () => store.archive({ gate: readyGate(), releaseDecision: readyDecision(), artifactsDir: evidenceDir, binding: binding(), recomputeManifest: true }),
+      (error) => {
+        assert.equal(error.code, 'RELEASE_ARCHIVE_BINDING_INCOMPLETE');
+        assert.equal(error.status, 400);
+        assert.ok(error.details.missing.includes('projectId'));
+        return true;
+      },
+    );
+    assert.equal(store.list().releases.length, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('P1-6：完整 binding 但 manifestHash 与 artifactsDir 重算不一致 → MANIFEST_DRIFT 409，不落记录', () => {
+  const { root, evidenceDir, store } = fixture();
+  try {
+    const recomputed = inspectProductionArtifacts(evidenceDir, fullBinding()).manifest.manifestHash;
+    const stale = '0'.repeat(64);
+    assert.throws(
+      () => store.archive({ gate: readyGate(), releaseDecision: readyDecision(), artifactsDir: evidenceDir, binding: fullReadyBinding(stale) }),
+      (error) => {
+        assert.equal(error.code, 'RELEASE_ARCHIVE_MANIFEST_DRIFT');
+        assert.equal(error.status, 409);
+        assert.equal(error.details.provided, stale);
+        assert.equal(error.details.recomputed, recomputed);
+        return true;
+      },
+    );
+    assert.equal(store.list().releases.length, 0);
+    assert.equal(existsSync(join(root, 'releases')) ? readdirSync(join(root, 'releases')).length : 0, 0, '漂移时连半条记录都不许留');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('P1-6：完整 binding 但缺 artifactsDir → BINDING_INCOMPLETE（不能拿调用方自报哈希当依据）', () => {
+  const { root, store } = fixture();
+  try {
+    assert.throws(
+      () => store.archive({ gate: readyGate(), releaseDecision: readyDecision(), binding: fullReadyBinding('f'.repeat(64)) }),
+      (error) => {
+        assert.equal(error.code, 'RELEASE_ARCHIVE_BINDING_INCOMPLETE');
+        assert.ok(error.details.missing.includes('artifactsDir'));
+        return true;
+      },
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('P1-6：semanticPlanHash 与 planHash 任一存在即可（与 UI“语义计划哈希可留空”口径一致）', () => {
+  const { root, evidenceDir, store } = fixture();
+  try {
+    const legacy = { ...binding(), planHash: null, semanticPlanHash: 's'.repeat(64) };
+    const release = store.archive({ gate: readyGate(), releaseDecision: readyDecision(), binding: legacy, files: [{ path: join(evidenceDir, 'GERBER_board.zip'), role: 'gerber' }] });
+    assert.equal(release.binding.planHash, 's'.repeat(64), '缺 planHash 时应回落到 semanticPlanHash');
+    assert.equal(release.binding.semanticPlanHash, 's'.repeat(64));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

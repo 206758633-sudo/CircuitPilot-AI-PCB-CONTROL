@@ -1,0 +1,460 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-10-22T07:45:44Z",
+  "domain": "pcb-components",
+  "notes": "K9 元件域 fragment 2（11 供应链与生命周期、12 元件库管理）。4 rule + 4 module + 4 failure，全部为 reference 参考知识、candidate 待审核；不含 part 条目，不编造 LCSC/型号；流程时限、IPC-7351 数值、PCN/EOL 状态与认证结论均需按公司流程/标准原文/datasheet 复核。ID 前缀 CMP-RULE-SC-*/LIB-*、CMP-MOD-SC-*/LIB-*、CMP-FAIL-SC-*/LIB-*。",
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "元件生命周期状态与 PCN 响应：BOM 每行必须有状态、来源、日期",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "ruleId": "CMP-RULE-SC-001",
+        "category": "供应链/生命周期",
+        "severity": "error",
+        "statement": "每个 BOM 行必须记录生命周期状态（Active / NRND / LTB / EOL / Obsolete）、来源（原厂/授权代理/PCN）与采集日期，并在收到 PCN 后的流程时限内完成影响评估；NRND/LTB 器件必须有替代料、最后采购或库存覆盖计划，否则不得直接放行投产。",
+        "limits": [
+          "状态值五选一并带来源与日期，禁止只写 Active 而不留证据",
+          "PCN 分类：工艺/晶圆/封装/料号/文档；涉及电气、封装、认证的变更必须重新验证",
+          "生命周期/交期/价格数据 TTL 建议 90～180 天（按公司流程复核），过期重采",
+          "影响已认证产品的变更须评估是否重测认证（按产品适用标准复核）"
+        ],
+        "rationale": "NRND 与 LTB 是不可逆的时间窗口；错过 LTB 只能改板或走灰色渠道。PCN 可能改变晶圆/封装来源与参数，忽略会导致量产一致性与认证失效。",
+        "check": "检查 BOM 生命周期字段完整率与数据新鲜度；核对原厂/授权代理生命周期页面与 PCN 台账；抽查高风险器件的替代/库存计划是否闭环；不通过则补数据或走风险批准。",
+        "appliesTo": [
+          "bom",
+          "sourcing",
+          "lifecycle",
+          "release-gate",
+          "risk"
+        ],
+        "tags": [
+          "EOL",
+          "PCN",
+          "NRND",
+          "LTB",
+          "生命周期",
+          "供应链"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "关键器件双供/替代料覆盖：pin-to-pin 不等于可替换",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "ruleId": "CMP-RULE-SC-002",
+        "category": "供应链/双供替代",
+        "severity": "error",
+        "statement": "关键器件（MCU、电源 IC、连接器、晶振、认证相关件、长交期件）必须至少有一个经批准的替代料或双供来源，否则必须列为单点风险并在投产前获得书面风险批准；替代料须完成 7 项参数比对与样机/小批验证，禁止仅凭 pin-to-pin 直接替换。",
+        "limits": [
+          "7 项比对：电气 / 封装与焊盘 / 温度 / 精度与温漂 / 寿命与 MSL / 认证 / 供货",
+          "替代料必须记录 datasheet 页码与版本，差异项标“需验证/不可替代”",
+          "关键器件单点清单在 release gate 前清零，或带风险批准与缓解措施",
+          "认证件换料前必须评估重新认证需求（按产品标准复核）"
+        ],
+        "rationale": "参数差异（ESR、CTR、精度、温漂、饱和电流）会让电路在边界工况失效；安规/车规换料可能触发重新认证，代价远高于料价差。",
+        "check": "核对双供清单与参数比对表；查替代料验证记录（样机/小批/量产三阶段）；查单点风险批准记录；不通过则补验证或获得风险批准。",
+        "appliesTo": [
+          "bom",
+          "sourcing",
+          "alternate-part",
+          "risk",
+          "release-gate"
+        ],
+        "tags": [
+          "双供",
+          "替代料",
+          "单点风险",
+          "pin-to-pin",
+          "认证"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "符号/封装/焊盘三源核验：引脚号三者必须一致",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "CMP-RULE-LIB-001",
+        "category": "元件库/核验",
+        "severity": "error",
+        "statement": "符号引脚号、封装焊盘号与 datasheet pin map 必须三者一致，Pin 1 在符号、封装丝印与 3D 中一致；datasheet 为第一优先来源，供应商页面次之，EDA 自带/第三方库只能作参考。未三源核验或存在冲突的库不得进入生产库。",
+        "limits": [
+          "datasheet 版本/页码必须记录在库核验记录中",
+          "高风险封装（BGA/QFN/LQFP/连接器/极性器件）必须双人复核并做首件验证",
+          "冲突状态按 blocked 处理，禁止以“EDA 库里本来就有”作为通过依据",
+          "极性器件（二极管/钽电容/LED/连接器）必须额外核对方向与 Pin 1"
+        ],
+        "rationale": "pin map 错会导致整颗反装或直通烧板，Pin 1 认错在 QFN/LQFP/BGA 上尤其致命；EDA 库可能来自旧版本或通用库，不能自证正确。",
+        "check": "查库核验记录与 datasheet 页码；跑库链接/引脚一致性检查；首件做万用表通断、体二极管与 AOI 方向检查；不通过则回改库并重新审核。",
+        "appliesTo": [
+          "library",
+          "schematic",
+          "layout",
+          "footprint",
+          "review"
+        ],
+        "tags": [
+          "三源核验",
+          "pin map",
+          "Pin 1",
+          "符号",
+          "封装"
+        ]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "焊盘按 IPC-7351 密度等级与器件公差计算",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "CMP-RULE-LIB-002",
+        "category": "元件库/焊盘",
+        "severity": "error",
+        "statement": "焊盘尺寸必须按 IPC-7351 密度等级（A/B/C）与器件 datasheet 引脚公差计算，包含 toe/heel/side 外延、courtyard 与阻焊开窗；连接器/功率器件优先采用 datasheet 推荐 land pattern，禁止套用无关封装或“通用尺寸”。",
+        "limits": [
+          "同板同一封装族统一密度等级；A=Most、B=Nominal、C=Least（定义按 IPC-7351 版本复核）",
+          "焊盘尺寸 = 引脚尺寸 + 外延，输入参数（引脚尺寸/公差/等级）必须留计算记录",
+          "EPAD 过孔阵列、塞孔与钢网开孔需与焊盘/热设计成套确定",
+          "细间距/高密度封装须经首件 AOI/SPI 与良率验证"
+        ],
+        "rationale": "焊盘过大易桥连、占面积；过小易虚焊/立碑/强度不足。不同厂家同封装引脚公差不同，套用通用尺寸会在边界批次暴露不良。",
+        "check": "对照 IPC-7351 计算表与 datasheet 推荐 land pattern；检查 courtyard 与器件干涉；首件 AOI/SPI、切片与推力测试；不通过则重算焊盘并升库版本。",
+        "appliesTo": [
+          "library",
+          "footprint",
+          "land-pattern",
+          "dfm",
+          "review"
+        ],
+        "tags": [
+          "IPC-7351",
+          "密度等级",
+          "焊盘",
+          "courtyard",
+          "公差"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "供应链风险看板与生命周期管理（状态/PCN/交期/库存/单点）",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "moduleId": "CMP-MOD-SC-001",
+        "category": "供应链/生命周期",
+        "purpose": "把 EOL/PCN/交期/库存/单点风险收敛成一张可评审的看板，在投产前暴露断供与改板风险，而不是量产后被动救火。",
+        "whenToUse": "BOM 定版、原理图冻结、量产维持、供应商变更或市场缺料时。",
+        "designPoints": [
+          "每个 BOM 行记录 lifecycleStatus/来源/日期/owner",
+          "PCN 台账闭环：分类→影响评估→验证→更新库与 BOM",
+          "单点清单（sourceCount=1）与缓解措施（双供/库存/可改设计）",
+          "交期数据带供应商与日期，关键件前置锁定",
+          "LTB 数量 = 剩余需求 + 安全库存 + 替代验证期用量",
+          "季度复盘断供/涨价/PCN 事件并更新风险清单"
+        ],
+        "keyParameters": [
+          "生命周期状态五态与数据 TTL（建议 90～180 天，按公司流程复核）",
+          "单点器件数量与覆盖率",
+          "关键件交期与库存覆盖周数",
+          "替代料批准状态（已批准/验证中/无）"
+        ],
+        "process": [
+          "BOM 导入 → 状态/来源字段补齐",
+          "关键件逐项查询原厂/代理生命周期与 PCN 订阅",
+          "风险分级（不可替代性×用量×交期×认证依赖）",
+          "缓解措施执行并跟踪闭环",
+          "投产前门禁复核并留风险批准记录"
+        ],
+        "pitfalls": [
+          "只记录“Active”不留来源/日期，数据过期仍被使用",
+          "PCN 收到但不评估，量产突然批量不良",
+          "LTB 只按当前订单量买，忽略剩余生命周期需求",
+          "单点风险停留在清单、没有缓解措施与责任人"
+        ],
+        "tags": [
+          "供应链",
+          "EOL",
+          "PCN",
+          "交期",
+          "单点",
+          "库存"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "替代料准入与验证流程（7 项比对 → 样机 → 小批 → 量产）",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "moduleId": "CMP-MOD-SC-002",
+        "category": "供应链/替代料",
+        "purpose": "用统一模板与三阶段验证，把替代料从“看起来一样”变成“有证据可替换”，降低边界失效与认证失效风险。",
+        "whenToUse": "原厂停产/交期恶化/降本/双供建设/客户指定替代时。",
+        "designPoints": [
+          "7 项比对：电气/封装/温度/精度/寿命/认证/供货",
+          "pin-to-pin 只是入场券，参数与认证才是门槛",
+          "样机验证功能与边界，小批验证一致性与良率",
+          "切换时旧料新料分批隔离并记录批次",
+          "BOM 区分首选/已批准替代/仅库存替代/禁止替代"
+        ],
+        "keyParameters": [
+          "参数差异项数量与风险等级",
+          "样机/小批通过判据（按项目规格书定）",
+          "替代料良率与失效率对比",
+          "认证影响结论（需重测/不需重测及依据）"
+        ],
+        "process": [
+          "提出替代需求 → 初筛封装/pin map",
+          "7 项参数比对并记录 datasheet 页码",
+          "样机功能/边界/温循验证",
+          "小批一致性与良率验证",
+          "量产切换评审与 BOM/库更新"
+        ],
+        "pitfalls": [
+          "只比封装与价格，忽略 ESR/精度/温漂/寿命",
+          "实验室通过即上线，未做小批",
+          "替代料未更新库与 BOM，产线按旧料贴装",
+          "忽略认证影响，整机认证失效"
+        ],
+        "tags": [
+          "替代料",
+          "双供",
+          "验证",
+          "7项比对",
+          "认证"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "元件库分层与命名/版本体系（part-symbol-footprint-3D）",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-LIB-001",
+        "category": "元件库/体系",
+        "purpose": "建立四层链接、命名规范、受控版本与审核流程，让库成为可追溯、可复现、可审计的设计事实来源。",
+        "whenToUse": "新建 EDA 库体系、多团队协作、迁移工具链、量产前库治理时。",
+        "designPoints": [
+          "part/symbol/footprint/3D 四层独立且互链",
+          "命名：族+尺寸+变体+极性+密度等级",
+          "受控库版本化，变更记录含影响面与验证",
+          "四眼审核 + 高风险封装首件验证",
+          "已投产板冻结库版本或保存快照",
+          "废弃库标 deprecated 并保留只读快照"
+        ],
+        "keyParameters": [
+          "四层链接完整率",
+          "命名合规率与重复库数量",
+          "库审核覆盖率与首件拦截率",
+          "BOM-库版本映射完整率"
+        ],
+        "process": [
+          "定义库字段/命名规范/审核清单",
+          "建库并记录 datasheet 版本/页码",
+          "第二人复核（pin map/焊盘/Pin1/3D）",
+          "首件/试贴验证并回写问题",
+          "发布受控版本并更新 BOM 映射"
+        ],
+        "pitfalls": [
+          "库不版本化，静默修改导致新旧板不一致",
+          "命名随意，重复库与错用",
+          "只建库不审核，pin 错在贴片后才暴露",
+          "直接删除旧库，旧项目无法复现"
+        ],
+        "tags": [
+          "元件库",
+          "命名",
+          "版本",
+          "审核",
+          "3D",
+          "受控库"
+        ]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "BOM-库双向一致性核对（料号/封装/符号/位号）",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "CMP-MOD-LIB-002",
+        "category": "元件库/一致性",
+        "purpose": "在投板前用双向核对闭环 BOM 与库，拦截错料、封装不符、断链与替代料未更新等问题。",
+        "whenToUse": "BOM 定版、发板/投产前、替代料切换、库版本升级后。",
+        "designPoints": [
+          "BOM 每行可解析到库中唯一 part",
+          "封装名与 footprint 一致或存在受控映射",
+          "反向核对 footprint → 使用板/位号",
+          "替代料/禁用替代字段随 BOM 同步",
+          "差异清单人工确认并闭环",
+          "核对结果进 release gate"
+        ],
+        "keyParameters": [
+          "BOM-库一致率（目标 100%）",
+          "断链/差异项数量与闭环周期",
+          "错料/返工事件数",
+          "映射表覆盖率（封装名差异场景）"
+        ],
+        "process": [
+          "导入 BOM 并解析 part 链接",
+          "正向核对料号/封装/符号字段",
+          "反向核对库被使用情况",
+          "差异分类（错料/断链/映射/替代）",
+          "修复并复跑，记录门禁结论"
+        ],
+        "pitfalls": [
+          "只做正向核对，漏“库里有但 BOM 没用”",
+          "替代料只在 BOM 改、库未改，产线贴错",
+          "封装名靠人工记忆映射，易错",
+          "核对报告不进门禁，问题遗留到量产"
+        ],
+        "tags": [
+          "BOM",
+          "一致性",
+          "双向核对",
+          "门禁",
+          "错料"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "停产断供导致停线与被迫改板：EOL/LTB 未提前预警",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "failureId": "CMP-FAIL-SC-001",
+        "code": "SC_EOL_STOPLINE",
+        "category": "供应链/生命周期",
+        "severity": "error",
+        "symptom": "量产中某器件突然无法采购，交期无限延长或价格暴涨；产线停线、交期违约；被迫紧急改板/改料并重新认证。",
+        "rootCause": "BOM 未维护生命周期状态与来源；未订阅 PCN/EOL 通知；错过 LTB 窗口；关键件单点且无替代料与库存计划。",
+        "detection": "核对原厂/代理生命周期页面与 PCN 记录；检查 BOM 状态字段与数据日期；对比交期台账与历史；检查是否有单点无替代器件。",
+        "prevention": [
+          "BOM 每行维护生命周期状态/来源/日期并设 TTL",
+          "订阅并闭环处理 PCN/PDN/EOL 通知",
+          "关键件双供或已批准替代料，单点清单清零或带风险批准",
+          "LTB 前按剩余需求+安全库存+验证期用量备料",
+          "季度复盘断供事件并更新风险清单"
+        ],
+        "refs": [
+          "docs/knowledge/components/11-supply-chain.md"
+        ],
+        "tags": [
+          "EOL",
+          "断供",
+          "停线",
+          "改板",
+          "LTB"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "非授权渠道假货/翻新料导致批量早期失效",
+      "doc": "docs/knowledge/components/11-supply-chain.md",
+      "ttlDays": 180,
+      "payload": {
+        "failureId": "CMP-FAIL-SC-002",
+        "code": "SC_COUNTERFEIT",
+        "category": "供应链/来料",
+        "severity": "error",
+        "symptom": "量产/老化阶段出现批量早期失效、参数漂移、温循后失效；失效分析发现丝印打磨、日期码异常、内部结构/芯片与正品不符。",
+        "rootCause": "从灰色渠道采购；来料无真伪鉴别与批次追溯；关键器件未限制授权来源；价格导向压过渠道合规。",
+        "detection": "渠道审计；外观/丝印/日期码一致性检查；X-ray、开盖、电参数曲线与温度特性对比；批次失效率统计；追溯供应商与采购单。",
+        "prevention": [
+          "关键器件只从原厂/授权代理/可信目录商采购",
+          "AVL 与采购渠道审计，灰色渠道来料加严鉴别",
+          "关键料抽检做 X-ray/开盖/参数曲线",
+          "批次追溯与异常批次隔离",
+          "建立假货案例库并培训采购/IQC"
+        ],
+        "refs": [
+          "docs/knowledge/components/11-supply-chain.md"
+        ],
+        "tags": [
+          "假货",
+          "翻新料",
+          "灰色渠道",
+          "来料检验",
+          "早期失效"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "符号/封装 pin map 不一致导致反装、直通或整批报废",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-LIB-001",
+        "code": "LIB_PINMAP",
+        "category": "元件库/封装",
+        "severity": "error",
+        "symptom": "首件或批量出现器件反装、电源与地短路、上电直通烧板、功能异常但原理图“看起来正确”；返修时发现封装焊盘号与符号引脚号不对应。",
+        "rootCause": "建库未按 datasheet 逐脚核对；符号引脚号与封装焊盘号不一致；Pin 1 认错；极性器件方向建反；第三方库未核验直接使用。",
+        "detection": "三源核对表（符号/封装/datasheet）；首件万用表通断与体二极管测试；AOI 方向检查；对比 datasheet pin map 截图；失效分析定位到具体引脚。",
+        "prevention": [
+          "建库按 datasheet Pin Configuration/Package Drawing 逐脚核对",
+          "符号引脚号=焊盘号=datasheet pin map，Pin 1 三处一致",
+          "高风险封装双人复核 + 首件验证",
+          "极性器件额外核对方向并在丝印标注",
+          "第三方库引入前抽检并登记来源"
+        ],
+        "refs": [
+          "docs/knowledge/components/12-library-management.md"
+        ],
+        "tags": [
+          "pin map",
+          "反装",
+          "直通",
+          "Pin1",
+          "首件",
+          "三源核验"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "焊盘不符合 IPC-7351/器件公差导致立碑、桥连、虚焊",
+      "doc": "docs/knowledge/components/12-library-management.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "CMP-FAIL-LIB-002",
+        "code": "LIB_LANDPATTERN",
+        "category": "元件库/焊盘",
+        "severity": "error",
+        "symptom": "回流后小封装立碑/偏移、细间距桥连、焊点强度不足或虚焊；同一封装在不同板/批次良率波动；返修困难。",
+        "rootCause": "焊盘尺寸套用“通用封装”未按 IPC-7351 与引脚公差计算；外延过大/过小；阻焊开窗与钢网不匹配；EPAD 过孔未塞孔漏锡。",
+        "detection": "焊盘尺寸与 IPC-7351 计算表对比；SPI/AOI 统计立碑/桥连/锡量；切片与推力测试；X-ray 看空洞与漏锡；对照 datasheet 推荐 land pattern。",
+        "prevention": [
+          "按 IPC-7351 密度等级与引脚公差计算焊盘并留计算记录",
+          "连接器/功率器件优先采用 datasheet 推荐 land pattern",
+          "同板同封装族统一密度等级",
+          "EPAD 过孔塞孔，钢网开孔按面积比设计",
+          "首件 AOI/SPI/切片验证后固化库版本"
+        ],
+        "refs": [
+          "docs/knowledge/components/12-library-management.md"
+        ],
+        "tags": [
+          "IPC-7351",
+          "焊盘",
+          "立碑",
+          "桥连",
+          "虚焊",
+          "钢网"
+        ]
+      }
+    }
+  ]
+}

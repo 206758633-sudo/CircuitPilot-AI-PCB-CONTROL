@@ -1,0 +1,666 @@
+{
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "ADC 源阻抗必须满足采样建立时间并留 2 倍余量",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ANALOG-001",
+        "category": "模拟/采样",
+        "severity": "error",
+        "statement": "任何 ADC 通道在定稿前必须按 t ≥ (Rsource + Rsw) × Csh × ln(2^(N+1)) 校核采样建立并留 ≥2 倍余量；源阻抗超限时必须加缓冲运放或加长采样时间，不得用软件平均掩盖建立不足。",
+        "limits": [
+          "12 位、Csh=8pF、Rsource=10kΩ → ts ≥ 约 721ns",
+          "实际采样时间 ≥ 计算值 × 2",
+          "缓冲后源阻抗目标 < 1kΩ",
+          "Rsource 含分压电阻、串阻、传感器输出阻抗与 mux Ron"
+        ],
+        "rationale": "采样电容未充满就转换会得到偏低码值，且随源阻抗、温度和通道切换变化，属于硬件误差，软件平均无法修正。",
+        "check": "同一输入在不同采样时间/采样率下扫读数是否变化；切换相邻通道测串扰；对照 datasheet 的 tACQ 公式与最大源阻抗。",
+        "appliesTo": ["schematic", "adc", "sensor", "analog", "measurement"],
+        "tags": ["ADC", "采样时间", "源阻抗", "建立时间", "读数偏低"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "运放驱动容性负载必须做稳定性校核（隔离电阻/相位裕度）",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ANALOG-002",
+        "category": "模拟/运放",
+        "severity": "error",
+        "statement": "运放直接驱动 ADC 采样电容、线缆或长走线等容性负载时必须做稳定性校核：输出串 10~100Ω 隔离电阻或按 datasheet 补偿，相位裕度 ≥45°（推荐 ≥60°），小信号阶跃过冲 ≤10%~20%，不允许无校核直连。",
+        "limits": [
+          "Riso 典型 10~100Ω（按 CL 与器件取值）",
+          "相位裕度 ≥45°，推荐 ≥60°",
+          "阶跃过冲 ≤10%（PM≈60°）或 ≤20%（PM≈45°）",
+          "CL > 100pF 必须评估稳定性"
+        ],
+        "rationale": "容性负载与运放输出阻抗形成附加极点，消耗相位裕度，轻则振铃重则持续振荡；一旦振荡，ADC 读数与后级逻辑都会异常。",
+        "check": "小信号阶跃测过冲/振铃频率；扫频看闭环幅频峰化（>3dB 说明裕度不足）；容性负载从 0 扫到实际最大值复测。",
+        "appliesTo": ["schematic", "opamp", "adc", "analog"],
+        "tags": ["运放", "稳定性", "容性负载", "相位裕度", "振荡"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "基准源必须做误差预算与独立去耦，否则不得作为精度保证",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ANALOG-003",
+        "category": "模拟/基准",
+        "severity": "warning",
+        "statement": "ADC/DAC 的基准必须做误差预算：初始精度 + 温漂×ΔT + 低频/宽带噪声 RSS 后不超过系统目标精度的 1/3~1/2，否则必须做满量程校准；基准必须有独立去耦（典型 100nF+1~10µF，按 datasheet）并远离开关节点，误差会按比例进入所有采样结果。",
+        "limits": [
+          "12 位 1 LSB ≈ 244ppm（VREF=3.3V）",
+          "示例：0.05% + 5ppm/°C×40°C + 噪声 3ppm → RSS ≈ 538ppm",
+          "基准输出电容与容性负载范围按 datasheet，不可随意加大",
+          "基准走线远离 DC-DC 开关节点与数字线"
+        ],
+        "rationale": "ADC 输出码 = Vin/VREF × 2^N，VREF 的初始误差与漂移是全局增益误差，相关噪声无法靠平均消除；基准不达标时前端做得再好也没有意义。",
+        "check": "6.5 位以上表测基准实际值/温漂；示波器 AC 耦合测纹波（限制带宽）；短路输入测噪声底；对比校准前后满量程误差。",
+        "appliesTo": ["schematic", "adc", "dac", "analog", "reference"],
+        "tags": ["基准", "VREF", "误差预算", "温漂", "去耦"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "混合信号器件默认单地：AGND/DGND 同平面就近汇合，地反弹小于 1 LSB",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-ANALOG-004",
+        "category": "模拟/接地",
+        "severity": "error",
+        "statement": "混合信号器件（ADC/DAC/MCU）的 AGND/DGND 必须接到同一块完整地平面并在器件下方就近汇合；默认单地，模拟小信号回流不得与数字/功率回流共路径；确需分割时只能有唯一桥接点并在图上可见；地反弹按 V=L·di/dt 折算，必须小于 1 LSB 对应的输入值。",
+        "limits": [
+          "默认单地，桥接点唯一且原理图上可见（0Ω/磁珠/星点）",
+          "AGND/DGND 引脚均下同一地平面，不在芯片下方开槽",
+          "地反弹估算 < 1 LSB 折合输入",
+          "模拟区不得承载功放/电机/DC-DC 返回电流"
+        ],
+        "rationale": "把 AGND/DGND 分开再单点连接常造成回流绕行、环路变大与串扰增加；地反弹是数字开关电流在地电感上的压降，会直接叠加到模拟参考上并变成采样误差。",
+        "check": "测 AGND 与 DGND 交流压差；ADC 采样时观察码值抖动；对比数字静默/繁忙两种状态；近场探头扫描；检查桥接点唯一。",
+        "appliesTo": ["schematic", "pcb", "gnd", "analog", "mixed-signal"],
+        "tags": ["分区", "地", "AGND", "DGND", "地反弹", "回流"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "I2C 传感器接入必须同时满足上拉范围、地址唯一、总线电容与中断上拉",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-SENSOR-001",
+        "category": "总线/I2C",
+        "severity": "error",
+        "statement": "I2C 传感器接入必须同时满足：上拉在 Rp(min)~Rp(max) 之间（Rp(max)=tr/(0.8473·Cb)、Rp(min)=(VDD−VOL)/IOL）、地址唯一且设置方式在图上标注、总线电容 ≤400pF、中断脚为开漏时必上拉并接到可唤醒 GPIO；长线/多节点超限时用分路器或缓冲器，而不是继续加大上拉。",
+        "limits": [
+          "标准/快速模式总线电容 Cb ≤ 400pF",
+          "3.3V、400kHz、Cb=200pF → Rp 约 1.2~1.5kΩ",
+          "100kHz 常用 4.7kΩ（仍须按 Cb 与 tr 复核）",
+          "地址设置脚不得真悬空，必须有明确电平"
+        ],
+        "rationale": "I2C 故障大多不是协议问题：上拉过大导致上升沿慢、地址冲突导致读不到、中断脚悬空漏事件、总线电容超限后无法同时满足上升时间与灌电流。",
+        "check": "I2C 全地址扫描与分配表对照；示波器测 SCL/SDA 上升时间与高电平；逐器件单独读写；中断脚逐个触发；总线挂满后复测。",
+        "appliesTo": ["schematic", "sensor", "i2c", "bus"],
+        "tags": ["I2C", "上拉", "地址", "总线电容", "传感器", "中断"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "模拟传感器优先比例式测量，并至少做零点+满量程两点校准",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-SENSOR-002",
+        "category": "模拟/传感器",
+        "severity": "warning",
+        "statement": "模拟传感器必须明确激励方式并优先做比例式测量（ADC 参考与激励同源，使激励慢漂移在比值中抵消）；每个传感器通道至少做零点+满量程两点校准，非线性传感器用多点/查表，校准系数带版本存非易失存储；宽温应用必须有温补方案。",
+        "limits": [
+          "比例式：码值 = k × 2^N，与激励慢漂移无关",
+          "线性两点：y = a·x + b；非线性用分段/查表",
+          "校准后回测 3~5 点误差在目标内",
+          "校准记录含日期、设备、环境温度、操作者与系数版本"
+        ],
+        "rationale": "传感器自身容差通常远大于电路误差，不校准等于精确地测了一个不准的传感器；激励漂移会按比例进入读数，比例式是低成本高精度的抵消手段。",
+        "check": "改变激励电压/电流看读数是否按比例变化；校准后回测 3~5 点；换板抽检一致性；高低温复测温漂；不通过则重新校准或加温补。",
+        "appliesTo": ["schematic", "sensor", "analog", "calibration"],
+        "tags": ["传感器", "激励", "比例式", "校准", "温补"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "充电方案必须校核热耗/结温，CC/CV 与温度窗口符合电芯规格",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-BATT-001",
+        "category": "电源/电池",
+        "severity": "error",
+        "statement": "充电方案定稿前必须校核：线性充电 P=(Vin−Vbat)×I 后的结温 Tj=Ta+P×θJA 在规格内（否则降流或改开关方案）、CC/CV/预充/终止参数符合电芯规格（终止电压 4.2/4.35/4.4V 不可混用）、充电温度窗口（JEITA）与安全定时器在图上实现。",
+        "limits": [
+          "示例 5V/4.2V/1A → P=0.8W；θJA=100°C/W、Ta=40°C → Tj≈120°C",
+          "终止电压按电芯规格，精度按充电 IC（±1% 级需复核）",
+          "CC 常见 0.5C 级、CV 终止常见 C/10 级（按电芯规格）",
+          "安全定时约 1.5~2 倍预计充满时间"
+        ],
+        "rationale": "线性充电把压差全部变成热，结温超限会触发热调节使充电变慢/反复暂停；终止电压与温度窗口错误则直接影响安全与寿命。",
+        "check": "满载充电测温升/结温；45°C 环境复测充电电流是否被热调节；用电池模拟器扫充电曲线核对预充/CC/CV/终止；高低温箱验证 JEITA 分区。",
+        "appliesTo": ["schematic", "battery", "charging", "charger", "power"],
+        "tags": ["充电", "CC/CV", "热耗", "JEITA", "电池", "结温"]
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "电池保护必须独立于充电 IC：双 MOS 发热与阈值/二次保护 I²t 协调",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "SCH-RULE-BATT-002",
+        "category": "电源/电池保护",
+        "severity": "error",
+        "statement": "电池保护必须独立于充电 IC：1S 至少覆盖 OVP/UVP/OCP/SCP/OTP，多串必须逐节采样并支持断线检测；充放电 MOS 背靠背串联并按 P=I²×(Rds_chg+Rds_dis) 校核发热；保护阈值/延时按电芯规格与保护 IC 精度留余量，且与二次保护（保险丝/PTC）的 I²t 协调。",
+        "limits": [
+          "双 MOS 示例：5A、各 20mΩ → P = 1W",
+          "OVP/UVP 须留保护 IC 精度余量（常见 ±25~50mV 级，按 datasheet）",
+          "OCP 按最大持续电流 1.5~2 倍，延时避开启动浪涌",
+          "I²t_fuse < 0.8 × 被保护对象耐受 I²t，且 > 启动浪涌 I²t × 1.5~2"
+        ],
+        "rationale": "充电 IC 失效（过充）时只有独立保护能切断，一次保护 MOS 短路时只有二次保护能兜底；双 MOS 选型/发热不当会在正常工作时过热，阈值协调不当会导致误保护或拒动。",
+        "check": "逐项触发 OVP/UVP/OCP/SCP/OTP 记录阈值/延时；满载测双 MOS 温升与压降；断开采样线验证断线检测；对照保险丝/PTC 的 I²t 曲线。",
+        "appliesTo": ["schematic", "battery", "bms", "protection"],
+        "tags": ["保护", "OVP", "UVP", "OCP", "双MOS", "BMS", "I2t"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "模拟信号链前端：从传感器到 ADC 的放大/滤波/偏置",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-ANALOG-FRONTEND",
+        "category": "模拟/信号链",
+        "purpose": "把 µV~mV 级传感器/信号源放大、滤波、偏置到 ADC 量程内，同时把噪声、失调与漂移控制在预算内。",
+        "whenToUse": "模拟传感器、电桥、RTD/热电偶、电流/电压检测等需要高精度采样的场景。",
+        "designPoints": [
+          "先算 LSB、增益与误差预算，再选运放/ADC",
+          "每级列增益、带宽、噪声、失调、漂移并入预算表",
+          "差分输入优先，用 INA/FDA 提高共模抑制",
+          "ADC 前做 RC 或有源抗混叠并核算采样建立",
+          "预留注入点与各级测试点，便于分段定位"
+        ],
+        "keyParameters": [
+          "目标分辨率与 LSB",
+          "源阻抗与输入共模范围",
+          "运放 GBW/SR/噪声/失调/漂移",
+          "ADC 采样时间与 Csh",
+          "基准精度/温漂/噪声"
+        ],
+        "schematic": "传感器/源 → 保护与滤波 → INA/FDA → 抗混叠 → ADC 驱动缓冲 → ADC；基准与 VDDA 独立去耦；每级留测试点与注入点。",
+        "layout": "模拟区独立且下方完整地平面；远离 DC-DC/时钟/功率回路；差分对等长；高阻节点包地并缩短走线。",
+        "pitfalls": [
+          "源阻抗超出 ADC 采样能力",
+          "容性负载导致运放振荡",
+          "基准噪声/漂移未入预算",
+          "单端长线引入地环流"
+        ],
+        "tags": ["模拟前端", "信号链", "INA", "ADC驱动", "误差预算"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "基准与 VDDA 供电：低噪声参考、去耦与开尔文",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-ANALOG-REF",
+        "category": "模拟/基准",
+        "purpose": "为 ADC/DAC 提供低噪声、低温漂、可校准的参考电压，并把参考误差与噪声控制在系统预算内。",
+        "whenToUse": "分辨率 ≥12 位、需要绝对精度或宽温工作的采样/输出通道。",
+        "designPoints": [
+          "初始精度、温漂、噪声做 RSS 预算",
+          "基准输出电容按 datasheet 的容性负载范围",
+          "基准与 ADC 开尔文/短走线；多点负载星形引出",
+          "VDDA 用磁珠/LC 从系统电源隔离并独立去耦",
+          "必要时加基准缓冲或做满量程校准"
+        ],
+        "keyParameters": [
+          "初始精度（ppm）",
+          "温漂（ppm/°C）",
+          "0.1~10Hz 噪声与宽带噪声密度",
+          "负载调整率",
+          "输出电容允许范围"
+        ],
+        "schematic": "基准 IC 输出 → 去耦 → ADC VREF 或基准缓冲；sense 脚按 datasheet 开尔文；VDDA 经磁珠/LC 隔离并加 100nF+10µF。",
+        "layout": "基准与 ADC 就近；VREF 走线短而宽；远离开关节点与数字线；基准地回 AGND。",
+        "pitfalls": [
+          "基准与 VDDA 共用脏电源",
+          "VREF 走线过长或负载共阻抗调制",
+          "输出电容超出 datasheet 允许范围导致不稳定",
+          "不做满量程校准导致增益误差无法吸收"
+        ],
+        "tags": ["基准", "VREF", "温漂", "去耦", "校准", "VDDA"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "抗混叠与有源滤波：截止频率、Q 与容差最坏情况",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-ANALOG-FILTER",
+        "category": "模拟/滤波",
+        "purpose": "在 ADC 前或信号链中实现抗混叠、降噪与带宽限制，保证带外信号不混叠、带内平坦度与群延迟满足要求。",
+        "whenToUse": "有采样、噪声或 EMC 要求的模拟通道；单阶 RC 衰减不足或需要精确 Q 时。",
+        "designPoints": [
+          "先按 fs/2 与目标衰减算所需阶数",
+          "无源 RC 与有源拓扑按边界选择（源阻抗/负载/稳定性）",
+          "Sallen-Key/MFB 用公式定 fc 与 Q",
+          "元件容差与灵敏度按最坏情况核算",
+          "滤波与 ADC 采样建立时间联合校核"
+        ],
+        "keyParameters": [
+          "fc、Q、阶数",
+          "元件容差（建议 R 1%、C0G 1~2%）",
+          "运放 GBW ≥ fc×Q×50~100 量级",
+          "源阻抗与负载阻抗"
+        ],
+        "schematic": "无源 R-C 或运放 Sallen-Key/MFB；级间加缓冲；ADC 前 RC 与采样电容联合设计。",
+        "layout": "滤波元件靠近运放/ADC；反馈网络对称短走线；避免容性负载直接挂在运放输出。",
+        "pitfalls": [
+          "级联无源 RC 互相加载使 fc 偏移",
+          "用 X7R 做定时/滤波电容",
+          "Q 过高在 fc 附近峰化放大噪声",
+          "滤波后源阻抗不满足采样建立"
+        ],
+        "tags": ["滤波", "抗混叠", "Sallen-Key", "Q", "容差"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "I2C 传感器接入：上拉、地址、中断与总线电容",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-SENSOR-I2C",
+        "category": "总线/传感器",
+        "purpose": "用 I2C 可靠接入温度/湿度/气压/IMU 等低速传感器，处理上拉、地址、中断与总线电容。",
+        "whenToUse": "板内/短距、多传感器、速率 ≤400kHz（快速模式）且可接受两线总线的场景。",
+        "designPoints": [
+          "上拉按 Rp(min)/Rp(max) 计算并留余量",
+          "地址引脚明确设置并维护地址分配表",
+          "中断开漏必上拉并接到可唤醒 GPIO",
+          "总线电容 ≤400pF，长线用缓冲器/分路器",
+          "传感器电源独立去耦并按 tPU 延时后再访问"
+        ],
+        "keyParameters": [
+          "VDD 与总线电容 Cb",
+          "Rp 取值与上升时间 tr",
+          "7 位地址与设置方式",
+          "中断极性与最小脉宽",
+          "上电稳定时间 tPU"
+        ],
+        "schematic": "主控 SCL/SDA → 上拉 → 各传感器；每颗传感器 VDD 加 100nF+1µF；INT 开漏上拉；ADDR 脚接 GND/VDD 明确设置。",
+        "layout": "总线短、少过孔；远离 DC-DC 与电机；必要时包地；传感器按 datasheet 开窗并远离热源。",
+        "pitfalls": [
+          "上拉过大导致上升沿慢",
+          "地址冲突或地址脚悬空",
+          "中断脚悬空导致漏事件",
+          "总线电容超限仍继续加大上拉"
+        ],
+        "tags": ["I2C", "传感器", "上拉", "地址", "中断"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "电桥/RTD 传感器前端：激励、差分放大与引线补偿",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-SENSOR-BRIDGE",
+        "category": "模拟/传感器",
+        "purpose": "为电桥/应变片/RTD 提供稳定激励与差分放大，把 µV~mV 级变化放大到 ADC 量程并做引线补偿。",
+        "whenToUse": "称重、压力、应变、精密温度（RTD）等桥式/电阻式传感器。",
+        "designPoints": [
+          "激励方式（恒压/恒流）按传感器规格确定",
+          "尽量做比例式测量以抵消激励慢漂移",
+          "INA 增益/CMRR/REF 端缓冲按预算选型",
+          "长线用 3 线/4 线制补偿引线电阻",
+          "零点/满量程校准与温度补偿"
+        ],
+        "keyParameters": [
+          "激励电压/电流与精度",
+          "桥臂匹配（建议 0.1%）",
+          "灵敏度（mV/V）或 RTD 的 Ω/°C",
+          "INA 增益与 CMRR",
+          "自热功率与温升"
+        ],
+        "schematic": "激励源 → 电桥 → INA 差分输入 → RC 抗混叠 → ADC；INA REF 由基准/缓冲驱动；长线按 3/4 线接法。",
+        "layout": "电桥与 INA 靠近；差分对等长包地；激励与采样开尔文引出；远离功率回路。",
+        "pitfalls": [
+          "2 线制引线电阻造成零点与漂移误差",
+          "激励不稳导致灵敏度误差",
+          "INA REF 用高阻分压导致共模/偏置漂移",
+          "桥臂失配造成零点过大"
+        ],
+        "tags": ["电桥", "应变片", "RTD", "INA", "激励", "校准"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "H 桥电机驱动：死区、续流、电流采样与栅极驱动",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-SENSOR-MOTOR-HBRIDGE",
+        "category": "执行器/电机驱动",
+        "purpose": "用 H 桥双向驱动有刷直流电机/电磁阀类负载，实现 PWM 调速、方向与刹车，并提供续流与过流保护。",
+        "whenToUse": "需要正反转/调速的直流电机、推杆、电磁阀等感性负载，电流从数百 mA 到数 A。",
+        "designPoints": [
+          "上下管死区防直通，并按 MOS/驱动器 datasheet 校核",
+          "栅极驱动电平/电荷满足要求，栅极默认下拉关断",
+          "体二极管/外接续流与再生能量钳位",
+          "低边或在线电流采样开尔文走线",
+          "PWM 频率/斜率与 EMI、发热权衡"
+        ],
+        "keyParameters": [
+          "母线电压与峰值电流",
+          "Rds(on) 与热耗 P=I²(Rds_h+Rds_l)",
+          "死区时间（几十~几百 ns）",
+          "体电容容量与纹波电流",
+          "过流/堵转阈值与延时"
+        ],
+        "schematic": "MCU PWM/方向 → 栅极驱动 → H 桥双 NMOS；电机端子加续流/滤波；母线体电容 + TVS 钳位；电流采样进 ADC/比较器。",
+        "layout": "功率回路面积最小；体电容紧靠 H 桥；采样开尔文；功率地与信号地分开后单点汇合。",
+        "pitfalls": [
+          "死区不足导致直通炸管",
+          "栅极默认态导致上电误动",
+          "再生能量无泄放击穿 MOS",
+          "采样走线受功率回路干扰"
+        ],
+        "tags": ["H桥", "电机驱动", "死区", "续流", "电流采样"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "1S 锂电保护板：OVP/UVP/OCP/SCP/OTP 与双 MOS",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-BMS-1S-PROTECT",
+        "category": "电源/电池保护",
+        "purpose": "为单节锂电提供过充/过放/过流/短路/过温保护，作为独立于充电 IC 的最后电气防线。",
+        "whenToUse": "1S 锂电/锂聚合物电池的便携产品，尤其是充电 IC 可能失效或电池不可由用户安全更换的场景。",
+        "designPoints": [
+          "OVP/UVP/OCP/SCP/OTP 阈值按电芯规格设定",
+          "双 NMOS 背靠背，核对体二极管方向",
+          "Rds(on) 与封装热阻按最大持续电流校核",
+          "NTC 贴电芯并支持开路/短路检测",
+          "与充电 IC、二次保护（保险丝/PTC）协调阈值"
+        ],
+        "keyParameters": [
+          "OVP 4.25~4.35V 级（按电芯规格）",
+          "UVP 2.4~3.0V 级（按电芯规格）",
+          "OCP 1.5~2 倍最大持续电流",
+          "SCP 延时 µs~ms 级",
+          "双 MOS Rds(on) 与热阻"
+        ],
+        "schematic": "电芯 → 保护 IC + 双 NMOS（充电/放电各一）→ 系统；NTC 分压进保护 IC TS 脚；采样开尔文。",
+        "layout": "MOS 与采样电阻靠近电芯连接器；大电流走线短粗；NTC 贴电芯；功率回路面积最小。",
+        "pitfalls": [
+          "单 MOS 反向仍经体二极管导通，等于没保护",
+          "低电量时 Vgs 不足使 MOS 进入线性区发热",
+          "NTC 开路被误判为正常温度",
+          "保护阈值未留保护 IC 精度余量"
+        ],
+        "tags": ["1S", "保护板", "OVP", "双MOS", "NTC"]
+      }
+    },
+    {
+      "kind": "module",
+      "title": "电量计：Rsense、库仑积分与 SOC 校准锚点",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "SCH-MOD-BMS-GAUGE",
+        "category": "电源/电量计",
+        "purpose": "测量电池电压/电流/温度并估算 SOC/SOH，为系统提供电量显示、低电告警与充放电策略输入。",
+        "whenToUse": "需要电量显示、续航估算、低电保护或充电策略联动的 1S/多串电池系统。",
+        "designPoints": [
+          "按电流范围与精度选 Rsense，并做失调预算",
+          "以满充/满放/静置 OCV 作为 SOC 修正锚点",
+          "评估电压法在平台区的误差，避免单靠电压估 SOC",
+          "小电流/待机电流丢失与补偿策略",
+          "温度与老化对容量/SOC 的修正"
+        ],
+        "keyParameters": [
+          "Rsense 1~10mΩ 与 TCR",
+          "电流测量失调（µV 级）",
+          "电压测量精度",
+          "SOC 目标误差（常见 ±5%~±10%）",
+          "待机电流分辨力"
+        ],
+        "schematic": "电池 → Rsense（开尔文）→ 系统；电量计采样 V/I/NTC；I2C/SMBus 到主控；高压多串时加隔离。",
+        "layout": "Rsense 开尔文并紧靠电量计；采样线远离功率回路；NTC 贴电芯；电量计电源独立去耦。",
+        "pitfalls": [
+          "小失调×长时间积分导致 SOC 持续漂移",
+          "Rsense 温漂未计入",
+          "平台区只靠电压法估 SOC",
+          "不做满充/满放修正，误差只增不减"
+        ],
+        "tags": ["电量计", "SOC", "库仑计", "Rsense", "校准"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "ADC 采样建立不足：读数偏低且随源阻抗/通道切换变化",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-ADC-SETTLE",
+        "code": "ADC_SETTLE",
+        "category": "模拟/采样",
+        "severity": "error",
+        "symptom": "ADC 读数系统性偏低，随源阻抗、采样率、通道切换变化；高阻源通道偏差更大，通道间出现串扰。",
+        "rootCause": "采样时间不足以让采样电容建立到 0.5 LSB；源阻抗/串阻过大或未加缓冲；mux 切换后未留建立时间。",
+        "detection": "同一输入在不同采样时间/采样率下对比读数；切换相邻通道看串扰；与高精度表对比；用短路/已知源测试。",
+        "prevention": [
+          "按 t ≥ (Rsource+Rsw)×Csh×ln(2^(N+1)) 校核并留 2 倍余量",
+          "源阻抗 >1kΩ 时加缓冲运放",
+          "提高采样时间、降低采样率或降低源阻抗",
+          "通道切换后丢弃首次采样（仅作辅助，不能替代硬件建立）"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/08-analog-signal-chain.md",
+          "docs/knowledge/schematic/07-analog-audio.md"
+        ],
+        "tags": ["ADC", "采样", "建立时间", "源阻抗", "读数偏低"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "运放容性负载振荡：持续振荡或阶跃严重振铃",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-OPAMP-OSC",
+        "code": "OPAMP_OSC",
+        "category": "模拟/运放",
+        "severity": "error",
+        "symptom": "运放输出持续振荡或阶跃严重振铃；ADC 读数抖动/噪声异常；某些容性负载或长线条件下才出现。",
+        "rootCause": "容性负载与输出阻抗形成附加极点，相位裕度不足；反馈网络/噪声增益不当；无隔离电阻或补偿。",
+        "detection": "示波器看输出（空载/带载）；小信号阶跃测过冲/振铃；扫频看闭环峰化；换不同容性负载复测。",
+        "prevention": [
+          "输出串 10~100Ω 隔离电阻或按 datasheet 补偿",
+          "校核噪声增益/反馈电容，相位裕度 ≥45°（推荐 ≥60°）",
+          "限制容性负载或加缓冲器",
+          "缩短反馈走线、避免长线直接挂输出"
+        ],
+        "refs": ["docs/knowledge/schematic/08-analog-signal-chain.md"],
+        "tags": ["运放", "振荡", "容性负载", "相位裕度"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "基准噪声/去耦缺失：ADC 码值跳动、有效位数下降",
+      "doc": "docs/knowledge/schematic/08-analog-signal-chain.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-REF-NOISE",
+        "code": "REF_NOISE",
+        "category": "模拟/基准",
+        "severity": "warning",
+        "symptom": "ADC 码值随机跳动、有效位数下降；基准脚有开关频率纹波；校准后仍无法达到目标精度。",
+        "rootCause": "基准去耦不足或走线过长；基准与 VDDA 共用脏电源；基准噪声/温漂未入预算；多点负载共阻抗调制。",
+        "detection": "示波器 AC 耦合测 VREF 纹波（限制带宽）；短路输入测噪声底；对比不同电源/数字状态；6.5 位表测基准值与温漂。",
+        "prevention": [
+          "基准独立去耦 100nF+1~10µF（按 datasheet）",
+          "VDDA 用磁珠/LC 隔离，基准远离开关节点",
+          "基准与 ADC 短走线/开尔文，多点负载星形引出",
+          "做基准误差预算并配套满量程校准"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/08-analog-signal-chain.md",
+          "docs/knowledge/schematic/07-analog-audio.md"
+        ],
+        "tags": ["基准", "噪声", "VREF", "去耦", "ENOB"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "I2C 传感器总线异常：无响应、地址冲突、时好时坏",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-SENSOR-BUS",
+        "code": "SENSOR_BUS",
+        "category": "总线/I2C",
+        "severity": "error",
+        "symptom": "I2C 传感器无响应或时好时坏；扫描不到地址或读到别的器件；高低温、负载变化时通信失败。",
+        "rootCause": "上拉过大导致上升沿慢；地址冲突或地址脚悬空；总线电容超限；中断脚悬空；电源/复位时序不满足 tPU。",
+        "detection": "I2C 扫描与地址分配表对照；示波器测上升时间与高电平；逐器件单独通信；测总线电容；抓上电时序。",
+        "prevention": [
+          "按 Rp(min)/Rp(max) 计算上拉并留余量",
+          "地址引脚明确设置并维护分配表，冲突用分路器",
+          "总线电容 ≤400pF，长线用缓冲器/中继器",
+          "中断开漏必上拉并配置唤醒，未用中断脚定电平",
+          "按 datasheet 上电延时 tPU 后再访问"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/09-sensors-actuators.md",
+          "docs/knowledge/schematic/04-interfaces.md"
+        ],
+        "tags": ["I2C", "传感器", "地址冲突", "上拉", "通信失败"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "感性执行器续流缺失：关断尖峰击穿驱动管",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-MOTOR-FLYBACK",
+        "code": "MOTOR_FLYBACK",
+        "category": "执行器/驱动",
+        "severity": "error",
+        "symptom": "电机/继电器/电磁阀关断瞬间驱动管击穿或 H 桥炸管；母线出现高压尖峰；反复动作后失效。",
+        "rootCause": "感性负载关断无续流路径或续流不足；V=L·di/dt 尖峰超过驱动管耐压；再生能量无钳位；栅极默认态错误。",
+        "detection": "示波器测关断尖峰（注意探头耐压）；测母线电压；反复开关复现；检查续流二极管方向与位置。",
+        "prevention": [
+          "线圈/电机端子反并联续流二极管/RC/压敏",
+          "母线加 TVS 或制动电阻钳位再生能量",
+          "驱动管耐压留 ≥20% 余量",
+          "栅极/基极下拉保证默认关断"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/09-sensors-actuators.md",
+          "docs/knowledge/schematic/05-protection.md"
+        ],
+        "tags": ["续流", "感性负载", "H桥", "击穿", "再生能量"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "编码器脉冲丢失/多计：高速运行时位置漂移",
+      "doc": "docs/knowledge/schematic/09-sensors-actuators.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-ENCODER-MISCOUNT",
+        "code": "ENCODER_MISCOUNT",
+        "category": "接口/脉冲",
+        "severity": "warning",
+        "symptom": "编码器计数丢失或多计、位置漂移；高速或电机运行时更明显，低速正常。",
+        "rootCause": "输入滤波过强吃掉窄脉冲；接收器/光耦带宽不足；上拉过大边沿慢；中断延迟；噪声被当成脉冲。",
+        "detection": "信号发生器扫频到 f_max 看计数；电机运行对比理论计数；示波器测脉宽与边沿；近场探头找噪声。",
+        "prevention": [
+          "按 f_max=(RPM/60)×PPR×4 校核并留 2~5 倍带宽",
+          "施密特整形 + 合适 RC（fc ≥ 2~5×f_max）",
+          "优先硬件编码器接口/定时器计数",
+          "屏蔽双绞、远离电机功率线"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/09-sensors-actuators.md",
+          "docs/knowledge/schematic/04-interfaces.md"
+        ],
+        "tags": ["编码器", "脉冲", "计数", "滤波", "失步"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "充电热耗超限：结温过高、热调节导致充不满",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-CHARGE-THERMAL",
+        "code": "CHARGE_THERMAL",
+        "category": "电源/电池",
+        "severity": "error",
+        "symptom": "充电 IC 过热/热调节导致充电变慢或反复暂停；高温环境下充不满；封装/PCB 发黄；长期可靠性下降。",
+        "rootCause": "线性充电压差×电流的热耗超出封装 θJA 能力；散热焊盘/铜皮不足；高温环境未降流；CC/终止参数与电芯不匹配。",
+        "detection": "满载充电测温升/热像；45°C 环境测充电电流；核对 P=(Vin−Vbat)×I 与 θJA；看热调节是否频繁触发。",
+        "prevention": [
+          "按 Tj=Ta+P×θJA 校核并留余量",
+          "散热焊盘打过孔阵列并加铜皮（PCB-RULE-THERMAL-001）",
+          "压差/电流大时改开关充电方案",
+          "实现 JEITA 高温降流/停止"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/10-battery-bms.md",
+          "docs/knowledge/schematic/02-power-architecture.md"
+        ],
+        "tags": ["充电", "热耗", "结温", "JEITA", "降额"]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "BMS 保护拒动/误动：阈值、双 MOS 与断线检测失效",
+      "doc": "docs/knowledge/schematic/10-battery-bms.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "SCH-FAIL-BMS-PROTECT-MISS",
+        "code": "BMS_PROTECT_MISS",
+        "category": "电源/电池保护",
+        "severity": "error",
+        "symptom": "过充/过放/短路时保护不动作或误动作；电池鼓包/发热；正常大电流启动时误保护；多串某节电压异常未被发现。",
+        "rootCause": "保护阈值/延时与电芯规格不匹配；保护 IC 精度余量未留；采样线断线或共阻抗串扰；双 MOS 接法/体二极管方向错误；二次保护 I²t 不协调。",
+        "detection": "逐项触发 OVP/UVP/OCP/SCP/OTP 记录阈值/延时；断开采样线测断线检测；满载/启动浪涌测误保护；短路测试看动作顺序。",
+        "prevention": [
+          "阈值/延时按电芯规格并留保护 IC 精度余量",
+          "双 MOS 背靠背并核对体二极管方向",
+          "采样开尔文、均衡与采样走线分离",
+          "一次/二次保护 I²t 协调",
+          "断线检测 + 软件相邻节电压交叉校验"
+        ],
+        "refs": [
+          "docs/knowledge/schematic/10-battery-bms.md",
+          "docs/knowledge/schematic/05-protection.md"
+        ],
+        "tags": ["BMS", "保护", "OVP", "断线", "双MOS", "I2t"]
+      }
+    }
+  ]
+}

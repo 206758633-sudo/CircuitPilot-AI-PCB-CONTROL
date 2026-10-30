@@ -282,3 +282,23 @@ test('幂等命中时不需要器件身份：已经修好的项不能因为“�
   assert.equal(plan.operations.length, 0);
   assert.ok(!plan.findings.some((finding) => finding.severity === 'blocking'), '幂等命中不该报阻断');
 });
+
+test('执行阶段：netPort 的 rotation 必须按读回引脚朝外方向算（计划阶段可先留 0），而不是一律 0', async () => {
+  const after = netlist({ J1: { A5: 'CC1', B5: 'CC2', A1B12: 'GND' }, U1: { A4: 'SDA', B3: 'SCL', C5: '3V3', D5: 'GND' }, R1: { 1: 'CC1', 2: 'GND' }, R2: { 1: 'CC2', 2: 'GND' } });
+  const bridge = fakeBridge({ netlistSequence: [BEFORE, after, after] });
+  const plan = planTwo();
+  // 计划阶段还不知道引脚坐标，rotation 先留 0 是允许的；执行阶段必须换成算出来的值
+  assert.ok(plan.operations.filter((item) => item.type === 'netPort.create').every((item) => item.args.rotation === 0));
+  const result = await applySchematicRepair({ execute: bridge.execute, plan, readNetlist: bridge.readNetlist });
+  assert.equal(result.ok, true);
+  const ports = bridge.calls.filter((call) => call.commandId === 'schematic.netPort.create');
+  // 假桥里 R1 的引脚在 100/140、质心 120：1 脚在左侧 → 180，2 脚在右侧 → 0
+  assert.deepEqual(ports.map((call) => [call.args.net, call.args.rotation]), [['CC1', 180], ['GND', 0], ['CC2', 180], ['GND', 0]]);
+  assert.ok(ports.every((call) => [0, 90, 180, 270].includes(call.args.rotation)), 'rotation 只许是四方向之一');
+  assert.ok(ports.some((call) => call.args.rotation !== 0), '读回引脚在左侧时必须朝左，不能一律 0');
+  // 朝向只是可读性，不改变坐标/写入授权/网表复核结果
+  assert.deepEqual(ports.map((call) => [call.args.net, call.args.x, call.args.y]), [['CC1', 100, 200], ['GND', 140, 200], ['CC2', 300, 200], ['GND', 340, 200]]);
+  assert.ok(ports.every((call) => call.options.allowWrite === true));
+  assert.deepEqual(result.portLabels.map((item) => item.rotation), [180, 0, 180, 0]);
+  assert.equal(result.diff.ok, true);
+});

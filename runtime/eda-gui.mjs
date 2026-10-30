@@ -22,7 +22,7 @@ export const DEFAULT_CDP_PORT = Number.parseInt(process.env.CIRCUITPILOT_EDA_CDP
 /** GUI 动作白名单。新增动作必须同时补测试，否则等于开后门。 */
 export const GUI_ACTIONS = Object.freeze([
   'state', 'click', 'dblclick', 'drag', 'move', 'type', 'key', 'shortcut', 'eval', 'screenshot',
-  'clickText', 'waitText', 'launch', 'targets', 'focus', 'findTexts',
+  'clickText', 'waitText', 'launch', 'targets', 'focus', 'findTexts', 'ercDetail',
 ]);
 
 /** CDP 修饰键位掩码：Alt=1 / Ctrl=2 / Meta(Command)=4 / Shift=8。 */
@@ -179,7 +179,13 @@ export class CdpSession {
       userGesture: true,
     });
     if (result.exceptionDetails) {
-      throw new EdaGuiError('页面脚本执行出错', 'EDA_GUI_EVAL_FAILED', result.exceptionDetails);
+      // 真机验收（第 60 轮）：只报 "页面脚本执行出错" 无法定位问题；把页面异常描述带进 message，
+      // 原始 exceptionDetails 仍放在 details 里，便于还原 DOM/堆栈。
+      const description = result.exceptionDetails?.exception?.description
+        || result.exceptionDetails?.exception?.value
+        || result.exceptionDetails?.text
+        || 'unknown';
+      throw new EdaGuiError(`页面脚本执行出错：${String(description).slice(0, 300)}`, 'EDA_GUI_EVAL_FAILED', result.exceptionDetails);
     }
     return result.result?.value;
   }
@@ -452,6 +458,240 @@ export class EdaGuiClient {
     return { base64: shot.data, bytes: Math.floor((shot.data.length * 3) / 4) };
   }
 
+  /**
+   * 抓原理图 ERC 的**逐条明细**（EDA 扩展 API 只有聚合计数，明细在检查面板 DOM 里）。
+   *
+   * 只读：先找面板；面板里没有结论时点一次「检查ERC/检查DRC」触发，再轮询计数
+   * （最长 timeoutMs 毫秒）。抓不到就如实返回 `{ok:false, reason}`，不编造条目。
+   * 返回结构：{ ok, counts:{total,fatal,error,warning,info}, items:[{level,message,object?}], source:'ui-dom' }
+   */
+  async ercDetail({ timeoutMs = 25_000, expectedCounts = null } = {}) {
+    /**
+     * 真机验收（第 60 轮）重写。原先一整段页面 async 脚本在真机上暴露两个致命问题：
+     *   1) 模板字面量把 \r/\s/\d 在宿主侧吃掉了 → 页面直接 SyntaxError，明细永远抓不到；
+     *   2) 面板定位太松：EDA 里同时存在多个「检查DRC / 检查ERC」面板（含 PCB DRC、器件标准化），
+     *      且普通 DOM click() 不是受信任输入，EDA 的检查可能根本不触发。
+     * 现在改为宿主侧编排：页面只做只读快照（可见面板的按钮坐标/计数/文本），
+     * 点击用 CDP 受信任输入，轮询与稳定性判断在宿主侧完成。
+     *
+     * 真机事实（第 60 轮实测）：**原理图**里的检查面板按钮文案也是「检查DRC」，
+     * 结果计数就是 ERC 的 1 error / 34 warning；所以这里按"当前可见的检查面板"定位，
+     * 由调用方（ERC 路由）先确保活动文档是原理图——不能用隐藏的旧面板冒充。
+     */
+    const budget = Math.max(2_000, Math.min(Number(timeoutMs) || 25_000, 120_000));
+    const startedAtForWait = Date.now();
+    const scan = async () => this.evaluate(String.raw`(function(){
+      const textOf = (el) => ((el && (el.textContent || el.innerText)) || '').replace(/\r/g, '');
+      // 避免在"宿主模板 + 页面字符串"两层转义里绕圈：直接按字符找 label 后的括号数字。
+      // 「错误(」会先命中「致命错误(」，所以带关键前缀的标签按"前一个字符不是前缀末字"过滤。
+      const countsOf = (text) => {
+        const findAfter = (label, skipWhenPrecededBy = null) => {
+          let from = 0;
+          while (true) {
+            const at = text.indexOf(label + '(', from);
+            if (at < 0) return null;
+            const preceded = at > 0 ? text.slice(Math.max(0, at - skipWhenPrecededBy?.length || 0), at) : '';
+            if (!skipWhenPrecededBy || preceded !== skipWhenPrecededBy) {
+              let index = at + label.length + 1;
+              let digits = '';
+              while (index < text.length && /[0-9]/.test(text[index])) { digits += text[index]; index += 1; }
+              return digits ? Number(digits) : null;
+            }
+            from = at + 1;
+          }
+        };
+        return {
+          total: findAfter('全部'),
+          fatal: findAfter('致命错误'),
+          error: findAfter('错误', '致命'),
+          warning: findAfter('警告'),
+          info: findAfter('信息'),
+        };
+      };
+      // 面板根节点：检查面板的「计数 + 明细」在同一个 .log-container 里；
+      // 只找到左侧按钮栏的话，明细永远抓不到。
+      const panelRootOf = (button) => {
+        let node = button.parentElement;
+        let fallback = null;
+        for (let depth = 0; depth < 10 && node; depth += 1) {
+          const panelText = textOf(node);
+          if (panelText.includes('全部(')) {
+            // 真机实测：左侧计数栏的 class 也含 "log-container-left_*"，不能用子串匹配，
+            // 必须精确到 token "log-container"（它才是同时含计数与明细的面板根）。
+            if ((' ' + String(node.className || '') + ' ').includes(' log-container ')) return node;
+            if (!fallback && panelText.length > 200) fallback = node;
+          }
+          node = node.parentElement;
+        }
+        return fallback;
+      };
+      const out = [];
+      for (const el of document.querySelectorAll('button')) {
+        const label = (el.textContent || '').trim();
+        if (label !== '检查DRC' && label !== '检查ERC') continue;
+        const r = el.getBoundingClientRect();
+        if (!(r.width > 0 && r.height > 0)) continue;
+        const panel = panelRootOf(el);
+        if (panel) {
+          const panelText = textOf(panel);
+          out.push({ label, counts: countsOf(panelText), x: r.x + r.width / 2, y: r.y + r.height / 2, panelLength: panelText.length, panelText: panelText.slice(0, 4000) });
+        }
+      }
+      return out;
+    })()`);
+    // 期望的 ERC 聚合计数（来自 EDA 的 schematic.drc）：用来把"本页的 ERC 面板"和
+    // EDA 里同时存在的 PCB DRC / 其它文档的旧面板区分开。真机踩过：切页瞬间点到 PCB 面板的
+    // 「检查DRC」会把活动文档切回 PCB，随后指纹校验失败、整次明细作废（还白等 40 秒）。
+    const expected = expectedCounts && typeof expectedCounts === 'object' ? expectedCounts : null;
+    const expectedNumbers = expected ? {
+      fatal: Number(expected.fatal) || 0,
+      error: Number(expected.error) || 0,
+      warning: Number(expected.warning) || 0,
+    } : null;
+    const matchesExpected = (counts) => {
+      if (!expectedNumbers) return Number(counts?.total) > 0;
+      return Number(counts?.fatal ?? null) === expectedNumbers.fatal
+        && Number(counts?.error ?? null) === expectedNumbers.error
+        && Number(counts?.warning ?? null) === expectedNumbers.warning;
+    };
+    const pickMatch = (list) => list.find((item) => matchesExpected(item.counts)) || null;
+    let panel = pickMatch(await scan());
+    const discoverStarted = Date.now();
+    while (!panel && Date.now() - discoverStarted < 8_000) {
+      await sleep(400);
+      panel = pickMatch(await scan());
+    }
+    if (!panel) {
+      // 没有匹配面板：如果只有一个"空"的可见检查面板，可能是第一次检查、面板还没出结果。
+      // 用受信任鼠标事件点一次让它现场跑；但**绝不在多面板/计数不符时乱点**（会切错文档）。
+      const candidates = await scan();
+      if (candidates.length === 1 && !Number(candidates[0]?.counts?.total)) {
+        await this.click({ x: candidates[0].x, y: candidates[0].y });
+        const waitUntil = Date.now() + Math.min(20_000, budget);
+        while (Date.now() < waitUntil && !panel) {
+          await sleep(500);
+          panel = pickMatch(await scan());
+        }
+      }
+    }
+    if (!panel) return { ok: false, reason: 'ERC_PANEL_NOT_READY', expected: expectedNumbers, items: [] };
+    // 计数稳定：确认不是"检查中"的中间态（最多等 5s，避免长任务把预算吃光）。
+    const stableStarted = Date.now();
+    let last = JSON.stringify(panel.counts || {});
+    let stable = 0;
+    while (Date.now() - stableStarted < Math.min(5_000, budget)) {
+      await sleep(300);
+      const current = pickMatch(await scan());
+      if (!current) break;
+      panel = current;
+      const checking = /检查中|正在检查|运行中/.test(String(current.panelText || ''));
+      const snapshot = JSON.stringify(current.counts || {});
+      if (!checking && snapshot === last) { stable += 1; if (stable >= 2) break; } else { stable = 0; last = snapshot; }
+    }
+    const detail = await this.evaluate(String.raw`(async function(){
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const textOf = (el) => ((el && (el.textContent || el.innerText)) || '').replace(/\r/g, '');
+      const levelOf = (raw) => {
+        const value = String(raw || '').toLowerCase();
+        if (value.includes('致命') || value === 'fatal') return 'fatal';
+        if (value.includes('错误') || value === 'error' || value === 'err') return 'error';
+        if (value.includes('警告') || value === 'warn' || value === 'warning') return 'warning';
+        return 'info';
+      };
+      const panelRootOf = (button) => {
+        let node = button.parentElement;
+        let fallback = null;
+        for (let depth = 0; depth < 12 && node; depth += 1) {
+          const panelText = textOf(node);
+          if (panelText.includes('全部(')) {
+            if ((' ' + String(node.className || '') + ' ').includes(' log-container ')) return node;
+            if (!fallback && panelText.length > 200) fallback = node;
+          }
+          node = node.parentElement;
+        }
+        return fallback;
+      };
+      let panel = null;
+      for (const el of document.querySelectorAll('button')) {
+        const label = (el.textContent || '').trim();
+        if (label !== '检查DRC' && label !== '检查ERC') continue;
+        const r = el.getBoundingClientRect();
+        if (!(r.width > 0 && r.height > 0)) continue;
+        panel = panelRootOf(el);
+        if (panel) break;
+      }
+      if (!panel) return { ok: false, reason: 'PANEL_DISAPPEARED', items: [] };
+      // 真机实测：明细列表是虚拟滚动列表（37 条只渲染 ~8 条，scrollHeight 是总高度）。
+      // 只查一次 DOM 只能拿到可见的几行，必须逐屏滚动收集；滚回顶部还原界面。
+      const countsOf = (text) => {
+        const pick = (label) => {
+          const at = text.indexOf(label + '(');
+          if (at < 0) return null;
+          let index = at + label.length + 1;
+          let digits = '';
+          while (index < text.length && /[0-9]/.test(text[index])) { digits += text[index]; index += 1; }
+          return digits ? Number(digits) : null;
+        };
+        return { total: pick('全部'), fatal: pick('致命错误'), error: pick('错误'), warning: pick('警告'), info: pick('信息') };
+      };
+      const expected = countsOf(textOf(panel)) || {};
+      const items = [];
+      const seen = new Set();
+      const collect = () => {
+        for (const el of panel.querySelectorAll('*')) {
+          const t = (el.textContent || '').trim();
+          if (t.length < 3 || t.length > 4000) continue;
+          const m = t.match(/\[(致命错误|错误|警告|信息)\]\s*[:：]?\s*([\s\S]+)$/);
+          if (!m) continue;
+          if (/\[(致命错误|错误|警告|信息)\]/.test(m[2])) continue;
+          const message = m[2].trim();
+          if (message.length < 5) continue;
+          const key = m[1] + '|' + message.slice(0, 200);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          items.push({ level: levelOf(m[1]), message: message.slice(0, 400) });
+        }
+      };
+      const collectPass = async () => {
+        const scrollable = [...panel.querySelectorAll('*')]
+          .filter((el) => el.scrollHeight > el.clientHeight + 20)
+          .sort((a, b) => b.scrollHeight - a.scrollHeight)[0] || null;
+        if (!scrollable) { collect(); return; }
+        scrollable.scrollTop = 0;
+        await sleep(180);
+        collect();
+        const step = Math.max(60, Math.floor(scrollable.clientHeight * 0.7));
+        for (let top = scrollable.clientHeight; top <= scrollable.scrollHeight + step; top += step) {
+          scrollable.scrollTop = top;
+          await sleep(200);
+          collect();
+        }
+        scrollable.scrollTop = 0;
+        await sleep(120);
+        collect();
+      };
+      await collectPass();
+      // 点击「检查」触发的新一轮 ERC 是流式出结果的：第一屏收集时列表可能还没长全，
+      // 只收集一次会得到"部分明细"（真机表现为 36 条结果只抓到 10 条）。
+      // 按面板计数校验，未收全就等下一批渲染后再滚一遍；但必须有内部截止时间——
+      // 宁可返回"部分明细+聚合余量"，也不能把整次 ERC 拖到硬超时、一条明细都拿不到。
+      const target = Number(expected.total) || 0;
+      const collectDeadline = Date.now() + 8_000;
+      let passes = 1;
+      while (passes < 3 && target > 0 && items.length < target && Date.now() < collectDeadline) {
+        passes += 1;
+        await sleep(600);
+        await collectPass();
+      }
+      return { ok: true, items, expected, panelTextLength: textOf(panel).length, collected: items.length, passes };
+    })()`);
+    if (!detail || detail.ok !== true) return { ok: false, reason: String(detail?.reason || 'ERC_DETAIL_FAILED'), counts: panel.counts, items: [] };
+    if (!Array.isArray(detail.items) || !detail.items.length) {
+      return { ok: false, reason: 'ERC_DETAIL_NO_ITEMS', counts: panel.counts, items: [] };
+    }
+    return { ok: true, counts: panel.counts, items: detail.items, source: 'ui-dom', panelTextLength: detail.panelTextLength };
+  }
+
   /** 启动 EDA 并等调试端口就绪。返回是否由本调用启动。 */
   async launch({ waitMs = 45_000 } = {}) {
     try {
@@ -505,6 +745,7 @@ export class EdaGuiClient {
       }
       case 'waitText': return this.waitForText(params);
       case 'findTexts': return this.findTexts(params);
+      case 'ercDetail': return this.ercDetail(params);
       case 'launch': return this.launch(params);
       default:
         throw new EdaGuiError(`GUI 动作未实现：${action}`, 'EDA_GUI_ACTION_NOT_IMPLEMENTED');

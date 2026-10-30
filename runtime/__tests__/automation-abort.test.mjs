@@ -124,3 +124,121 @@ test('E7 中止（HTTP）：不在执行中的 run（已完成/不存在）→ 4
   assert.equal(unknown.status, 409);
   assert.equal((await unknown.json()).error.code, 'AUTOMATION_RUN_NOT_RUNNING');
 });
+
+/**
+ * WP4 P1-11：在途自动化暂停——写步骤执行前回调 Runtime 写门禁，抛错 → aborted（不是 failed）。
+ */
+
+const gateRecipe = () => ({
+  id: 'wp4-gate-probe',
+  title: 'WP4 写门禁探针',
+  version: 1,
+  steps: [
+    {
+      id: 'read-project',
+      title: '读取当前工程',
+      action: { kind: 'api', command: 'project.current', params: {} },
+      expect: { readback: { kind: 'api', command: 'project.current', params: {} }, assertions: [{ path: 'data', op: 'nonEmpty', label: '工程数据非空' }] },
+    },
+    {
+      id: 'write-save',
+      title: '保存 PCB（写）',
+      action: { kind: 'api', command: 'pcb.save', params: {}, allowWrite: true },
+      expect: { readback: { kind: 'api', command: 'document.current', params: {} }, assertions: [{ path: 'uuid', op: 'nonEmpty', label: '文档 uuid 非空' }] },
+    },
+  ],
+});
+
+const makeExecutors = (commands) => ({
+  api: async ({ command }) => {
+    commands.push(command);
+    if (command === 'project.current') return { data: [{ uuid: 'p1' }] };
+    if (command === 'document.current') return { uuid: 'd1' };
+    return { ok: true };
+  },
+  gui: async () => { throw new Error('本测试不应调用 GUI'); },
+});
+
+const makeJournal = (entries) => ({ append: (runId, payload) => entries.push(payload) });
+
+test('WP4 P1-11（runner）：写步骤前门禁抛错 → aborted + journal 记录，写动作不执行、只读步骤照常', async () => {
+  const commands = [];
+  const entries = [];
+  const gateCalls = [];
+  const result = await runRecipe({
+    recipe: gateRecipe(),
+    executors: makeExecutors(commands),
+    approvals: { write: true },
+    journal: makeJournal(entries),
+    assertWritesOpen: async (context) => {
+      gateCalls.push(context);
+      throw Object.assign(new Error('全局写入已暂停：Runtime 拒绝执行 EDA 写操作'), {
+        code: 'EDA_WRITE_PAUSED',
+        status: 409,
+        details: { scope: 'global', reason: '演练' },
+      });
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.state, 'aborted', '必须 aborted，不能 failed 也不能 completed');
+  assert.equal(result.aborted.abortedByWriteGate, true);
+  assert.equal(result.aborted.reason, 'write_gate_paused');
+  assert.equal(result.aborted.code, 'EDA_WRITE_PAUSED');
+  assert.equal(result.aborted.stepId, 'write-save');
+  assert.equal(result.aborted.mayHaveTakenEffect, false, '写动作没发出前不得声称可能已生效');
+  assert.deepEqual(commands, ['project.current', 'project.current'], '只读步骤正常执行并读回；写动作不得执行');
+  assert.equal(gateCalls.length, 1);
+  assert.equal(gateCalls[0].stepId, 'write-save');
+  assert.equal(gateCalls[0].command, 'pcb.save');
+  assert.equal(result.steps.length, 1);
+  assert.equal(result.steps[0].stepId, 'read-project');
+  const gateEntry = entries.find((entry) => entry.phase === 'run.aborted_by_write_gate');
+  assert.ok(gateEntry, 'journal 必须记录 abortedByWriteGate');
+  assert.equal(gateEntry.abortedByWriteGate, true);
+  assert.equal(gateEntry.stepId, 'write-save');
+  assert.equal(gateEntry.completedSteps, 1);
+});
+
+test('WP4 P1-11（runner）：只读配方不受写门禁影响（回调抛出也不调用/不中止）', async () => {
+  const registry = createDefaultRecipeRegistry();
+  const recipe = registry.get('eda-read-project');
+  let gateCalled = 0;
+  const commands = [];
+  const result = await runRecipe({
+    recipe,
+    executors: makeExecutors(commands),
+    assertWritesOpen: () => { gateCalled += 1; throw new Error('不应被调用'); },
+  });
+  assert.equal(gateCalled, 0, '只读步骤不得触发写门禁检查');
+  assert.equal(result.state, 'completed');
+  assert.ok(commands.length >= 1);
+});
+
+test('WP4 P1-11（runner）：前一个写步骤已发出动作 → 后续写步骤被门禁拒绝时 mayHaveTakenEffect=true', async () => {
+  const recipe = gateRecipe();
+  recipe.id = 'wp4-gate-two-writes';
+  recipe.steps[1].id = 'write-save-a';
+  recipe.steps.push({
+    id: 'write-save-b',
+    title: '再次保存（写）',
+    action: { kind: 'api', command: 'pcb.save', params: {}, allowWrite: true },
+    expect: { readback: { kind: 'api', command: 'document.current', params: {} }, assertions: [{ path: 'uuid', op: 'nonEmpty', label: '文档 uuid 非空' }] },
+  });
+  const commands = [];
+  const gateCalls = [];
+  const result = await runRecipe({
+    recipe,
+    executors: makeExecutors(commands),
+    approvals: { write: true },
+    assertWritesOpen: async (context) => {
+      gateCalls.push(context.stepId);
+      if (context.stepId === 'write-save-b') throw Object.assign(new Error('暂停'), { code: 'EDA_WRITE_PAUSED', status: 409 });
+    },
+  });
+  assert.equal(result.state, 'aborted');
+  assert.equal(result.aborted.stepId, 'write-save-b');
+  assert.equal(result.aborted.mayHaveTakenEffect, true, '前一个写动作已发出（可能已落盘），必须如实标记');
+  assert.deepEqual(gateCalls, ['write-save-a', 'write-save-b']);
+  assert.ok(commands.includes('pcb.save'), '第一个写步骤应已执行');
+  assert.equal(result.steps.filter((step) => step.ok).length, 2, '只读步骤 + 第一个写步骤均已完成');
+});

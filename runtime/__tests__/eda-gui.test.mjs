@@ -259,3 +259,66 @@ test('focus：CDP 老版本不支持某条命令时必须降级而不是抛错�
   assert.equal(result.lifecycleActive, false);
   assert.equal(result.visibility, 'hidden');
 });
+
+test('ercDetail 发给页面的脚本必须保留反斜杠（真机曾因宿主模板吃掉 \\r 整段 SyntaxError，明细永久失败）', async () => {
+  const expressions = [];
+  const session = fakeSession({
+    evaluateImpl: (expression) => {
+      expressions.push(expression);
+      if (expression.includes('scrollHeight')) {
+        return { ok: true, items: [{ level: 'warning', message: '发现元件引脚悬空 : R1.1' }], panelTextLength: 200, scrollable: true };
+      }
+      return [{ label: '检查DRC', counts: { total: 37, fatal: 0, error: 1, warning: 34, info: 2 }, x: 10, y: 10, panelLength: 200, panelText: '检查DRC导出清空全部(37)致命错误(0)错误(1)警告(34)信息(2)' }];
+    },
+  });
+  const client = makeClient({ session });
+  const result = await client.execute('ercDetail', { timeoutMs: 2000 });
+  assert.equal(result.ok, true);
+  assert.equal(result.items.length, 1);
+  assert.deepEqual(result.counts, { total: 37, fatal: 0, error: 1, warning: 34, info: 2 });
+  assert.ok(expressions.length >= 2);
+  for (const expression of expressions) {
+    // 宿主模板字面量会处理转义：页面代码里允许出现反斜杠+"r"两个字符，绝不允许出现真正的 CR。
+    assert.ok(!expression.includes('\r'), '页面脚本里出现了真实回车符，说明转义在宿主侧被吃掉了');
+    assert.ok(expression.includes('/\\r/g'), 'textOf 的 \\r 清洗正则被破坏了');
+  }
+});
+
+test('ercDetail 只认可见的检查面板，并通过虚拟列表滚动收集全部明细', async () => {
+  const expressions = [];
+  const session = fakeSession({
+    evaluateImpl: (expression) => {
+      expressions.push(expression);
+      if (expression.includes('scrollHeight')) {
+        return { ok: true, items: Array.from({ length: 37 }, (_, index) => ({ level: index === 0 ? 'error' : index < 35 ? 'warning' : 'info', message: `明细 ${index}` })), panelTextLength: 900, scrollable: true };
+      }
+      return [{ label: '检查DRC', counts: { total: 37, fatal: 0, error: 1, warning: 34, info: 2 }, x: 10, y: 10, panelLength: 200, panelText: '全部(37)致命错误(0)错误(1)警告(34)信息(2)' }];
+    },
+  });
+  const client = makeClient({ session });
+  const result = await client.execute('ercDetail', { timeoutMs: 2000 });
+  assert.equal(result.ok, true);
+  assert.equal(result.items.length, 37);
+  const detailExpression = expressions.find((expression) => expression.includes('scrollHeight'));
+  assert.ok(detailExpression, '明细提取脚本必须包含滚动收集逻辑（虚拟列表只渲染可见行）');
+  assert.ok(detailExpression.includes('log-container'), '面板根必须是 log-container，否则拿到的只是左侧计数栏');
+});
+
+test('ercDetail 面板晚渲染：前几次扫描为空时必须在预算内重试，而不是立刻 ERC_PANEL_NOT_FOUND（真机切页回归）', async () => {
+  let scans = 0;
+  const expressions = [];
+  const session = fakeSession({
+    evaluateImpl: (expression) => {
+      expressions.push(expression);
+      if (expression.includes('scrollHeight')) return { ok: true, items: [{ level: 'error', message: '网络 GND 与 +3V3 短路' }], panelTextLength: 300, scrollable: false };
+      scans += 1;
+      if (scans <= 2) return []; // 刚切完文档，检查面板还没渲染出来
+      return [{ label: '检查DRC', counts: { total: 1, fatal: 0, error: 1, warning: 0, info: 0 }, x: 8, y: 830, panelLength: 200, panelText: '全部(1)致命错误(0)错误(1)警告(0)信息(0)' }];
+    },
+  });
+  const client = makeClient({ session });
+  const result = await client.execute('ercDetail', { timeoutMs: 5000 });
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.error, 1);
+  assert.ok(scans >= 3, '必须重试扫描，直到检查面板出现');
+});
