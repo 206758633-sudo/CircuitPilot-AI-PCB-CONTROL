@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { EDA_APP_CANDIDATES } from './config.mjs';
+import { existsSync } from 'node:fs';
+import { edaAppCandidates, resolveEdaExecutable } from './platform.mjs';
 
 /**
  * EDA GUI 通道（通道 B）——**CircuitPilot 运行时自己的 GUI 执行器**。
@@ -213,7 +214,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export class EdaGuiClient {
   constructor({
     cdpPort = DEFAULT_CDP_PORT,
-    appCandidates = EDA_APP_CANDIDATES,
+    appCandidates = edaAppCandidates(),
     sessionFactory = (wsUrl) => CdpSession.connect(wsUrl),
     spawnImpl = spawn,
     fetchJsonImpl = fetchJson,
@@ -698,9 +699,10 @@ export class EdaGuiClient {
       await this.targets();
       return { alreadyRunning: true, cdpPort: this.cdpPort };
     } catch { /* 没启或没开端口，继续启动 */ }
-    const appPath = this.appCandidates.find((candidate) => candidate);
+    const appPath = this.appCandidates.find((candidate) => candidate && existsSync(candidate));
     if (!appPath) throw new EdaGuiError('找不到嘉立创EDA应用路径', 'EDA_GUI_APP_NOT_FOUND');
-    const binary = `${appPath}/Contents/MacOS/LCEDA-Pro`;
+    const binary = resolveEdaExecutable(appPath);
+    if (!binary) throw new EdaGuiError('当前平台无法解析嘉立创EDA可执行文件', 'EDA_GUI_APP_NOT_FOUND', { appPath, platform: process.platform });
     const child = this.spawnImpl(binary, launchArgs(this.cdpPort), {
       env: stripChildEnv(process.env),
       detached: true,

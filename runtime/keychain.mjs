@@ -1,5 +1,6 @@
 import { KEYCHAIN_ACCOUNT, KEYCHAIN_SERVICES, customKeychainService } from './config.mjs';
 import { runProcess } from './process.mjs';
+import { PortableKeychain } from './portable-keychain.mjs';
 
 // 自定义 Provider 的 id 规则与 customProviders.mjs 的校验一致（小写字母开头，2~40 字符）。
 // 只有形状合法的 id 才允许派生钥匙串服务名：否则任意字符串都能被拼进 -s 参数，
@@ -83,4 +84,14 @@ export class MacKeychain {
     }
     return { configured: false };
   }
+}
+
+
+/**
+ * 平台工厂：macOS 使用 Keychain；Windows/Linux 使用加密本地文件回退。
+ * 注意：回退实现不等同于 OS 凭据库，发布前必须替换/验证（见 portable-keychain.mjs）。
+ */
+export function createKeychain(options = {}) {
+  if (process.platform === 'darwin') return new MacKeychain(options);
+  return new PortableKeychain(options);
 }

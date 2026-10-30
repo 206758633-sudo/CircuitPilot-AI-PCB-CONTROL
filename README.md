@@ -1,6 +1,8 @@
 # CircuitPilot · AI PCBA 控制台
 
-CircuitPilot 是面向个人硬件工程师的 Mac 本地控制软件原型。当前版本已经把 React 控制台接到本机 Runtime，可使用已登录的 Codex 账号进行真实 PCBA 需求对话和结构化简单板计划生成，并检查 Codex、Claude Code、API Key、嘉立创EDA专业版和 EasyEDA Bridge。
+CircuitPilot 是面向个人硬件工程师的本地优先 AI PCBA 控制台；macOS 已完成真机验证，Windows/Ubuntu 已加入代码级跨平台适配，但真机 EDA 能力尚未验收。当前版本已经把 React 控制台接到本机 Runtime，可使用已登录的 Codex 账号进行真实 PCBA 需求对话和结构化简单板计划生成，并检查 Codex、Claude Code、API Key、嘉立创EDA专业版和 EasyEDA Bridge。
+
+> 平台状态：macOS 已验证；Windows/Ubuntu 的 UI/Runtime 可构建，但 EDA 落板链路尚未真机验收，不能宣称与 macOS 同等 AI 设计能力。详见 [`docs/agent/cross-platform-support.md`](docs/agent/cross-platform-support.md)。
 
 当前安全边界：Runtime 已实现受控原理图写入框架，但默认仍关闭。只有精确器件身份和连接计划完整、已读取真实目标、计划哈希经人工批准、源码快照成功时才允许执行；随后必须保存、按 primitive ID 回读并通过嘉立创EDA官方原理图 DRC（ERC 等效），失败会用源码快照恢复。首次现场执行仍必须使用用户确认的专用空白测试工程。
 

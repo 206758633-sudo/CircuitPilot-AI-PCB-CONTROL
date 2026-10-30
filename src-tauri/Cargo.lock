@@ -325,6 +325,7 @@ dependencies = [
 name = "circuitpilot"
 version = "0.2.0"
 dependencies = [
+ "getrandom 0.2.17",
  "tauri",
  "tauri-build",
 ]

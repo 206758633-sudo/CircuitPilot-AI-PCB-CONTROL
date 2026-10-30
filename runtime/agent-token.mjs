@@ -1,15 +1,16 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import { appDataDir } from './platform.mjs';
 
 /**
  * Agent 身份令牌（契约 docs/agent/agent-contract.md §1「Agent 身份与令牌」）。
  *
  * 这是 DSH 插件/外部 Agent 调用本机 Runtime 的唯一凭据，必须与 UI 会话令牌
  * （`x-circuitpilot-token`，由 Tauri 壳层注入）完全隔离：插件拿不到 UI 令牌，只持有这份
- * 落盘的 Agent 令牌。默认路径 `~/Library/Application Support/CircuitPilot/agent-token.json`，
- * 文件 0600、目录 0700；测试通过 `CIRCUITPILOT_AGENT_TOKEN_FILE` 指向临时文件。
+ * 落盘的 Agent 令牌。默认路径随平台：macOS `~/Library/Application Support/CircuitPilot/agent-token.json`，
+ * Windows `%APPDATA%\\CircuitPilot`，Linux `$XDG_STATE_HOME/circuitpilot`；文件 0600/目录 0700（Windows 忽略 mode），
+ * 测试通过 `CIRCUITPILOT_AGENT_TOKEN_FILE` 指向临时文件。
  *
  * 安全口径（全部 fail-closed）：
  *   - 文件不存在 → 原子写入一份新令牌（同目录临时文件 0600 + rename），不拿"进程内随机数"顶替；
@@ -54,7 +55,7 @@ function invalid(message, cause) {
 export function agentTokenFile(env = process.env) {
   const configured = typeof env?.CIRCUITPILOT_AGENT_TOKEN_FILE === 'string' ? env.CIRCUITPILOT_AGENT_TOKEN_FILE.trim() : '';
   if (configured) return configured;
-  return join(homedir(), 'Library', 'Application Support', 'CircuitPilot', 'agent-token.json');
+  return join(appDataDir(), 'agent-token.json');
 }
 
 /** 生成契约规定的令牌：cpa_ + 24 字节随机数的 48 位 hex。 */

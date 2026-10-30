@@ -25,16 +25,24 @@ async function isExecutable(candidate) {
  *
  * homeDir/pathValue 可注入，便于测试不依赖真实机器环境。
  */
-export function executableSearchPaths(name, { homeDir = os.homedir(), pathValue = process.env.PATH } = {}) {
+export function executableSearchPaths(name, { homeDir = os.homedir(), pathValue = process.env.PATH, platform = process.platform, env = process.env } = {}) {
   const explicit = CLI_CANDIDATES[name] || [];
   const fromPath = String(pathValue || '').split(path.delimiter).filter(Boolean).map((directory) => path.join(directory, name));
-  const wellKnown = [
-    path.join(homeDir, '.cargo/bin'),
-    path.join(homeDir, '.local/bin'),
-    path.join(homeDir, '.npm-global/bin'),
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
-  ].map((directory) => path.join(directory, name));
+  const wellKnown = (platform === 'win32'
+    ? [
+      path.join(env.APPDATA || '', 'npm'),
+      path.join(homeDir, 'AppData', 'Roaming', 'npm'),
+      path.join(env.LOCALAPPDATA || '', 'Programs'),
+      path.join(env.ProgramFiles || 'C:\\Program Files', 'nodejs'),
+    ]
+    : [
+      path.join(homeDir, '.cargo/bin'),
+      path.join(homeDir, '.local/bin'),
+      path.join(homeDir, '.npm-global/bin'),
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      '/snap/bin',
+    ]).map((directory) => path.join(directory, platform === 'win32' && !/\.exe$/i.test(name) ? `${name}.exe` : name));
   return [...new Set([...explicit, ...fromPath, ...wellKnown])];
 }
 

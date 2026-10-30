@@ -4,7 +4,8 @@ import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rea
 import { homedir } from 'node:os';
 import { basename, delimiter, extname, join, relative, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ALLOWED_ORIGINS, BODY_LIMIT, EDA_APP_CANDIDATES, RUNTIME_HOST, RUNTIME_PORT } from './config.mjs';
+import { ALLOWED_ORIGINS, BODY_LIMIT, RUNTIME_HOST, RUNTIME_PORT } from './config.mjs';
+import { appDataDir, edaAppCandidates, openApplication } from './platform.mjs';
 import { BridgeClient } from './bridge.mjs';
 import { EdaGuiClient } from './eda-gui.mjs';
 import { createApprovalStore, fingerprintOf } from './automation/approvals.mjs';
@@ -102,7 +103,7 @@ import { DesignManager, normalizePlan } from './design.mjs';
 import { buildPartProposal, normalizeRequirement, selectProposalToPlan } from './proposal.mjs';
 import { systemDiagnostics } from './diagnostics.mjs';
 import { diagnoseFailure } from './failure-diagnosis.mjs';
-import { MacKeychain } from './keychain.mjs';
+import { createKeychain } from './keychain.mjs';
 import { listEvents, logger, redact } from './logger.mjs';
 import { PROVIDERS, openProviderConsole, providerStatuses, startProviderLogin, testProvider } from './providers.mjs';
 import { CustomProviderRegistry, customProviderNotFound } from './customProviders.mjs';
@@ -425,7 +426,7 @@ async function readBody(request) {
 /**
  * 任务 journal 的落盘位置。可用 CIRCUITPILOT_JOB_JOURNAL 覆盖（测试/多实例用）。
  */
-const JOB_JOURNAL_PATH = process.env.CIRCUITPILOT_JOB_JOURNAL || join(homedir(), 'Library', 'Application Support', 'CircuitPilot', 'eda-jobs.jsonl');
+const JOB_JOURNAL_PATH = process.env.CIRCUITPILOT_JOB_JOURNAL || join(appDataDir(), 'eda-jobs.jsonl');
 
 /**
  * 运行时的 EDA 桥接客户端：**任务状态权威落盘**。
@@ -450,7 +451,7 @@ function isLoopbackHost(hostHeader) {
   return /^(127\.0\.0\.1|localhost|\[::1\]|tauri\.localhost)(:\d+)?$/i.test(String(hostHeader || ''));
 }
 
-export function createRuntimeServer({ keychain = new MacKeychain(), bridge = createDurableBridgeClient(), diagnostics = systemDiagnostics, chat = null, design = null, pcb = null, production = null, evidence = null, gui = null, simulationRun = runSimulationDefault, alternativeSearch = null, planRequests = null, runtimeToken = process.env.CIRCUITPILOT_RUNTIME_TOKEN, agentTokenPath = agentTokenFile(), agentAuditFile: agentAuditPath = agentAuditFile() } = {}) {
+export function createRuntimeServer({ keychain = createKeychain(), bridge = createDurableBridgeClient(), diagnostics = systemDiagnostics, chat = null, design = null, pcb = null, production = null, evidence = null, gui = null, simulationRun = runSimulationDefault, alternativeSearch = null, planRequests = null, runtimeToken = process.env.CIRCUITPILOT_RUNTIME_TOKEN, agentTokenPath = agentTokenFile(), agentAuditFile: agentAuditPath = agentAuditFile() } = {}) {
   const injectedToken = typeof runtimeToken === 'string' && runtimeToken.length >= 16;
   // Tauri 壳层通过环境变量注入令牌时，令牌完全不经由 HTTP 分发，因此彻底关闭
   // HTTP 令牌发放：此时本机任何进程（哪怕伪造 Origin）都无法再通过 /api/health 领到令牌，
@@ -4126,23 +4127,24 @@ export function createRuntimeServer({ keychain = new MacKeychain(), bridge = cre
         if (onDisk !== bytes.length) throw Object.assign(new Error(`3D 落盘字节数不符：磁盘 ${onDisk}，内存 ${bytes.length}`), { code: 'PCB_3D_WRITE_MISMATCH', status: 500 });
         result = { ok: true, pcbUuid, model: { path: outPath, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), format, chunks: Number(meta.chunks), elements: meta.elements ?? null } };
       } else if (method === 'POST' && url.pathname === '/api/eda/app/focus') {
-        const appPath = EDA_APP_CANDIDATES.find((candidate) => existsSync(candidate));
+        const appPath = edaAppCandidates().find((candidate) => existsSync(candidate));
         if (!appPath) throw Object.assign(new Error('未在受支持路径发现嘉立创EDA专业版'), { code: 'EASYEDA_NOT_FOUND', status: 404 });
-        startDetached('/usr/bin/open', ['-a', appPath]);
+        openApplication(appPath);
         result = { ok: true, application: { path: appPath, focused: true } };
         logger.info('EDA', 'EasyEDA application focused', { path: appPath });
       } else if (method === 'POST' && url.pathname === '/api/app/focus') {
-        const appPath = '/Applications/CircuitPilot.app';
+        const appPath = process.env.CIRCUITPILOT_APP_PATH || (process.platform === 'darwin' ? '/Applications/CircuitPilot.app' : null);
+        if (!appPath) throw Object.assign(new Error('当前平台未配置 CircuitPilot 应用路径，请设置 CIRCUITPILOT_APP_PATH'), { code: 'CIRCUITPILOT_APP_NOT_FOUND', status: 404 });
         if (!existsSync(appPath)) throw Object.assign(new Error('未发现已安装的CircuitPilot应用'), { code: 'CIRCUITPILOT_APP_NOT_FOUND', status: 404 });
-        startDetached('/usr/bin/open', ['-a', appPath]);
+        openApplication(appPath);
         result = { ok: true, application: { path: appPath, focused: true } };
       } else if (method === 'POST' && url.pathname === '/api/eda/workspaces') {
         const body = await readBody(request);
         const friendlyName = String(body.friendlyName || '').trim();
         const projectName = String(body.projectName || friendlyName).trim().replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || `CircuitPilot-${Date.now()}`;
-        const appPath = EDA_APP_CANDIDATES.find((candidate) => existsSync(candidate));
+        const appPath = edaAppCandidates().find((candidate) => existsSync(candidate));
         if (!appPath) throw Object.assign(new Error('未在受支持路径发现嘉立创EDA专业版'), { code: 'EASYEDA_NOT_FOUND', status: 404 });
-        startDetached('/usr/bin/open', ['-a', appPath]);
+        openApplication(appPath);
         let discovered = await bridge.discover();
         for (let attempt = 0; !discovered && attempt < 30; attempt += 1) { await new Promise((resolve) => setTimeout(resolve, 500)); discovered = await bridge.discover(); }
         if (!discovered) throw Object.assign(new Error('已打开嘉立创EDA，但Bridge未在15秒内就绪；请确认Run API Gateway扩展已启用'), { code: 'BRIDGE_START_TIMEOUT', status: 504 });

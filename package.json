@@ -51,7 +51,10 @@
     "version:check": "node scripts/sync-version.mjs --check",
     "version:sync": "node scripts/sync-version.mjs --sync",
     "release:manifest": "node scripts/release-manifest.mjs --build",
-    "knowledge:pack:verify": "node scripts/knowledge-pack.mjs verify"
+    "knowledge:pack:verify": "node scripts/knowledge-pack.mjs verify",
+    "desktop:build:windows": "npm run desktop:check && tauri build --bundles msi,nsis",
+    "desktop:build:linux": "npm run desktop:check && tauri build --bundles deb,appimage",
+    "desktop:build:macos": "npm run desktop:check && tauri build --bundles app,dmg"
   },
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.6",

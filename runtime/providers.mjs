@@ -1,4 +1,5 @@
 import { findExecutable, runProcess, startObserved } from './process.mjs';
+import { openExternalUrl } from './platform.mjs';
 
 /**
  * Provider 目录：官方账号（CLI 登录）与第三方平台 API Key 共用一张声明式表。
@@ -108,7 +109,7 @@ export async function openProviderConsole(id, dependencies = {}) {
   const provider = PROVIDERS[id];
   if (!provider || provider.kind !== 'api') throw Object.assign(new Error('该Provider没有平台控制台'), { code: 'CONSOLE_UNSUPPORTED' });
   if (!provider.keyUrl) throw Object.assign(new Error('该Provider未声明控制台地址'), { code: 'CONSOLE_UNKNOWN' });
-  const openFn = dependencies.open || ((target) => runProcess('/usr/bin/open', [target], { timeoutMs: 8_000 }));
+  const openFn = dependencies.open || ((target) => { openExternalUrl(target); return { ok: true }; });
   const result = await openFn(provider.keyUrl);
   if (result && result.ok === false) throw Object.assign(new Error('无法打开系统浏览器，请手动访问该平台控制台'), { code: 'CONSOLE_OPEN_FAILED' });
   return { provider: id, url: provider.keyUrl, opened: true };

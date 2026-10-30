@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import os from 'node:os';
-import { EDA_APP_CANDIDATES } from './config.mjs';
+import { edaAppCandidates, platformId } from './platform.mjs';
 import { findExecutable, runProcess } from './process.mjs';
 
 async function executableCheck(name) {
@@ -16,10 +16,10 @@ export async function systemDiagnostics() {
     executableCheck('claude'),
     executableCheck('cargo'),
   ]);
-  const edaPath = EDA_APP_CANDIDATES.find((candidate) => existsSync(candidate)) || null;
+  const edaPath = edaAppCandidates().find((candidate) => existsSync(candidate)) || null;
   return {
     checkedAt: new Date().toISOString(),
-    platform: { id: 'macos', status: process.platform === 'darwin' ? 'pass' : 'fail', platform: process.platform, release: os.release(), arch: process.arch },
+    platform: { id: platformId(), status: ['darwin', 'win32', 'linux'].includes(process.platform) ? 'pass' : 'fail', platform: process.platform, release: os.release(), arch: process.arch },
     node: { id: 'node', status: 'pass', installed: true, detail: process.version },
     codex,
     claude,
@@ -30,7 +30,7 @@ export async function systemDiagnostics() {
       installed: Boolean(edaPath),
       path: edaPath,
       code: edaPath ? undefined : 'EASYEDA_NOT_FOUND',
-      detail: edaPath ? '已发现嘉立创EDA专业版' : '未在/Applications发现嘉立创EDA专业版',
+      detail: edaPath ? '已发现嘉立创EDA专业版' : '未在受支持路径发现嘉立创EDA专业版',
     },
   };
 }

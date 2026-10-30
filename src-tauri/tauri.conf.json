@@ -17,10 +17,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "dmg",
-      "app"
-    ],
+    "targets": "all",
     "externalBin": [
       "binaries/node"
     ],

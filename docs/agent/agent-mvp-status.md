@@ -141,6 +141,16 @@
 - **回滚演练已执行但失败（2026-10-30）**：用户确认 planHash `c0b54846…` 后执行：C1 真实移动 0.01mm，第二操作（故意无效目标）触发 `EDA_REQUEST_ABANDONED`（派发后 15s 未返回）；回滚 `PCB_ROLLBACK_VERIFY_FAILED`（`PCB恢复后的源码摘要不匹配`），execution `84c220b7…` state=`rollback_failed`，安全写锁已触发且未释放。表面回读仍与演练前一致（53 器件 / 773 线 / 117 过孔 / 4 铺铜 / 1 板框，C1 位置未变），post-drill DRC 仍只有 1 条已知 Netlist Error；但 sourceDigest `ec2ba51e…` → `6664e203…` 不一致，因此**不能宣称整档回滚成功**。失败后没有自动重试。证据：`artifacts/agent-rollback-drill-noncreate-failure-20261030.json`。人工两次 Cmd+Z 后：C1 回到 46.000mm、53/773/117/4/1 计数与逐器件位置均回到演练前、post-undo DRC 仍仅 1 条已知 Netlist Error；但保存后 sourceDigest 仍为 `ade564e0…` 而非 `ec2ba51e…`；用户明确批准接受语义恢复后，安全锁已释放；但 sourceDigest 仍为 `ade564e0…`，摘要差异保留为未解释缺口，不能宣称摘要级回滚成功。
 - **仍存在**：整档 `document.source.restore` 已被真机再次证明不可靠；安全写锁需人工恢复/核对 sourceDigest 后才能释放；正式导出仍被人工门禁 block。
 
+### 1.12 2026-10-30 跨平台适配（Windows / Ubuntu）
+
+- 新增 `runtime/platform.mjs`：用户数据目录、EDA 安装候选/可执行文件解析、系统浏览器/应用启动、平台识别统一收口。
+- Agent token、job journal、EDA 启动、Provider 控制台打开、诊断平台字段已去掉 macOS 硬编码；Windows/Linux 使用 `APPDATA`/`XDG_STATE_HOME`。
+- 新增 `PortableKeychain`：Windows/Linux 用 AES-256-GCM 本地加密文件回退；**不是** DPAPI/Secret Service，安全性不等同 macOS Keychain，发布前需替换。
+- Tauri：`bundle.targets` 改为平台默认；sidecar 在 Windows 使用 `node-<triple>.exe`；Rust 随机数改用跨平台 OS RNG。
+- 非 macOS 的 EDA 窗口截图兜底显式 `EDA_WINDOW_CAPTURE_UNSUPPORTED`，不伪造证据。
+- 新增平台/凭据单测与 CI `portability-smoke`（ubuntu/windows/macos）。
+- **边界**：Windows/Ubuntu 尚未做真实 EDA 真机验收；不能宣称与 macOS 同等 AI 设计能力。矩阵见 `docs/agent/cross-platform-support.md`。
+
 ## 2. 验证记录
 
 Agent 范围独立测试合计：106（Runtime：token/auth/auth-http/console/console-http/approvals-http/plan-requests）+ 85（插件）+ 49（MCP：stdio+HTTP+认证）+ 18（独立验证）+ 22（MCP 独立复验）+ 35（控制台/审计独立复验）= **315 个用例，全部通过**；另有 Live Runtime 端到端 **9/9 PASS**、MCP HTTP + Live Runtime 端到端 **9/9 PASS**、真实 UI 深链 e2e **1/1 PASS**、计划级 UI 真实验收 **2/2 PASS**、真实 DSH 对话工具调用 **1/1 PASS**（`cp_status`）；UI 控制台另有 **21** 个 vitest 用例（整套 **218**）。

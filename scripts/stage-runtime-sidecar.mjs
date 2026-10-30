@@ -43,7 +43,7 @@ const CARGO_ARCH_TO_MACHO = { aarch64: 'arm64', x86_64: 'x86_64' };
 const arch = triple.split('-')[0];
 const machoArch = CARGO_ARCH_TO_MACHO[arch] ?? arch;
 const source = process.execPath;
-const target = path.join(outDir, `node-${triple}`);
+const target = path.join(outDir, `node-${triple}${process.platform === 'win32' ? '.exe' : ''}`);
 
 const sourceStat = fs.statSync(source);
 const manifest = fs.existsSync(manifestPath) ? JSON.parse(fs.readFileSync(manifestPath, 'utf8')) : null;

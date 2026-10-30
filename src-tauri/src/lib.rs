@@ -1,6 +1,6 @@
 use std::{
-    fs::{File, OpenOptions},
-    io::{Read, Write},
+    fs::OpenOptions,
+    io::Write,
     net::{SocketAddr, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
@@ -70,7 +70,8 @@ fn resolve_state_dir(app: &tauri::App) -> Option<PathBuf> {
 /// 返回值只含 [0-9a-f]，因此可以直接嵌进 JavaScript 字符串字面量而无需转义。
 fn generate_token() -> std::io::Result<String> {
     let mut bytes = [0u8; 32];
-    File::open("/dev/urandom")?.read_exact(&mut bytes)?;
+    // /dev/urandom 只在 Unix 存在；Windows 必须走 OS RNG，不能退化成时间/进程号。
+    getrandom::getrandom(&mut bytes).map_err(|error| std::io::Error::other(format!("OS RNG unavailable: {error}")))?;
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
@@ -79,16 +80,23 @@ fn generate_token() -> std::io::Result<String> {
 fn find_runtime_binary() -> Option<PathBuf> {
     if let Ok(executable) = std::env::current_exe() {
         if let Some(dir) = executable.parent() {
-            let bundled = dir.join("node");
+            let bundled = dir.join(if cfg!(windows) { "node.exe" } else { "node" });
             if bundled.is_file() {
                 return Some(bundled);
             }
         }
     }
-    let mut candidates: Vec<PathBuf> = ["/usr/local/bin/node", "/opt/homebrew/bin/node", "/usr/bin/node"]
-        .iter()
-        .map(PathBuf::from)
-        .collect();
+    let mut candidates: Vec<PathBuf> = if cfg!(windows) {
+        ["C:\\Program Files\\nodejs\\node.exe", "C:\\Program Files (x86)\\nodejs\\node.exe"]
+            .iter()
+            .map(PathBuf::from)
+            .collect()
+    } else {
+        ["/usr/local/bin/node", "/opt/homebrew/bin/node", "/usr/bin/node"]
+            .iter()
+            .map(PathBuf::from)
+            .collect()
+    };
     if let Some(path) = std::env::var_os("PATH") {
         candidates.extend(std::env::split_paths(&path).map(|dir| dir.join("node")));
     }

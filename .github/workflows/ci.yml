@@ -81,6 +81,26 @@ jobs:
             test-results/
           retention-days: 7
 
+  portability-smoke:
+    name: cross-platform Node smoke (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Platform/keychain contract tests
+        run: node --test runtime/__tests__/platform.test.mjs runtime/__tests__/portable-keychain.test.mjs runtime/__tests__/agent-token.test.mjs
+
   # 桌面壳层的编译与打包未包含在上面的 job 中：完整的 tauri build 需要 macOS runner
   # 与签名/公证凭据。这里只验证 Rust 代码本身能编译，并把打包留给发布流程。
   desktop-compile:

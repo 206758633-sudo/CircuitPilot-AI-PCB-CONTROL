@@ -39,3 +39,12 @@ test('E9：窗口位置读不到 / 截图失败 ⇒ 结构化错误（不返回�
   const failingShot = (command) => (command.includes('osascript') ? { status: 0, stdout: '0, 0, 800, 600' } : { status: 1, stderr: 'screencapture denied' });
   assert.throws(() => captureEdaWindow({ outDir: dir, spawnSync: failingShot }), (error) => error.code === 'EDA_WINDOW_CAPTURE_FAILED');
 });
+
+
+test('非 macOS：窗口截图兜底必须显式失败，不能伪造截图证据', () => {
+  assert.throws(() => captureEdaWindow({ outDir: '/tmp', platform: 'win32' }), (error) => {
+    assert.equal(error.code, 'EDA_WINDOW_CAPTURE_UNSUPPORTED');
+    assert.match(error.message, /尚未实现/);
+    return true;
+  });
+});

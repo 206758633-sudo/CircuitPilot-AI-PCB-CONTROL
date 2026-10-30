@@ -14,6 +14,7 @@ import { spawnSync as nodeSpawnSync } from 'node:child_process';
 export const EDA_WINDOW_CAPTURE_CODES = Object.freeze({
   BOUNDS_FAILED: 'EDA_WINDOW_BOUNDS_FAILED',
   CAPTURE_FAILED: 'EDA_WINDOW_CAPTURE_FAILED',
+  UNSUPPORTED: 'EDA_WINDOW_CAPTURE_UNSUPPORTED',
 });
 
 const APP_NAME = 'LCEDA-Pro';
@@ -28,7 +29,10 @@ export function parseWindowBounds(stdout) {
   return { x, y, width, height };
 }
 
-export function captureEdaWindow({ outDir, now = () => new Date(), spawnSync = nodeSpawnSync, captureExecutable = 'screencapture', osascript = 'osascript' } = {}) {
+export function captureEdaWindow({ outDir, now = () => new Date(), spawnSync = nodeSpawnSync, captureExecutable = 'screencapture', osascript = 'osascript', platform = process.platform } = {}) {
+  if (platform !== 'darwin') {
+    throw Object.assign(new Error(`当前平台 ${platform} 尚未实现 EDA 窗口截图兜底；请使用 CDP 截图或人工截图，不能伪造证据`), { code: EDA_WINDOW_CAPTURE_CODES.UNSUPPORTED, details: { platform } });
+  }
   if (!outDir) throw Object.assign(new Error('截图输出目录不能为空'), { code: EDA_WINDOW_CAPTURE_CODES.CAPTURE_FAILED });
   const boundsRun = spawnSync(osascript, ['-e', BOUNDS_SCRIPT], { encoding: 'utf8', timeout: 15_000 });
   if (boundsRun?.status !== 0) {
