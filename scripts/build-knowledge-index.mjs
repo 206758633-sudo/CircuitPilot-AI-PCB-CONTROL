@@ -22,7 +22,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const KB_DIR = join(ROOT, 'docs/knowledge');
 const DATASET_DIR = join(ROOT, 'knowledge/pcb/dataset');
 const OUT = join(KB_DIR, 'KNOWLEDGE-INDEX.md');
-const IGNORE = new Set(['README.md', 'conflict-register.md', 'KNOWLEDGE-INDEX.md']);
+const IGNORE = new Set(['README.md', 'conflict-register.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md']);
 const DIR_ORDER = ['pcb', 'schematic', 'components', 'cases', 'checklists', 'requirements'];
 
 const THEMES = [
@@ -201,6 +201,8 @@ const build = () => {
   lines.push('> npm run knowledge:index        # 重新生成');
   lines.push('> npm run knowledge:index:check  # 检查是否过期');
   lines.push('> ```');
+  lines.push('');
+  lines.push('> 关联图（派生视图）：[KNOWLEDGE-GRAPH.md](./KNOWLEDGE-GRAPH.md) — 看枢纽、孤岛、互链缺口、来源覆盖；不替代本索引，也不改变审核状态。');
   lines.push('');
   lines.push('本索引解决三个问题：');
   lines.push('');

@@ -35,7 +35,7 @@ const contentDocs = () => {
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
       if (statSync(full).isDirectory()) walk(full);
-      else if (name.endsWith('.md') && !['README.md', 'conflict-register.md', 'requirements.md', 'KNOWLEDGE-INDEX.md'].includes(name)) {
+      else if (name.endsWith('.md') && !['README.md', 'conflict-register.md', 'requirements.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md'].includes(name)) {
         found.push(relative(ROOT, full));
       }
     }

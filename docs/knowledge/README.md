@@ -8,9 +8,9 @@
 
 > 知识分层原则：候选（candidate）≠ 可用（approved）。本目录内容与脚本灌入条目一律按 `reference` 可信等级、`candidate` 审核状态入库；只有人工审核通过后，才允许被编排层作为门禁引用。**AI 不得自证知识正确。**
 >
-> **快速导航：** [知识点总索引（KNOWLEDGE-INDEX）](./KNOWLEDGE-INDEX.md) · [案例库](./cases/README.md) · [冲突登记](./conflict-register.md) · [本次全面整理审计](../implementation/knowledge-consolidation-2026-10-30.md)
+> **快速导航：** [知识点总索引（KNOWLEDGE-INDEX）](./KNOWLEDGE-INDEX.md) · [知识库关联图](./KNOWLEDGE-GRAPH.md) · [案例库](./cases/README.md) · [冲突登记](./conflict-register.md) · [本次全面整理审计](../implementation/knowledge-consolidation-2026-10-30.md)
 
-> 总索引把 **1,037 个 `KP-*` 知识点**按“领域 → 文档 → 文档内顺序”展开；每个文档同时标注结构化条目数。它是知识库的入口，不是替代原文。
+> 总索引把 **1,037 个 `KP-*` 知识点**按“领域 → 文档 → 文档内顺序”展开；每个文档同时标注结构化条目数。它是知识库的入口，不是替代原文。关联图是派生视图，用来发现枢纽、孤岛、互链缺口和来源覆盖，不改变正文或审核状态。
 
 ## 目录结构
 

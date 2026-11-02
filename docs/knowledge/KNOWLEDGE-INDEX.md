@@ -6,6 +6,8 @@
 > npm run knowledge:index:check  # 检查是否过期
 > ```
 
+> 关联图（派生视图）：[KNOWLEDGE-GRAPH.md](./KNOWLEDGE-GRAPH.md) — 看枢纽、孤岛、互链缺口、来源覆盖；不替代本索引，也不改变审核状态。
+
 本索引解决三个问题：
 
 1. **文档在哪里**：按 `pcb / schematic / components / cases / checklists / requirements` 分域列出，直接点进原文。
