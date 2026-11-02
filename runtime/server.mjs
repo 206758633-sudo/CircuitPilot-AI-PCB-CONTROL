@@ -84,6 +84,7 @@ import { createJsonStore } from './store.mjs';
 import { createProjectStateStore, createProjectScopedStore, sliceProjectState, assertProjectId, PROJECT_STATE_CODES } from './project-state.mjs';
 import { createIssueStateStore } from './issue-state.mjs';
 import { createValidationStateStore } from './validation-state.mjs';
+import { createSupervisor, SUPERVISOR_ATTENTION_STATUSES, SUPERVISOR_CODES, SUPERVISOR_STATUSES } from './supervisor.mjs';
 import { createTraceStateStore } from './trace-state.mjs';
 import { buildDiagnosticBundle } from './diagnostic-bundle.mjs';
 import { summarizeJournalRuns } from './automation/journal.mjs';
@@ -515,6 +516,58 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
   const issueStateStore = createIssueStateStore({ file: join(stateDir, 'issue-state.json') });
   // 复审计 P0-1：官方 ERC/DRC 结论必须持久化，否则刷新后 KPI/阶段证据蒸发。
   const validationStateStore = createValidationStateStore({ file: join(stateDir, 'validation-state.json') });
+  // C 方案 MVP：只读 Supervisor。它只聚合“已经发生、需要人处理”的事实，
+  // 不写 EDA、不签发批准、不自动修复；状态文件损坏时相关路由 503，不伪装为空队列。
+  let supervisor = null;
+  let supervisorError = null;
+  try {
+    supervisor = createSupervisor({ file: join(stateDir, 'supervisor-tickets.json') });
+  } catch (error) {
+    supervisorError = error;
+    logger.error('Supervisor', 'Supervisor 状态文件不可用：值守路由已禁用（fail-closed），请修复或移走 supervisor-tickets.json 后重启', {
+      file: join(stateDir, 'supervisor-tickets.json'), code: error?.code, message: error?.message,
+    });
+  }
+  const requireSupervisor = () => {
+    if (supervisor) return supervisor;
+    throw Object.assign(new Error('Supervisor 状态文件不可用（fail-closed）：请修复或移走 supervisor-tickets.json 后重启 Runtime'), {
+      code: SUPERVISOR_CODES.STORE_UNAVAILABLE, status: 503,
+      details: { storeCode: supervisorError?.code ?? null },
+    });
+  };
+  const scanSupervisor = () => {
+    const store = requireSupervisor();
+    try {
+      const validation = validationStateStore.load();
+      const issues = issueStateStore.load();
+      // listAll 包含 approved/rejected/consumed，用于把“已处理”的计划请求自动收口；
+      // 只把 pending 变成待办，终态不会出现在 attention 列表。
+      const planRequests = planRequestStore ? planRequestStore.listAll() : [];
+      return store.scan({
+        validations: validation.state.validations,
+        issues: issues.state.issues,
+        planRequests,
+      });
+    } catch (error) {
+      if (error?.code === SUPERVISOR_CODES.STORE_UNAVAILABLE || error?.code === SUPERVISOR_CODES.SOURCE_UNAVAILABLE) throw error;
+      throw Object.assign(new Error(`Supervisor 读取源状态失败（不把读失败当成没有待办）：${error?.message || error}`), {
+        code: SUPERVISOR_CODES.SOURCE_UNAVAILABLE, status: 503, details: { cause: error?.code || null },
+      });
+    }
+  };
+  const handleSupervisorTicketAction = async (request, url, action) => {
+    // 值守队列的人工动作只允许本机 UI：Agent 可以读，但不能替人“接单/忽略/关闭”。
+    if (request.agent) {
+      throw Object.assign(new Error('Agent 不能改变 Supervisor 的人工处理状态'), { code: 'AGENT_SUPERVISOR_ACTION_FORBIDDEN', status: 403 });
+    }
+    const ticketId = decodeURIComponent(url.pathname.split('/')[4] || '');
+    const body = await readBody(request);
+    const store = requireSupervisor();
+    const note = typeof body?.note === 'string' ? body.note : '';
+    const ticket = action === 'ack' ? store.ack(ticketId, { note }) : action === 'dismiss' ? store.dismiss(ticketId, { note }) : store.resolve(ticketId, { note });
+    logger.info('Supervisor', 'Supervisor ticket handled by UI', { ticketId, action });
+    return ticket;
+  };
   // 统一批准账本（C2）：设计计划批准 + 自动化写板批准共用一个哈希链；损坏时降级为内存并大声记日志。
   const approvalLedger = (() => {
     try {
@@ -1891,6 +1944,25 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         }
         const saved = validationStateStore.save(body.state);
         result = { ok: true, state: saved.state, savedAt: saved.savedAt, truncated: saved.truncated, total: saved.total };
+      } else if (method === 'GET' && url.pathname === '/api/supervisor/attention') {
+        // 只读值守队列：每次读取前扫描现有 Store，让 DRC/ERC、问题中心、计划审批的新事实及时出现。
+        const snapshot = scanSupervisor();
+        result = { ok: true, ...snapshot, tickets: snapshot.tickets.filter((ticket) => SUPERVISOR_ATTENTION_STATUSES.includes(ticket.status)) };
+        logger.info('Supervisor', 'Read-only attention scan completed', { total: snapshot.summary.total, attention: snapshot.summary.attention });
+      } else if (method === 'GET' && url.pathname === '/api/supervisor/tickets') {
+        const snapshot = scanSupervisor();
+        const status = url.searchParams.get('status');
+        if (status && status !== 'all' && !SUPERVISOR_STATUSES.includes(status)) {
+          throw Object.assign(new Error(`status 只能是 ${SUPERVISOR_STATUSES.join('/')} 或 all`), { code: SUPERVISOR_CODES.INVALID, status: 400 });
+        }
+        const tickets = !status || status === 'all' ? snapshot.tickets : snapshot.tickets.filter((ticket) => ticket.status === status);
+        result = { ok: true, ...snapshot, tickets };
+      } else if (method === 'POST' && /^\/api\/supervisor\/tickets\/[^/]+\/ack$/.test(url.pathname)) {
+        result = { ok: true, ticket: await handleSupervisorTicketAction(request, url, 'ack') };
+      } else if (method === 'POST' && /^\/api\/supervisor\/tickets\/[^/]+\/dismiss$/.test(url.pathname)) {
+        result = { ok: true, ticket: await handleSupervisorTicketAction(request, url, 'dismiss') };
+      } else if (method === 'POST' && /^\/api\/supervisor\/tickets\/[^/]+\/resolve$/.test(url.pathname)) {
+        result = { ok: true, ticket: await handleSupervisorTicketAction(request, url, 'resolve') };
       } else if (method === 'PUT' && url.pathname === '/api/trace-state') {
         const body = await readBody(request);
         if (!body || typeof body !== 'object' || !body.state || typeof body.state !== 'object' || Array.isArray(body.state)) {
@@ -4657,7 +4729,21 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
   // 没有 error 监听器时，EADDRINUSE / EACCES 会变成未捕获异常直接击穿进程；
   // 这里统一记录，便于定位“端口被占用”和“权限不足”。
   server.on('error', (error) => logger.error('Http', 'Runtime server error', { code: error.code, message: error.message, host: RUNTIME_HOST }));
-  server.on('close', () => chatManager.close?.());
+  // 只读巡检的常驻 tick：只读源 Store + 写 Supervisor 自己的 Ticket 文件，不碰 EDA。
+  // 失败只记日志，不能因为值守异常拖垮 Runtime 主链。
+  const supervisorTimer = setInterval(() => {
+    if (!supervisor) return;
+    try {
+      scanSupervisor();
+    } catch (error) {
+      logger.warn('Supervisor', 'Scheduled read-only scan failed', { code: error?.code, message: error?.message });
+    }
+  }, 30_000);
+  supervisorTimer.unref?.();
+  server.on('close', () => {
+    clearInterval(supervisorTimer);
+    chatManager.close?.();
+  });
   return { server, sessionToken, httpTokenIssuance };
 }
 

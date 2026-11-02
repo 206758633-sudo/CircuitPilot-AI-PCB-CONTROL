@@ -1823,3 +1823,75 @@ export interface AgentAuditEvent {
   executionId?: string | null;
   detail?: string | null;
 }
+
+/* ------------------------------------------------------------------
+ * C 方案：只读 Agent 值守队列（`GET /api/supervisor/attention`）
+ *
+ * Runtime 汇总 validation / issue / plan 的未收口事项，由只读 worker 给出建议；
+ * 前端只做展示与状态标记（接单/忽略/已解决），**不写 EDA、不自动执行任何操作**。
+ * ------------------------------------------------------------------ */
+
+export type SupervisorSource = 'validation' | 'issue' | 'plan';
+export type SupervisorSeverity = 'critical' | 'error' | 'warning' | 'info';
+export type SupervisorTicketStatus = 'open' | 'acknowledged' | 'blocked' | 'done' | 'dismissed';
+
+/** 证据引用：kind（如 drc-report/issue/plan）+ 可定位的 ref（路径/ID）+ 可选 digest。 */
+export interface SupervisorEvidenceRef {
+  kind: string;
+  ref: string;
+  digest?: string | null;
+}
+
+/** 票据指向的板/文档（都可能为空；UI 只用于展示，不据此做任何写入）。 */
+export interface SupervisorTicketSubject {
+  projectId?: string;
+  pcbUuid?: string;
+  documentUuid?: string;
+  boardId?: string;
+}
+
+/** 值守 worker 的建议（verdict/steps 是解释性文本，不代表已执行）。 */
+export interface SupervisorTicketWorker {
+  name: string;
+  verdict: string;
+  steps: string[];
+}
+
+export interface SupervisorTicket {
+  ticketId: string;
+  fingerprint: string;
+  source: SupervisorSource;
+  severity: SupervisorSeverity;
+  status: SupervisorTicketStatus;
+  title: string;
+  summary: string;
+  projectId: string | null;
+  subject: SupervisorTicketSubject | null;
+  evidence: SupervisorEvidenceRef[];
+  suggestedAction: string;
+  worker: SupervisorTicketWorker;
+  createdAt: string;
+  updatedAt: string;
+  lastSeenAt: string;
+  sourceUpdatedAt: string | null;
+  dueAt: string | null;
+  acknowledgedAt: string | null;
+  closedAt: string | null;
+  note: string;
+  occurrences: number;
+}
+
+export interface SupervisorSummary {
+  total: number;
+  attention: number;
+  byStatus: Record<SupervisorTicketStatus, number>;
+  bySeverity: Record<SupervisorSeverity, number>;
+  bySource: Record<SupervisorSource, number>;
+}
+
+/** `GET /api/supervisor/attention` 的视图（不含 ok）。 */
+export interface SupervisorAttentionView {
+  generatedAt: string;
+  summary: SupervisorSummary;
+  tickets: SupervisorTicket[];
+}

@@ -1,4 +1,4 @@
-import type { Finding, ValidationCheck } from '../types';
+import type { Finding, IssueRecord, ValidationCheck } from '../types';
 
 /**
  * P0-3：验证结果的"官方投影"——真实 ERC/DRC 结论的唯一落点。
@@ -25,6 +25,60 @@ export type OfficialValidationEngine = typeof OFFICIAL_VALIDATION_ENGINES[number
 export type EdaWorkspaceIdentity =
   | { ok: true; projectUuid: string }
   | { ok: false; reason: 'no-binding' | 'unknown' | 'mismatch'; boundProjectUuid: string | null; currentProjectUuid: string | null };
+
+/**
+ * 从 EDA `project.current` 的命令结果里读工程 UUID。
+ *
+ * 真机 2026-11-02 实测：Runtime 的 `/api/eda/commands/project.current` 返回的是
+ * `{ command: { result: { success: true, result: { data: [Board...] } } } }`，
+ * 工程 UUID 在 Board 的 `parentProjectUuid`；旧代码只认顶层 `uuid/id/data[0].uuid`，
+ * 于是把"已绑定且当前就是同一工程"误判成 unknown，官方 DRC 被 fail-closed 阻断。
+ * 这里按"显式 projectUuid → parentProjectUuid → 旧版 uuid/id"降级读取，不猜板 UUID。
+ */
+export function edaProjectUuidFromCommandResult(input: unknown): string | null {
+  const seen = new Set<object>();
+  const read = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed || null;
+  };
+  const walk = (node: unknown, depth: number): string | null => {
+    if (!node || typeof node !== 'object' || depth > 6) return null;
+    if (seen.has(node)) return null;
+    seen.add(node);
+    const record = node as Record<string, unknown>;
+    const explicit = read(record.projectUuid) || read(record.parentProjectUuid);
+    if (explicit) return explicit;
+    if (Array.isArray(record.data)) {
+      for (const item of record.data) {
+        if (!item || typeof item !== 'object') continue;
+        const board = item as Record<string, unknown>;
+        const parent = read(board.parentProjectUuid);
+        if (parent) return parent;
+      }
+      // 旧版命令结果可能把工程 UUID 放在 data[0].uuid（不是 Board 的 uuid）。
+      for (const item of record.data) {
+        if (!item || typeof item !== 'object') continue;
+        const legacy = read((item as Record<string, unknown>).uuid);
+        if (legacy) return legacy;
+      }
+    }
+    // 旧版桥把 `{uuid:'P1'}` 或 `{id:'P1'}` 直接作为 result；仅在没有 data/result/command 时采用，
+    // 且排除命令名本身（`project.current`）以免把字符串 id 当工程 UUID。
+    if (!('data' in record) && !('result' in record) && !('command' in record)) {
+      const legacy = read(record.uuid) || read(record.id);
+      if (legacy && !legacy.includes('.')) return legacy;
+    }
+    for (const key of ['result', 'command']) {
+      if (key in record) {
+        const found = walk(record[key], depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  return walk(input, 0);
+}
 
 export function edaWorkspaceIdentity(boundProjectUuid: string | null | undefined, currentProjectUuid: string | null | undefined): EdaWorkspaceIdentity {
   const bound = typeof boundProjectUuid === 'string' && boundProjectUuid.trim() ? boundProjectUuid.trim() : null;
@@ -157,4 +211,23 @@ export function mergeDemoValidationRun(validations: ValidationCheck[], simulated
     .filter((item) => !officialIds.has(item.id))
     .map((item) => ({ ...item, source: 'demo' as const }));
   return [...official, ...demo];
+}
+
+
+/**
+ * 源修复自动收口（2026-11-02 真机闭环发现）：
+ * 官方检查通过后，同一 checkId 下仍 open 的旧问题必须自动 resolved，
+ * 否则问题中心/值守队列会永远停在旧 DRC 工单（验证记录已经 pass，问题却还 open）。
+ *
+ * 安全边界：只在 official + pass + count===0 + 有 projectId 时收口；
+ * 只收 context.checkId 与当前记录完全一致的同项目问题，绝不按标题/严重度模糊匹配。
+ */
+export function autoResolvableOfficialIssueIds(issues: readonly IssueRecord[], record: ValidationCheck): string[] {
+  if (record.source !== 'official' || record.status !== 'pass' || record.count !== 0 || !record.projectId) return [];
+  return issues
+    .filter((issue) => issue.status === 'open'
+      && issue.source === 'validation'
+      && issue.context?.checkId === record.id
+      && issue.context?.projectId === record.projectId)
+    .map((issue) => issue.id);
 }

@@ -9,7 +9,7 @@ import { createLongTask, createSingleCallTask, type LongTaskSnapshot, type Singl
 import { LongTaskPanel } from '../components/LongTaskPanel';
 import type { EdaWindow, ErcConvergenceSummary, ErcDetailMeta, ErcEvidenceEntry, ErcFinding, ErcReport, ApprovalLedgerSnapshot, DfmEvidenceEntry, DrcEvidenceEntry, DrcReport, EngineeringAnalysis, FabricationOrderCard, Finding, ProductionExportResult, ReleaseGateReport, PcbSyncVerification, SchematicRepairReport, SignoffEvidenceEntry, SupplyPricingEvidence, OrderConfirmationPayload, ValidationCheck } from '../types';
 import { gateStatusLabel, gateStatusTone, groupBlockers, summarizeGate, summarizeOutputDecision } from '../services/placementViewModel';
-import { buildOfficialValidationRecord, drcItemsToValidationFindings, edaWorkspaceIdentity, ercFindingsToValidationFindings, mergeDemoValidationRun, mergeValidationRecord, officialValidationsForProject, validationKpis } from '../services/validationEvidence';
+import { autoResolvableOfficialIssueIds, buildOfficialValidationRecord, drcItemsToValidationFindings, edaProjectUuidFromCommandResult, edaWorkspaceIdentity, ercFindingsToValidationFindings, mergeDemoValidationRun, mergeValidationRecord, officialValidationsForProject, validationKpis } from '../services/validationEvidence';
 import { releaseBindingRequestFields } from '../services/releaseBindingStore';
 import { tryAdvanceProjectStage } from '../services/stageEvidence';
 import { Badge, Button, CopyValue, Field, Panel, Progress, Stat, TableFrame } from '../components/ui';
@@ -182,7 +182,7 @@ export function ErcDetailEvidence({ report, ercDetail = null, onCreateFixTask }:
 }
 
 export function ValidationPage() {
-  const { state, dispatch, notify, addAudit, reportIssue, reportFailure, navigate, activeProject } = useApp();
+  const { state, dispatch, notify, addAudit, reportIssue, reportFailure, updateIssue, navigate, activeProject } = useApp();
   const [running, setRunning] = useState(false);
   const [selected, setSelected] = useState<ValidationCheck | null>(null);
   const [waive, setWaive] = useState<{ check: ValidationCheck; finding: Finding } | null>(null);
@@ -345,6 +345,11 @@ export function ValidationPage() {
         suggestedAction: '在验证页定位并修复；需要豁免时登记理由后重新运行官方检查。',
       });
     }
+    // 源修复自动收口：同一 checkId 的旧问题在官方通过后自动 resolved，
+    // 避免验证记录已经 pass、问题中心/值守队列却仍挂着旧故障。
+    for (const issueId of autoResolvableOfficialIssueIds(state.issues, record)) {
+      updateIssue(issueId, 'resolved', `官方${record.name}重新取证通过（${record.evidence?.digest?.slice(0, 12) || '无摘要'}），自动收口`);
+    }
     // 官方 DRC 通过时按同一套阶段证据规则尝试相邻推进（没有项目/证据不足时保持不动）。
     if (activeProject && record.name === 'DRC' && record.status === 'pass') {
       const projectedState = {
@@ -459,9 +464,10 @@ export function ValidationPage() {
       return false;
     }
     try {
-      const info = await runtimeClient.executeCommand('project.current') as { result?: { uuid?: unknown; id?: unknown; data?: Array<{ uuid?: unknown }> } } | undefined;
-      const project = info?.result;
-      const currentUuid = String(project?.uuid || project?.id || project?.data?.[0]?.uuid || '').trim() || null;
+      const info = await runtimeClient.executeCommand('project.current');
+      // 兼容旧版 `{uuid}`、旧版 `{data:[{uuid}]}` 与真机当前的嵌套 `{result:{data:[Board]}}`；
+      // 工程 UUID 从 Board.parentProjectUuid 读取，绝不拿 PCB/Schematic 的 uuid 冒充工程。
+      const currentUuid = edaProjectUuidFromCommandResult(info);
       const identity = edaWorkspaceIdentity(boundProjectUuid, currentUuid);
       if (identity.ok) return true;
       if (identity.reason === 'unknown') {

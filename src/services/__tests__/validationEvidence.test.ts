@@ -1,7 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import { createSeedState } from '../../data/seed';
-import type { ValidationCheck } from '../../types';
-import { buildOfficialValidationRecord, drcItemsToValidationFindings, edaWorkspaceIdentity, ercFindingsToValidationFindings, mergeDemoValidationRun, mergeValidationRecord, officialValidationsForProject, validationKpis } from '../validationEvidence';
+import type { IssueRecord, ValidationCheck } from '../../types';
+import { autoResolvableOfficialIssueIds, buildOfficialValidationRecord, drcItemsToValidationFindings, edaProjectUuidFromCommandResult, edaWorkspaceIdentity, ercFindingsToValidationFindings, mergeDemoValidationRun, mergeValidationRecord, officialValidationsForProject, validationKpis } from '../validationEvidence';
+
+describe('EDA 工程身份：只读 project.current 的多种返回形状', () => {
+  it('真机嵌套 Board 结果从 parentProjectUuid 读工程 UUID，不拿 PCB/Schematic UUID 冒充', () => {
+    const actual = {
+      id: 'project.current',
+      permission: 'read',
+      result: {
+        success: true,
+        result: {
+          data: [{
+            itemType: 'Board',
+            name: 'Board1',
+            parentProjectUuid: '8e652031ec18479898e77d5a9b5ef7a9',
+            pcb: { uuid: '9ab008aa6dfb92c2' },
+            schematic: { uuid: '738a71eb6fa3da56' },
+          }],
+        },
+      },
+    };
+    expect(edaProjectUuidFromCommandResult(actual)).toBe('8e652031ec18479898e77d5a9b5ef7a9');
+  });
+
+  it('兼容旧版 {uuid}/{id}/{data:[{uuid}]}，且不把命令名 project.current 当 UUID', () => {
+    expect(edaProjectUuidFromCommandResult({ id: 'project.current', permission: 'read', result: { uuid: 'P1' } })).toBe('P1');
+    expect(edaProjectUuidFromCommandResult({ id: 'project.current', permission: 'read', result: { id: 'P2' } })).toBe('P2');
+    expect(edaProjectUuidFromCommandResult({ id: 'project.current', permission: 'read', result: { data: [{ uuid: 'P3' }] } })).toBe('P3');
+    expect(edaProjectUuidFromCommandResult({ id: 'project.current', permission: 'read', result: { data: [] } })).toBeNull();
+  });
+});
 
 describe('P0-3 验证结果单一来源：官方记录 + 项目域 + KPI', () => {
   it('seed 预置记录不是真实覆盖：全新安装显示 0%，不会出现"已验证 75%"', () => {
@@ -117,5 +146,47 @@ describe('P1-1 复审 2026-10-29：官方取证前的 EDA 工程身份判定（f
   it('跨工程 → mismatch，并带回两边 uuid 供定位', () => {
     const result = edaWorkspaceIdentity('proj-1', 'proj-2');
     expect(result).toMatchObject({ ok: false, reason: 'mismatch', boundProjectUuid: 'proj-1', currentProjectUuid: 'proj-2' });
+  });
+});
+
+
+describe('源修复自动收口：官方通过后只关闭同一 checkId / 同项目的旧问题', () => {
+  const issue = (overrides: Partial<IssueRecord>): IssueRecord => ({
+    id: 'issue-1',
+    fingerprint: 'fp-1',
+    source: 'validation',
+    severity: 'error',
+    status: 'open',
+    code: 'Netlist Error',
+    summary: 'DRC：Netlist Error',
+    detail: 'detail',
+    firstOccurredAt: '2026-11-02 10:38',
+    lastOccurredAt: '2026-11-02 10:38',
+    occurrences: 1,
+    context: { checkId: 'official-drc-p1', projectId: 'p1' },
+    handling: [],
+    ...overrides,
+  });
+  const pass = (overrides: Partial<ValidationCheck> = {}): ValidationCheck => ({
+    ...buildOfficialValidationRecord({ engine: 'DRC', projectId: 'p1', description: '官方 DRC', status: 'pass', count: 0, findings: [], evidence: { engine: 'DRC', digest: 'd'.repeat(64), path: '/tmp/drc.json' } }),
+    ...overrides,
+  });
+
+  it('通过时收口同 checkId 同项目的 open validation 问题', () => {
+    const record = pass();
+    const issues = [
+      issue({ id: 'old-drc' }),
+      issue({ id: 'other-check', context: { checkId: 'official-drc-p2', projectId: 'p1' } }),
+      issue({ id: 'other-project', context: { checkId: 'official-drc-p1', projectId: 'p2' } }),
+      issue({ id: 'already-resolved', status: 'resolved' }),
+      issue({ id: 'not-validation', source: 'runtime' }),
+    ];
+    expect(autoResolvableOfficialIssueIds(issues, record)).toEqual(['old-drc']);
+  });
+
+  it('失败/非零/非官方/无项目都不自动收口，避免误关', () => {
+    expect(autoResolvableOfficialIssueIds([issue({})], pass({ status: 'fail', count: 1 }))).toEqual([]);
+    expect(autoResolvableOfficialIssueIds([issue({})], pass({ source: 'demo' }))).toEqual([]);
+    expect(autoResolvableOfficialIssueIds([issue({})], pass({ projectId: undefined }))).toEqual([]);
   });
 });

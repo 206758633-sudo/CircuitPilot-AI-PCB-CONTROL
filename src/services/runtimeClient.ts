@@ -414,6 +414,29 @@ export const runtimeClient = {
   async rotateAgentToken() {
     return request<{ ok: true; agent: import('../types').AgentTokenStatus }>('/api/agent/token/rotate', { method: 'POST', body: JSON.stringify({}) });
   },
+  /**
+   * C 方案：只读 Agent 值守队列（Runtime 汇总 validation/issue/plan 未收口事项）。
+   * 纯读：不触发任何 EDA 写入；旧 Runtime 无该路由时由调用方按 RuntimeApiError.status 降级。
+   */
+  async getSupervisorAttention() {
+    const result = await request<{ ok: true } & import('../types').SupervisorAttentionView>('/api/supervisor/attention');
+    return { generatedAt: result.generatedAt, summary: result.summary, tickets: result.tickets };
+  },
+  /** 接单（ack）：只改票据状态，不代表修复；body 可带备注。 */
+  async ackSupervisorTicket(ticketId: string, body: { note?: string } = {}) {
+    const result = await request<{ ok: true; ticket: import('../types').SupervisorTicket }>(`/api/supervisor/tickets/${encodeURIComponent(ticketId)}/ack`, { method: 'POST', body: JSON.stringify(body) });
+    return result.ticket;
+  },
+  /** 忽略（dismiss）：只改票据状态，证据仍保留在审计里。 */
+  async dismissSupervisorTicket(ticketId: string, body: { note?: string } = {}) {
+    const result = await request<{ ok: true; ticket: import('../types').SupervisorTicket }>(`/api/supervisor/tickets/${encodeURIComponent(ticketId)}/dismiss`, { method: 'POST', body: JSON.stringify(body) });
+    return result.ticket;
+  },
+  /** 标记已解决（resolve）：只改票据状态；是否真的修好仍由官方验证/门禁证据决定。 */
+  async resolveSupervisorTicket(ticketId: string, body: { note?: string } = {}) {
+    const result = await request<{ ok: true; ticket: import('../types').SupervisorTicket }>(`/api/supervisor/tickets/${encodeURIComponent(ticketId)}/resolve`, { method: 'POST', body: JSON.stringify(body) });
+    return result.ticket;
+  },
   /** UI 只读：已签发但尚未使用/撤销/过期的计划批准（不含 token/tokenDigest）。 */
   async agentApprovals() {
     return request<{ ok: true; total: number; approvals: import('../types').AgentPendingApproval[] }>('/api/agent/approvals');

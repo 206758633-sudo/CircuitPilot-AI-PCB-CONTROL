@@ -9,6 +9,7 @@ function go(hash: string) {
 import { STAGE_ORDER, stageProgress } from '../services/stageMachine';
 import { validationKpis } from '../services/validationEvidence';
 import { GUIDED_FLOW } from '../navigation';
+import { SupervisorPanel } from '../components/SupervisorPanel';
 
 const stageOrder = STAGE_ORDER;
 
@@ -159,6 +160,8 @@ export function OverviewPage() {
           </div>
         </section>
       </div>
+
+      <SupervisorPanel />
 
       <section className="ov-card">
         <div className="ov-card__head"><div><h3>最近发生了什么</h3><p>只保留影响设计判断的事件，可追溯到版本。</p></div><button type="button" className="button button--ghost button--sm" onClick={() => navigate('versions')}>查看全部</button></div>

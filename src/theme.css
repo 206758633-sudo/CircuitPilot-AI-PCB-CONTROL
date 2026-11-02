@@ -1091,3 +1091,49 @@ td details pre { font-size: var(--fs-meta); }
 /* 指纹/长键值：逐行紧凑展示，避免 jobId/pcbUuid 在统计卡里散成一行乱折 */
 .fingerprint-value { display: grid; gap: 2px; line-height: 1.5; font-family: var(--font-mono); font-size: var(--fs-meta); overflow-wrap: anywhere; }
 .fingerprint-value code { background: transparent; padding: 0; }
+
+/* ---------- 18) 只读 Agent 值守队列（C 方案，v3.1） ---------- */
+.supervisor { display: grid; gap: 10px; min-width: 0; }
+.supervisor__note {
+  display: flex; align-items: flex-start; gap: 7px; margin: 0;
+  padding: 9px 11px; color: var(--ink-2);
+  background: var(--paper-2); border: 1px solid var(--line);
+  border-left: 3px solid var(--green); border-radius: var(--r-s);
+  font-size: var(--fs-meta); line-height: 1.6;
+}
+.supervisor__note svg { flex: none; margin-top: 1px; color: var(--green-dark); }
+.supervisor__note strong { color: var(--ink); }
+.supervisor__retry { display: inline-flex; margin-top: 6px; }
+.supervisor__list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.supervisor__empty { min-height: 120px; }
+.supervisor__foot { margin: 0; color: var(--muted); font-size: var(--fs-meta); line-height: 1.6; }
+
+.supervisor-ticket {
+  display: grid; gap: 5px; min-width: 0;
+  padding: 11px 12px; background: var(--surface);
+  border: 1px solid var(--line); border-left: 3px solid var(--line-strong);
+  border-radius: var(--r-m);
+}
+.supervisor-ticket--critical, .supervisor-ticket--error { border-left-color: var(--red); }
+.supervisor-ticket--warning { border-left-color: var(--yellow); }
+.supervisor-ticket--info { border-left-color: var(--blue); }
+.supervisor-ticket__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.supervisor-ticket__badges { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
+.supervisor-ticket__time { color: var(--muted); font-size: var(--fs-meta); white-space: nowrap; }
+.supervisor-ticket__title { font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.supervisor-ticket__summary { margin: 0; color: var(--ink-2); font-size: var(--fs-meta); line-height: 1.6; overflow-wrap: anywhere; }
+.supervisor-ticket__action { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 0; color: var(--ink-2); font-size: var(--fs-meta); line-height: 1.55; }
+.supervisor-ticket__action > span,
+.supervisor-ticket__evidence > span,
+.supervisor-ticket__worker > span { flex: none; color: var(--orange-dark); font-weight: 600; }
+.supervisor-ticket__evidence,
+.supervisor-ticket__worker { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 0; color: var(--muted); font-size: var(--fs-meta); line-height: 1.55; min-width: 0; }
+.supervisor-ticket__evidence code { padding: 1px 5px; background: var(--paper-3); border-radius: 5px; font-size: calc(var(--fs-meta) - 1px); overflow-wrap: anywhere; }
+.supervisor-ticket__worker small { overflow-wrap: anywhere; }
+.supervisor-ticket__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 2px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.supervisor-ticket__buttons { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.supervisor-ticket button:focus-visible, .supervisor__retry button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+@media (max-width: 1180px) {
+  .supervisor-ticket__foot { align-items: flex-start; }
+  .supervisor-ticket__time { white-space: normal; }
+}

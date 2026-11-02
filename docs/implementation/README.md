@@ -16,6 +16,7 @@
 - **想跑起来/验收**：[live-e2e-runbook.md](live-e2e-runbook.md)（真机 live 前置、环境变量、失败证据位置）→ 根目录 `README.md` 的启动与 `npm run acceptance`。
 - **想看全链设计**：[ai-desktop-automation-plan.md](ai-desktop-automation-plan.md)（AI 决策 + 确定性配方 + 双通道）→ [real-ai-eda-runtime-2026-08-24.md](real-ai-eda-runtime-2026-08-24.md)。
 - **想看 PCB 工程规则**：[pcba-layout-rules-integration.md](pcba-layout-rules-integration.md) → `docs/pcb-layout/` 下的规则包与基线。
+- **想看 Agent 值守**：[supervisor-readonly-2026-11-02.md](supervisor-readonly-2026-11-02.md)（只读聚合、Ticket 生命周期、不写 EDA/不绕过批准）。
 - **想看生产/放行**：[production-implementation-2026-08-25.md](production-implementation-2026-08-25.md) → [pcb-production-runtime-2026-08-24.md](pcb-production-runtime-2026-08-24.md) → [net-application-runbook.md](net-application-runbook.md)。
 - **想看差距审计（历史快照）**：[current-flow-gap-audit-2026-10-19.md](current-flow-gap-audit-2026-10-19.md)、[end-to-end-gap-audit.md](end-to-end-gap-audit.md)——注意它们是**当时**的结论，现状以 checklist 为准。
 - **想看任务矩阵/历史**：[task-matrix.md](task-matrix.md)、[whole-board-progress.md](whole-board-progress.md)。
@@ -24,7 +25,7 @@
 
 ```bash
 npm run acceptance   # typecheck + vitest + runtime + build + 路由契约 + e2e-app；真机项按显式开关 SKIP
-npm run test:runtime # 只跑 runtime node:test（含 116 条 HTTP 路由契约）
+npm run test:runtime # 只跑 runtime node:test（含 HTTP 路由契约）
 npx vitest run       # 前端单测
 ```
 
