@@ -1,0 +1,928 @@
+{
+  "entries": [
+    {
+      "kind": "rule",
+      "title": "嘉立创线宽/线距能力分档：最小值是制造下限，不是设计目标",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-JLC-TRACE-001",
+        "category": "布线/间距",
+        "severity": "warning",
+        "statement": "常规 FR-4 走线最小线宽/线距按成品铜厚取档：1oz 单双面 0.10/0.10mm、多层 0.09/0.09mm；2oz 双面 0.16/0.16mm、多层 0.15/0.15mm；2.5/3.5/4.5/5/6oz 分别为 0.20/0.25/0.30/0.35/0.45mm；HDI 3/3mil（极限 2.7/2.7mil）。线宽公差 ±20%，贴极限设计要按公差下限核算；常规信号建议 ≥0.15–0.2mm（6–8mil），仅 BGA/连接器扇出局部用 3.5–4mil 且要短。",
+        "limits": [
+          "1oz 单双面 0.10/0.10mm（4/4mil）",
+          "1oz 多层 0.09/0.09mm（3.5/3.5mil），BGA 局部 3mil",
+          "2oz 双面 0.16/0.16mm、多层 0.15/0.15mm",
+          "线宽公差 ±20%（0.1mm 允许 0.08–0.12mm）",
+          "焊盘边到线边 ≥0.10mm（BGA ≥0.09mm）",
+          "HDI 3/3mil，极限 2.7/2.7mil"
+        ],
+        "rationale": "最小线宽/线距是板厂在特定铜厚/产线下能稳定做出来的极限，不是设计目标；线宽公差 ±20% 与蚀刻、铜厚波动会吃掉余量，贴极限的板换厂/换批次风险最高。",
+        "check": "按网络类别（信号/电源支路/电源主干/大电流/地）建 net-class，线宽来自载流/压降预算而不是能力表最小值；DFM 检查 widthUnderSpec/widthMismatch；投板前按当日能力表复核。",
+        "appliesTo": [
+          "digital",
+          "power",
+          "high-density",
+          "bga",
+          "general"
+        ],
+        "tags": [
+          "线宽",
+          "线距",
+          "嘉立创",
+          "工艺能力",
+          "net-class"
+        ],
+        "sources": [
+          "SRC-JLC-CAP-CN"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "过孔四件事：孔径/外径/孔环/孔边到孔边 + 盘中孔工艺声明",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-JLC-VIA-001",
+        "category": "过孔/工艺",
+        "severity": "warning",
+        "statement": "过孔按「内径/外径」设计：双面/多层板最小 0.15/0.25mm，外径−内径 ≥0.1mm（推荐 ≥0.15mm）；最小孔建议 ≥0.2mm；多层板有铜过孔焊环建议 ≥0.20mm（极限 0.15mm），双面建议 ≥0.25mm（极限 0.18mm）；过孔孔边到孔边 ≥0.2mm，插件孔 ≥0.45mm。盘中孔（树脂/铜浆塞孔+电镀盖帽）支持 0.15–0.55mm、盖帽铜厚 ≥10um，6 层及以上默认树脂塞孔；盘中孔必须在下单时声明工艺，否则按普通过孔开窗（漏锡/虚焊风险）。",
+        "limits": [
+          "多层/双面最小过孔 0.15/0.25mm",
+          "外径−内径 ≥0.1mm（推荐 0.15mm）",
+          "孔环：多层建议 ≥0.20mm / 双面 ≥0.25mm（极限 0.15/0.18mm）",
+          "孔边到孔边 ≥0.2mm；插件孔 ≥0.45mm",
+          "盘中孔 0.15–0.55mm，盖帽铜厚 ≥10um",
+          "过孔塞油墨 0.15–0.5mm，单面开窗 <0.4mm 只能半塞"
+        ],
+        "rationale": "孔环不足会破环；孔太密在钻孔/沉铜时易破孔或 CAF；盘中孔不塞孔会在回流焊漏锡、虚焊；半塞油可能透光。",
+        "check": "统一过孔库（如 0.3/0.6mm 或 0.2/0.45mm）；BGA/QFN 散热焊盘多孔+盖油；信号盘中孔集中列清单并声明树脂塞孔+盖帽；DFM 检查 viaInPad/overlapVia/plugClearance。",
+        "appliesTo": [
+          "bga",
+          "qfn",
+          "power",
+          "high-density",
+          "general"
+        ],
+        "tags": [
+          "过孔",
+          "孔环",
+          "盘中孔",
+          "塞孔",
+          "嘉立创"
+        ],
+        "sources": [
+          "SRC-JLC-CAP-CN",
+          "SRC-LCEDA-WIKI-PWR-VIA",
+          "SRC-LCEDA-WIKI-VIA-MASK"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "阻焊桥/开窗/丝印：投板前一次性收口",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-JLC-MASK-001",
+        "category": "阻焊",
+        "severity": "warning",
+        "statement": "阻焊桥按焊盘间距设计：1oz 铜厚焊盘间距 ≥0.10mm（绿/红/黄/蓝/紫油墨）、≥0.13mm（黑/白油墨）；2oz ≥0.20mm。2025-06 起嘉立创用 LDI，焊盘与开窗 1:1，客户可按单边 ≥0.02mm 设计，开窗补偿过大（如 0.05mm/边）会把阻焊桥挤没。丝印字符高度 ≥1mm、粗细 ≥0.1mm、到露铜焊盘间隙 ≥0.15mm（低于此值会掏空字符）。",
+        "limits": [
+          "1oz 阻焊桥 ≥0.10mm（黑白油墨 ≥0.13mm）",
+          "2oz 阻焊桥 ≥0.20mm",
+          "开窗:焊盘 = 1:1；客户补偿建议 ≤0.02mm/边",
+          "字符高 ≥1mm、粗 ≥0.1mm、离露铜焊盘 ≥0.15mm",
+          "阻焊厚度 ≥10um"
+        ],
+        "rationale": "阻焊桥不够会连锡；字符 <1mm 印不清；字符压焊盘会被掏空/上焊盘；开窗补偿过大是阻焊桥不足的常见隐藏原因。",
+        "check": "下单前跑 DFM 检查 silkOverPad/silkFlipped；阻焊开窗补偿取 1:1 或 ≤0.02mm/边；丝印字号 ≥1mm、位号统一方向、避开焊盘；必要时请板厂按 LDI 1:1 复核桥宽。",
+        "appliesTo": [
+          "general",
+          "high-density",
+          "dfm"
+        ],
+        "tags": [
+          "阻焊",
+          "阻焊桥",
+          "丝印",
+          "文字",
+          "嘉立创"
+        ],
+        "sources": [
+          "SRC-JLC-CAP-CN",
+          "SRC-JLC-GUIDE-MASK",
+          "SRC-LCEDA-WIKI-SILKSCREEN"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "板边、V 割、邮票孔与工艺边：拼板方式要在下单前定",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-JLC-EDGE-001",
+        "category": "板边/拼板",
+        "severity": "error",
+        "statement": "锣边处走线/焊盘距板边 ≥0.2mm；V 割处走线/焊盘距板边 ≥0.4mm；邮票孔处非孔位走线/焊盘距板边 ≥0.2mm。V 割拼板尺寸 70–475mm；邮票孔 0.6mm、每组 5–8 个、孔边间隙 0.35–0.4mm、拼板间隙 1.6/2mm（最小 1.2mm）；工艺边常规 3mm（SMT 建议 5mm），光点 1mm、定位孔 2mm、光点中心到板边 3.85mm。",
+        "limits": [
+          "锣边 ≥0.2mm",
+          "V 割 ≥0.4mm；V 割拼板 70–475mm",
+          "邮票孔区 ≥0.2mm；孔 0.6mm、5–8 个/组",
+          "工艺边 3mm（SMT 5mm）",
+          "光点中心到板边 3.85mm",
+          "外形公差 ±0.2mm（普锣）/±0.1mm（精锣）"
+        ],
+        "rationale": "走线距板边太近，锣边会露铜/毛刺；V 割处 <0.4mm 会切到铜；拼板方式与工艺边/光点/定位孔没定，SMT 夹具与分板都会出问题。",
+        "check": "下单前画拼板图：V 割/邮票孔/半孔方式、工艺边、光点、定位孔、分板间隙；板边器件与走线留 0.2–0.4mm；DFM 检查 copperNearEdge/内部器件到板边。",
+        "appliesTo": [
+          "general",
+          "panelization",
+          "assembly",
+          "dfm"
+        ],
+        "tags": [
+          "板边",
+          "V割",
+          "邮票孔",
+          "拼板",
+          "工艺边",
+          "嘉立创"
+        ],
+        "sources": [
+          "SRC-JLC-CAP-CN",
+          "SRC-JLC-GUIDE-PANEL",
+          "SRC-JLC-GUIDE-VCUT",
+          "SRC-JLC-GUIDE-STAMP"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "阻抗与层压：先选板厂现成层压，再决定是否付费 ±10%",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-JLC-IMP-001",
+        "category": "叠层/多层",
+        "severity": "warning",
+        "statement": "有阻抗要求建议 4 层及以上；免费档只管控线宽/线隙 ±20%，收费精密阻抗测试管控阻抗值 ±10%。层压结构优先选板厂现成方案（4/6/8/10/12/14/16/18/20 层，最高 64 层），自行设计需工程核算；板厚公差 ≥1.0mm 时 ±10%、<1.0mm 时 ±0.1mm。内层铜厚常见 0.5/1/2oz，内层 0.5oz 载流能力差。",
+        "limits": [
+          "免费阻抗：线宽线隙 ±20%",
+          "精密阻抗：阻抗值 ±10%（收费）",
+          "有阻抗要求建议 4 层及以上",
+          "板厚公差：≥1.0mm ±10%；<1.0mm ±0.1mm",
+          "内层铜厚 0.5/1/2oz"
+        ],
+        "rationale": "板厂默认只保证线宽线隙 ±20%，不保证阻抗值；叠层不同、介质厚度不同，同一线宽的阻抗差很多。",
+        "check": "用板厂层压结构/阻抗计算器出线宽线距；把阻抗层、参考层、目标值写进叠层表随单；单端/差分分列；换层处加回流地过孔；投板前确认阻抗管控文件。",
+        "appliesTo": [
+          "usb",
+          "ethernet",
+          "ddr",
+          "pcie",
+          "general"
+        ],
+        "tags": [
+          "阻抗",
+          "叠层",
+          "层压",
+          "±10%",
+          "嘉立创"
+        ],
+        "sources": [
+          "SRC-JLC-CAP-CN",
+          "SRC-JLC-GUIDE-LAMINATE",
+          "SRC-LCEDA-WIKI-4LAYER",
+          "SRC-LCEDA-WIKI-IMPEDANCE",
+          "SRC-LCEDA-WIKI-Z0"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "铺铜五问：给谁做平面/回流连续/孤铜尖角/对称平衡/热焊盘",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-POUR-001",
+        "category": "覆铜/平面",
+        "severity": "warning",
+        "statement": "铺铜要回答：①给谁做平面（GND/电源）；②回流路径是否连续；③有没有孤铜/尖角；④对称层铜覆盖是否平衡；⑤大铜面焊盘是否用十字热焊盘。执行项：保留孤岛=否、高速信号线距铺铜边缘 ≥0.5mm、内层空旷区覆铜保持残铜率均匀、对称层铜覆盖率尽量接近（比值不低于约 0.8）、尖角/细长铜箔倒角清除、顶层 GND 铜皮按 ≤λ/20 间距打缝合孔到底层 GND、天线/RF 区禁布净空。",
+        "limits": [
+          "孤铜必须删除（保留孤岛=否）",
+          "大铜面焊盘用十字热焊盘",
+          "高速线距铺铜边缘 ≥0.5mm",
+          "残铜率保持均匀；对称层铜覆盖率尽量接近",
+          "过孔缝合间距 ≤λ/20；板边地孔成排",
+          "RF/天线区禁布净空"
+        ],
+        "rationale": "完整平面决定阻抗与回流；孤铜是天线，拾取/辐射噪声；尖角是电场集中与阻抗不连续点，毫米级尖铜可谐振在 WiFi 频段；铜分布不均会翘曲。",
+        "check": "先铺 GND 平面→检查孤岛→热焊盘→高速线距 0.5mm→缝合孔→对称层平衡→尖角倒角；DFM 检查 floatingIsland/netlessPour/powerNotPoured/copperNearEdge。",
+        "appliesTo": [
+          "rf",
+          "power",
+          "analog",
+          "high-speed",
+          "general"
+        ],
+        "tags": [
+          "铺铜",
+          "孤铜",
+          "热焊盘",
+          "残铜率",
+          "缝合孔",
+          "翘曲"
+        ],
+        "sources": [
+          "SRC-JLC-GUIDE-COPPER-POUR",
+          "SRC-LCEDA-WIKI-POUR",
+          "SRC-LCEDA-WIKI-SOLITARY-COPPER",
+          "SRC-LCEDA-WIKI-COPPER",
+          "SRC-LCEDA-WIKI-BALANCED-COPPER"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "四层板叠层：完整 GND 平面优先，内层 0.5oz 要算载流",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-4L-STACK-001",
+        "category": "叠层/多层",
+        "severity": "warning",
+        "statement": "四层板优先采用「信号–GND–PWR–信号（或镜像）」：完整地平面、回流最短、EMC 好、阻抗易控；电源不复杂但板很密时可用「信号–PWR–GND–信号」。核心器件在底层时翻转叠层，保证高速信号贴近 GND。内层铜厚通常 0.5oz、散热不如外层，电源/地放内层时必须按电流算铜皮宽度。共面阻抗要保证参考平面完整，并每隔 150–300mil 打 GND 过孔（<λ/20~λ/10）；顶层走阻抗线也可以铺铜，铺铜到阻抗线距离取 3 倍线宽。",
+        "limits": [
+          "优先「信号–GND–PWR–信号」完整地平面",
+          "核心器件在底层时翻转叠层",
+          "内层 0.5oz，电源/地需按载流核算铜皮宽度",
+          "共面阻抗每 150–300mil 打 GND 孔",
+          "阻抗线到铺铜距离 = 3 倍线宽",
+          "投板随附阻抗管控文件/叠层表"
+        ],
+        "rationale": "完整 GND 平面是回流路径与阻抗控制的前提；内层铜薄、散热差，大电流走内层平面时载流不足会发热/压降大；参考平面被切碎会让回流绕行。",
+        "check": "先定叠层再布线；核心器件所在面决定叠层镜像；把 4 层内层设为 PLANE 并在层管理器标注网络；共面阻抗区按 150–300mil 加缝合孔；叠层表/阻抗表随单。",
+        "appliesTo": [
+          "high-speed",
+          "power",
+          "emc",
+          "general"
+        ],
+        "tags": [
+          "四层板",
+          "叠层",
+          "参考平面",
+          "载流",
+          "共面阻抗"
+        ],
+        "sources": [
+          "SRC-LCEDA-WIKI-4LAYER",
+          "SRC-LCEDA-WIKI-LAMINATE",
+          "SRC-LCEDA-WIKI-PWR-PLANE",
+          "SRC-LCEDA-WIKI-RETURN-PATH"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "20H 与 3W：两个常被误用的“经验值”",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-20H-001",
+        "category": "电源完整性/叠层",
+        "severity": "info",
+        "statement": "20H 规则：电源层相对地层内缩 20H（H=电源与地之间介质厚度）可限制约 70% 电场在接地层边沿内，内缩 100H 约 98%；工程上取内缩 1mm，或至少 ≥20mil、优先 40mil，前提是内缩后 GND 平面仍完整。3W 规则：线间距 ≥3 倍线宽（以线宽为基准）抑制串扰，例如 5mil 线取 15mil 间距。",
+        "limits": [
+          "20H≈70% 电场、100H≈98%",
+          "实践内缩 1mm / ≥20mil，优先 40mil",
+          "GND 平面必须保持完整",
+          "3W = 3 × 线宽（不是固定 30mil）"
+        ],
+        "rationale": "20H 减少边缘电场泄漏，但过度内缩会切小 GND 平面反而恶化回流；3W 的基准是线宽而不是绝对值，不同线宽下“30mil”可能不足或过剩。",
+        "check": "先确认参考平面完整再决定是否做 20H；3W 按实际线宽计算（如 4mil 线取 12mil、8mil 线取 24mil）；DFM 耦合检查作为辅助。",
+        "appliesTo": [
+          "emc",
+          "high-speed",
+          "rf"
+        ],
+        "tags": [
+          "20H",
+          "3W",
+          "串扰",
+          "参考平面"
+        ],
+        "sources": [
+          "SRC-LCEDA-WIKI-SPACING",
+          "SRC-LCEDA-WIKI-3W20H"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "高速过孔效应：一个孔 ≈44Ω，stub 1.65mm 谐振 5GHz",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-VIA-HS-001",
+        "category": "过孔/高速",
+        "severity": "warning",
+        "statement": "高速信号减少换层：单个通孔把 50Ω 走线压到约 44Ω（反射系数 ≈0.06，单孔可忽略，但 3–5GHz 以上输入阻抗发散）；0.3mm 过孔寄生电容约 0.3–0.8pF，0.5pF 可使 10Gbps 眼图张度降 10–15%；残桩 stub 在 FR-4 下约 1.65mm 谐振 ~5GHz，TI 建议 stub ≤15mil（0.38mm），超长用背钻；10GHz 时 1nH 约 63Ω。",
+        "limits": [
+          "50Ω→44Ω/单孔，反射系数≈0.06",
+          "0.3mm 过孔 ≈0.3–0.8pF",
+          "stub ≤15mil（0.38mm），超长背钻",
+          "10GHz 时 1nH ≈63Ω",
+          "换层处加回流地过孔"
+        ],
+        "rationale": "过孔是阻抗不连续点，残桩在高频形成谐振；高速链路每多一次换层就多一次反射与损耗。",
+        "check": "高速/差分少换层；必须换层时在附近加回流地过孔；对 >5GHz 链路评估背钻或盲埋孔；把过孔 stub 长度纳入叠层/工艺要求。",
+        "appliesTo": [
+          "usb3",
+          "pcie",
+          "ddr",
+          "high-speed"
+        ],
+        "tags": [
+          "过孔效应",
+          "stub",
+          "背钻",
+          "高速",
+          "回流孔"
+        ],
+        "sources": [
+          "SRC-LCEDA-WIKI-VIA-EFFECT",
+          "SRC-LCEDA-WIKI-THROUGH-HOLE",
+          "SRC-LCEDA-WIKI-DENSE-VIA"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "地过孔缝合：板边成排、芯片/连接器/电容就近打孔",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-GND-STITCH-001",
+        "category": "接地/EMC",
+        "severity": "warning",
+        "statement": "地过孔缝合要点：①板边地过孔成排（抑制 EMI、降低接地阻抗、增强机械/散热）；②芯片/连接器/去耦电容的地焊盘就近打孔，缩短回流路径；③顶层 GND 铜皮缝合间距按目标最高频率 ≤λ/20（10GHz 量级约 1.5mm 级，实际工程按 3–15mm 分级）；④模拟地与数字地若分开，只允许单点连接并明确回流路径；⑤电容过孔扇出按“先打孔再连电容”减少引线电感。",
+        "limits": [
+          "板边地孔成排",
+          "芯片/连接器/去耦地焊盘就近打孔",
+          "缝合间距按最高频率 ≤λ/20",
+          "AGND/DGND 分开时单点连接",
+          "电容地过孔就近扇出"
+        ],
+        "rationale": "地过孔是高频回流的“换层通道”；只在板边打孔、芯片地不就近打孔，会让回流绕远、环路面积增大、EMI 变差；AGND/DGND 乱连会造成地环路。",
+        "check": "铺铜后按区域补缝合孔：板边一圈、连接器/IC 地焊盘旁、去耦电容地脚旁；AGND/DGND 用单点桥接并检查回流路径；DFM 检查 gndVia/denseVia。",
+        "appliesTo": [
+          "emc",
+          "rf",
+          "high-speed",
+          "general"
+        ],
+        "tags": [
+          "地过孔",
+          "缝合",
+          "回流",
+          "AGND",
+          "EMI"
+        ],
+        "sources": [
+          "SRC-LCEDA-WIKI-GND-VIA",
+          "SRC-LCEDA-WIKI-CAP-FANOUT",
+          "SRC-LCEDA-WIKI-AGND-DGND"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "两层板：底层完整 GND 优先，顶层铺铜只在密集缝合时保留",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-2L-COPPER-001",
+        "category": "覆铜/平面",
+        "severity": "warning",
+        "statement": "两层板的顶层通常密布信号走线，铺铜会被切碎成“瑞士奶酪”状碎片，无法提供连续参考，还可能形成孤岛/浮铜成为天线。优先做法：底层做完整 GND 平面，顶层专做信号布线；若坚持顶层铺铜，必须密集打缝合孔到底层 GND（缝合间距按目标最高频率 ≤λ/20，经验 15mm 以内），否则去掉顶层铺铜。",
+        "limits": [
+          "优先底层完整 GND 平面",
+          "顶层铺铜必须密集缝合（≤λ/20，经验 ≤15mm）",
+          "未缝合的顶层大片铜皮会成谐振天线",
+          "孤岛/浮铜必须删"
+        ],
+        "rationale": "两层板没有内层平面，顶层铺铜的“连续参考”是伪命题：走线把铜切碎后，回流被迫绕行、阻抗不连续；未缝合铜皮还会谐振辐射。",
+        "check": "两层板先布底层 GND（或整层铺铜），顶层尽量只走线；若保留顶层铺铜，按 ≤λ/20 加缝合孔并检查孤岛；DFM 检查 floatingIsland/netlessPour。",
+        "appliesTo": [
+          "2-layer",
+          "low-cost",
+          "emc",
+          "general"
+        ],
+        "tags": [
+          "两层板",
+          "铺铜",
+          "回流",
+          "缝合",
+          "孤铜"
+        ],
+        "sources": [
+          "SRC-LCEDA-WIKI-2LAYER-SPEC",
+          "SRC-LCEDA-WIKI-COPPER"
+        ],
+        "evidenceLevel": "B"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "排版定式：接口定边、电源定轴、主控居中、按信号流排模块",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-LAYOUT-FLOW-001",
+        "category": "布局/方法论",
+        "severity": "warning",
+        "statement": "优秀板例（ESP32-S31 / MicroScope Power / AI BOX）的共性排版顺序：①接口定边——先按人机/装配方向把连接器钉在板边并朝外；②电源定轴——双供电入口相邻并靠近转换区，电源区夹在入口与主控之间，按“入口→转换→负载”排成一条轴；③主控居中——去耦电容正面环绕+背面正下方再密排，晶振紧靠 MCU；④按信号流排模块——精密模拟按 INA→MUX→OPA→RC→ADC 成链，独立基准就近 ADC；⑤高密度核心板 SoC 居中+屏蔽/散热，RF 模块收板角+外置天线。",
+        "limits": [
+          "连接器沿板边朝外、留插拔/护套空间",
+          "电源入口→转换→负载最短，入口相邻",
+          "主控居中，去耦 ≤2mm（含背面去耦配地孔）",
+          "模拟链按信号流成链，基准就近 ADC",
+          "RF 模块收板角+天线外置/净空"
+        ],
+        "rationale": "接口和电源路径一旦定死，布线只能绕着走；先定“不能动的”（接口、电源入口、主控、RF），再定“可以调的”，返工最少。",
+        "check": "布局前先画“接口朝向+电源树+信号流”三张草图；按入口→转换→负载排电源轴；去耦贴电源脚；模拟链按信号流一列排；检查连接器可插拔、去耦距离、敏感区与噪声源间距。",
+        "appliesTo": [
+          "general",
+          "power",
+          "analog",
+          "rf",
+          "high-density"
+        ],
+        "tags": [
+          "布局",
+          "排版",
+          "信号流",
+          "电源轴",
+          "接口"
+        ],
+        "sources": [
+          "SRC-OSHWHUB-S31",
+          "SRC-OSHWHUB-MICROSCOPE",
+          "SRC-OSHWHUB-AIBOX",
+          "SRC-LCEDA-WIKI-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "模块级铺线：DC-DC 环路小、LDO 电容先大后小、USB 90Ω、SD 50Ω+3W 时钟",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-MOD-POWER-001",
+        "category": "布局/电源",
+        "severity": "warning",
+        "statement": "DC-DC：去耦电容靠近输入/输出，电感与续流二极管紧贴 PH 开关节点缩小环路；输入输出按最大电流算线宽；GND 焊盘铺铜/全连接并打孔；反馈线不穿电感/二极管/大电容/散热焊盘下方、不被大电流环包围（10–15mil）；热焊盘多过孔；电感下方不走线。LDO：输入/输出路径一字或 L 型，电容先大后小靠近引脚，两侧数量一致、GND 同向，双/多层板 GND 焊盘附近整齐打孔。USB：90Ω 差分、包地 >20mil、总长 ≤1800mil、组内等长 ±5mil、换层 ≤2 且加回流地孔、距板边 ≥90mil、距电源/高速 ≥50mil。SD：50Ω 单端、同组同层、时钟 3W、等长 ≤300mil、ESD 不打孔换层。",
+        "limits": [
+          "DC-DC 反馈线 10–15mil，不穿电感/散热焊盘",
+          "电感下方不走线；热焊盘多过孔",
+          "LDO 电容先大后小、GND 同向",
+          "USB 90Ω、等长 ±5mil、总长 ≤1800mil、过孔 ≤2",
+          "SD 50Ω、时钟 3W、等长 ≤300mil"
+        ],
+        "rationale": "开关电源的电流环路面积决定辐射与效率；反馈线被大电流环包围会引入噪声；USB/SD 的阻抗与等长决定信号质量。",
+        "check": "按模块逐项过检查表：DC-DC 环路/反馈/热焊盘/电感下方；LDO 电容顺序与 GND；USB 90Ω/包地/等长/换层；SD 50Ω/3W 时钟/等长/ESD。DFM 检查 decapTooFar/coupling。",
+        "appliesTo": [
+          "power",
+          "usb",
+          "sd-card",
+          "general"
+        ],
+        "tags": [
+          "DC-DC",
+          "LDO",
+          "USB",
+          "SD",
+          "差分",
+          "去耦"
+        ],
+        "sources": [
+          "SRC-LCEDA-WIKI-MOD-DCDC",
+          "SRC-LCEDA-WIKI-MOD-LDO",
+          "SRC-LCEDA-WIKI-MOD-USB",
+          "SRC-LCEDA-WIKI-MOD-SD",
+          "SRC-LCEDA-WIKI-DIFFPAIR"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "RF/音频/晶振：远离噪声源 + 参考/供电分源 + 天线净空",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-RF-MOD-001",
+        "category": "布局/射频",
+        "severity": "warning",
+        "statement": "RF/音频/时钟布局布线要点：①天线区域所有层禁铜/禁线/禁器件，天线朝外并远离电池/金属件（净空具体数值官方页仅图片，未核实）；②麦克风/音频模拟走线远离 DCDC 与射频区，I2S 时钟避开摄像头并口高速信号；③晶振紧靠 MCU，负载电容就近、下方不走线、不跨分割；④音频/模拟供电与数字/功率供电分源，单点接地；⑤射频走线 50Ω、短、包地，匹配网络靠近天线且地端多过孔。",
+        "limits": [
+          "天线净空区所有层禁铜禁线禁器件",
+          "音频模拟线远离 DCDC/RF；I2S 时钟避开高速并口",
+          "晶振紧靠 MCU、负载电容就近、下方不走线",
+          "模拟/数字供电分源、单点接地",
+          "RF 走线 50Ω、包地、匹配靠近天线"
+        ],
+        "rationale": "布局阶段不把噪声源（DC-DC/开关/RF/高速）与敏感端（麦克风/ADC/晶振/天线）分开，后面靠布线补救代价很大；天线净空被铜/器件破坏会直接失谐。",
+        "check": "布局先划“噪声区/敏感区/天线净空”；音频模拟线远离 DCDC/RF；晶振紧靠 MCU 且下方不走线；RF 匹配网络靠近天线；检查净空区、分源与单点地。",
+        "appliesTo": [
+          "rf",
+          "audio",
+          "clock",
+          "analog"
+        ],
+        "tags": [
+          "RF",
+          "天线",
+          "音频",
+          "晶振",
+          "净空",
+          "分源"
+        ],
+        "sources": [
+          "SRC-LCEDA-WIKI-MOD-ANTENNA",
+          "SRC-LCEDA-WIKI-MOD-AUDIO",
+          "SRC-LCEDA-WIKI-MOD-CRYSTAL"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "rule",
+      "title": "布线顺序：电源/地→时钟/反馈→高速/差分→RF/模拟→普通信号",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "ruleId": "PCB-RULE-ROUTE-ORDER-001",
+        "category": "布线/流程",
+        "severity": "warning",
+        "statement": "布线顺序建议：①先布电源/地回流与大电流路径（宽线/铺铜/过孔），锁定电源通道；②时钟/复位/反馈（短、远离干扰、参考连续）；③高速/差分（按阻抗/等长/少换层）；④RF/天线（50Ω、包地、净空）；⑤敏感模拟（Kelvin/就近 RC/分源）；⑥最后布普通信号，不占用关键通道与参考平面。每完成一类做局部 DRC/回流检查，避免普通信号先占道导致关键网络绕线。",
+        "limits": [
+          "电源/地优先，锁定通道",
+          "时钟/反馈次之",
+          "高速/差分按阻抗/等长/少换层",
+          "RF/模拟最后（净空/分源）",
+          "普通信号最后，不占关键通道"
+        ],
+        "rationale": "普通信号先布会占掉关键网络的通道和参考平面，后期只能绕线/跨分割/加过孔，越改越差；先布关键网络才能保证回流与阻抗。",
+        "check": "建网络 class（电源/地/时钟/高速/差分/模拟/RF/普通）；按顺序布并锁定；给普通信号预留通道/禁布区；每类完成做 DRC/回流检查。",
+        "appliesTo": [
+          "general",
+          "power",
+          "high-speed",
+          "rf"
+        ],
+        "tags": [
+          "布线顺序",
+          "预布线",
+          "网络class",
+          "回流"
+        ],
+        "sources": [
+          "SRC-LCEDA-WIKI-ROUTING",
+          "SRC-LCEDA-WIKI-LAYOUT"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 26-1：立创·实战派 ESP32-S31 开发板（接口定边 + 电源定轴 + 去耦环绕）",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-JLC-S31-001",
+        "category": "参考设计案例",
+        "boardType": "ESP32-S31 无线+音频+视觉开发板，PMU 六路可断电域（USB/BAT 双供电）",
+        "sourceType": "open-hardware-project",
+        "evidence": [
+          "oshwhub 工程页正文（CHALLENGE 03/04/05：SDIO 3.0 布线/阻抗/参考平面；麦克风模拟线远离 DCDC/RF；I2S 时钟避开摄像头并口）",
+          "1 张 2 分屏 Layout 图的视觉分析（顶层/底层；其余 4 张为带壳成品照）"
+        ],
+        "summary": "官方开发板的完整样本：四边按人机方向分区（CAMERA 左、LCD 中上、USB+SD 右、SPK/BAT 底），USB/BAT 双入口相邻、电源区夹在入口与主控之间，主控居中且去耦正面环绕+背面密排；铺线可见 USB 差分平行等距、MicroSD↔主控蛇形等长、BAT/USB 入口宽线、整板 GND 铺铜+缝合孔。",
+        "designPrinciples": [
+          "接口按人机/装配方向四边分区并朝外",
+          "双供电入口相邻，电源转换区夹在入口与负载之间",
+          "主控居中，去耦正面环绕+背面正下方密排，晶振紧靠",
+          "USB 差分平行等距，SDIO 四线蛇形等长",
+          "整板 GND 铺铜+接插件/去耦/主控地焊盘周边缝合孔",
+          "麦克风模拟线远离 DC-DC/RF，I2S 时钟避开摄像头并口"
+        ],
+        "keyCircuits": [
+          "USB Type-C 供电/烧录 + CH343P USB-UART",
+          "MOS+二极管 USB/电池自动切换",
+          "PMU 六路 LDO 电源域",
+          "ES8389 音频（I2S/I2C）+ 双麦 + NS4150B 功放",
+          "GC0308 DVP 摄像头",
+          "SDIO 3.0 MicroSD",
+          "2.0 寸 SPI 触摸屏"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-LAYOUT-FLOW-001",
+            "note": "接口定边/电源定轴/主控居中/信号流"
+          },
+          {
+            "ruleId": "PCB-RULE-MOD-POWER-001",
+            "note": "USB 90Ω/等长、去耦就近"
+          },
+          {
+            "ruleId": "PCB-RULE-POUR-001",
+            "note": "整板 GND 铺铜+缝合孔"
+          },
+          {
+            "ruleId": "PCB-RULE-RF-MOD-001",
+            "note": "音频模拟线远离 DCDC/RF、I2S 避开高速并口"
+          }
+        ],
+        "lessons": [
+          "接口先定边、电源先定轴，能显著减少后期返工",
+          "去耦“正面环绕+背面密排”是开发板级样本，但背面去耦必须配就近地孔",
+          "悬疑：4 张“整板正/背面”实为带壳照，真正版面证据只有 1 张 2 分屏 Layout",
+          "V0.3 自述有飞线、V0.4 未验证：只能学布局意图，不能当布线正确性背书"
+        ],
+        "reviewFocus": [
+          "接口是否四边分区且朝外",
+          "电源入口是否相邻、转换区是否夹在入口与负载之间",
+          "去耦是否贴 IC 电源脚、背面去耦是否有就近地孔",
+          "USB/SDIO 是否等长/包地/少换层",
+          "GND 铺铜是否连续、缝合孔是否成排"
+        ],
+        "verificationNotes": "C 级：社区工程页 + 单张 Layout 图视觉分析；层数/叠层/线宽/阻抗数值均未标注、不可测；本案例只作“排版意图 + 铺线策略”候选，进设计前按官方边界（第 1、2 节）复核。",
+        "tags": [
+          "参考设计",
+          "案例",
+          "ESP32",
+          "开发板",
+          "排版",
+          "铺线"
+        ],
+        "sources": [
+          "SRC-OSHWHUB-S31"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 26-2：MicroScope Power 便携电源/微电流分析仪（输入输出分置两端 + Kelvin 采样）",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-JLC-MICROSCOPE-001",
+        "category": "参考设计案例",
+        "boardType": "电源 + 精密模拟仪器（RP2040）：可调电源与微电流波形分析",
+        "sourceType": "open-hardware-project",
+        "evidence": [
+          "oshwhub 工程页正文（DAC→LDO 公式、双量程、采样电阻串联不旁路、REF3025 独立基准、Kelvin）",
+          "1 张裸板实拍 + 3 张原理图/系统框图的视觉分析（无 Layout 图）"
+        ],
+        "summary": "仪器类板的排版/铺线样本：功率路径「输入 Type-C—TPS7A90—1Ω/10Ω 采样电阻—输出 Type-C/香蕉座」一字排开，输入/输出各占板子一端；模拟前端按信号流 INA296A3→TMUX1119→OPA320→RC→ADS8866 成链，REF3025 独立 2.5V 基准就近 ADC；双量程通过切换放大器实现，两颗采样电阻始终串联在功率路径中、绝不旁路；每颗采样电阻单独 Kelvin 引线到电流检测放大器。",
+        "designPrinciples": [
+          "功率路径一字排开：输入→LDO→采样电阻→输出，输入/输出分置两端",
+          "采样电阻始终串联，量程切换只切放大器输出，绝不旁路采样电阻",
+          "每颗采样电阻单独一对 Kelvin 差分线到电流检测放大器，从焊盘内缘取",
+          "ADC 输入就近 RC（33Ω/1nF），ADC 参考与 DAC 参考分源",
+          "测量支路与供电支路分离（USB 总输入电流≠输出支路电流）"
+        ],
+        "keyCircuits": [
+          "TPS7A90 低压差稳压",
+          "1Ω/10Ω 双量程采样电阻 + INA296A3 电流检测",
+          "TMUX1119 多路选择",
+          "OPA320 缓冲/放大",
+          "ADS8866 SAR ADC + REF3025 基准",
+          "DAC→LDO 可调输出"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-LAYOUT-FLOW-001",
+            "note": "输入/输出分置两端、模拟链按信号流成链"
+          },
+          {
+            "ruleId": "PCB-RULE-MOD-POWER-001",
+            "note": "LDO 电容先大后小、就近"
+          },
+          {
+            "ruleId": "PCB-RULE-RF-MOD-001",
+            "note": "模拟/基准分源、敏感区隔离"
+          }
+        ],
+        "lessons": [
+          "仪器类板先定“功率轴”和“测量轴”，两条轴分开",
+          "Kelvin 取压从焊盘内缘引线，避免走线电阻计入采样",
+          "双量程切换放大器而不是切采样电阻，保证功率路径始终串联",
+          "无 Layout 图： Kelvin/RC 的版图实现不可验证，只能学原理级做法"
+        ],
+        "reviewFocus": [
+          "功率路径是否一字排开、输入/输出是否分置两端",
+          "采样电阻是否始终串联、是否 Kelvin 到放大器",
+          "ADC 是否就近 RC、参考是否分源",
+          "测量支路与供电支路是否分离"
+        ],
+        "verificationNotes": "C 级：正文/原理图级证据强，但无 Layout 图，铺线位置/线宽不可验证；不适合当“版图正确性”背书，只作“功率轴+测量轴”排版与 Kelvin 接法候选。",
+        "tags": [
+          "参考设计",
+          "案例",
+          "电源",
+          "精密模拟",
+          "Kelvin",
+          "排版"
+        ],
+        "sources": [
+          "SRC-OSHWHUB-MICROSCOPE"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 26-3：Mini RV1126B AI BOX（高密度盒子的“取舍与反例”边界）",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-JLC-AIBOX-001",
+        "category": "参考设计案例",
+        "boardType": "6 层边缘 AI 核心板/盒子（RV1126B，自述 6 层免费档 + 大量 0201）",
+        "sourceType": "open-hardware-project",
+        "evidence": [
+          "oshwhub 工程页正文（自述 USB3.0 工作不正常、“为满足 6 层免费打样需求舍弃了很多，仅限能用”）",
+          "3 张裸板实拍的视觉分析（无 Layout、无叠层标注）"
+        ],
+        "summary": "作为“反面边界”案例：所有 I/O/FPC 沿板边同向外引、SoC 居中配屏蔽罩/散热盖、RF 屏蔽模块收板角+IPEX 外置天线——这些是高密度盒子的排版共识；但作者自述 USB3.0 不正常、6 层免费档+大量 0201 的取舍导致“仅限能用”，说明“看起来优秀的板”也可能是半成品，不能当布线正确性背书。",
+        "designPrinciples": [
+          "所有 I/O/FPC 沿板边同向外引，SoC 居中+屏蔽/散热",
+          "RF 模块收板角、IPEX 外置天线",
+          "大量 0201 + 6 层免费档是成本取舍，手工复刻/返修难",
+          "自述 USB3.0 异常：高速接口布线正确性未验证"
+        ],
+        "keyCircuits": [
+          "RV1126B SoC",
+          "6 层板（自述）",
+          "Wi-Fi/BLE 屏蔽模块 + IPEX",
+          "RJ45/USB/FPC 沿边"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-LAYOUT-FLOW-001",
+            "note": "接口沿边同向外引、SoC 居中、RF 收板角"
+          },
+          {
+            "ruleId": "PCB-RULE-4L-STACK-001",
+            "note": "层数不同，地/回流实现方式不同"
+          },
+          {
+            "ruleId": "PCB-RULE-VIA-HS-001",
+            "note": "高速接口换层/过孔效应是疑似风险点"
+          }
+        ],
+        "lessons": [
+          "接口沿边同向外引 + SoC 居中 + RF 收板角，是高密度盒子的通用排版",
+          "层数/成本档位不同，“优秀板”的地与电源实现不可直接搬到 2/4 层板",
+          "自述 USB3.0 异常提醒：高速接口必须做阻抗/等长/回流验证，照片看不出来"
+        ],
+        "reviewFocus": [
+          "接口是否沿边同向外引、是否可插拔",
+          "SoC 居中/屏蔽/散热是否合理",
+          "RF 模块位置与天线净空",
+          "是否声明层数/叠层/阻抗文件"
+        ],
+        "verificationNotes": "C 级且为反例：页面自述 USB3.0 工作不正常、6 层免费档取舍；本案例只用于说明“优秀≠可照抄”的证据边界，不提供任何可执行布线数值。",
+        "tags": [
+          "参考设计",
+          "案例",
+          "反例",
+          "6层",
+          "高密度",
+          "AI"
+        ],
+        "sources": [
+          "SRC-OSHWHUB-AIBOX"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "电源网络全程细线：DRC 过了，载流/压降没过",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-PWR-TRACE-UNDERSIZE",
+        "code": "PWR_TRACE_UNDERSIZE",
+        "category": "布线/载流",
+        "severity": "error",
+        "symptom": "电源网络（EXT_48V/INT_24V/VDC/CHG_VIN/+5V 等）大部分段落为 10mil(0.254mm)，DRC 0 违规、DFM 仅告警 widthUnderSpec；大电流时压降/温升超标，负载端电压跌落、发热甚至烧断。",
+        "rootCause": "把信号线默认宽度（10mil）沿用到电源网络，未按电流/压降预算加宽，也未把大电流路径改铺铜；net-class 里 power-trunk/high-current 的宽度没有落到全部段落。",
+        "detection": "按网络类别对比实测线宽分布（`pcb lines` + `net-classes`）；计算每条电源网络电流→线宽/压降；DFM widthUnderSpec/powerNotPoured；上电测负载端电压与温升。",
+        "prevention": [
+          "按“电流→线宽→压降”建 net-class，电源网络全程宽线",
+          "大电流/电池/充电路径优先铺铜或全填充",
+          "DFM 清零 widthUnderSpec；+5V 等主电源补铺铜",
+          "改板后复测最窄段落与过孔数量（过孔也限流）"
+        ],
+        "refs": [
+          "PCB-RULE-JLC-TRACE-001",
+          "PCB-RULE-MOD-POWER-001",
+          "PCB-RULE-POUR-001"
+        ],
+        "tags": [
+          "电源",
+          "载流",
+          "线宽",
+          "压降",
+          "DFM"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "悬空线/未完成布线：开路或浮铜蚀刻残留",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-DANGLING-COPPER",
+        "code": "DANGLING_END",
+        "category": "布线/流程",
+        "severity": "error",
+        "symptom": "布线后存在 7 条 track 端点未连接到任何焊盘/过孔/走线（dangling-end，GND/CHG_VIN/FB_CHG/INT_24V），网络实际开路或留下浮铜；DFM 报 WARN，DRC 不一定报错。",
+        "rootCause": "布线中断后未清理（rip-up 不彻底）、复制粘贴留下残段、修改网络/挪器件后未重连；只跑 DRC 不跑 DFM check，悬空线被漏掉。",
+        "detection": "`pcb check` 看 dangling-end（含坐标/网络）；`pcb layout-lint` 看飞线交叉；网络连通性/飞针测试；目检浮铜。",
+        "prevention": [
+          "投板前 DFM 清零 dangling-end",
+          "修改网络/挪器件后重新检查连通性",
+          "删除无用残段/浮铜，保留的测试点要显式连接",
+          "把 DFM check 纳入投板门禁"
+        ],
+        "refs": [
+          "PCB-RULE-ROUTE-ORDER-001",
+          "PCB-RULE-POUR-001"
+        ],
+        "tags": [
+          "悬空线",
+          "开路",
+          "浮铜",
+          "DFM"
+        ]
+      }
+    },
+    {
+      "kind": "failure",
+      "title": "盘中孔未声明塞孔：回流焊漏锡/虚焊",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "failureId": "PCB-FAIL-VIA-IN-PAD-UNPLUGGED",
+        "code": "VIA_IN_PAD_UNPLUGGED",
+        "category": "制造/DFM",
+        "severity": "warning",
+        "symptom": "盘中孔（焊盘中心过孔）未声明树脂/铜浆塞孔+电镀盖帽，回流焊时锡膏从孔内流失，造成焊点空洞、虚焊或立碑；QFN/连接器散热焊盘尤其明显。",
+        "rootCause": "设计里把过孔打在焊盘中心，但下单未选“盘中孔/树脂塞孔+盖帽”工艺，板厂按普通过孔开窗/盖油处理；或过孔直径超出 0.15–0.55mm 工艺窗口。",
+        "detection": "`pcb check` 看 viaInPad / plugClearance；核对过孔是否在焊盘内、孔径是否 0.15–0.55mm；X-Ray/切片检查焊点空洞。",
+        "prevention": [
+          "盘中孔集中列清单，下单声明树脂塞孔+盖帽（盖帽铜厚 ≥10um）",
+          "孔径控制在 0.15–0.55mm；6 层以上默认树脂塞孔",
+          "能改 dog-bone 的优先改出焊盘",
+          "散热焊盘过孔用盖油/塞孔，避免漏锡"
+        ],
+        "refs": [
+          "PCB-RULE-JLC-VIA-001",
+          "PCB-RULE-POUR-001"
+        ],
+        "tags": [
+          "盘中孔",
+          "塞孔",
+          "漏锡",
+          "虚焊",
+          "DFM"
+        ]
+      }
+    }
+  ]
+}

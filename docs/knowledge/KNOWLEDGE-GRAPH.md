@@ -8,17 +8,17 @@
 
 | 指标 | 数量 |
 |---|---:|
-| 文档 | 70 |
-| 知识点（KP） | 1037 |
-| 结构化条目 | 442 |
-| 来源登记 | 26 |
-| 节点 / 边 | 1575 / 2507 |
+| 文档 | 71 |
+| 知识点（KP） | 1050 |
+| 结构化条目 | 463 |
+| 来源登记 | 68 |
+| 节点 / 边 | 1652 / 2616 |
 | 跨文档 KP 引用 | 80 |
 | 跨文档条目引用 | 537 |
-| 孤岛 KP（无任何跨文档/条目引用） | 948 |
+| 孤岛 KP（无任何跨文档/条目引用） | 961 |
 | 无跨文档连接的文档 | 31 |
 | 无结构化条目的文档 | 1 |
-| 无来源的结构化条目 | 380 |
+| 无来源的结构化条目 | 383 |
 | 引用了未登记来源的条目 | 0 |
 | 未被引用的已登记来源 | 0 |
 
@@ -29,7 +29,7 @@
 | cases | 16 | 171 | 26 | 0 | 171 | 0 |
 | checklists | 3 | 0 | 4 | 0 | 0 | 3 |
 | components | 12 | 211 | 88 | 3 | 208 | 8 |
-| pcb | 25 | 369 | 240 | 41 | 328 | 10 |
+| pcb | 26 | 382 | 261 | 41 | 341 | 10 |
 | requirements | 1 | 0 | 0 | 0 | 0 | 1 |
 | schematic | 13 | 286 | 84 | 45 | 241 | 9 |
 
@@ -52,8 +52,8 @@
 | 11 | [02-arduino-uno-r3.md](<./cases/02-arduino-uno-r3.md>) | cases | 52 | 40 | 0 |
 | 12 | [03-esp32-devkit.md](<./cases/03-esp32-devkit.md>) | cases | 47 | 34 | 0 |
 | 13 | [13-industrial-controller.md](<./cases/13-industrial-controller.md>) | cases | 45 | 33 | 0 |
-| 14 | [14-high-speed-protocols.md](<./pcb/14-high-speed-protocols.md>) | pcb | 43 | 3 | 0 |
-| 15 | [20-researched-layout-constraints.md](<./pcb/20-researched-layout-constraints.md>) | pcb | 43 | 14 | 0 |
+| 14 | [20-researched-layout-constraints.md](<./pcb/20-researched-layout-constraints.md>) | pcb | 44 | 14 | 1 |
+| 15 | [14-high-speed-protocols.md](<./pcb/14-high-speed-protocols.md>) | pcb | 43 | 3 | 0 |
 
 ## 4. 知识点枢纽（被引用最多）
 
@@ -82,7 +82,7 @@
 
 ## 5. 孤岛知识点
 
-共 948 个 KP 目前没有被其他文档、条目或来源连接。它们不一定是错的，但值得确认是“独立概念”还是“漏了关联”。
+共 961 个 KP 目前没有被其他文档、条目或来源连接。它们不一定是错的，但值得确认是“独立概念”还是“漏了关联”。
 
 | # | KP | 标题 | 所属文档 |
 |---:|---|---|---|
@@ -126,7 +126,7 @@
 | 38 | `KP-CASE-CH32-04` | 按键/ LED 的“小电阻”决定可制造性与可测试性 | [11-ch32v003-p0.md](<./cases/11-ch32v003-p0.md>) |
 | 39 | `KP-CASE-CH32-05` | 2 层板靠“双面 GND 铺铜 + 过孔缝合”补回流 | [11-ch32v003-p0.md](<./cases/11-ch32v003-p0.md>) |
 | 40 | `KP-CASE-CH32-06` | 盘中孔（via-in-pad）必须确认塞孔/填平工艺，否则虚焊漏锡 | [11-ch32v003-p0.md](<./cases/11-ch32v003-p0.md>) |
-| … | 其余 908 个见 `knowledge/pcb/dataset/graph.json` | | |
+| … | 其余 921 个见 `knowledge/pcb/dataset/graph.json` | | |
 
 ## 6. 文档互链缺口
 
@@ -134,15 +134,15 @@
 
 | 文档 | 领域 | 连接度 |
 |---|---|---:|
-| [06-dfm-manufacturing.md](<./pcb/06-dfm-manufacturing.md>) | pcb | 38 |
+| [06-dfm-manufacturing.md](<./pcb/06-dfm-manufacturing.md>) | pcb | 39 |
 | [12-power-topologies.md](<./schematic/12-power-topologies.md>) | schematic | 36 |
 | [11-rf-antenna.md](<./schematic/11-rf-antenna.md>) | schematic | 35 |
 | [05-emc-esd-thermal.md](<./pcb/05-emc-esd-thermal.md>) | pcb | 33 |
+| [01-design-rules.md](<./pcb/01-design-rules.md>) | pcb | 32 |
 | [04-interfaces.md](<./schematic/04-interfaces.md>) | schematic | 32 |
-| [01-design-rules.md](<./pcb/01-design-rules.md>) | pcb | 31 |
 | [05-protection.md](<./schematic/05-protection.md>) | schematic | 31 |
+| [03-placement-routing.md](<./pcb/03-placement-routing.md>) | pcb | 30 |
 | [07-analog-audio.md](<./schematic/07-analog-audio.md>) | schematic | 30 |
-| [03-placement-routing.md](<./pcb/03-placement-routing.md>) | pcb | 29 |
 | [13-documentation-eco.md](<./schematic/13-documentation-eco.md>) | schematic | 29 |
 | [01-passives.md](<./components/01-passives.md>) | components | 26 |
 | [05-mcu-wireless-connectors.md](<./components/05-mcu-wireless-connectors.md>) | components | 26 |
@@ -170,13 +170,13 @@
 
 | 条目类型 | 总数 | 有来源 | 无来源 |
 |---|---:|---:|---:|
-| rule | 173 | 39 | 134 |
-| module | 93 | 5 | 88 |
+| rule | 188 | 54 | 134 |
+| module | 96 | 8 | 88 |
 | case | 17 | 8 | 9 |
 | part | 57 | 0 | 57 |
-| failure | 102 | 10 | 92 |
+| failure | 105 | 10 | 95 |
 
-- 无来源条目 380 条：多数是内部规则；只对确实来自公开资料的条目补来源，不批量伪造。
+- 无来源条目 383 条：多数是内部规则；只对确实来自公开资料的条目补来源，不批量伪造。
 - 引用未登记来源的条目 0 条；未登记来源不能当外部证据。
 
 ## 8. 怎么用

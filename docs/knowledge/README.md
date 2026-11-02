@@ -16,7 +16,7 @@
 
 | 目录 | 内容 | 覆盖的设计阶段 |
 |---|---|---|
-| [`pcb/`](./pcb/) | 叠层/阻抗、布局布线、电源完整性、EMC/ESD/热、DFM 与制造文件、设计规则数值表、**6 层以上多层/HDI/高速总线**（07 篇）、**元器件布局依据与市场规则**（08 篇）、**可靠性/降额/环境试验**（09 篇）、**可测试性与产测**（10 篇）、**安规与认证**（11 篇）、**柔性/刚挠**（12 篇）、**封装/装配/返修**（13 篇）、**高速协议**（14 篇）、**公开资料/真实参考设计研究**（[20 篇研究笔记](./pcb/20-researched-layout-constraints.md)）、**AI 辅助布局功能分区与可读原理图**（[22 篇](./pcb/22-ai-assisted-layout-and-readable-schematic.md)）、**嘉立创EDA专业版工程闭环与 B 站课程学习笔记**（[23 篇](./pcb/23-lceda-project-workflow-and-bilibili-course.md)）、**预布线与“电源优先”**（[24 篇](./pcb/24-prerouting-and-power-first.md)）、**PCB 布线十条原则**（[25 篇](./pcb/25-ten-routing-principles.md)） | PCB Layout → 制造 → 量产 |
+| [`pcb/`](./pcb/) | 叠层/阻抗、布局布线、电源完整性、EMC/ESD/热、DFM 与制造文件、设计规则数值表、**6 层以上多层/HDI/高速总线**（07 篇）、**元器件布局依据与市场规则**（08 篇）、**可靠性/降额/环境试验**（09 篇）、**可测试性与产测**（10 篇）、**安规与认证**（11 篇）、**柔性/刚挠**（12 篇）、**封装/装配/返修**（13 篇）、**高速协议**（14 篇）、**公开资料/真实参考设计研究**（[20 篇研究笔记](./pcb/20-researched-layout-constraints.md)）、**AI 辅助布局功能分区与可读原理图**（[22 篇](./pcb/22-ai-assisted-layout-and-readable-schematic.md)）、**嘉立创EDA专业版工程闭环与 B 站课程学习笔记**（[23 篇](./pcb/23-lceda-project-workflow-and-bilibili-course.md)）、**预布线与“电源优先”**（[24 篇](./pcb/24-prerouting-and-power-first.md)）、**PCB 布线十条原则**（[25 篇](./pcb/25-ten-routing-principles.md)）、**嘉立创官方能力 + 开源优秀板例的铺线/排版学习与真机验证**（[26 篇](./pcb/26-jlc-capability-and-excellent-board-routing-layout.md)） | PCB Layout → 制造 → 量产 |
 | [`schematic/`](./schematic/) | 原理图规范、电源架构、MCU 最小系统、总线接口、保护电路、ERC 审查清单、**模拟信号链**（08 篇）、**传感器/执行器**（09 篇）、**电池与 BMS**（10 篇）、**RF/天线**（11 篇）、**先进电源拓扑**（12 篇）、**文件与 ECO**（13 篇） | 需求 → 原理图 → 评审 |
 | [`components/`](./components/) | 无源器件、二极管/TVS、三极管/MOSFET、电源 IC、MCU/无线/连接器、晶振、常用料号速查与封装核验、**电感/磁珠/保险丝**（08 篇）、**传感器/执行器**（09 篇）、**接口保护**（10 篇）、**供应链**（11 篇）、**元件库管理**（12 篇） | 选型 → BOM → 封装 → 量产维持 |
 | [`checklists/`](./checklists/) | 原理图评审、Layout 评审、选型评审三张可勾选清单 | 评审门禁 |
@@ -24,7 +24,7 @@
 | [`requirements/`](./requirements/) | 产品需求/验收档案（原被误分类为 `module` 的 38 条需求，已迁出） | 产品验收，不进入设计门禁 |
 | [`legacy/`](./legacy/) | 历史条目迁移/退役记录与运行态重建命令 | 治理/迁移 |
 
-> 现状（2026-10-30，全面整理后）：Markdown 文档 **70 篇**（设计内容 **69 篇** + 需求档案 1 篇）；知识点 **1,037 个**（PCB 369 / SCH 286 / CMP 211 / CASE 171）；结构化知识 **442 条**（rule 173 · module 93（含 5 条案例模块）+ case 17 · part 57 · failure 102）；来源登记 **26 条**；本地 `artifacts/knowledge` 中 **442 条全部为 candidate，approved 仍为 0**。所有新知识均为 `reference` + `candidate`，须人工审核后才可被门禁引用。来源登记见 [`sources.json`](../../knowledge/pcb/dataset/sources.json)。
+> 现状（2026-11-02，26 篇嘉立创专题后）：Markdown 文档 **71 篇**（设计内容 **70 篇** + 需求档案 1 篇）；知识点 **1,050 个**（PCB 382 / SCH 286 / CMP 211 / CASE 171）；结构化知识 **463 条**（rule 188 · module 96（含 8 条案例模块）+ case 17 · part 57 · failure 105）；来源登记 **68 条**（新增 42 条嘉立创官网/嘉立创EDA wiki/立创开源硬件平台，快照 SHA-256 + reviewBy 2027-05-01）；本地 `artifacts/knowledge` 中 **463 条全部为 candidate，approved 仍为 0**。所有新知识均为 `reference` + `candidate`，须人工审核后才可被门禁引用。来源登记见 [`sources.json`](../../knowledge/pcb/dataset/sources.json)，抓取证据见 `artifacts/evidence/research/jlc-2026-11-02/` 与 `artifacts/evidence/jlc-verify-2026-11-02/`。
 
 > 冲突口径与优先级见 [`conflict-register.md`](./conflict-register.md)；机器可读分类见 [`taxonomy.json`](../../knowledge/pcb/dataset/taxonomy.json)、冲突登记见 [`conflicts.json`](../../knowledge/pcb/dataset/conflicts.json)；全面审计见 [`docs/implementation/knowledge-audit-k6-2026-10-22.md`](../implementation/knowledge-audit-k6-2026-10-22.md)，K7 治理落地见 [`docs/implementation/knowledge-k7-governance-2026-10-22.md`](../implementation/knowledge-k7-governance-2026-10-22.md)；本次全面整理与审计见 [`docs/implementation/knowledge-consolidation-2026-10-30.md`](../implementation/knowledge-consolidation-2026-10-30.md)。
 

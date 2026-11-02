@@ -20,27 +20,27 @@
 
 | 指标 | 数量 |
 |---|---:|
-| Markdown 文档（不含 README/索引/冲突登记） | **70** |
-| 其中：设计内容文档（不含 requirements） | **69** |
-| 带 KP 编号的知识点 | **1037** |
+| Markdown 文档（不含 README/索引/冲突登记） | **71** |
+| 其中：设计内容文档（不含 requirements） | **70** |
+| 带 KP 编号的知识点 | **1050** |
 | 无 KP 编号的文档（清单/需求/专题） | **12** |
-| 结构化知识条目 | **442** |
-| 来源登记 | **26** |
+| 结构化知识条目 | **463** |
+| 来源登记 | **68** |
 
 结构化条目构成：
 
 | kind | 数量 | 说明 |
 |---|---:|---|
-| rule | 173 | 可判定规则 |
-| module | 110 | 模块 93 + 案例 17 |
+| rule | 188 | 可判定规则 |
+| module | 113 | 模块 96 + 案例 17 |
 | part | 57 | 料号/器件身份 |
-| failure | 102 | 失败模式 |
+| failure | 105 | 失败模式 |
 
 ## 2. 领域导航
 
 | 领域 | 文档 | KP | 结构化条目 | 无 KP 文档 | 说明 |
 |---|---:|---:|---:|---:|---|
-| [PCB / 制造 / 可靠性](./pcb/) | 25 | 369 | 240 | 8 | 叠层、布局布线、电源完整性、EMC/ESD/热、DFM、测试、安规、封装装配 |
+| [PCB / 制造 / 可靠性](./pcb/) | 26 | 382 | 261 | 8 | 叠层、布局布线、电源完整性、EMC/ESD/热、DFM、测试、安规、封装装配 |
 | [原理图 / 电路设计](./schematic/) | 13 | 286 | 84 | 0 | 电源架构、最小系统、接口、保护、ERC、模拟、电池、RF、ECO |
 | [元器件 / 选型 / 库](./components/) | 12 | 211 | 88 | 0 | 无源、分立、电源 IC、MCU/无线/连接器、晶振、料号、供应链、库管理 |
 | [参考设计案例](./cases/) | 16 | 171 | 26 | 0 | 真实板与公开参考设计的复盘、规则依据、可迁移经验 |
@@ -93,51 +93,52 @@
 | 23 | [23-lceda-project-workflow-and-bilibili-course.md](<./pcb/23-lceda-project-workflow-and-bilibili-course.md>) | 23. 嘉立创EDA专业版工程闭环与 B 站课程学习笔记 | 13 | 341–353 | 11（rule 5 · module 3 · failure 3） |  |
 | 24 | [24-prerouting-and-power-first.md](<./pcb/24-prerouting-and-power-first.md>) | 24. 预布线与“电源优先”：关键网络先锁定，普通信号后走 | 6 | 354–359 | 4（rule 2 · module 1 · failure 1） |  |
 | 25 | [25-ten-routing-principles.md](<./pcb/25-ten-routing-principles.md>) | 25. PCB 布线十条原则：从“经验口诀”到可执行检查 | 10 | 360–369 | 5（rule 3 · module 1 · failure 1） |  |
-| 26 | [01-conventions.md](<./schematic/01-conventions.md>) | 原理图设计规范：图框、网络命名、符号与可读性 | 18 | 01–18 | 6（rule 4 · failure 2） |  |
-| 27 | [02-power-architecture.md](<./schematic/02-power-architecture.md>) | 电源架构设计：拓扑选择、LDO/Buck 边界、时序与电源域 | 18 | 19–36 | 4（module 4） |  |
-| 28 | [03-mcu-minimal-system.md](<./schematic/03-mcu-minimal-system.md>) | MCU 最小系统设计：电源、复位、时钟、调试与量产接口 | 17 | 37–53 | 4（module 3 · failure 1） |  |
-| 29 | [04-interfaces.md](<./schematic/04-interfaces.md>) | 总线与接口设计：I2C / SPI / UART / USB / CAN / RS485 / 电平转换 | 19 | 54–72 | 10（rule 2 · module 7 · failure 1） |  |
-| 30 | [05-protection.md](<./schematic/05-protection.md>) | 保护电路设计：ESD、TVS、过压/过流/反接、浪涌与热插拔 | 18 | 73–90 | 5（module 2 · failure 3） |  |
-| 31 | [06-erc-review-checklist.md](<./schematic/06-erc-review-checklist.md>) | ERC 与原理图评审：常见错误逐条处理、评审清单与证据要求 | 19 | 091–109 | 5（rule 4 · failure 1） |  |
-| 32 | [07-analog-audio.md](<./schematic/07-analog-audio.md>) | 模拟 / 音频 / 采样前端设计：分区、麦克风、功放、ADC 与检测 | 25 | 110–134 | 2（module 2） |  |
-| 33 | [08-analog-signal-chain.md](<./schematic/08-analog-signal-chain.md>) | 模拟信号链设计：运放、基准源、ADC/DAC、滤波与误差预算 | 26 | 135–160 | 10（rule 4 · module 3 · failure 3） |  |
-| 34 | [09-sensors-actuators.md](<./schematic/09-sensors-actuators.md>) | 传感器与执行器接口设计：I2C/SPI/模拟/脉冲、校准、隔离与电机驱动 | 26 | 161–186 | 8（rule 2 · module 3 · failure 3） |  |
-| 35 | [10-battery-bms.md](<./schematic/10-battery-bms.md>) | 电池与 BMS 设计：充电、保护、电量计、均衡、热安全与认证证据 | 24 | 187–210 | 6（rule 2 · module 2 · failure 2） |  |
-| 36 | [11-rf-antenna.md](<./schematic/11-rf-antenna.md>) | RF 与天线设计：50Ω 传输、匹配、巴伦、净空、调试与认证 | 26 | 211–236 | 9（rule 3 · module 3 · failure 3） |  |
-| 37 | [12-power-topologies.md](<./schematic/12-power-topologies.md>) | 先进电源拓扑：Buck-Boost、反激、LLC、多相、热插拔与环路 | 26 | 237–262 | 10（rule 3 · module 4 · failure 3） |  |
-| 38 | [13-documentation-eco.md](<./schematic/13-documentation-eco.md>) | 文件与 ECO：版本矩阵、变更控制、BOM、评审门禁与归档 | 24 | 263–286 | 5（rule 2 · module 1 · failure 2） |  |
-| 39 | [01-passives.md](<./components/01-passives.md>) | 无源器件（电阻 / 电容 / 电感）选型知识 | 18 | 01–18 | 8（part 7 · failure 1） |  |
-| 40 | [02-diodes-tvs.md](<./components/02-diodes-tvs.md>) | 二极管 / 齐纳 / LED / TVS 选型知识 | 18 | 19–36 | 7（module 2 · part 5） |  |
-| 41 | [03-transistors-mosfets.md](<./components/03-transistors-mosfets.md>) | 三极管 / MOSFET 开关与驱动知识 | 17 | 37–53 | 3（part 3） |  |
-| 42 | [04-power-ics.md](<./components/04-power-ics.md>) | 电源 IC（LDO / Buck / Boost / 充电管理）选型知识 | 18 | 54–71 | 4（part 4） |  |
-| 43 | [05-mcu-wireless-connectors.md](<./components/05-mcu-wireless-connectors.md>) | MCU / 无线模组 / 连接器选型知识 | 17 | 72–88 | 6（module 1 · part 5） |  |
-| 44 | [06-crystals-oscillators.md](<./components/06-crystals-oscillators.md>) | 晶振 / 振荡器 / 时钟电路知识 | 16 | 089–104 | 5（module 1 · part 3 · failure 1） |  |
-| 45 | [07-lcsc-quickref-footprint.md](<./components/07-lcsc-quickref-footprint.md>) | 常用料号速查与封装核验知识 | 17 | 105–121 | 1（failure 1） |  |
-| 46 | [08-inductors-ferrites-fuses.md](<./components/08-inductors-ferrites-fuses.md>) | 电感 / 磁珠 / 共模电感 / 保险丝 / PTC / 热敏电阻选型知识 | 18 | 122–139 | 14（module 2 · part 10 · failure 2） |  |
-| 47 | [09-sensors-actuators.md](<./components/09-sensors-actuators.md>) | 传感器与执行器（温湿度 / 压力 / IMU / 霍尔 / 光电 / 麦克风 / 蜂鸣器 / 继电器 / 电机 / 电磁阀）选型知识 | 18 | 140–157 | 14（module 2 · part 10 · failure 2） |  |
-| 48 | [10-interface-protection.md](<./components/10-interface-protection.md>) | 接口保护（ESD / TVS 阵列 / 共模滤波 / 隔离器 / 连接器保护）选型知识 | 18 | 158–175 | 14（module 2 · part 10 · failure 2） |  |
-| 49 | [11-supply-chain.md](<./components/11-supply-chain.md>) | 供应链与元件生命周期管理（EOL / PCN / NRND / 双供 / 替代料 / 假货 / 批次追溯） | 18 | 176–193 | 6（rule 2 · module 2 · failure 2） |  |
-| 50 | [12-library-management.md](<./components/12-library-management.md>) | 元件库管理（符号 / 封装 / 焊盘 / IPC-7351 / 版本与审核 / BOM 一致性） | 18 | 194–211 | 6（rule 2 · module 2 · failure 2） |  |
-| 51 | [01-rpi-pico-rp2040.md](<./cases/01-rpi-pico-rp2040.md>) | 案例 01：Raspberry Pi Pico / RP2040 —— 2 层板的电源树、去耦与回流 | 11 | 01–11 | 1（case 1） |  |
-| 52 | [02-arduino-uno-r3.md](<./cases/02-arduino-uno-r3.md>) | 案例 02：Arduino Uno R3 —— 双 MCU 架构、电源自动切换与 5 V 单板的热边界 | 10 | 01–10 | 2（rule 1 · case 1） |  |
-| 53 | [03-esp32-devkit.md](<./cases/03-esp32-devkit.md>) | 案例 03：ESP32-DevKitC / ESP32-S3-DevKitC —— 无线模组底板的天线净空、峰值电流与自动下载 | 11 | 01–11 | 2（rule 1 · case 1） |  |
-| 54 | [04-stm32-nucleo.md](<./cases/04-stm32-nucleo.md>) | 案例 04：ST STM32 Nucleo-64 官方参考设计 —— 把“供电选择、电流测量、调试隔离”做成可见连接 | 11 | 01–11 | 1（case 1） |  |
-| 55 | [05-usb-c-pd-sink.md](<./cases/05-usb-c-pd-sink.md>) | 案例 05：USB-C PD 受电/充电参考设计 —— CC 是“通行证”，VBUS 开关与泄放是“安全闸” | 12 | 01–12 | 1（case 1） |  |
-| 56 | [06-sync-buck-layout.md](<./cases/06-sync-buck-layout.md>) | 案例 06：同步 Buck 电源参考布局 —— 先管“热环路”，再谈纹波与效率 | 12 | 01–12 | 2（rule 1 · case 1） |  |
-| 57 | [07-isolated-can-rs485.md](<./cases/07-isolated-can-rs485.md>) | 案例 07：隔离 CAN / RS485 工业节点参考设计 —— 隔离带是“结构”，不是一条分割线 | 12 | 01–12 | 2（rule 1 · case 1） |  |
-| 58 | [08-wardrobe-v12.md](<./cases/08-wardrobe-v12.md>) | 案例 08：衣橱助手参考原理图 V1.2 —— ESP32-S3 整机的电源树、USB HUB 与音视频接口 | 10 | 01–10 | 3（rule 2 · case 1） |  |
-| 59 | [09-wardrobe-v20.md](<./cases/09-wardrobe-v20.md>) | 案例 09：衣橱助手 V2.0（主板 + 按键灯板）—— 4 层异形板的电源树、天线净空与细间距 DFM | 10 | 01–10 | 4（rule 3 · case 1） |  |
-| 60 | [10-circuitpilot-6l.md](<./cases/10-circuitpilot-6l.md>) | 案例 10：CircuitPilot 6 层监测板 —— 90Ω 差分反解、屏蔽过孔墙与“编译器抓出的 CC 缺失” | 10 | 01–10 | 2（rule 1 · case 1） |  |
-| 61 | [11-ch32v003-p0.md](<./cases/11-ch32v003-p0.md>) | 案例 11：CircuitPilot CH32V003 P0 —— 45×30mm 2 层最小系统的成本极限 | 10 | 01–10 | 1（case 1） |  |
-| 62 | [12-consumer-tws.md](<./cases/12-consumer-tws.md>) | 案例 12：消费电子 TWS / 可穿戴 —— 结构先定、电源其次，天线与音频是硬约束 | 11 | 01–11 | 1（module 1） |  |
-| 63 | [13-industrial-controller.md](<./cases/13-industrial-controller.md>) | 案例 13：工业控制器 —— 宽压输入、隔离总线、宽温与抗扰是四条硬边界 | 11 | 01–11 | 1（module 1） |  |
-| 64 | [14-ac-dc-power.md](<./cases/14-ac-dc-power.md>) | 案例 14：AC-DC / 适配器 —— 安规是设计输入，隔离带与热环路是两条命门 | 10 | 01–10 | 1（module 1） |  |
-| 65 | [15-rf-module.md](<./cases/15-rf-module.md>) | 案例 15：RF 模组 / 天线 —— 50 Ω、净空、共存三件事决定“能不能连得远” | 10 | 01–10 | 1（module 1） |  |
-| 66 | [16-flex-rigid-board.md](<./cases/16-flex-rigid-board.md>) | 案例 16：柔性 / 刚挠结合板 —— 弯折区是“结构件”，不是普通布线区 | 10 | 01–10 | 1（module 1） |  |
-| 67 | [component-selection.md](<./checklists/component-selection.md>) | 选型评审清单（Component Selection Checklist） | 0 | — | 1（module 1） | 清单/专题，无 KP 编号 |
-| 68 | [layout-review.md](<./checklists/layout-review.md>) | Layout 评审清单（PCB Layout Review Checklist） | 0 | — | 1（module 1） | 清单/专题，无 KP 编号 |
-| 69 | [schematic-review.md](<./checklists/schematic-review.md>) | 原理图评审清单（Schematic Review Checklist） | 0 | — | 2（module 1 · failure 1） | 清单/专题，无 KP 编号 |
-| 70 | [requirements.md](<./requirements/requirements.md>) | 衣橱助手 PCB 需求与验收清单（需求档案） | 0 | — | 0 | 需求档案，不进设计门禁 |
+| 26 | [26-jlc-capability-and-excellent-board-routing-layout.md](<./pcb/26-jlc-capability-and-excellent-board-routing-layout.md>) | 26. 嘉立创官方能力 + 开源优秀板例：铺线（布线/铺铜）与排版（布局）的学习、复核与真机验证 | 13 | 370–382 | 21（rule 15 · module 3 · failure 3） |  |
+| 27 | [01-conventions.md](<./schematic/01-conventions.md>) | 原理图设计规范：图框、网络命名、符号与可读性 | 18 | 01–18 | 6（rule 4 · failure 2） |  |
+| 28 | [02-power-architecture.md](<./schematic/02-power-architecture.md>) | 电源架构设计：拓扑选择、LDO/Buck 边界、时序与电源域 | 18 | 19–36 | 4（module 4） |  |
+| 29 | [03-mcu-minimal-system.md](<./schematic/03-mcu-minimal-system.md>) | MCU 最小系统设计：电源、复位、时钟、调试与量产接口 | 17 | 37–53 | 4（module 3 · failure 1） |  |
+| 30 | [04-interfaces.md](<./schematic/04-interfaces.md>) | 总线与接口设计：I2C / SPI / UART / USB / CAN / RS485 / 电平转换 | 19 | 54–72 | 10（rule 2 · module 7 · failure 1） |  |
+| 31 | [05-protection.md](<./schematic/05-protection.md>) | 保护电路设计：ESD、TVS、过压/过流/反接、浪涌与热插拔 | 18 | 73–90 | 5（module 2 · failure 3） |  |
+| 32 | [06-erc-review-checklist.md](<./schematic/06-erc-review-checklist.md>) | ERC 与原理图评审：常见错误逐条处理、评审清单与证据要求 | 19 | 091–109 | 5（rule 4 · failure 1） |  |
+| 33 | [07-analog-audio.md](<./schematic/07-analog-audio.md>) | 模拟 / 音频 / 采样前端设计：分区、麦克风、功放、ADC 与检测 | 25 | 110–134 | 2（module 2） |  |
+| 34 | [08-analog-signal-chain.md](<./schematic/08-analog-signal-chain.md>) | 模拟信号链设计：运放、基准源、ADC/DAC、滤波与误差预算 | 26 | 135–160 | 10（rule 4 · module 3 · failure 3） |  |
+| 35 | [09-sensors-actuators.md](<./schematic/09-sensors-actuators.md>) | 传感器与执行器接口设计：I2C/SPI/模拟/脉冲、校准、隔离与电机驱动 | 26 | 161–186 | 8（rule 2 · module 3 · failure 3） |  |
+| 36 | [10-battery-bms.md](<./schematic/10-battery-bms.md>) | 电池与 BMS 设计：充电、保护、电量计、均衡、热安全与认证证据 | 24 | 187–210 | 6（rule 2 · module 2 · failure 2） |  |
+| 37 | [11-rf-antenna.md](<./schematic/11-rf-antenna.md>) | RF 与天线设计：50Ω 传输、匹配、巴伦、净空、调试与认证 | 26 | 211–236 | 9（rule 3 · module 3 · failure 3） |  |
+| 38 | [12-power-topologies.md](<./schematic/12-power-topologies.md>) | 先进电源拓扑：Buck-Boost、反激、LLC、多相、热插拔与环路 | 26 | 237–262 | 10（rule 3 · module 4 · failure 3） |  |
+| 39 | [13-documentation-eco.md](<./schematic/13-documentation-eco.md>) | 文件与 ECO：版本矩阵、变更控制、BOM、评审门禁与归档 | 24 | 263–286 | 5（rule 2 · module 1 · failure 2） |  |
+| 40 | [01-passives.md](<./components/01-passives.md>) | 无源器件（电阻 / 电容 / 电感）选型知识 | 18 | 01–18 | 8（part 7 · failure 1） |  |
+| 41 | [02-diodes-tvs.md](<./components/02-diodes-tvs.md>) | 二极管 / 齐纳 / LED / TVS 选型知识 | 18 | 19–36 | 7（module 2 · part 5） |  |
+| 42 | [03-transistors-mosfets.md](<./components/03-transistors-mosfets.md>) | 三极管 / MOSFET 开关与驱动知识 | 17 | 37–53 | 3（part 3） |  |
+| 43 | [04-power-ics.md](<./components/04-power-ics.md>) | 电源 IC（LDO / Buck / Boost / 充电管理）选型知识 | 18 | 54–71 | 4（part 4） |  |
+| 44 | [05-mcu-wireless-connectors.md](<./components/05-mcu-wireless-connectors.md>) | MCU / 无线模组 / 连接器选型知识 | 17 | 72–88 | 6（module 1 · part 5） |  |
+| 45 | [06-crystals-oscillators.md](<./components/06-crystals-oscillators.md>) | 晶振 / 振荡器 / 时钟电路知识 | 16 | 089–104 | 5（module 1 · part 3 · failure 1） |  |
+| 46 | [07-lcsc-quickref-footprint.md](<./components/07-lcsc-quickref-footprint.md>) | 常用料号速查与封装核验知识 | 17 | 105–121 | 1（failure 1） |  |
+| 47 | [08-inductors-ferrites-fuses.md](<./components/08-inductors-ferrites-fuses.md>) | 电感 / 磁珠 / 共模电感 / 保险丝 / PTC / 热敏电阻选型知识 | 18 | 122–139 | 14（module 2 · part 10 · failure 2） |  |
+| 48 | [09-sensors-actuators.md](<./components/09-sensors-actuators.md>) | 传感器与执行器（温湿度 / 压力 / IMU / 霍尔 / 光电 / 麦克风 / 蜂鸣器 / 继电器 / 电机 / 电磁阀）选型知识 | 18 | 140–157 | 14（module 2 · part 10 · failure 2） |  |
+| 49 | [10-interface-protection.md](<./components/10-interface-protection.md>) | 接口保护（ESD / TVS 阵列 / 共模滤波 / 隔离器 / 连接器保护）选型知识 | 18 | 158–175 | 14（module 2 · part 10 · failure 2） |  |
+| 50 | [11-supply-chain.md](<./components/11-supply-chain.md>) | 供应链与元件生命周期管理（EOL / PCN / NRND / 双供 / 替代料 / 假货 / 批次追溯） | 18 | 176–193 | 6（rule 2 · module 2 · failure 2） |  |
+| 51 | [12-library-management.md](<./components/12-library-management.md>) | 元件库管理（符号 / 封装 / 焊盘 / IPC-7351 / 版本与审核 / BOM 一致性） | 18 | 194–211 | 6（rule 2 · module 2 · failure 2） |  |
+| 52 | [01-rpi-pico-rp2040.md](<./cases/01-rpi-pico-rp2040.md>) | 案例 01：Raspberry Pi Pico / RP2040 —— 2 层板的电源树、去耦与回流 | 11 | 01–11 | 1（case 1） |  |
+| 53 | [02-arduino-uno-r3.md](<./cases/02-arduino-uno-r3.md>) | 案例 02：Arduino Uno R3 —— 双 MCU 架构、电源自动切换与 5 V 单板的热边界 | 10 | 01–10 | 2（rule 1 · case 1） |  |
+| 54 | [03-esp32-devkit.md](<./cases/03-esp32-devkit.md>) | 案例 03：ESP32-DevKitC / ESP32-S3-DevKitC —— 无线模组底板的天线净空、峰值电流与自动下载 | 11 | 01–11 | 2（rule 1 · case 1） |  |
+| 55 | [04-stm32-nucleo.md](<./cases/04-stm32-nucleo.md>) | 案例 04：ST STM32 Nucleo-64 官方参考设计 —— 把“供电选择、电流测量、调试隔离”做成可见连接 | 11 | 01–11 | 1（case 1） |  |
+| 56 | [05-usb-c-pd-sink.md](<./cases/05-usb-c-pd-sink.md>) | 案例 05：USB-C PD 受电/充电参考设计 —— CC 是“通行证”，VBUS 开关与泄放是“安全闸” | 12 | 01–12 | 1（case 1） |  |
+| 57 | [06-sync-buck-layout.md](<./cases/06-sync-buck-layout.md>) | 案例 06：同步 Buck 电源参考布局 —— 先管“热环路”，再谈纹波与效率 | 12 | 01–12 | 2（rule 1 · case 1） |  |
+| 58 | [07-isolated-can-rs485.md](<./cases/07-isolated-can-rs485.md>) | 案例 07：隔离 CAN / RS485 工业节点参考设计 —— 隔离带是“结构”，不是一条分割线 | 12 | 01–12 | 2（rule 1 · case 1） |  |
+| 59 | [08-wardrobe-v12.md](<./cases/08-wardrobe-v12.md>) | 案例 08：衣橱助手参考原理图 V1.2 —— ESP32-S3 整机的电源树、USB HUB 与音视频接口 | 10 | 01–10 | 3（rule 2 · case 1） |  |
+| 60 | [09-wardrobe-v20.md](<./cases/09-wardrobe-v20.md>) | 案例 09：衣橱助手 V2.0（主板 + 按键灯板）—— 4 层异形板的电源树、天线净空与细间距 DFM | 10 | 01–10 | 4（rule 3 · case 1） |  |
+| 61 | [10-circuitpilot-6l.md](<./cases/10-circuitpilot-6l.md>) | 案例 10：CircuitPilot 6 层监测板 —— 90Ω 差分反解、屏蔽过孔墙与“编译器抓出的 CC 缺失” | 10 | 01–10 | 2（rule 1 · case 1） |  |
+| 62 | [11-ch32v003-p0.md](<./cases/11-ch32v003-p0.md>) | 案例 11：CircuitPilot CH32V003 P0 —— 45×30mm 2 层最小系统的成本极限 | 10 | 01–10 | 1（case 1） |  |
+| 63 | [12-consumer-tws.md](<./cases/12-consumer-tws.md>) | 案例 12：消费电子 TWS / 可穿戴 —— 结构先定、电源其次，天线与音频是硬约束 | 11 | 01–11 | 1（module 1） |  |
+| 64 | [13-industrial-controller.md](<./cases/13-industrial-controller.md>) | 案例 13：工业控制器 —— 宽压输入、隔离总线、宽温与抗扰是四条硬边界 | 11 | 01–11 | 1（module 1） |  |
+| 65 | [14-ac-dc-power.md](<./cases/14-ac-dc-power.md>) | 案例 14：AC-DC / 适配器 —— 安规是设计输入，隔离带与热环路是两条命门 | 10 | 01–10 | 1（module 1） |  |
+| 66 | [15-rf-module.md](<./cases/15-rf-module.md>) | 案例 15：RF 模组 / 天线 —— 50 Ω、净空、共存三件事决定“能不能连得远” | 10 | 01–10 | 1（module 1） |  |
+| 67 | [16-flex-rigid-board.md](<./cases/16-flex-rigid-board.md>) | 案例 16：柔性 / 刚挠结合板 —— 弯折区是“结构件”，不是普通布线区 | 10 | 01–10 | 1（module 1） |  |
+| 68 | [component-selection.md](<./checklists/component-selection.md>) | 选型评审清单（Component Selection Checklist） | 0 | — | 1（module 1） | 清单/专题，无 KP 编号 |
+| 69 | [layout-review.md](<./checklists/layout-review.md>) | Layout 评审清单（PCB Layout Review Checklist） | 0 | — | 1（module 1） | 清单/专题，无 KP 编号 |
+| 70 | [schematic-review.md](<./checklists/schematic-review.md>) | 原理图评审清单（Schematic Review Checklist） | 0 | — | 2（module 1 · failure 1） | 清单/专题，无 KP 编号 |
+| 71 | [requirements.md](<./requirements/requirements.md>) | 衣橱助手 PCB 需求与验收清单（需求档案） | 0 | — | 0 | 需求档案，不进设计门禁 |
 
 ## 5. 完整知识点索引
 
@@ -646,6 +647,24 @@
 - **KP-PCB-367** 20H 原则：电源平面回缩，依赖叠层和场分布
 - **KP-PCB-368** 铜箔载流：按 IPC-2152/温升/压降算，不靠“1A 1mm”
 - **KP-PCB-369** 过孔载流：单孔不是无限流，按孔径/镀层/长度/温升算
+
+#### [26-jlc-capability-and-excellent-board-routing-layout.md](<./pcb/26-jlc-capability-and-excellent-board-routing-layout.md>) — 26. 嘉立创官方能力 + 开源优秀板例：铺线（布线/铺铜）与排版（布局）的学习、复核与真机验证
+
+- 文档：`docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md`
+- KP：**13**（370–382） · 结构化条目：**21**
+- **KP-PCB-370** 线宽/线距按成品铜厚分档：贴极限是风险，不是水平
+- **KP-PCB-371** 过孔四件事：孔径、孔环、孔边到孔边、盘中孔工艺
+- **KP-PCB-372** 阻焊、丝印、板边与拼板：投板前一次性收口
+- **KP-PCB-373** 阻抗与叠层：先选板厂现成层压，再谈 ±10%
+- **KP-PCB-374** 铺铜五问：平面/回流/孤铜尖角/对称平衡/热焊盘
+- **KP-PCB-375** 四层板：完整 GND 平面优先，内层 0.5oz 要算载流
+- **KP-PCB-376** 模块级铺线：DC-DC 环路、LDO 电容、USB 90Ω、SD 50Ω
+- **KP-PCB-377** 过孔效应、回流路径、参考平面与 3W/20H
+- **KP-PCB-378** 排版手法（候选）：接口定边、电源定轴、主控居中、信号流
+- **KP-PCB-379** 铺线手法（候选）：电源宽线、差分等长、铺铜缝合、Kelvin
+- **KP-PCB-380** 「优秀 ≠ 可照抄」的边界与证据分级
+- **KP-PCB-381** 本板验证：DRC 0 违规 ≠ 优秀设计（22 项检查）
+- **KP-PCB-382** 投板前铺线/排版门禁清单
 
 ### 原理图 / 电路设计
 

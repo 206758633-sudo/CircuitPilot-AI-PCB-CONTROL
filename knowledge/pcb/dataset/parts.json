@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "generatedAt": "2026-10-28T12:25:25.164Z",
+  "generatedAt": "2026-11-02T12:17:34.650Z",
   "domain": "pcb-components",
   "notes": "料号来自公开常见选型与项目 BOM 参考，均不等于已核验；入库 trust=reference / candidate，使用前必须经 Librarian 三源核验（EDA 库/供应商/datasheet）。引脚定义以 datasheet 为准，本文件只记录常见封装与关键引脚。",
   "entries": [

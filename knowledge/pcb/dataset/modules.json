@@ -1,6 +1,6 @@
 {
   "version": "1.3.0",
-  "generatedAt": "2026-10-30T07:33:47.745Z",
+  "generatedAt": "2026-11-02T12:17:34.650Z",
   "domain": "pcb-schematic-modules",
   "notes": "模块知识=可复用的电路/板级设计模式；参数为典型值，落地需按器件 datasheet 与设计目标复核。",
   "entries": [
@@ -4049,6 +4049,222 @@
         "sources": [
           "SRC-BILI-PCB-10-RULES",
           "SRC-CSDN-PCB-10-RULES"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 26-1：立创·实战派 ESP32-S31 开发板（接口定边 + 电源定轴 + 去耦环绕）",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-JLC-S31-001",
+        "category": "参考设计案例",
+        "boardType": "ESP32-S31 无线+音频+视觉开发板，PMU 六路可断电域（USB/BAT 双供电）",
+        "sourceType": "open-hardware-project",
+        "evidence": [
+          "oshwhub 工程页正文（CHALLENGE 03/04/05：SDIO 3.0 布线/阻抗/参考平面；麦克风模拟线远离 DCDC/RF；I2S 时钟避开摄像头并口）",
+          "1 张 2 分屏 Layout 图的视觉分析（顶层/底层；其余 4 张为带壳成品照）"
+        ],
+        "summary": "官方开发板的完整样本：四边按人机方向分区（CAMERA 左、LCD 中上、USB+SD 右、SPK/BAT 底），USB/BAT 双入口相邻、电源区夹在入口与主控之间，主控居中且去耦正面环绕+背面密排；铺线可见 USB 差分平行等距、MicroSD↔主控蛇形等长、BAT/USB 入口宽线、整板 GND 铺铜+缝合孔。",
+        "designPrinciples": [
+          "接口按人机/装配方向四边分区并朝外",
+          "双供电入口相邻，电源转换区夹在入口与负载之间",
+          "主控居中，去耦正面环绕+背面正下方密排，晶振紧靠",
+          "USB 差分平行等距，SDIO 四线蛇形等长",
+          "整板 GND 铺铜+接插件/去耦/主控地焊盘周边缝合孔",
+          "麦克风模拟线远离 DC-DC/RF，I2S 时钟避开摄像头并口"
+        ],
+        "keyCircuits": [
+          "USB Type-C 供电/烧录 + CH343P USB-UART",
+          "MOS+二极管 USB/电池自动切换",
+          "PMU 六路 LDO 电源域",
+          "ES8389 音频（I2S/I2C）+ 双麦 + NS4150B 功放",
+          "GC0308 DVP 摄像头",
+          "SDIO 3.0 MicroSD",
+          "2.0 寸 SPI 触摸屏"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-LAYOUT-FLOW-001",
+            "note": "接口定边/电源定轴/主控居中/信号流"
+          },
+          {
+            "ruleId": "PCB-RULE-MOD-POWER-001",
+            "note": "USB 90Ω/等长、去耦就近"
+          },
+          {
+            "ruleId": "PCB-RULE-POUR-001",
+            "note": "整板 GND 铺铜+缝合孔"
+          },
+          {
+            "ruleId": "PCB-RULE-RF-MOD-001",
+            "note": "音频模拟线远离 DCDC/RF、I2S 避开高速并口"
+          }
+        ],
+        "lessons": [
+          "接口先定边、电源先定轴，能显著减少后期返工",
+          "去耦“正面环绕+背面密排”是开发板级样本，但背面去耦必须配就近地孔",
+          "悬疑：4 张“整板正/背面”实为带壳照，真正版面证据只有 1 张 2 分屏 Layout",
+          "V0.3 自述有飞线、V0.4 未验证：只能学布局意图，不能当布线正确性背书"
+        ],
+        "reviewFocus": [
+          "接口是否四边分区且朝外",
+          "电源入口是否相邻、转换区是否夹在入口与负载之间",
+          "去耦是否贴 IC 电源脚、背面去耦是否有就近地孔",
+          "USB/SDIO 是否等长/包地/少换层",
+          "GND 铺铜是否连续、缝合孔是否成排"
+        ],
+        "verificationNotes": "C 级：社区工程页 + 单张 Layout 图视觉分析；层数/叠层/线宽/阻抗数值均未标注、不可测；本案例只作“排版意图 + 铺线策略”候选，进设计前按官方边界（第 1、2 节）复核。",
+        "tags": [
+          "参考设计",
+          "案例",
+          "ESP32",
+          "开发板",
+          "排版",
+          "铺线"
+        ],
+        "sources": [
+          "SRC-OSHWHUB-S31"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 26-2：MicroScope Power 便携电源/微电流分析仪（输入输出分置两端 + Kelvin 采样）",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-JLC-MICROSCOPE-001",
+        "category": "参考设计案例",
+        "boardType": "电源 + 精密模拟仪器（RP2040）：可调电源与微电流波形分析",
+        "sourceType": "open-hardware-project",
+        "evidence": [
+          "oshwhub 工程页正文（DAC→LDO 公式、双量程、采样电阻串联不旁路、REF3025 独立基准、Kelvin）",
+          "1 张裸板实拍 + 3 张原理图/系统框图的视觉分析（无 Layout 图）"
+        ],
+        "summary": "仪器类板的排版/铺线样本：功率路径「输入 Type-C—TPS7A90—1Ω/10Ω 采样电阻—输出 Type-C/香蕉座」一字排开，输入/输出各占板子一端；模拟前端按信号流 INA296A3→TMUX1119→OPA320→RC→ADS8866 成链，REF3025 独立 2.5V 基准就近 ADC；双量程通过切换放大器实现，两颗采样电阻始终串联在功率路径中、绝不旁路；每颗采样电阻单独 Kelvin 引线到电流检测放大器。",
+        "designPrinciples": [
+          "功率路径一字排开：输入→LDO→采样电阻→输出，输入/输出分置两端",
+          "采样电阻始终串联，量程切换只切放大器输出，绝不旁路采样电阻",
+          "每颗采样电阻单独一对 Kelvin 差分线到电流检测放大器，从焊盘内缘取",
+          "ADC 输入就近 RC（33Ω/1nF），ADC 参考与 DAC 参考分源",
+          "测量支路与供电支路分离（USB 总输入电流≠输出支路电流）"
+        ],
+        "keyCircuits": [
+          "TPS7A90 低压差稳压",
+          "1Ω/10Ω 双量程采样电阻 + INA296A3 电流检测",
+          "TMUX1119 多路选择",
+          "OPA320 缓冲/放大",
+          "ADS8866 SAR ADC + REF3025 基准",
+          "DAC→LDO 可调输出"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-LAYOUT-FLOW-001",
+            "note": "输入/输出分置两端、模拟链按信号流成链"
+          },
+          {
+            "ruleId": "PCB-RULE-MOD-POWER-001",
+            "note": "LDO 电容先大后小、就近"
+          },
+          {
+            "ruleId": "PCB-RULE-RF-MOD-001",
+            "note": "模拟/基准分源、敏感区隔离"
+          }
+        ],
+        "lessons": [
+          "仪器类板先定“功率轴”和“测量轴”，两条轴分开",
+          "Kelvin 取压从焊盘内缘引线，避免走线电阻计入采样",
+          "双量程切换放大器而不是切采样电阻，保证功率路径始终串联",
+          "无 Layout 图： Kelvin/RC 的版图实现不可验证，只能学原理级做法"
+        ],
+        "reviewFocus": [
+          "功率路径是否一字排开、输入/输出是否分置两端",
+          "采样电阻是否始终串联、是否 Kelvin 到放大器",
+          "ADC 是否就近 RC、参考是否分源",
+          "测量支路与供电支路是否分离"
+        ],
+        "verificationNotes": "C 级：正文/原理图级证据强，但无 Layout 图，铺线位置/线宽不可验证；不适合当“版图正确性”背书，只作“功率轴+测量轴”排版与 Kelvin 接法候选。",
+        "tags": [
+          "参考设计",
+          "案例",
+          "电源",
+          "精密模拟",
+          "Kelvin",
+          "排版"
+        ],
+        "sources": [
+          "SRC-OSHWHUB-MICROSCOPE"
+        ],
+        "evidenceLevel": "C"
+      }
+    },
+    {
+      "kind": "module",
+      "title": "案例 26-3：Mini RV1126B AI BOX（高密度盒子的“取舍与反例”边界）",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "ttlDays": 365,
+      "payload": {
+        "moduleId": "PCB-CASE-JLC-AIBOX-001",
+        "category": "参考设计案例",
+        "boardType": "6 层边缘 AI 核心板/盒子（RV1126B，自述 6 层免费档 + 大量 0201）",
+        "sourceType": "open-hardware-project",
+        "evidence": [
+          "oshwhub 工程页正文（自述 USB3.0 工作不正常、“为满足 6 层免费打样需求舍弃了很多，仅限能用”）",
+          "3 张裸板实拍的视觉分析（无 Layout、无叠层标注）"
+        ],
+        "summary": "作为“反面边界”案例：所有 I/O/FPC 沿板边同向外引、SoC 居中配屏蔽罩/散热盖、RF 屏蔽模块收板角+IPEX 外置天线——这些是高密度盒子的排版共识；但作者自述 USB3.0 不正常、6 层免费档+大量 0201 的取舍导致“仅限能用”，说明“看起来优秀的板”也可能是半成品，不能当布线正确性背书。",
+        "designPrinciples": [
+          "所有 I/O/FPC 沿板边同向外引，SoC 居中+屏蔽/散热",
+          "RF 模块收板角、IPEX 外置天线",
+          "大量 0201 + 6 层免费档是成本取舍，手工复刻/返修难",
+          "自述 USB3.0 异常：高速接口布线正确性未验证"
+        ],
+        "keyCircuits": [
+          "RV1126B SoC",
+          "6 层板（自述）",
+          "Wi-Fi/BLE 屏蔽模块 + IPEX",
+          "RJ45/USB/FPC 沿边"
+        ],
+        "ruleBasis": [
+          {
+            "ruleId": "PCB-RULE-LAYOUT-FLOW-001",
+            "note": "接口沿边同向外引、SoC 居中、RF 收板角"
+          },
+          {
+            "ruleId": "PCB-RULE-4L-STACK-001",
+            "note": "层数不同，地/回流实现方式不同"
+          },
+          {
+            "ruleId": "PCB-RULE-VIA-HS-001",
+            "note": "高速接口换层/过孔效应是疑似风险点"
+          }
+        ],
+        "lessons": [
+          "接口沿边同向外引 + SoC 居中 + RF 收板角，是高密度盒子的通用排版",
+          "层数/成本档位不同，“优秀板”的地与电源实现不可直接搬到 2/4 层板",
+          "自述 USB3.0 异常提醒：高速接口必须做阻抗/等长/回流验证，照片看不出来"
+        ],
+        "reviewFocus": [
+          "接口是否沿边同向外引、是否可插拔",
+          "SoC 居中/屏蔽/散热是否合理",
+          "RF 模块位置与天线净空",
+          "是否声明层数/叠层/阻抗文件"
+        ],
+        "verificationNotes": "C 级且为反例：页面自述 USB3.0 工作不正常、6 层免费档取舍；本案例只用于说明“优秀≠可照抄”的证据边界，不提供任何可执行布线数值。",
+        "tags": [
+          "参考设计",
+          "案例",
+          "反例",
+          "6层",
+          "高密度",
+          "AI"
+        ],
+        "sources": [
+          "SRC-OSHWHUB-AIBOX"
         ],
         "evidenceLevel": "C"
       }

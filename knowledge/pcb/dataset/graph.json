@@ -4,27 +4,27 @@
   "source": "docs/knowledge + knowledge/pcb/dataset",
   "note": "派生索引；权威内容仍以文档/结构化条目为准，不在这里改知识或审核状态。",
   "stats": {
-    "docs": 70,
-    "kps": 1037,
-    "entries": 442,
-    "sources": 26,
-    "nodes": 1575,
-    "edges": 2507,
+    "docs": 71,
+    "kps": 1050,
+    "entries": 463,
+    "sources": 68,
+    "nodes": 1652,
+    "edges": 2616,
     "docsWithoutKp": 12,
     "docsWithoutEntries": 1,
     "docsWithoutOutbound": 31,
     "crossDocKpReferences": 80,
     "crossDocEntryReferences": 537,
-    "orphanKps": 948,
-    "entriesWithoutSource": 380,
+    "orphanKps": 961,
+    "entriesWithoutSource": 383,
     "entriesWithUnknownSource": 0,
     "sourcesUnused": 0,
     "entriesByKind": {
-      "rule": 173,
-      "module": 93,
+      "rule": 188,
+      "module": 96,
       "case": 17,
       "part": 57,
-      "failure": 102
+      "failure": 105
     }
   },
   "nodes": [
@@ -533,6 +533,15 @@
       "entryCount": 0
     },
     {
+      "id": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "type": "doc",
+      "label": "26. 嘉立创官方能力 + 开源优秀板例：铺线（布线/铺铜）与排版（布局）的学习、复核与真机验证",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "domain": "pcb",
+      "kpCount": 13,
+      "entryCount": 0
+    },
+    {
       "id": "doc:docs/knowledge/requirements/requirements.md",
       "type": "doc",
       "label": "衣橱助手 PCB 需求与验收清单（需求档案）",
@@ -1037,6 +1046,13 @@
       "doc": "docs/knowledge/pcb/01-design-rules.md"
     },
     {
+      "id": "entry:failure:PCB-FAIL-DANGLING-COPPER",
+      "type": "failure",
+      "label": "悬空线/未完成布线：开路或浮铜蚀刻残留",
+      "idValue": "PCB-FAIL-DANGLING-COPPER",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
       "id": "entry:failure:PCB-FAIL-DC-BIAS",
       "type": "failure",
       "label": "MLCC 直流偏压降容：实际容值远低于标称",
@@ -1191,6 +1207,13 @@
       "doc": "docs/knowledge/pcb/24-prerouting-and-power-first.md"
     },
     {
+      "id": "entry:failure:PCB-FAIL-PWR-TRACE-UNDERSIZE",
+      "type": "failure",
+      "label": "电源网络全程细线：DRC 过了，载流/压降没过",
+      "idValue": "PCB-FAIL-PWR-TRACE-UNDERSIZE",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
       "id": "entry:failure:PCB-FAIL-QFN-VOID",
       "type": "failure",
       "label": "QFN 热焊盘空洞/浮件：钢网 1:1 + 过孔不塞",
@@ -1336,6 +1359,13 @@
       "label": "焊盘/过孔漏锡：via-in-pad 未塞孔导致虚焊",
       "idValue": "PCB-FAIL-VIA-IN-PAD",
       "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md"
+    },
+    {
+      "id": "entry:failure:PCB-FAIL-VIA-IN-PAD-UNPLUGGED",
+      "type": "failure",
+      "label": "盘中孔未声明塞孔：回流焊漏锡/虚焊",
+      "idValue": "PCB-FAIL-VIA-IN-PAD-UNPLUGGED",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
     },
     {
       "id": "entry:failure:PCB-FAIL-VIA-STUB",
@@ -1581,6 +1611,27 @@
       "label": "案例 13：工业控制器参考设计（宽压输入、隔离总线、宽温与抗扰）",
       "idValue": "PCB-CASE-INDUSTRIAL",
       "doc": "docs/knowledge/cases/13-industrial-controller.md"
+    },
+    {
+      "id": "entry:module:PCB-CASE-JLC-AIBOX-001",
+      "type": "module",
+      "label": "案例 26-3：Mini RV1126B AI BOX（高密度盒子的“取舍与反例”边界）",
+      "idValue": "PCB-CASE-JLC-AIBOX-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "entry:module:PCB-CASE-JLC-MICROSCOPE-001",
+      "type": "module",
+      "label": "案例 26-2：MicroScope Power 便携电源/微电流分析仪（输入输出分置两端 + Kelvin 采样）",
+      "idValue": "PCB-CASE-JLC-MICROSCOPE-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "entry:module:PCB-CASE-JLC-S31-001",
+      "type": "module",
+      "label": "案例 26-1：立创·实战派 ESP32-S31 开发板（接口定边 + 电源定轴 + 去耦环绕）",
+      "idValue": "PCB-CASE-JLC-S31-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
     },
     {
       "id": "entry:module:PCB-CASE-RFMOD",
@@ -2570,11 +2621,32 @@
       "doc": "docs/knowledge/components/11-supply-chain.md"
     },
     {
+      "id": "entry:rule:PCB-RULE-20H-001",
+      "type": "rule",
+      "label": "20H 与 3W：两个常被误用的“经验值”",
+      "idValue": "PCB-RULE-20H-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-2L-COPPER-001",
+      "type": "rule",
+      "label": "两层板：底层完整 GND 优先，顶层铺铜只在密集缝合时保留",
+      "idValue": "PCB-RULE-2L-COPPER-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
       "id": "entry:rule:PCB-RULE-3W-20H-002",
       "type": "rule",
       "label": "3W/20H 是串扰/EMC 经验起点，必须说明定义与适用条件",
       "idValue": "PCB-RULE-3W-20H-002",
       "doc": "docs/knowledge/pcb/25-ten-routing-principles.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-4L-STACK-001",
+      "type": "rule",
+      "label": "四层板叠层：完整 GND 平面优先，内层 0.5oz 要算载流",
+      "idValue": "PCB-RULE-4L-STACK-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
     },
     {
       "id": "entry:rule:PCB-RULE-ACID-001",
@@ -2906,6 +2978,13 @@
       "doc": "docs/knowledge/pcb/06-dfm-manufacturing.md"
     },
     {
+      "id": "entry:rule:PCB-RULE-GND-STITCH-001",
+      "type": "rule",
+      "label": "地过孔缝合：板边成排、芯片/连接器/电容就近打孔",
+      "idValue": "PCB-RULE-GND-STITCH-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
       "id": "entry:rule:PCB-RULE-HS-AC-COUPLING-001",
       "type": "rule",
       "label": "高速 AC 耦合电容：容值/位置按协议，焊盘保持阻抗连续",
@@ -2953,6 +3032,48 @@
       "label": "隔离 CAN/RS485：隔离带无铜、爬电/间隙、TVS 与终端",
       "idValue": "PCB-RULE-ISO-001",
       "doc": "docs/knowledge/cases/07-isolated-can-rs485.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-JLC-EDGE-001",
+      "type": "rule",
+      "label": "板边、V 割、邮票孔与工艺边：拼板方式要在下单前定",
+      "idValue": "PCB-RULE-JLC-EDGE-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-JLC-IMP-001",
+      "type": "rule",
+      "label": "阻抗与层压：先选板厂现成层压，再决定是否付费 ±10%",
+      "idValue": "PCB-RULE-JLC-IMP-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-JLC-MASK-001",
+      "type": "rule",
+      "label": "阻焊桥/开窗/丝印：投板前一次性收口",
+      "idValue": "PCB-RULE-JLC-MASK-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-JLC-TRACE-001",
+      "type": "rule",
+      "label": "嘉立创线宽/线距能力分档：最小值是制造下限，不是设计目标",
+      "idValue": "PCB-RULE-JLC-TRACE-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-JLC-VIA-001",
+      "type": "rule",
+      "label": "过孔四件事：孔径/外径/孔环/孔边到孔边 + 盘中孔工艺声明",
+      "idValue": "PCB-RULE-JLC-VIA-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-LAYOUT-FLOW-001",
+      "type": "rule",
+      "label": "排版定式：接口定边、电源定轴、主控居中、按信号流排模块",
+      "idValue": "PCB-RULE-LAYOUT-FLOW-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
     },
     {
       "id": "entry:rule:PCB-RULE-LCEDA-GATE-001",
@@ -3151,6 +3272,13 @@
       "doc": "docs/knowledge/pcb/07-multilayer-highspeed.md"
     },
     {
+      "id": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "type": "rule",
+      "label": "模块级铺线：DC-DC 环路小、LDO 电容先大后小、USB 90Ω、SD 50Ω+3W 时钟",
+      "idValue": "PCB-RULE-MOD-POWER-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
       "id": "entry:rule:PCB-RULE-PANEL-001",
       "type": "rule",
       "label": "拼板：工艺边 ≥5mm，V-cut/邮票孔按分板方式留距",
@@ -3319,6 +3447,13 @@
       "doc": "docs/knowledge/pcb/08-component-placement.md"
     },
     {
+      "id": "entry:rule:PCB-RULE-POUR-001",
+      "type": "rule",
+      "label": "铺铜五问：给谁做平面/回流连续/孤铜尖角/对称平衡/热焊盘",
+      "idValue": "PCB-RULE-POUR-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
       "id": "entry:rule:PCB-RULE-POWER-FIRST-002",
       "type": "rule",
       "label": "电源/地回流优先于普通信号布线",
@@ -3389,6 +3524,13 @@
       "doc": "docs/knowledge/cases/03-esp32-devkit.md"
     },
     {
+      "id": "entry:rule:PCB-RULE-RF-MOD-001",
+      "type": "rule",
+      "label": "RF/音频/晶振：远离噪声源 + 参考/供电分源 + 天线净空",
+      "idValue": "PCB-RULE-RF-MOD-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
       "id": "entry:rule:PCB-RULE-RF-MODULE-001",
       "type": "rule",
       "label": "无线模组天线伸出板边，整机净空建议 ≥15 mm",
@@ -3422,6 +3564,13 @@
       "label": "PCB 布线十条原则：自检清单",
       "idValue": "PCB-RULE-ROUTE-10-001",
       "doc": "docs/knowledge/pcb/25-ten-routing-principles.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-ROUTE-ORDER-001",
+      "type": "rule",
+      "label": "布线顺序：电源/地→时钟/反馈→高速/差分→RF/模拟→普通信号",
+      "idValue": "PCB-RULE-ROUTE-ORDER-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
     },
     {
       "id": "entry:rule:PCB-RULE-SAFE-BATTERY-001",
@@ -3576,6 +3725,13 @@
       "label": "普通过孔 0.3mm 钻孔 / 0.6mm 焊盘，载流按 0.5~1A/孔估算",
       "idValue": "PCB-RULE-VIA-001",
       "doc": "docs/knowledge/pcb/01-design-rules.md"
+    },
+    {
+      "id": "entry:rule:PCB-RULE-VIA-HS-001",
+      "type": "rule",
+      "label": "高速过孔效应：一个孔 ≈44Ω，stub 1.65mm 谐振 5GHz",
+      "idValue": "PCB-RULE-VIA-HS-001",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
     },
     {
       "id": "entry:rule:PCB-RULE-VIA-TENT-001",
@@ -9010,6 +9166,97 @@
       "path": "docs/knowledge/pcb/25-ten-routing-principles.md"
     },
     {
+      "id": "kp:KP-PCB-370",
+      "type": "kp",
+      "label": "线宽/线距按成品铜厚分档：贴极限是风险，不是水平",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-371",
+      "type": "kp",
+      "label": "过孔四件事：孔径、孔环、孔边到孔边、盘中孔工艺",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-372",
+      "type": "kp",
+      "label": "阻焊、丝印、板边与拼板：投板前一次性收口",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-373",
+      "type": "kp",
+      "label": "阻抗与叠层：先选板厂现成层压，再谈 ±10%",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-374",
+      "type": "kp",
+      "label": "铺铜五问：平面/回流/孤铜尖角/对称平衡/热焊盘",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-375",
+      "type": "kp",
+      "label": "四层板：完整 GND 平面优先，内层 0.5oz 要算载流",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-376",
+      "type": "kp",
+      "label": "模块级铺线：DC-DC 环路、LDO 电容、USB 90Ω、SD 50Ω",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-377",
+      "type": "kp",
+      "label": "过孔效应、回流路径、参考平面与 3W/20H",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-378",
+      "type": "kp",
+      "label": "排版手法（候选）：接口定边、电源定轴、主控居中、信号流",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-379",
+      "type": "kp",
+      "label": "铺线手法（候选）：电源宽线、差分等长、铺铜缝合、Kelvin",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-380",
+      "type": "kp",
+      "label": "「优秀 ≠ 可照抄」的边界与证据分级",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-381",
+      "type": "kp",
+      "label": "本板验证：DRC 0 违规 ≠ 优秀设计（22 项检查）",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
+      "id": "kp:KP-PCB-382",
+      "type": "kp",
+      "label": "投板前铺线/排版门禁清单",
+      "doc": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "path": "docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md"
+    },
+    {
       "id": "kp:KP-SCH-001",
       "type": "kp",
       "label": "图框与标题栏必须承载可追溯字段",
@@ -11084,6 +11331,48 @@
       "publisher": "JLCPCB"
     },
     {
+      "id": "source:SRC-JLC-CAP-CN",
+      "type": "source",
+      "label": "嘉立创PCB、FPC及SMT工艺加工能力总览（PCB加工能力和工艺参数表）",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）"
+    },
+    {
+      "id": "source:SRC-JLC-GUIDE-COPPER-POUR",
+      "type": "source",
+      "label": "嘉立创铺铜注意事项（工艺指引）",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）"
+    },
+    {
+      "id": "source:SRC-JLC-GUIDE-LAMINATE",
+      "type": "source",
+      "label": "嘉立创层压结构说明",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）"
+    },
+    {
+      "id": "source:SRC-JLC-GUIDE-MASK",
+      "type": "source",
+      "label": "嘉立创阻焊设计规范",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）"
+    },
+    {
+      "id": "source:SRC-JLC-GUIDE-PANEL",
+      "type": "source",
+      "label": "嘉立创拼板指引",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）"
+    },
+    {
+      "id": "source:SRC-JLC-GUIDE-STAMP",
+      "type": "source",
+      "label": "嘉立创邮票孔拼板工艺说明",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）"
+    },
+    {
+      "id": "source:SRC-JLC-GUIDE-VCUT",
+      "type": "source",
+      "label": "嘉立创V割拼板工艺说明",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）"
+    },
+    {
       "id": "source:SRC-LCEDA-PRO-ORDER",
       "type": "source",
       "label": "免费PCB打样教程：下单前检查与下单参数（专业版文档中心）",
@@ -11100,6 +11389,216 @@
       "type": "source",
       "label": "原理图设计规范（专业版教育与开源文档中心）",
       "publisher": "嘉立创EDA"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-2LAYER-SPEC",
+      "type": "source",
+      "label": "两层板设计规范",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-3W20H",
+      "type": "source",
+      "label": "PCB 中 3W 规则，20H 规则",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-4LAYER",
+      "type": "source",
+      "label": "四层板PCB Layout设计规范指导",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-AGND-DGND",
+      "type": "source",
+      "label": "PCB模拟地和数字地到底要不要分开？",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-BALANCED-COPPER",
+      "type": "source",
+      "label": "平衡铜的作用与思考",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-CAP-FANOUT",
+      "type": "source",
+      "label": "电容过孔扇出规范",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-COPPER",
+      "type": "source",
+      "label": "PCB 铺铜",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-DENSE-VIA",
+      "type": "source",
+      "label": "PCB设计中密集过孔排列",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-DIFFPAIR",
+      "type": "source",
+      "label": "knowledge-point/difference-pairs",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-GND-VIA",
+      "type": "source",
+      "label": "PCB 设计时板边为什么要打地过孔",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-IMPEDANCE",
+      "type": "source",
+      "label": "阻抗计算的作用与思考",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-LAMINATE",
+      "type": "source",
+      "label": "PCB 层压结构",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-LAYOUT",
+      "type": "source",
+      "label": "PCB设计布局指导",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-MOD-ANTENNA",
+      "type": "source",
+      "label": "天线",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-MOD-AUDIO",
+      "type": "source",
+      "label": "moduler-design/audio",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-MOD-CRYSTAL",
+      "type": "source",
+      "label": "晶振电路",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-MOD-DCDC",
+      "type": "source",
+      "label": "DC-DC模块",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-MOD-LDO",
+      "type": "source",
+      "label": "LDO模块",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-MOD-SD",
+      "type": "source",
+      "label": "SD-Crad模块",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-MOD-USB",
+      "type": "source",
+      "label": "USB 接口",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-POUR",
+      "type": "source",
+      "label": "PCB设计中铺铜的作用与思考",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-PWR-PLANE",
+      "type": "source",
+      "label": "电源作为参考平面",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-PWR-VIA",
+      "type": "source",
+      "label": "PCB 电源过孔放置",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-RETURN-PATH",
+      "type": "source",
+      "label": "了解回流路径",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-ROUTING",
+      "type": "source",
+      "label": "PCB设计走线指导",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-SILKSCREEN",
+      "type": "source",
+      "label": "PCB常见丝印标识",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-SOLITARY-COPPER",
+      "type": "source",
+      "label": "knowledge-point/solitary-copper",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-SPACING",
+      "type": "source",
+      "label": "PCB设计中的安全间距",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-THROUGH-HOLE",
+      "type": "source",
+      "label": "PCB设计中通孔的影响",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-VIA-EFFECT",
+      "type": "source",
+      "label": "高速PCB设计中过孔效应与优化",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-VIA-MASK",
+      "type": "source",
+      "label": "PCB设计过孔盖油和开窗",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-LCEDA-WIKI-Z0",
+      "type": "source",
+      "label": "了解特性阻抗",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心"
+    },
+    {
+      "id": "source:SRC-OSHWHUB-AIBOX",
+      "type": "source",
+      "label": "Mini RV1126B AI BOX",
+      "publisher": "guapi-exe / 立创开源硬件平台 oshwhub.com"
+    },
+    {
+      "id": "source:SRC-OSHWHUB-MICROSCOPE",
+      "type": "source",
+      "label": "MicroScope Power 便携式可调电源与微电流波形分析仪",
+      "publisher": "txp666 / 立创开源硬件平台 oshwhub.com"
+    },
+    {
+      "id": "source:SRC-OSHWHUB-S31",
+      "type": "source",
+      "label": "立创·实战派ESP32-S31开发板",
+      "publisher": "立创开发板（li-chuang-kai-fa-ban）/ 立创开源硬件平台 oshwhub.com"
     },
     {
       "id": "source:SRC-PCBWAY-CAP",
@@ -19610,6 +20109,206 @@
       "type": "DOC_LINKS"
     },
     {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:failure:PCB-FAIL-DANGLING-COPPER",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:failure:PCB-FAIL-PWR-TRACE-UNDERSIZE",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:failure:PCB-FAIL-VIA-IN-PAD-UNPLUGGED",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:module:PCB-CASE-JLC-AIBOX-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:module:PCB-CASE-JLC-MICROSCOPE-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:module:PCB-CASE-JLC-S31-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-20H-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-2L-COPPER-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-4L-STACK-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-GND-STITCH-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-JLC-EDGE-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-JLC-IMP-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-JLC-MASK-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-JLC-TRACE-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-JLC-VIA-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-LAYOUT-FLOW-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-POUR-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-RF-MOD-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-ROUTE-ORDER-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "entry:rule:PCB-RULE-VIA-HS-001",
+      "type": "DOC_HAS_ENTRY"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-370",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-371",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-372",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-373",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-374",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-375",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-376",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-377",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-378",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-379",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-380",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-381",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "kp:KP-PCB-382",
+      "type": "DOC_HAS_KP"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "doc:docs/knowledge/pcb/01-design-rules.md",
+      "type": "DOC_LINKS"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "doc:docs/knowledge/pcb/02-stackup-impedance.md",
+      "type": "DOC_LINKS"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "doc:docs/knowledge/pcb/03-placement-routing.md",
+      "type": "DOC_LINKS"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "doc:docs/knowledge/pcb/06-dfm-manufacturing.md",
+      "type": "DOC_LINKS"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "doc:docs/knowledge/pcb/20-researched-layout-constraints.md",
+      "type": "DOC_LINKS"
+    },
+    {
+      "from": "doc:docs/knowledge/pcb/26-jlc-capability-and-excellent-board-routing-layout.md",
+      "to": "doc:docs/knowledge/pcb/24-prerouting-and-power-first.md",
+      "type": "DOC_LINKS"
+    },
+    {
       "from": "doc:docs/knowledge/schematic/01-conventions.md",
       "to": "entry:failure:SCH-FAIL-NET-ALIAS",
       "type": "DOC_HAS_ENTRY"
@@ -22635,6 +23334,16 @@
       "type": "ENTRY_SOURCE"
     },
     {
+      "from": "entry:failure:PCB-FAIL-DANGLING-COPPER",
+      "to": "entry:rule:PCB-RULE-POUR-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:failure:PCB-FAIL-DANGLING-COPPER",
+      "to": "entry:rule:PCB-RULE-ROUTE-ORDER-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
       "from": "entry:failure:PCB-FAIL-FLEX-DELAM",
       "to": "kp:KP-PCB-258",
       "type": "ENTRY_REFERENCES_KP"
@@ -22805,6 +23514,21 @@
       "type": "ENTRY_SOURCE"
     },
     {
+      "from": "entry:failure:PCB-FAIL-PWR-TRACE-UNDERSIZE",
+      "to": "entry:rule:PCB-RULE-JLC-TRACE-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:failure:PCB-FAIL-PWR-TRACE-UNDERSIZE",
+      "to": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:failure:PCB-FAIL-PWR-TRACE-UNDERSIZE",
+      "to": "entry:rule:PCB-RULE-POUR-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
       "from": "entry:failure:PCB-FAIL-QFN-VOID",
       "to": "entry:rule:PCB-RULE-MFG-STENCIL-001",
       "type": "ENTRY_REFERENCES_ENTRY"
@@ -22963,6 +23687,16 @@
       "from": "entry:failure:PCB-FAIL-USB-ESD",
       "to": "source:SRC-TI-USB",
       "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:failure:PCB-FAIL-VIA-IN-PAD-UNPLUGGED",
+      "to": "entry:rule:PCB-RULE-JLC-VIA-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:failure:PCB-FAIL-VIA-IN-PAD-UNPLUGGED",
+      "to": "entry:rule:PCB-RULE-POUR-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
     },
     {
       "from": "entry:failure:SCH-FAIL-CHARGE-THERMAL",
@@ -23195,6 +23929,71 @@
       "type": "ENTRY_REFERENCES_ENTRY"
     },
     {
+      "from": "entry:module:PCB-CASE-JLC-AIBOX-001",
+      "to": "entry:rule:PCB-RULE-4L-STACK-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-AIBOX-001",
+      "to": "entry:rule:PCB-RULE-LAYOUT-FLOW-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-AIBOX-001",
+      "to": "entry:rule:PCB-RULE-VIA-HS-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-AIBOX-001",
+      "to": "source:SRC-OSHWHUB-AIBOX",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-MICROSCOPE-001",
+      "to": "entry:rule:PCB-RULE-LAYOUT-FLOW-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-MICROSCOPE-001",
+      "to": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-MICROSCOPE-001",
+      "to": "entry:rule:PCB-RULE-RF-MOD-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-MICROSCOPE-001",
+      "to": "source:SRC-OSHWHUB-MICROSCOPE",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-S31-001",
+      "to": "entry:rule:PCB-RULE-LAYOUT-FLOW-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-S31-001",
+      "to": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-S31-001",
+      "to": "entry:rule:PCB-RULE-POUR-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-S31-001",
+      "to": "entry:rule:PCB-RULE-RF-MOD-001",
+      "type": "ENTRY_REFERENCES_ENTRY"
+    },
+    {
+      "from": "entry:module:PCB-CASE-JLC-S31-001",
+      "to": "source:SRC-OSHWHUB-S31",
+      "type": "ENTRY_SOURCE"
+    },
+    {
       "from": "entry:module:PCB-CASE-RFMOD",
       "to": "entry:rule:PCB-RULE-DECOUPLE-001",
       "type": "ENTRY_REFERENCES_ENTRY"
@@ -23340,6 +24139,26 @@
       "type": "ENTRY_SOURCE"
     },
     {
+      "from": "entry:rule:PCB-RULE-20H-001",
+      "to": "source:SRC-LCEDA-WIKI-3W20H",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-20H-001",
+      "to": "source:SRC-LCEDA-WIKI-SPACING",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-2L-COPPER-001",
+      "to": "source:SRC-LCEDA-WIKI-2LAYER-SPEC",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-2L-COPPER-001",
+      "to": "source:SRC-LCEDA-WIKI-COPPER",
+      "type": "ENTRY_SOURCE"
+    },
+    {
       "from": "entry:rule:PCB-RULE-3W-20H-002",
       "to": "source:SRC-BILI-PCB-10-RULES",
       "type": "ENTRY_SOURCE"
@@ -23347,6 +24166,26 @@
     {
       "from": "entry:rule:PCB-RULE-3W-20H-002",
       "to": "source:SRC-CSDN-PCB-10-RULES",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-4L-STACK-001",
+      "to": "source:SRC-LCEDA-WIKI-4LAYER",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-4L-STACK-001",
+      "to": "source:SRC-LCEDA-WIKI-LAMINATE",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-4L-STACK-001",
+      "to": "source:SRC-LCEDA-WIKI-PWR-PLANE",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-4L-STACK-001",
+      "to": "source:SRC-LCEDA-WIKI-RETURN-PATH",
       "type": "ENTRY_SOURCE"
     },
     {
@@ -23400,6 +24239,21 @@
       "type": "ENTRY_SOURCE"
     },
     {
+      "from": "entry:rule:PCB-RULE-GND-STITCH-001",
+      "to": "source:SRC-LCEDA-WIKI-AGND-DGND",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-GND-STITCH-001",
+      "to": "source:SRC-LCEDA-WIKI-CAP-FANOUT",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-GND-STITCH-001",
+      "to": "source:SRC-LCEDA-WIKI-GND-VIA",
+      "type": "ENTRY_SOURCE"
+    },
+    {
       "from": "entry:rule:PCB-RULE-HS-REF-001",
       "to": "source:SRC-TI-USB",
       "type": "ENTRY_SOURCE"
@@ -23417,6 +24271,106 @@
     {
       "from": "entry:rule:PCB-RULE-IMPEDANCE-002",
       "to": "source:SRC-TI-USB",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-EDGE-001",
+      "to": "source:SRC-JLC-CAP-CN",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-EDGE-001",
+      "to": "source:SRC-JLC-GUIDE-PANEL",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-EDGE-001",
+      "to": "source:SRC-JLC-GUIDE-STAMP",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-EDGE-001",
+      "to": "source:SRC-JLC-GUIDE-VCUT",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-IMP-001",
+      "to": "source:SRC-JLC-CAP-CN",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-IMP-001",
+      "to": "source:SRC-JLC-GUIDE-LAMINATE",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-IMP-001",
+      "to": "source:SRC-LCEDA-WIKI-4LAYER",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-IMP-001",
+      "to": "source:SRC-LCEDA-WIKI-IMPEDANCE",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-IMP-001",
+      "to": "source:SRC-LCEDA-WIKI-Z0",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-MASK-001",
+      "to": "source:SRC-JLC-CAP-CN",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-MASK-001",
+      "to": "source:SRC-JLC-GUIDE-MASK",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-MASK-001",
+      "to": "source:SRC-LCEDA-WIKI-SILKSCREEN",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-TRACE-001",
+      "to": "source:SRC-JLC-CAP-CN",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-VIA-001",
+      "to": "source:SRC-JLC-CAP-CN",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-VIA-001",
+      "to": "source:SRC-LCEDA-WIKI-PWR-VIA",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-JLC-VIA-001",
+      "to": "source:SRC-LCEDA-WIKI-VIA-MASK",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-LAYOUT-FLOW-001",
+      "to": "source:SRC-LCEDA-WIKI-LAYOUT",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-LAYOUT-FLOW-001",
+      "to": "source:SRC-OSHWHUB-AIBOX",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-LAYOUT-FLOW-001",
+      "to": "source:SRC-OSHWHUB-MICROSCOPE",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-LAYOUT-FLOW-001",
+      "to": "source:SRC-OSHWHUB-S31",
       "type": "ENTRY_SOURCE"
     },
     {
@@ -23495,6 +24449,31 @@
       "type": "ENTRY_SOURCE"
     },
     {
+      "from": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "to": "source:SRC-LCEDA-WIKI-DIFFPAIR",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "to": "source:SRC-LCEDA-WIKI-MOD-DCDC",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "to": "source:SRC-LCEDA-WIKI-MOD-LDO",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "to": "source:SRC-LCEDA-WIKI-MOD-SD",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-MOD-POWER-001",
+      "to": "source:SRC-LCEDA-WIKI-MOD-USB",
+      "type": "ENTRY_SOURCE"
+    },
+    {
       "from": "entry:rule:PCB-RULE-PANEL-001",
       "to": "source:SRC-JLC-CAP",
       "type": "ENTRY_SOURCE"
@@ -23522,6 +24501,31 @@
     {
       "from": "entry:rule:PCB-RULE-PLACE-DCDC-001",
       "to": "source:SRC-TI-BOOST",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-POUR-001",
+      "to": "source:SRC-JLC-GUIDE-COPPER-POUR",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-POUR-001",
+      "to": "source:SRC-LCEDA-WIKI-BALANCED-COPPER",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-POUR-001",
+      "to": "source:SRC-LCEDA-WIKI-COPPER",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-POUR-001",
+      "to": "source:SRC-LCEDA-WIKI-POUR",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-POUR-001",
+      "to": "source:SRC-LCEDA-WIKI-SOLITARY-COPPER",
       "type": "ENTRY_SOURCE"
     },
     {
@@ -23560,6 +24564,21 @@
       "type": "ENTRY_SOURCE"
     },
     {
+      "from": "entry:rule:PCB-RULE-RF-MOD-001",
+      "to": "source:SRC-LCEDA-WIKI-MOD-ANTENNA",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-RF-MOD-001",
+      "to": "source:SRC-LCEDA-WIKI-MOD-AUDIO",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-RF-MOD-001",
+      "to": "source:SRC-LCEDA-WIKI-MOD-CRYSTAL",
+      "type": "ENTRY_SOURCE"
+    },
+    {
       "from": "entry:rule:PCB-RULE-RF-MODULE-001",
       "to": "source:SRC-ESP32-HW",
       "type": "ENTRY_SOURCE"
@@ -23587,6 +24606,16 @@
     {
       "from": "entry:rule:PCB-RULE-ROUTE-10-001",
       "to": "source:SRC-CSDN-PCB-10-RULES",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-ROUTE-ORDER-001",
+      "to": "source:SRC-LCEDA-WIKI-LAYOUT",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-ROUTE-ORDER-001",
+      "to": "source:SRC-LCEDA-WIKI-ROUTING",
       "type": "ENTRY_SOURCE"
     },
     {
@@ -23702,6 +24731,21 @@
     {
       "from": "entry:rule:PCB-RULE-USB-HS-001",
       "to": "source:SRC-TI-USB",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-VIA-HS-001",
+      "to": "source:SRC-LCEDA-WIKI-DENSE-VIA",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-VIA-HS-001",
+      "to": "source:SRC-LCEDA-WIKI-THROUGH-HOLE",
+      "type": "ENTRY_SOURCE"
+    },
+    {
+      "from": "entry:rule:PCB-RULE-VIA-HS-001",
+      "to": "source:SRC-LCEDA-WIKI-VIA-EFFECT",
       "type": "ENTRY_SOURCE"
     }
   ]

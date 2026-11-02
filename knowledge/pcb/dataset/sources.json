@@ -1,6 +1,6 @@
 {
-  "version": "1.2.0",
-  "generatedAt": "2026-10-30T07:36:00.000Z",
+  "version": "1.3.0",
+  "generatedAt": "2026-11-02T12:17:29.000Z",
   "domain": "pcb-research-sources",
   "notes": "公开资料研究来源登记。snapshotSha256 是各来源在 fetchedAt 时刻抓取快照的 SHA-256；HTML/API 页面会随发布更新，重新抓取后应更新哈希、fetchedAt 与 reviewBy。reviewBy 是强制复核期限（现有条目 2027-04-23，2026-10-30 新增条目 2027-04-30），到期未复核由 scripts/check-knowledge-sources.mjs 报 SOURCE_REVIEW_OVERDUE。所有条目只作工程参考，量产/安规必须按标准原文、数据手册和板厂 EQ 复核。",
   "sources": [
@@ -530,6 +530,798 @@
       ],
       "caveat": "同题学习笔记公开可见部分给出10条标题和部分解释，蛇形/20H/载流等章节正文被站点折叠/需关注；本笔记不把那部分缺失内容当作已核实原文。博客为C级二手资料，数值以IPC/叠层计算/板厂能力为准。",
       "reviewBy": "2027-04-30"
+    },
+    {
+      "id": "SRC-JLC-CAP-CN",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）",
+      "title": "嘉立创PCB、FPC及SMT工艺加工能力总览（PCB加工能力和工艺参数表）",
+      "url": "https://www.jlc.com/portal/vtechnology.html",
+      "type": "official-manufacturer-capability",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:03:01.791Z",
+      "snapshotSha256": "e30588b6968f50f0646cf3463e5f5f20d1c847fd4a603a5ec4ac6f242fa39a77",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/jlc-capability.txt",
+      "topics": [
+        "manufacturing-capability",
+        "trace-width-clearance",
+        "via-annular-ring",
+        "solder-mask",
+        "silkscreen",
+        "panelization"
+      ],
+      "reviewBy": "2027-05-01",
+      "notes": "产线能力随工厂与工艺调整变化，任何数值使用前必须按当期能力表与工程确认单（EQ）复核"
+    },
+    {
+      "id": "SRC-JLC-GUIDE-COPPER-POUR",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）",
+      "title": "嘉立创铺铜注意事项（工艺指引）",
+      "url": "https://www.jlc.com/portal/server_guide_38573.html",
+      "type": "official-manufacturer-capability",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:03:02.086Z",
+      "snapshotSha256": "8ae251a0a4929ad6a20fd5c02c4626e1cc7cf5b7aa8daeef041a119e3134b88c",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/jlc-copper-pour.txt",
+      "topics": [
+        "copper-pour",
+        "isolated-copper",
+        "thermal-relief",
+        "spacing"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-JLC-GUIDE-LAMINATE",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）",
+      "title": "嘉立创层压结构说明",
+      "url": "https://www.jlc.com/portal/server_guide_36372.html",
+      "type": "official-manufacturer-capability",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:03:03.383Z",
+      "snapshotSha256": "7612e32c71f17a435ab5ac01f0dd774b7183cb1a333eb8b9542bcd01b7cb1eff",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/jlc-laminate.txt",
+      "topics": [
+        "stackup",
+        "laminate",
+        "impedance",
+        "thickness"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-JLC-GUIDE-PANEL",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）",
+      "title": "嘉立创拼板指引",
+      "url": "https://www.jlc.com/portal/server_guide_71.html",
+      "type": "official-manufacturer-capability",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:03:02.331Z",
+      "snapshotSha256": "1a7ca2d47628bade92578914c43271ae7724dde98820dad6f5df6f350d997d70",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/jlc-panelization.txt",
+      "topics": [
+        "panelization",
+        "process-edge",
+        "v-cut",
+        "stamp-hole"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-JLC-GUIDE-MASK",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）",
+      "title": "嘉立创阻焊设计规范",
+      "url": "https://www.jlc.com/portal/server_guide_34402.html",
+      "type": "official-manufacturer-capability",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:03:03.714Z",
+      "snapshotSha256": "310e945434f54ec506e192a17035052f37e09495af5ad53d7d2e686d5b9b753c",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/jlc-solder-mask.txt",
+      "topics": [
+        "solder-mask",
+        "mask-bridge",
+        "opening",
+        "clearance"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-JLC-GUIDE-STAMP",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）",
+      "title": "嘉立创邮票孔拼板工艺说明",
+      "url": "https://www.jlc.com/portal/server_guide_10181.html",
+      "type": "official-manufacturer-capability",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:03:02.982Z",
+      "snapshotSha256": "12542c039f83fc34fd937c547bf5b364d3a2f8b1bf313731cf02b83eb16a876e",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/jlc-stamp-hole.txt",
+      "topics": [
+        "stamp-hole",
+        "panelization",
+        "board-edge"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-JLC-GUIDE-VCUT",
+      "publisher": "嘉立创（JLCPCB / 深圳嘉立创科技集团）",
+      "title": "嘉立创V割拼板工艺说明",
+      "url": "https://www.jlc.com/portal/server_guide_69.html",
+      "type": "official-manufacturer-capability",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:03:02.584Z",
+      "snapshotSha256": "4c37d376243b6dae7282f2dba105e93257c6c7dc8b74a0e90f83612e9ae9fd03",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/jlc-vcut.txt",
+      "topics": [
+        "v-cut",
+        "panelization",
+        "board-edge"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-MOD-ANTENNA",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "天线",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/moduler-design/antenna.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "e40cbcde6443d5ab7f44b6ff2cb96badace7d46e4499b9011b67daa6c9bb4ae9",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/module-antenna.txt",
+      "topics": [
+        "antenna",
+        "keepout",
+        "layout",
+        "image-only"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-MOD-AUDIO",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "moduler-design/audio",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/moduler-design/audio.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "adfa9ee16c6290f1c3d7e97c8c856257b6cf24773ae84b22055e570de2d6ba44",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/module-audio.txt",
+      "topics": [
+        "audio",
+        "layout",
+        "image-only"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-MOD-CRYSTAL",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "晶振电路",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/moduler-design/crystal-oscillator-circuit.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "b7b38b1eb6f6e86551a16517b3861b5f3d05c72296f5db5763255f3e957f4ea9",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/module-crystal.txt",
+      "topics": [
+        "crystal",
+        "oscillator",
+        "layout",
+        "image-only"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-MOD-DCDC",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "DC-DC模块",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/moduler-design/dc-dc-moduler.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "0f8c5d2709acd7462fafec29465d18e0d9d29eca9c210494880211770a1cea98",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/module-dc-dc.txt",
+      "topics": [
+        "dc-dc",
+        "layout",
+        "loop-area",
+        "routing"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-MOD-LDO",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "LDO模块",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/moduler-design/ldo-moduler.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "88638c4de11ded4089f13187efd4610b6c34fd50e27a41512764e15bbba58e1d",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/module-ldo.txt",
+      "topics": [
+        "ldo",
+        "layout",
+        "routing",
+        "decoupling"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-MOD-SD",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "SD-Crad模块",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/moduler-design/sd-card.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "5244fb26d5af1a1b4302d309f05217a4e60ce57d3e30db187c338ddd450e1ea0",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/module-sd-card.txt",
+      "topics": [
+        "sd-card",
+        "routing",
+        "length-match",
+        "impedance"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-MOD-USB",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "USB 接口",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/moduler-design/usb-interface.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "168d2d6c6528027d46687f1a4ae8a2f78c251170b8d3f51e64b0782936befa8c",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/module-usb.txt",
+      "topics": [
+        "usb",
+        "differential-pair",
+        "impedance",
+        "layout"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-3W20H",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB 中 3W 规则，20H 规则",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/3w-20h.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "9515b0a5a998585df0b6976cce03ff826424ff170cb2f01ceea4b250347592bc",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-3w-20h.txt",
+      "topics": [
+        "3w-rule",
+        "20h-rule",
+        "crosstalk",
+        "image-only"
+      ],
+      "reviewBy": "2027-05-01",
+      "notes": "页面正文全部为图片；3W/20H 图文转录（图片级证据）见 snapshots/wiki-3w-20h.vision.txt"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-AGND-DGND",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB模拟地和数字地到底要不要分开？",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/pcb-agnd-dgnd.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "c8d2f9ba891d5632aa99b9f2d8743a38826fe7895b9ab6a3a9e307a043b4cefb",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-agnd-dgnd.txt",
+      "topics": [
+        "ground",
+        "split-plane",
+        "mixed-signal"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-BALANCED-COPPER",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "平衡铜的作用与思考",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/balanced-copper.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "0bc4b4be0b5a5c28e217b9deafedcb4148906e9d4f4f4429cb91265cfcdf3ed8",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-balanced-copper.txt",
+      "topics": [
+        "copper-balance",
+        "warpage",
+        "plating"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-CAP-FANOUT",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "电容过孔扇出规范",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/cap-via-fan-out.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "b5fc2fe42ff1bcac6bc5cb89d305e7c2eec57220f888ce9f1fab8a3fd6df2675",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-cap-via-fanout.txt",
+      "topics": [
+        "decoupling",
+        "via-fanout",
+        "return-path"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-Z0",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "了解特性阻抗",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/characteristic-impedance.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "cd37078ab85c9920e30766514e9aa835ba52a8961692e8b7661bd552c4fb355b",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-characteristic-impedance.txt",
+      "topics": [
+        "impedance",
+        "differential"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-POUR",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB设计中铺铜的作用与思考",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/role-and-consideration-of-copper-pour.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "eefdb9f201c9ee7680f8fdfc1220e0164d67b575d58c866e8cec1fa1421f7213",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-copper-pour-role.txt",
+      "topics": [
+        "copper-pour",
+        "return-path",
+        "thermal",
+        "shielding"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-COPPER",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB 铺铜",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/copper.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "5d446f0ed51b6cdbff2b2c6e52e669551213979cab32448ff00aff47f42a4c88",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-copper.txt",
+      "topics": [
+        "copper-pour",
+        "solid",
+        "grid",
+        "isolated-copper"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-DENSE-VIA",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB设计中密集过孔排列",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/dense-via-arrangement.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "00bfaaccaaa96ca0905f834f953c64ff1b41f81896f13cf4a43cc62c5c3aa521",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-dense-via.txt",
+      "topics": [
+        "via-stitching",
+        "plane-integrity",
+        "routing"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-DIFFPAIR",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "knowledge-point/difference-pairs",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/difference-pairs.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "406b17f393925bca5fd8bcbd638877e7aebfaf6bdd5a54ce9b301269a64dcbcb",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-difference-pairs.txt",
+      "topics": [
+        "differential-pair",
+        "length-match",
+        "routing"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-4LAYER",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "四层板PCB Layout设计规范指导",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/four-layer-board-layout.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "bcb8da683785d8e75a4821c00d267a9d2872d1bb25da8608a5d0ffa83a169422",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-four-layer-board-layout.txt",
+      "topics": [
+        "4-layer",
+        "stackup",
+        "layout",
+        "impedance"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-GND-VIA",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB 设计时板边为什么要打地过孔",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/gnd-via.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "7436a2a0dd245e528780bd16b6bada77d30fa157c45f926d11fff4c004d825f1",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-gnd-via.txt",
+      "topics": [
+        "via-stitching",
+        "board-edge",
+        "emi",
+        "shielding"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-THROUGH-HOLE",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB设计中通孔的影响",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/impact-of-through-holes.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "4408802bd096fa6bbc24720c327a2f05d3413601618147cfcd0811ee529f0548",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-impact-of-through-holes.txt",
+      "topics": [
+        "via",
+        "stub",
+        "parasitic",
+        "reflection"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-IMPEDANCE",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "阻抗计算的作用与思考",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/impedance-calculation.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "e0e4e18833a2af50fb7e13cf48e04b430c83c20b3814d09fd7589e89e700a1e8",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-impedance-calculation.txt",
+      "topics": [
+        "impedance",
+        "stackup",
+        "trace-width"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-LAMINATE",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB 层压结构",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/laminated-structure.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "c450d5ef6cdf3f1e1c3926adba421f062fc811bb9b48dead3cfc9217d0339441",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-laminated-structure.txt",
+      "topics": [
+        "stackup",
+        "laminate",
+        "impedance"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-LAYOUT",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB设计布局指导",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/layout-guidance.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "9489d3e64091aa350658636dad91f7e4efd3c07b87b26db592d7fb7b5331accb",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-layout-guidance.txt",
+      "topics": [
+        "layout",
+        "placement",
+        "tutorial",
+        "image-only"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-SILKSCREEN",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB常见丝印标识",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/pcb-silkscreen.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "ef343cb11d1d8b365cd9b081a740f1937f4e739b8ddb6878bb851171dfc0e492",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-pcb-silkscreen.txt",
+      "topics": [
+        "silkscreen",
+        "legends"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-PWR-PLANE",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "电源作为参考平面",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/power-supply-refrence-plane.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "8063d9130d4b01eb67d4010354bd4b949a8780fc19f06803aebd8b5ab939e5da",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-power-plane.txt",
+      "topics": [
+        "power-plane",
+        "reference-plane",
+        "image-stub"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-RETURN-PATH",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "了解回流路径",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/return-current-path.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "c73d685b1abc210e477e62c23652177869dfe61405cd04cbabfd9e0e2a51bb4b",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-return-current-path.txt",
+      "topics": [
+        "return-path",
+        "reference-plane",
+        "image-stub"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-ROUTING",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB设计走线指导",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/routing-guidance.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "C",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "823de6944bac71d814b712fcca53fa8e1aed00cecc892b3df969c6d19acae69a",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-routing-guidance.txt",
+      "topics": [
+        "routing",
+        "tutorial",
+        "image-only"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-SPACING",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB设计中的安全间距",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/safety-spacing.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "11568bb5b2953eee01858cd75f4352a6204e8ffd30cb1c923b293b028f461e86",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-safety-spacing.txt",
+      "topics": [
+        "clearance",
+        "trace-width",
+        "20h-rule",
+        "via-size"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-SOLITARY-COPPER",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "knowledge-point/solitary-copper",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/solitary-copper.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "3e694baf40c67473c259a3405f5220757d0efa2077f8a8384bff0dd299e63bbd",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-solitary-copper.txt",
+      "topics": [
+        "copper-pour",
+        "isolated-copper",
+        "emi"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-PWR-VIA",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB 电源过孔放置",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/through-hole-placement.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "5eb7b9d7c3e8a549c059792899675b09786aba9e411f03344f2a5d3d9d720582",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-through-hole-placement.txt",
+      "topics": [
+        "power-via",
+        "current-carrying",
+        "return-path"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-2LAYER-SPEC",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "两层板设计规范",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/two-layer-board-specification.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "7c28ed9ab494c9c6822c514f9666922a4e8dc232b680d1b6af70d524a65b0db8",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-two-layer-board-spec.txt",
+      "topics": [
+        "2-layer",
+        "layout",
+        "power",
+        "gnd"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-VIA-MASK",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "PCB设计过孔盖油和开窗",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/via-cover-oil.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "3ad36ba3610ed91dbfee767ba5949aadbbb1f4b3d99c56b2326f4a42a8243e78",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-via-cover-oil.txt",
+      "topics": [
+        "via",
+        "solder-mask",
+        "tenting"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-LCEDA-WIKI-VIA-EFFECT",
+      "publisher": "嘉立创EDA（LCEDA）官方教育与开源文档中心",
+      "title": "高速PCB设计中过孔效应与优化",
+      "url": "https://wiki.lceda.cn/zh-hans/design-production/pcb-design/knowledge-point/via-hole-effect.html",
+      "type": "official-eda-documentation",
+      "evidenceLevel": "B",
+      "revision": "accessed 2026-11-02",
+      "fetchedAt": "2026-11-02T12:06:07.869Z",
+      "snapshotSha256": "1e86d0de57bc722b6c4b21d7aabe89bcb5902f85730c988efd4c1c1ac6aa0e98",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/jlc-official/snapshots/wiki-via-hole-effect.txt",
+      "topics": [
+        "via",
+        "parasitic",
+        "stub",
+        "high-speed"
+      ],
+      "reviewBy": "2027-05-01"
+    },
+    {
+      "id": "SRC-OSHWHUB-S31",
+      "publisher": "立创开发板（li-chuang-kai-fa-ban）/ 立创开源硬件平台 oshwhub.com",
+      "title": "立创·实战派ESP32-S31开发板",
+      "url": "https://oshwhub.com/li-chuang-kai-fa-ban/project_wxwsirbz",
+      "type": "community-open-hardware-project",
+      "evidenceLevel": "C",
+      "revision": "页面更新时间 2026-09-16 13:47:41；工程版本 V0.3（已验证有飞线）/V0.4（未验证）/V1.1（未发布）；协议 CC BY-NC-SA 4.0",
+      "fetchedAt": "2026-11-02T20:02:19+08:00",
+      "snapshotSha256": "13ba273b29be92d170b63768cdcbb664f84a2fd67a4df9a43e8006629d47962b",
+      "topics": [
+        "PCB排版",
+        "PCB铺线",
+        "接口分区",
+        "SDIO等长",
+        "USB差分",
+        "GND铺铜与过孔缝合",
+        "陶瓷天线",
+        "PMU电源域"
+      ],
+      "reviewBy": "2027-05-01",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/oshwhub-cases/esp32s31/page.txt"
+    },
+    {
+      "id": "SRC-OSHWHUB-MICROSCOPE",
+      "publisher": "txp666 / 立创开源硬件平台 oshwhub.com",
+      "title": "MicroScope Power 便携式可调电源与微电流波形分析仪",
+      "url": "https://oshwhub.com/txp666/project_iupheygc",
+      "type": "community-open-hardware-project",
+      "evidenceLevel": "C",
+      "revision": "页面更新时间 2026-10-20 15:57:48；MIT License；复刻成本 ¥149",
+      "fetchedAt": "2026-11-02T20:02:19+08:00",
+      "snapshotSha256": "32dbe6bb1eb04550936de4ac1f0bf2ae1c7223b965cf2160c3e5d48c8e992c99",
+      "topics": [
+        "PCB排版",
+        "铺线",
+        "Kelvin采样",
+        "ADC前端RC",
+        "独立基准",
+        "可调LDO供电路径",
+        "电源与测量支路分离"
+      ],
+      "reviewBy": "2027-05-01",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/oshwhub-cases/microscope/page.txt"
+    },
+    {
+      "id": "SRC-OSHWHUB-AIBOX",
+      "publisher": "guapi-exe / 立创开源硬件平台 oshwhub.com",
+      "title": "Mini RV1126B AI BOX",
+      "url": "https://oshwhub.com/guapi-exe/project_gzqvuteg",
+      "type": "community-open-hardware-project",
+      "evidenceLevel": "C",
+      "revision": "页面更新时间 2026-10-26 09:55:17；GPL 3.0；复刻成本 ¥300；6 层板",
+      "fetchedAt": "2026-11-02T20:05:44+08:00",
+      "snapshotSha256": "9cd44a431c0ed5bf7ca7dcb5521b1dd805054563a2947c7af6561db2c0c41f02",
+      "topics": [
+        "PCB排版",
+        "接口沿边布局",
+        "RF模块与IPEX天线",
+        "GND铺铜与过孔",
+        "6层叠层取舍",
+        "0201高密度装配",
+        "高速接口风险"
+      ],
+      "reviewBy": "2027-05-01",
+      "snapshotFile": "artifacts/evidence/research/jlc-2026-11-02/oshwhub-cases/aibox/page.txt"
     }
   ]
 }
