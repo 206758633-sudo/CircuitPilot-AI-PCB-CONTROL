@@ -90,7 +90,9 @@ test('PlanRequestStore：create 生成 apr_id、字段白名单、默认 24h、�
 });
 
 test('PlanRequestStore：create 校验 kind/必填/长度/risks/missing/expiresAt', (context) => {
-  const { store } = makeStore(context, { file: null });
+  // 固定时钟：expiresAt 上界是相对“创建时 now”判断的，用真实时钟会在慢机器上因毫秒推进而偶发不抛错。
+  let now = 1_000_000;
+  const { store } = makeStore(context, { file: null, now: () => now });
   assert.throws(() => store.create(planRequestInput({ kind: 'other' })), { code: PLAN_REQUEST_CODES.INVALID });
   assert.throws(() => store.create(planRequestInput({ planHash: '' })), { code: PLAN_REQUEST_CODES.INVALID });
   assert.throws(() => store.create(planRequestInput({ planHash: 'x'.repeat(129) })), { code: PLAN_REQUEST_CODES.INVALID });
@@ -100,11 +102,11 @@ test('PlanRequestStore：create 校验 kind/必填/长度/risks/missing/expiresA
   assert.throws(() => store.create(planRequestInput({ summary: 'x'.repeat(2001) })), { code: PLAN_REQUEST_CODES.INVALID });
   assert.throws(() => store.create(planRequestInput({ risks: Array.from({ length: 21 }, (_, i) => `r${i}`) })), { code: PLAN_REQUEST_CODES.INVALID });
   assert.throws(() => store.create(planRequestInput({ missing: ['x'.repeat(301)] })), { code: PLAN_REQUEST_CODES.INVALID });
-  const now = store.nowMs();
-  assert.throws(() => store.create(planRequestInput({ expiresAt: now - 1 })), { code: PLAN_REQUEST_CODES.INVALID });
-  assert.throws(() => store.create(planRequestInput({ expiresAt: now + 7 * 24 * 60 * 60 * 1000 + 1 })), { code: PLAN_REQUEST_CODES.INVALID });
-  const customExpiry = store.create(planRequestInput({ expiresAt: now + 60_000 }));
-  assert.equal(customExpiry.expiresAt, now + 60_000);
+  const nowMs = store.nowMs();
+  assert.throws(() => store.create(planRequestInput({ expiresAt: nowMs - 1 })), { code: PLAN_REQUEST_CODES.INVALID });
+  assert.throws(() => store.create(planRequestInput({ expiresAt: nowMs + 7 * 24 * 60 * 60 * 1000 + 1 })), { code: PLAN_REQUEST_CODES.INVALID });
+  const customExpiry = store.create(planRequestInput({ expiresAt: nowMs + 60_000 }));
+  assert.equal(customExpiry.expiresAt, nowMs + 60_000);
 });
 
 test('PlanRequestStore：list 排序/过滤、decide 只改记录且一次性', (context) => {
