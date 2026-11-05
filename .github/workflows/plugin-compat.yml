@@ -1,0 +1,53 @@
+name: Plugin compatibility (dsh-circuitpilot)
+
+# 这个工作流的存在理由：DSH / CircuitPilot 升级后，插件曾因为清单门禁（engines.dsh /
+# dsh-* peerDependencies）与运行期 API 变化被宿主静默 skip，直到真机才发现。
+# 这里把「兼容清单与 package.json 一致」+「本机检测到的版本被区间覆盖」做成 push/PR 门禁：
+#   - 有人改了 engines.dsh / peerDependencies 却忘了同步 compat.json → 红；
+#   - DSH 大版本升级后 compat.json 区间没跟上 → 漂移测试红（提示执行 compat:sync）。
+#
+# 安全边界：
+#   - 只读：`--check` 不写任何文件；
+#   - 不联网：插件零依赖，不需要 npm ci / 不需要访问 registry；
+#   - 不访问本机 4178：显式 `--no-runtime-probe`，避免 CI 尝试连本地 Runtime。
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'plugin/dsh-circuitpilot/**'
+      - 'docs/agent/plugin-compat.md'
+      - '.github/workflows/plugin-compat.yml'
+  pull_request:
+    paths:
+      - 'plugin/dsh-circuitpilot/**'
+      - 'docs/agent/plugin-compat.md'
+      - '.github/workflows/plugin-compat.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    name: plugin tests · compat:check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 插件零依赖（peerDependencies 由 DSH 宿主解析），因此不做 npm ci，避免任何 registry 访问。
+      - name: Plugin unit tests (includes compat drift gate)
+        working-directory: plugin/dsh-circuitpilot
+        run: node --test "test/*.test.mjs"
+
+      # 只读门禁：检测到的版本都被 compat.json 覆盖、且 package.json 与 compat.json 一致 → exit 0。
+      # CI 里没有本机 DSH / CircuitPilot，检测不到版本视为 skip（不算失败），仍校验清单一致性。
+      - name: Compatibility check (read-only)
+        run: |
+          node plugin/dsh-circuitpilot/scripts/sync-compat.mjs --check --json --no-runtime-probe \
+            | tee /tmp/plugin-compat-check.json

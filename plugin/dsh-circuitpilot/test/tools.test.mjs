@@ -1289,3 +1289,213 @@ test('工具定义可独立构造（不依赖 DSH）：显式 client/config 注�
     await harness.close();
   }
 });
+
+/* ------------------------------------------------------------------ */
+/* Runtime 兼容门禁（task-2）                                          */
+/* ------------------------------------------------------------------ */
+
+/** 旧构建（0.8.15）只会 /api/health，其它路由全 404 —— 与用户本机 4178 的真实形态一致。 */
+function legacyRouterOptions() {
+  return {
+    healthVersion: '0.8.15',
+    missingRoutes: [
+      'GET /api/agent/status',
+      'GET /api/project-state',
+      'GET /api/issue-state',
+      'GET /api/evidence/index',
+      'GET /api/write-gate',
+      'GET /api/eda/workspaces/current',
+    ],
+  };
+}
+
+test('版本门禁：旧 Runtime 0.8.15 上 cp_status 明确失败 RUNTIME_VERSION_UNSUPPORTED，不再是一串 404', async () => {
+  const router = createDefaultRouter(legacyRouterOptions());
+  await withHarness({ handler: router.handler }, async (harness) => {
+    const result = await harness.callTool('cp_status');
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'RUNTIME_VERSION_UNSUPPORTED');
+    assert.match(result.message, /0\.8\.15/);
+    assert.match(result.message, /0\.2\.0/);
+    assert.ok(result.nextActions.length >= 2, '必须给可操作 nextActions');
+    assert.match(result.nextActions.join(' '), /升级|切换/);
+    assert.equal(result.data.runtimeVersion, '0.8.15');
+    assert.equal(result.data.compat.runtimeVersion, '0.8.15');
+    // 门禁失败结果也带插件/宿主诊断（host 未传时优雅降级为 null）。
+    assert.equal(typeof result.data.plugin.version, 'string');
+    assert.equal(result.data.plugin.host.dshVersion, null);
+    assert.equal(result.data.compat.supported, false);
+    assert.equal(result.truncated, false);
+    foreachNoToken(result);
+    // fail-closed：门禁失败后不得再打 project-state 等路由（旧行为会返回一串 404）。
+    assert.deepEqual(harness.runtime.calls.map((call) => `${call.method} ${call.path}`), ['GET /api/health']);
+  });
+});
+
+test('版本门禁：除 cp_job 外的工具都被拦在同一处（0.8.15），cp_job 纯本地不受影响', async () => {
+  const router = createDefaultRouter(legacyRouterOptions());
+  await withHarness({ handler: router.handler }, async (harness) => {
+    for (const [name, args] of [['cp_status', {}], ['cp_project_context', {}], ['cp_issues', {}], ['cp_evidence', {}], ['cp_knowledge', {}]]) {
+      const result = await harness.callTool(name, args);
+      assert.equal(result.ok, false, `${name} 应被门禁拦住`);
+      assert.equal(result.code, 'RUNTIME_VERSION_UNSUPPORTED', `${name} code`);
+    }
+    // cp_job 是纯本地任务表操作：即使 Runtime 不兼容也必须可用。
+    const list = await harness.callTool('cp_job', { action: 'list' });
+    assert.equal(list.ok, true);
+    assert.ok(Array.isArray(list.data.jobs));
+    assert.equal(harness.runtime.calls.every((call) => call.path === '/api/health'), true, 'cp_job 不应访问 Runtime');
+  });
+});
+
+test('版本门禁：Runtime 完全不可达时 cp_job 仍可用，其它工具返回 RUNTIME_UNREACHABLE', async () => {
+  const harness = await makeHarness({ handler: createDefaultRouter().handler });
+  await harness.runtime.close();
+  try {
+    const status = await harness.callTool('cp_status');
+    assert.equal(status.ok, false);
+    assert.equal(status.code, 'RUNTIME_UNREACHABLE');
+    const job = await harness.callTool('cp_job', { action: 'list' });
+    assert.equal(job.ok, true);
+  } finally {
+    await harness.close();
+  }
+});
+
+test('版本门禁：版本缺失/非法只警告不硬失败（保持开发版 Runtime 可用）', async () => {
+  for (const healthVersion of [null, 'dev-build']) {
+    const router = createDefaultRouter({ healthVersion });
+    await withHarness({ handler: router.handler }, async (harness) => {
+      const result = await harness.callTool('cp_status');
+      assert.equal(result.ok, true, `healthVersion=${String(healthVersion)} 不能硬失败`);
+      assert.equal(result.data.runtime.versionCompat.unknown, true);
+      assert.equal(result.data.runtime.versionCompat.supported, false);
+      assert.ok(result.data.warnings.some((item) => /版本兼容性未确认/.test(item)));
+      assert.equal(typeof result.data.compat.warning, 'string');
+      assert.match(result.summary, /兼容性未确认/);
+    });
+  }
+});
+
+test('cp_status 诊断：0.2.0 Runtime 上给出 versionCompat + 完整能力矩阵 + data.plugin（不传 host 不崩）', async () => {
+  await withHarness({ handler: createDefaultRouter().handler }, async (harness) => {
+    const result = await harness.callTool('cp_status');
+    assert.equal(result.ok, true);
+
+    const { runtime, plugin, compat } = result.data;
+    assert.equal(runtime.version, '0.2.0');
+    assert.equal(runtime.versionCompat.supported, true);
+    assert.equal(runtime.versionCompat.unknown, false);
+    assert.equal(runtime.versionCompat.range, '>=0.2.0 <0.3.0');
+    assert.deepEqual(runtime.versionCompat.verified, ['0.2.0']);
+    assert.equal(runtime.capabilities.complete, true);
+    assert.deepEqual(runtime.capabilities.missing, []);
+    assert.deepEqual(runtime.capabilities.unknown, []);
+    assert.equal(runtime.capabilities.checked.length, 6);
+    assert.match(runtime.capabilities.checkedAt, /^\d{4}-\d{2}-\d{2}T/);
+
+    // 不传 host：plugin.host 全为 null/默认值，但不能崩。
+    assert.equal(typeof plugin.version, 'string');
+    assert.equal(plugin.host.dshVersion, null);
+    assert.equal(plugin.host.supported, null);
+    assert.equal(plugin.host.registration, null);
+    assert.equal(plugin.host.supportedRange, '>=0.2.1-rc.2 <0.3.0');
+    assert.ok(Array.isArray(plugin.host.verified));
+
+    assert.equal(compat.runtimeVersion, '0.2.0');
+    assert.equal(compat.supported, true);
+    assert.deepEqual(compat.capabilities, { missing: [], unknown: [], complete: true });
+    assert.equal(compat.plugin.version, plugin.version);
+    foreachNoToken(result);
+  });
+});
+
+test('cp_status 诊断：传入 host 时输出 DSH 版本/兼容判定/注册模式', async () => {
+  const host = {
+    version: '0.2.1-rc.5',
+    source: 'runtime.json',
+    registration: 'mcp',
+    compatible: true,
+    supportedRange: '>=0.2.1-rc.2 <0.3.0',
+    verified: ['0.2.1-rc.5'],
+  };
+  await withHarness({ handler: createDefaultRouter().handler, host }, async (harness) => {
+    const result = await harness.callTool('cp_status');
+    assert.equal(result.ok, true);
+    assert.equal(result.data.plugin.host.dshVersion, '0.2.1-rc.5');
+    assert.equal(result.data.plugin.host.supported, true);
+    assert.equal(result.data.plugin.host.registration, 'mcp');
+    assert.equal(result.data.plugin.host.supportedRange, '>=0.2.1-rc.2 <0.3.0');
+    assert.deepEqual(result.data.plugin.host.verified, ['0.2.1-rc.5']);
+    assert.equal(result.data.compat.plugin.host.dshVersion, '0.2.1-rc.5');
+  });
+});
+
+test('404 增强：Runtime 缺路由时升级为 RUNTIME_ROUTE_MISSING（保留 originalCode + 缺失路由 + 三条修复路径）', async () => {
+  const router = createDefaultRouter({ missingRoutes: ['GET /api/issue-state'] });
+  await withHarness({ handler: router.handler }, async (harness) => {
+    const result = await harness.callTool('cp_issues');
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'RUNTIME_ROUTE_MISSING');
+    assert.equal(result.data.originalCode, 'ROUTE_NOT_FOUND');
+    assert.equal(result.data.tool, 'cp_issues');
+    assert.deepEqual(result.data.routes, ['GET /api/issue-state']);
+    assert.match(result.message, /GET \/api\/issue-state/);
+    assert.match(result.message, /路由改名|版本不对/);
+    const actions = result.nextActions.join('\n');
+    assert.ok(result.nextActions.length >= 3);
+    assert.match(actions, /升级|切换/);
+    assert.match(actions, /回退/);
+    assert.match(actions, /升级插件|核对路由名/);
+    foreachNoToken(result);
+  });
+});
+
+test('404 增强：长任务（cp_execute）内部 404 也升级为 RUNTIME_ROUTE_MISSING', async () => {
+  const router = createDefaultRouter({ missingRoutes: ['POST /api/design/execute'] });
+  await withHarness({ handler: router.handler }, async (harness) => {
+    await harness.callTool('cp_design_plan', { mode: 'normalize', plan: { title: 'x' } });
+    const approved = await harness.callTool('cp_approve', { planHash: DESIGN_HASH, confirm: true });
+    assert.equal(approved.ok, true, '批准路由本身存在，不应受影响');
+    const executed = await harness.callTool('cp_execute', { planHash: DESIGN_HASH, requestId: 'req-route-missing-exec' });
+    assert.equal(executed.ok, true, '写任务已提交（异步），失败在 job 结果里');
+    const waited = await waitJob(harness, executed.data.jobId);
+    const jobResult = waited.data.job.result;
+    assert.equal(jobResult.ok, false);
+    assert.equal(jobResult.code, 'RUNTIME_ROUTE_MISSING');
+    assert.equal(jobResult.data.originalCode, 'ROUTE_NOT_FOUND');
+    assert.equal(jobResult.data.tool, 'cp_execute');
+  });
+});
+
+test('能力缺失可见：cp_status 明确列出缺失能力并给出可操作提示（不假装在线正常）', async () => {
+  const router = createDefaultRouter({ missingRoutes: ['GET /api/issue-state'] });
+  await withHarness({ handler: router.handler }, async (harness) => {
+    const result = await harness.callTool('cp_status');
+    assert.equal(result.ok, true, 'cp_status 必须能给出诊断而不是直接失败');
+    assert.deepEqual(result.data.runtime.capabilities.missing.map((item) => item.id), ['issue-state']);
+    assert.equal(result.data.runtime.capabilities.complete, false);
+    assert.equal(result.data.runtime.capabilities.missing[0].path, '/api/issue-state');
+    assert.deepEqual(result.data.compat.capabilities.missing, ['issue-state']);
+    assert.equal(result.data.compat.capabilities.complete, false);
+    assert.ok(result.data.warnings.some((item) => /缺少能力.*issue-state/.test(item)));
+    assert.ok(result.nextActions.some((item) => /issue-state/.test(item)));
+    assert.match(result.summary, /能力缺失 issue-state/);
+    assert.equal(result.data.issues, null);
+  });
+});
+
+test('能力缺失可见：项目状态路由缺失时 cp_status 降级诊断（project=null + routeMissing + 警告）', async () => {
+  const router = createDefaultRouter({ missingRoutes: ['GET /api/project-state'] });
+  await withHarness({ handler: router.handler }, async (harness) => {
+    const result = await harness.callTool('cp_status');
+    assert.equal(result.ok, true);
+    assert.equal(result.data.project, null);
+    assert.equal(result.data.routeMissing.projectState, true);
+    assert.equal(result.data.runtime.capabilities.missing.some((item) => item.id === 'project-state'), true);
+    assert.ok(result.data.warnings.some((item) => /项目状态路由缺失/.test(item)));
+    assert.ok(result.nextActions.some((item) => /project-state/.test(item)));
+    assert.match(result.summary, /⚠/);
+    assert.match(result.summary, /项目状态路由缺失/);
+  });
+});

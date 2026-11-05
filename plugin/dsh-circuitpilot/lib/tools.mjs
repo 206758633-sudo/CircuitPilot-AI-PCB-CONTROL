@@ -17,6 +17,16 @@ import { createHash } from 'node:crypto';
 import { JobManager } from './jobs.mjs';
 import { RuntimeClient, resolveAgentTokenFile, DEFAULT_RUNTIME_URL, DEFAULT_REQUEST_TIMEOUT_MS } from './runtime.mjs';
 import { capResult, okResult, failResult, evidenceRef } from './projection.mjs';
+import { CP_SUPPORTED_RUNTIME_RANGE, CP_VERIFIED_RUNTIME_VERSIONS } from './compat.mjs';
+import {
+  compatNextActions,
+  ensureRuntimeCompatible,
+  evaluateHealthCompat,
+  isRouteMissingEnvelope,
+  probeCapabilities,
+  summarizeCompat,
+  summarizePluginHost,
+} from './cp-compat.mjs';
 
 export const DEFAULT_MAX_RESULT_BYTES = 16384;
 
@@ -74,6 +84,61 @@ const RUNTIME_DOWN_ACTIONS = [
   '启动 CircuitPilot 应用并确认 Runtime 在配置的 runtimeUrl 上运行（默认 http://127.0.0.1:4178）',
   '确认 agent token 文件存在（默认按平台落在 CircuitPilot 用户数据目录，可用 CIRCUITPILOT_AGENT_TOKEN_FILE 覆盖）',
 ];
+
+/**
+ * Runtime 返回 ROUTE_NOT_FOUND 时的可操作提示（升级 / 回退 / 更新插件三条路径）。
+ * 背景：旧构建的 CircuitPilot（如 0.8.15）只有 /api/health，其它路由全 404；
+ * 裸 ROUTE_NOT_FOUND 对模型/用户毫无意义，必须升级成"缺哪个路由、为什么缺、怎么修"。
+ */
+const RUNTIME_ROUTE_MISSING_ACTIONS = Object.freeze([
+  `确认 CircuitPilot Runtime 版本：插件要求 ${CP_SUPPORTED_RUNTIME_RANGE}（已验证 ${CP_VERIFIED_RUNTIME_VERSIONS.join(' / ') || '无'}）；当前连到的可能不是本仓库的 CircuitPilot 0.2.x`,
+  '升级/切换到兼容的 CircuitPilot Runtime（本仓库 `node runtime/server.mjs` 或已安装的 CircuitPilot App 0.2.x），不要连到旧构建/开源旧版',
+  '如果必须继续用旧 Runtime：把 dsh-circuitpilot 插件回退到与该 Runtime 匹配的版本；不要用新版插件连旧 Runtime',
+  '如果 Runtime 已是 0.2.x：说明该路由被改名/移除，升级插件或按 docs/agent/agent-contract.md 核对路由名',
+]);
+
+/**
+ * 把 Runtime 的裸 ROUTE_NOT_FOUND 失败升级为可操作错误：
+ * 保留原 code 在 data.originalCode，message 写明缺失路由 + 可能原因。
+ * @param {object} result 工具/任务结果
+ * @param {string} toolName 工具名（用于查 TOOL_ROUTES）
+ * @returns {object} 原结果或升级后的结果
+ */
+export function upgradeRouteMissingResult(result, toolName) {
+  if (!isPlainObject(result) || result.ok !== false || result.code !== 'ROUTE_NOT_FOUND') return result;
+  const routes = Array.isArray(TOOL_ROUTES[toolName]) ? TOOL_ROUTES[toolName] : [];
+  const originalData = isPlainObject(result.data) ? result.data : {};
+  return {
+    ...result,
+    code: 'RUNTIME_ROUTE_MISSING',
+    message: `CircuitPilot Runtime 缺少 ${toolName} 需要的路由（${routes.join(' / ') || '未知'}）：${result.message}（常见原因：Runtime 版本不对/路由改名）`,
+    data: {
+      ...originalData,
+      originalCode: 'ROUTE_NOT_FOUND',
+      tool: toolName,
+      routes,
+    },
+    nextActions: [...new Set([
+      ...RUNTIME_ROUTE_MISSING_ACTIONS,
+      ...(Array.isArray(result.nextActions) ? result.nextActions : []),
+    ])].slice(0, 8),
+  };
+}
+
+/** 版本门禁失败 → 统一的工具失败结果（带 data.compat 诊断）。 */
+function compatFailureResult(compat, hostContext) {
+  const source = isPlainObject(compat) ? compat : {};
+  const data = {
+    ...(isPlainObject(source.data) ? source.data : {}),
+    compat: summarizeCompat(source, { host: hostContext }),
+  };
+  return failResult(source.code ?? 'RUNTIME_UNREACHABLE', source.message ?? 'CircuitPilot Runtime 不兼容或不可达', {
+    data,
+    nextActions: Array.isArray(source.nextActions) && source.nextActions.length
+      ? source.nextActions
+      : compatNextActions(),
+  });
+}
 
 const APPROVE_MODE_HINT = [
   '当前 approvalMode 不是 chat：cp_approve 不可用（只读模式）',
@@ -608,7 +673,7 @@ function collectPlanRequestRisks(plan) {
   return requestTextList(values, 20);
 }
 
-export function createCircuitPilotTools({ config, client, jobs } = {}) {
+export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
   const cfg = normalizeToolConfig(config);
   const runtime = client ?? new RuntimeClient({
     baseUrl: cfg.runtimeUrl,
@@ -619,6 +684,8 @@ export function createCircuitPilotTools({ config, client, jobs } = {}) {
   const planStore = new Map(); // planHash -> { kind, plan, planHash, storedAt }
   const approvals = new Map(); // planHash -> approval record
   const clock = cfg.clock;
+  // 宿主（DSH）兼容信息由 index.mjs 传入，单测/独立构造时可能为 undefined。
+  const hostContext = isPlainObject(host) ? host : undefined;
   // 审批深链：只拼 UI 地址，不携带 token/planHash 等敏感或易变参数。
   const approvalUrl = `${cfg.uiUrl}/?agent=approvals#settings`;
   const approvalUiAction = `在 UI 查看/撤销待执行批准：${approvalUrl}`;
@@ -997,6 +1064,8 @@ export function createCircuitPilotTools({ config, client, jobs } = {}) {
   }
 
   function makeTool({ name, description, type, inputSchema, handler }) {
+    // cp_job 是纯本地任务表操作（不碰 Runtime），不受 Runtime 兼容门禁影响。
+    const localOnly = name === 'cp_job';
     return {
       name,
       description,
@@ -1011,8 +1080,36 @@ export function createCircuitPilotTools({ config, client, jobs } = {}) {
           }), cfg.maxResultBytes);
         }
         const signal = exec?.signal;
+        // 统一 Runtime 兼容门禁：除本地 cp_job 外，先确认连到的是兼容的 CircuitPilot Runtime，
+        // 避免旧构建上每个工具都返回一串无上下文 404（0.8.15 实测）。
+        let compat = null;
+        if (!localOnly) {
+          try {
+            compat = await ensureRuntimeCompatible({ client: runtime, signal, clock });
+          } catch (error) {
+            // 门禁自身永不抛异常；这里只是最后一道保险（例如注入的 client 异常实现）。
+            compat = {
+              ok: true,
+              warning: `Runtime 兼容性检查异常（${error?.message ?? String(error)}）：已放行`,
+              version: null,
+              service: null,
+              versionCompat: null,
+              health: null,
+              cached: false,
+            };
+          }
+          if (compat?.ok !== true) {
+            const failure = compatFailureResult(compat, hostContext);
+            // 门禁失败也要能诊断“插件版本 + DSH 宿主版本”（与 cp_status 的 data.plugin 同形）。
+            return capResult({
+              ...failure,
+              data: { ...(isPlainObject(failure.data) ? failure.data : {}), plugin: summarizePluginHost(hostContext) },
+            }, cfg.maxResultBytes);
+          }
+        }
         try {
-          return capResult(await handler(input, { signal, exec }), cfg.maxResultBytes);
+          const result = await handler(input, { signal, exec, compat });
+          return capResult(upgradeRouteMissingResult(result, name), cfg.maxResultBytes);
         } catch (error) {
           return capResult(failResult(error?.code || 'TOOL_ERROR', error?.message || String(error), {
             nextActions: Array.isArray(error?.nextActions) ? error.nextActions : ['插件内部错误：把错误码反馈给用户，并检查 CircuitPilot Runtime 日志'],
@@ -1031,11 +1128,16 @@ export function createCircuitPilotTools({ config, client, jobs } = {}) {
     description: '读取 CircuitPilot 当前状态（Runtime 版本、当前项目、EDA 工作区、写暂停、未收口问题数、最近证据）。开始任何 CircuitPilot 任务前先调用。只读；不改变项目、不执行 EDA 动作。',
     type: 'read',
     inputSchema: objectSchema(),
-    async handler(_args, { signal }) {
+    async handler(_args, { signal, compat }) {
       const health = await call('GET', '/api/health', { signal });
       if (!health.ok) {
         return failResult(health.code, health.message, { nextActions: health.nextActions.length ? health.nextActions : RUNTIME_DOWN_ACTIONS });
       }
+      // 版本判定 + 能力探测（只读、带 30s 缓存）：cp_status 是诊断入口，
+      // 即使部分能力缺失也必须返回可读结果，而不是直接失败。
+      const healthCompat = evaluateHealthCompat(health.data);
+      const versionCompat = healthCompat.versionCompat;
+      const capabilities = await probeCapabilities({ client: runtime, signal });
       const [projectEnv, gateEnv, workspaceEnv, issueEnv, evidenceEnv] = await Promise.all([
         call('GET', '/api/project-state', { signal }),
         call('GET', '/api/write-gate', { signal }),
@@ -1043,10 +1145,12 @@ export function createCircuitPilotTools({ config, client, jobs } = {}) {
         call('GET', '/api/issue-state', { signal }),
         call('GET', '/api/evidence/index', { signal }),
       ]);
-      if (!projectEnv.ok) {
+      // 只有“路由确实不存在”才降级成诊断信息；其它错误（500/token/网络）保持原有失败语义。
+      const projectRouteMissing = !projectEnv.ok && isRouteMissingEnvelope(projectEnv);
+      if (!projectEnv.ok && !projectRouteMissing) {
         return failResult(projectEnv.code, projectEnv.message, { nextActions: projectEnv.nextActions.length ? projectEnv.nextActions : RUNTIME_DOWN_ACTIONS });
       }
-      const project = summarizeProjectState(projectEnv.data?.state);
+      const project = projectRouteMissing ? null : summarizeProjectState(projectEnv.data?.state);
       const gate = gateEnv.ok
         ? {
           available: true,
@@ -1055,19 +1159,38 @@ export function createCircuitPilotTools({ config, client, jobs } = {}) {
           reason: gateEnv.data?.gate?.reason ?? null,
           actor: gateEnv.data?.gate?.actor ?? null,
         }
-        : { available: false, error: { code: gateEnv.code, message: gateEnv.message } };
+        : { available: false, error: { code: gateEnv.code, message: gateEnv.message }, ...(isRouteMissingEnvelope(gateEnv) ? { routeMissing: true } : {}) };
       const eda = workspaceEnv.ok
         ? { online: true, workspace: workspaceEnv.data?.workspace ?? null }
-        : { online: false, error: { code: workspaceEnv.code, message: workspaceEnv.message } };
+        : { online: false, error: { code: workspaceEnv.code, message: workspaceEnv.message }, ...(isRouteMissingEnvelope(workspaceEnv) ? { routeMissing: true } : {}) };
       const issues = issueEnv.ok ? summarizeIssues(issueEnv.data?.state) : null;
+      const issuesRouteMissing = !issueEnv.ok && isRouteMissingEnvelope(issueEnv);
       const evidence = evidenceEnv.ok
         ? summarizeEvidenceIndex(evidenceEnv.data?.index)
-        : { available: false, error: { code: evidenceEnv.code, message: evidenceEnv.message } };
+        : { available: false, error: { code: evidenceEnv.code, message: evidenceEnv.message }, ...(isRouteMissingEnvelope(evidenceEnv) ? { routeMissing: true } : {}) };
+      const evidenceRouteMissing = !evidenceEnv.ok && isRouteMissingEnvelope(evidenceEnv);
+      const missingCapabilities = Array.isArray(capabilities?.missing) ? capabilities.missing : [];
+      const unknownCapabilities = Array.isArray(capabilities?.unknown) ? capabilities.unknown : [];
       const warnings = [];
+      // 版本/能力问题必须显式可见：不能假装“在线正常”。
+      if (versionCompat.unknown) {
+        warnings.push(`Runtime 版本兼容性未确认：${versionCompat.reason ?? '版本缺失或非法'}`);
+      } else if (!versionCompat.supported) {
+        warnings.push(`Runtime 版本 ${versionCompat.version ?? '(未知)'} 不在插件支持区间 ${versionCompat.range} 内：不要继续执行写操作`);
+      }
+      if (missingCapabilities.length) {
+        warnings.push(`Runtime 缺少能力：${missingCapabilities.map((item) => `${item.id}(${item.path})`).join(' / ')} — 对应工具会返回 RUNTIME_ROUTE_MISSING`);
+      }
+      if (unknownCapabilities.length) {
+        warnings.push(`能力探测无法判定：${unknownCapabilities.map((item) => item.id).join(' / ')}（网络/token 异常）`);
+      }
+      if (projectRouteMissing) warnings.push('项目状态路由缺失（/api/project-state）：当前 Runtime 很可能不是兼容的 CircuitPilot 0.2.x');
       if (!gate.available) warnings.push('写暂停状态读取失败：写操作前必须人工确认 Runtime 写门禁');
       if (!eda.online) warnings.push('EDA 工作区读取失败（常见：EDA 未启动/未选中 PCB 文档/多窗口未选择）');
       if (!issues) warnings.push('问题状态读取失败');
       const nextActions = [];
+      const compatBroken = (!versionCompat.supported && !versionCompat.unknown) || missingCapabilities.length > 0 || projectRouteMissing;
+      if (compatBroken) nextActions.push(...compatNextActions({ missing: missingCapabilities }));
       if (gate.paused || gate.sessionPaused) {
         nextActions.push(`写入已暂停${gate.reason ? `（${gate.reason}）` : ''}：不要执行任何写操作；让用户在 CircuitPilot 解除写暂停`);
       }
@@ -1075,16 +1198,57 @@ export function createCircuitPilotTools({ config, client, jobs } = {}) {
       if (issues?.open > 0) nextActions.push('存在未收口问题：调用 cp_issues 查看详情，先处理 P0/P1 再计划写入');
       if (!nextActions.length) nextActions.push('需要设计方案时调用 cp_design_plan；需要 PCB 计划时调用 cp_pcb_plan');
       const version = health.data?.version ?? null;
+      const compatNote = [];
+      if (versionCompat.unknown) compatNote.push('版本兼容性未确认');
+      if (!versionCompat.supported && !versionCompat.unknown) compatNote.push(`版本 ${versionCompat.version} 不在支持区间 ${versionCompat.range}`);
+      if (missingCapabilities.length) compatNote.push(`能力缺失 ${missingCapabilities.map((item) => item.id).join('/')}`);
+      if (projectRouteMissing) compatNote.push('项目状态路由缺失');
+      const compatText = compatNote.length ? `；⚠ ${compatNote.join('，')}` : '';
+      const compatSummary = summarizeCompat({
+        version,
+        service: health.data?.service ?? null,
+        versionCompat,
+        capabilities,
+        warning: compat?.warning ?? null,
+      }, { host: hostContext });
       return okResult(
-        `CircuitPilot Runtime ${version ?? '(未知版本)'} 在线；项目「${project.name ?? '未知'}」阶段 ${project.stage ?? '未知'}；EDA ${eda.online ? '在线' : '离线'}；写暂停 ${gate.paused || gate.sessionPaused ? '是' : '否'}；未收口问题 ${issues?.open ?? '未知'}；证据 ${evidence.entries ?? '未知'} 份`,
+        `CircuitPilot Runtime ${version ?? '(未知版本)'} 在线；项目「${project?.name ?? '未知'}」阶段 ${project?.stage ?? '未知'}；EDA ${eda.online ? '在线' : '离线'}；写暂停 ${gate.paused || gate.sessionPaused ? '是' : '否'}；未收口问题 ${issues?.open ?? '未知'}；证据 ${evidence.entries ?? '未知'} 份${compatText}`,
         {
           data: {
-            runtime: { reachable: true, version, service: health.data?.service ?? null, host: health.data?.host ?? null },
+            plugin: summarizePluginHost(hostContext),
+            runtime: {
+              reachable: true,
+              version,
+              service: health.data?.service ?? null,
+              host: health.data?.host ?? null,
+              versionCompat: {
+                supported: versionCompat.supported,
+                unknown: versionCompat.unknown,
+                version: versionCompat.version,
+                range: versionCompat.range,
+                verified: [...versionCompat.verified],
+                reason: versionCompat.reason,
+              },
+              capabilities: {
+                complete: capabilities.complete === true,
+                checked: capabilities.checked,
+                missing: missingCapabilities,
+                unknown: unknownCapabilities,
+                checkedAt: capabilities.checkedAt,
+                cached: capabilities.cached === true,
+              },
+            },
+            compat: compatSummary,
             project,
             eda,
             writeGate: gate,
             issues: issues ? { open: issues.open, bySeverity: issues.bySeverity, top: issues.items.slice(0, 5) } : null,
             evidence,
+            routeMissing: {
+              projectState: projectRouteMissing,
+              issueState: issuesRouteMissing,
+              evidenceIndex: evidenceRouteMissing,
+            },
             warnings,
           },
           evidence: evidenceEnv.ok ? evidenceRefsFromIndex(evidenceEnv.data?.index, 5) : [],
@@ -1720,10 +1884,10 @@ export function createCircuitPilotTools({ config, client, jobs } = {}) {
       const job = manager.start(`${approval.kind}.execute`, args.requestId, async ({ signal }) => {
         const env = await call('POST', route, { body: executeBody, signal });
         if (!env.ok) {
-          return capResult(failResult(env.code, env.message, {
+          return capResult(upgradeRouteMissingResult(failResult(env.code, env.message, {
             nextActions: env.nextActions,
             data: { route, kind: approval.kind },
-          }), cfg.maxResultBytes);
+          }), 'cp_execute'), cfg.maxResultBytes);
         }
         const execution = env.data?.execution ?? env.data;
         const summary = summarizeExecution(approval.kind, execution);
@@ -1917,7 +2081,7 @@ export function createCircuitPilotTools({ config, client, jobs } = {}) {
       const job = manager.start('production.export', args.requestId, async ({ signal }) => {
         const env = await call('POST', '/api/production/export', { body, signal });
         if (!env.ok) {
-          return capResult(failResult(env.code, env.message, { nextActions: env.nextActions }), cfg.maxResultBytes);
+          return capResult(upgradeRouteMissingResult(failResult(env.code, env.message, { nextActions: env.nextActions }), 'cp_export'), cfg.maxResultBytes);
         }
         const summary = summarizeExport(env.data);
         const evidence = summary.final

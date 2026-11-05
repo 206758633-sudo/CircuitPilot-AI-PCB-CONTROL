@@ -93,8 +93,30 @@ export async function makeTokenFile({ token = TEST_TOKEN, name = 'agent-token.js
   return { dir, file, token, cleanup: () => rm(dir, { recursive: true, force: true }) };
 }
 
-/** 默认的路由表 + 请求记录。 */
-export function createDefaultRouter() {
+/** fake Runtime 默认 health 版本：与真实 Runtime 0.2.0 一致（插件支持区间内）。 */
+export const DEFAULT_FAKE_HEALTH_VERSION = '0.2.0';
+
+/**
+ * 默认的路由表 + 请求记录。
+ *
+ * 可选扩展（新增参数，默认值与旧行为一致）：
+ *  - healthVersion：/api/health.version（默认 DEFAULT_FAKE_HEALTH_VERSION='0.2.0'；
+ *    设为 '0.8.15'/'9.9.9-test' 可测版本越界，设为 null 可测版本缺失）
+ *  - missingRoutes：要模拟"路由不存在"的 key 或 path 列表，例如 ['GET /api/project-state']
+ *    或 ['/api/project-state']；命中时返回 404 ROUTE_NOT_FOUND（与真实旧 Runtime 一致）。
+ *  - routeOverrides：按 key 或 path 覆盖响应（payload、[status, payload] 或 (call)=>...），
+ *    用于注入 409 EDA_WINDOW_NOT_FOUND 等业务错误。
+ */
+export function createDefaultRouter(options = {}) {
+  const {
+    healthVersion = DEFAULT_FAKE_HEALTH_VERSION,
+    missingRoutes = [],
+    routeOverrides = {},
+  } = options && typeof options === 'object' ? options : {};
+  const missingRouteKeys = new Set(
+    (Array.isArray(missingRoutes) ? missingRoutes : []).filter((item) => typeof item === 'string' && item),
+  );
+  const overrides = routeOverrides && typeof routeOverrides === 'object' ? routeOverrides : {};
   const state = {
     drcPolls: 0,
     drcStarts: [],
@@ -224,9 +246,31 @@ export function createDefaultRouter() {
   const handler = async (call) => {
     const { method, path } = call;
     const key = `${method} ${path}`;
+    if (missingRouteKeys.has(key) || missingRouteKeys.has(path)) {
+      return [404, { ok: false, error: { code: 'ROUTE_NOT_FOUND', message: `fake runtime 没有实现 ${key}` } }];
+    }
+    const override = overrides[key] !== undefined ? overrides[key] : overrides[path];
+    if (override !== undefined) return typeof override === 'function' ? override(call) : override;
     switch (key) {
       case 'GET /api/health':
-        return { ok: true, service: 'circuitpilot-runtime', version: '9.9.9-test', host: '127.0.0.1' };
+        return {
+          ok: true,
+          service: 'circuitpilot-runtime',
+          ...(healthVersion == null ? {} : { version: healthVersion }),
+          host: '127.0.0.1',
+        };
+      case 'GET /api/agent/status':
+        // 与真实 Runtime 一致：只返回 token 元数据，不返回令牌原文；仍受 startFakeRuntime 的 token 校验保护。
+        return {
+          ok: true,
+          agent: {
+            available: true,
+            file: '/tmp/cp-test/agent-token.json',
+            name: 'dsh-plugin',
+            scopes: ['read', 'plan', 'execute'],
+            createdAt: NOW_ISO,
+          },
+        };
       case 'GET /api/project-state':
         return {
           ok: true,
@@ -468,7 +512,7 @@ export function createDefaultRouter() {
 }
 
 /** 构造工具 harness（默认路由 + 可覆盖 handler）。 */
-export async function makeHarness({ approvalMode = 'chat', handler, token = TEST_TOKEN, config = {}, clientOptions = {} } = {}) {
+export async function makeHarness({ approvalMode = 'chat', handler, token = TEST_TOKEN, config = {}, clientOptions = {}, host } = {}) {
   const runtime = await startFakeRuntime({ token, handler });
   const client = new RuntimeClient({
     baseUrl: runtime.url,
@@ -488,7 +532,7 @@ export async function makeHarness({ approvalMode = 'chat', handler, token = TEST
     planTtlMs: 60_000,
     ...config,
   });
-  const tools = createCircuitPilotTools({ config: normalized, client, jobs });
+  const tools = createCircuitPilotTools({ config: normalized, client, jobs, host });
   const byName = Object.fromEntries(tools.map((tool) => [tool.name, tool]));
   return {
     runtime,

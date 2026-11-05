@@ -1,6 +1,6 @@
 {
   "name": "dsh-circuitpilot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DSH native plugin for CircuitPilot: read state, plan, chat-approve, execute and inspect evidence over the local CircuitPilot Runtime.",
   "type": "module",
   "license": "MIT",
@@ -16,19 +16,24 @@
     "lib",
     "skills",
     "cordis.patch.yml",
+    "compat.json",
     "README.md"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
   },
   "scripts": {
-    "test": "node --test \"test/*.test.mjs\""
+    "test": "node --test \"test/*.test.mjs\"",
+    "compat:sync": "node scripts/sync-compat.mjs",
+    "compat:check": "node scripts/sync-compat.mjs --check",
+    "cp:probe": "node scripts/probe-cp-compat.mjs"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.4 || 4.0.5",
-    "@deepseek-ai/schemastery": "3.18.4 || 3.18.5",
-    "@deepseek-ai/dsh-skill": "0.2.0-rc.2 || 0.2.1-rc.2",
-    "@deepseek-ai/dsh-mcp-client": "0.2.0-rc.2 || 0.2.1-rc.2"
+    "@deepseek-ai/cordis": ">=4.0.4 <5.0.0",
+    "@deepseek-ai/schemastery": ">=3.18.4 <4.0.0",
+    "@deepseek-ai/dsh-skill": ">=0.2.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-mcp-client": ">=0.2.1-rc.2 <0.3.0"
   },
   "dsh": {
     "bundle": {

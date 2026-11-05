@@ -222,6 +222,11 @@ node --test "plugin/dsh-circuitpilot/test/*.test.mjs"
 job 超时/取消、DRC 轮询、导出确认，以及包元数据/skill frontmatter 校验；
 并用 fake DSH ctx 跑 `index.mjs` 的 apply（12 工具 + skill provider + systemPrompt + effect）。
 
+另有兼容性门禁 `test/compat.test.mjs`：清单一致性（`engines.dsh` / `dsh-*` peerDependencies /
+`files`）、semver 矩阵、**本机 DSH 版本漂移告警**（DSH 升级后这里会红，提醒执行 `compat:sync`）、
+以及 `scripts/sync-compat.mjs` 的 `--check` / 写模式 / 事务回滚子进程测试。
+仓库根目录可直接跑同一批：`npm run plugin:test`。
+
 ## 7. 已知限制与待接入点
 
 - Runtime 侧需要完成 agent 鉴权接入（`runtime/agent-token.mjs` + `runtime/server.mjs`）：
@@ -237,15 +242,102 @@ job 超时/取消、DRC 轮询、导出确认，以及包元数据/skill frontma
 
 ```text
 plugin/dsh-circuitpilot/
-├── package.json          # type=module、dsh.bundle.patch、peerDependencies
+├── package.json          # type=module、engines.dsh、dsh.bundle.patch、peerDependencies
+├── compat.json           # 兼容声明唯一数据源（DSH 区间 / CircuitPilot Runtime 区间 / 能力清单）
 ├── cordis.patch.yml      # profile 插件条目（runtimeUrl / approvalMode）
 ├── index.mjs             # DSH 入口：工具注册 + bundled skill + systemPrompt
 ├── lib/
+│   ├── compat.mjs        # 读取 compat.json + 受控 semver 子集 + 版本判定（host-independent）
+│   ├── host.mjs          # DSH 宿主适配：版本检测 + MCP/native/legacy 自适应注册
+│   ├── cp-compat.mjs     # CircuitPilot 运行期门禁：health 版本 + 能力探测（预检）
 │   ├── runtime.mjs       # Runtime HTTP 客户端（token/超时/错误映射，永不泄露 token）
 │   ├── jobs.mjs          # 内存 JobManager（requestId 幂等、超时 mayHaveTakenEffect、cancel）
 │   ├── projection.mjs    # 结果 envelope + 16KB 裁剪（truncated 标记）
 │   └── tools.mjs         # 12 个 cp_* 工具（路由映射/审批/结果摘要）
+├── scripts/
+│   ├── sync-compat.mjs   # 兼容清单自动同步器（升级 DSH 后一条命令；--check/--dry-run/--json）
+│   └── probe-cp-compat.mjs # CircuitPilot Runtime 只读探针（版本 + 能力矩阵）
 ├── skills/circuitpilot/SKILL.md
-├── test/                 # node:test + fake Runtime，无 DSH/EDA 依赖
+├── test/                 # node:test + fake Runtime，无 DSH/EDA 依赖（含 compat.test.mjs）
 └── README.md
 ```
+
+## 9. 版本兼容与自动升级
+
+插件把「和 DSH / CircuitPilot 的兼容性」当成 **清单 + 测试 + 一条命令** 来维护：
+`compat.json` 是唯一数据源，`package.json` 是它的投影，`test/compat.test.mjs` 是门禁，
+`scripts/sync-compat.mjs` 是升级后的自动同步器。
+
+### 9.1 兼容矩阵（当前已验证）
+
+| 维度 | 支持区间（`compat.json`） | 已验证版本 | 判定位置 |
+|---|---|---|---|
+| DSH 宿主 | `>=0.2.1-rc.2 <0.3.0` | `0.2.1-rc.5` | 插件清单 `engines.dsh`（`@deepseek-ai/dsh-app-boot` 的 `evaluatePluginCompatibility()` 有它就只看它） |
+| CircuitPilot Runtime | `>=0.2.0 <0.3.0` | `0.2.0` | 运行期 `GET /api/health.version` + `lib/cp-compat.mjs` 版本门禁 |
+| CircuitPilot 能力 | `agent-api` / `project-state` / `issue-state` / `evidence-index` / `write-gate` / `eda-workspace` | Runtime 0.2.0 | 运行期 `lib/cp-compat.mjs` 能力探测 |
+
+> 已验证版本 = 真机跑过「插件加载 + 12 工具注册 + 只读端到端（宿主内真实调用 cp_status）」的版本；
+> 写链路（计划→批准→执行）尚未在真机 DSH 会话里执行，证据与边界见 `docs/agent/plugin-compat.md` §5.2。
+
+### 9.2 升级 DSH 后：一条命令
+
+```bash
+cd "/Users/jescochen/Desktop/AI- PCBA/plugin/dsh-circuitpilot"
+npm run compat:sync          # = node scripts/sync-compat.mjs
+```
+
+它会：检测本机 DSH / CircuitPilot 版本 → 追加 `compat.json` 的 `verified` → 版本越界时按规则放宽
+minor 上界（不降低下界）→ 把区间同步进 `package.json`（`engines.dsh` + `dsh-*` peerDependencies）→
+跑全量测试 → 打印报告。**测试失败会整体回滚写入并 exit 1**（不会留下半更新的清单）。
+
+发版 / CI 前只读门禁：
+
+```bash
+npm run compat:check         # = node scripts/sync-compat.mjs --check
+```
+
+- 检测到的版本都被支持区间覆盖、且 `package.json` 与 `compat.json` 一致 → exit 0；
+- 任一越界/不一致 → exit 1，并直接打印「怎么修」（通常就是上面那条 `compat:sync`）；
+- CI 里没有本机 DSH → 「检测不到版本」视为 skip，不算失败；
+- 只想看会改什么：`node scripts/sync-compat.mjs --dry-run`（不落盘）；
+- 其它开关（`--json` / `--dsh-version` / `--cp-version` / `--runtime-url` / `--no-runtime-probe` /
+  `--no-dsh-cli` / `--no-test` / `--plugin-dir`）见 `node scripts/sync-compat.mjs --help`。
+
+### 9.3 探测当前 Runtime 到底能不能用
+
+```bash
+npm run cp:probe             # = node scripts/probe-cp-compat.mjs，只读 GET
+```
+
+输出 Runtime 版本判定 + 能力矩阵（project-state / issue-state / evidence-index / write-gate /
+eda-workspaces-current / agent-status）。**只发 GET，不启动/不杀 Runtime，不打印 token**。
+缺核心能力或版本越界时 exit 1 并给下一步。注意：能力路由需要 agent token（默认
+`~/Library/Application Support/CircuitPilot/agent-token.json`），没有 token 时只能用 `/api/health` 判版本。
+本机如果 4178 跑的是旧构建（例如 `/api/health` 报 `0.8.15`），这个探针会明确指出「版本越界 + 5 个核心路由 404」。
+
+### 9.4 “自动”的边界（别误解）
+
+1. **清单门禁自动放行整个 0.2.x**：`engines.dsh = ">=0.2.1-rc.2 <0.3.0"` 覆盖 DSH 0.2.x 的全部
+   patch/预发布，DSH 小版本升级不会再把插件 skip 掉。
+2. **运行期自适应**：`lib/host.mjs` 按宿主能力自动选 MCP / native（rc.5 `output{schema,render}`）/
+   legacy 注册方式；`lib/cp-compat.mjs` 用「版本 + 能力」双门禁把不兼容 Runtime 变成可读错误，
+   而不是一串没有上下文的 404。
+3. **跨 minor 需要重新验证**：DSH 0.3.x / CircuitPilot 0.3.x 不在当前区间内。升级后执行
+   `compat:sync`：同一 major 且 minor 跨度 ≤1 会自动放宽上界并跑测试；跨 major、跨度 >1、
+   或版本低于下界时 **不会自动放宽**，会提示人工确认（避免把「只验证过 0.2.x」说成「兼容 0.8.x」）。
+4. **本机跑着旧构建时**：`/api/health` 探测到的版本只作为报告里的「观测值/告警」，权威版本取
+   本仓库 `runtime/version.mjs` 或已安装 App。显式传 `--runtime-url` 或设置
+   `CIRCUITPILOT_RUNTIME_URL` 时，运行中实例才会作为权威版本参与 check/sync。
+5. **CI 不访问 4178**：`.github/workflows/plugin-compat.yml` 用 `--check --no-runtime-probe`。
+
+### 9.5 相关文件
+
+| 文件 | 作用 |
+|---|---|
+| `compat.json` | 兼容声明唯一数据源（`dsh.supported` / `verified` / `supportedRuntime` / `verifiedRuntime` / `requiredCapabilities`） |
+| `lib/compat.mjs` | 读取 `compat.json` + 受控 semver 子集 + 版本判定（host-independent，不 import DSH 包） |
+| `scripts/sync-compat.mjs` | 自动同步器（默认写入 / `--check` / `--dry-run` / `--json`，事务式写入） |
+| `scripts/probe-cp-compat.mjs` | Runtime 只读探针（版本 + 能力矩阵） |
+| `test/compat.test.mjs` | 清单一致性 / semver 矩阵 / 漂移告警 / 同步器子进程测试 |
+| `docs/agent/plugin-compat.md` | 设计、诊断结论、操作手册与验证证据 |
+| `.github/workflows/plugin-compat.yml` | push/PR 门禁（插件测试 + `compat:check`） |

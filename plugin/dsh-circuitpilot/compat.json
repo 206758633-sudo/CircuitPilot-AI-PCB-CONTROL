@@ -1,0 +1,27 @@
+{
+  "$comment": "dsh-circuitpilot 兼容性声明的唯一数据源。由 scripts/sync-compat.mjs 自动检测本机 DSH / CircuitPilot 版本后维护；package.json 的 engines.dsh / peerDependencies / files 与 lib/compat.mjs 的常量都必须与这里保持一致（test/compat.test.mjs 强制校验）。",
+  "schemaVersion": 1,
+  "plugin": "dsh-circuitpilot",
+  "dsh": {
+    "supported": ">=0.2.1-rc.2 <0.3.0",
+    "verified": [
+      "0.2.1-rc.5"
+    ],
+    "notes": "DSH 0.2.1-rc.5 起 tools.register 要求 output{schema,render} 且插件清单用 engines.dsh 做兼容门禁。supported 覆盖整个 0.2.x 线；0.3.0 起需要 sync 重新验证后放宽。"
+  },
+  "circuitpilot": {
+    "supportedRuntime": ">=0.2.0 <0.3.0",
+    "verifiedRuntime": [
+      "0.2.0"
+    ],
+    "requiredCapabilities": [
+      "agent-api",
+      "project-state",
+      "issue-state",
+      "evidence-index",
+      "write-gate",
+      "eda-workspace"
+    ],
+    "notes": "CircuitPilot Runtime 版本从 /api/health.version 读取。0.2.0（本仓库/已安装 App）是唯一验证过的 Runtime；开源 0.2.1 缺少 agent-* 路由，会被 capability 探测拦截。版本号之外的 EDA/Agent 能力用 requiredCapabilities 判定。"
+  }
+}
