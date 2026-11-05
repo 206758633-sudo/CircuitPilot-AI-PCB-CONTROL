@@ -358,6 +358,70 @@ test('runner：compose 读回 + 参数解析（edra-open-project 缺必填参数
   assert.equal(failed.state, RUN_STATES.FAILED);
 });
 
+/** PCB P0-1 测试夹具：原理图同步配方的假桥（importChanges 恒 success，读回可注入）。 */
+function syncRecipeFixture({ nets = [], components = [{ designator: 'U1' }] } = {}) {
+  const bridge = {
+    execute: async (command) => {
+      if (command === 'pcb.importChanges') return { ok: true, result: true };
+      if (command === 'pcb.placement.read') return { ok: true, result: { components, componentCount: components.length } };
+      if (command === 'pcb.nets.read') return { ok: true, result: nets };
+      return { ok: true, result: {} };
+    },
+  };
+  const gui = { execute: async (action) => (action === 'screenshot' ? { base64: 'AA==', bytes: 2 } : { ok: true }) };
+  const recipe = createDefaultRecipeRegistry().get('pcb-sync-from-schematic');
+  return (params) => runRecipe({ recipe, executors: createExecutors({ bridge, gui }), approvals: { write: true }, params });
+}
+
+test('P0-1：pcb-sync v3 传 expectedNetNames 且 PCB 网络缺失 → failed（网表级读回）', async () => {
+  const runSync = syncRecipeFixture({ nets: ['GND'], components: [{ designator: 'U1' }] });
+  const run = await runSync({ expectedComponentCount: '1', expectedNetNames: ['GND', 'VCC'] });
+  assert.equal(run.ok, false);
+  assert.equal(run.state, RUN_STATES.FAILED);
+  assert.match((run.failedStep?.failures || []).join('；'), /VCC/);
+});
+
+test('P0-1：pcb-sync v3 传 expectedNetNames 且网络齐全 → completed，readbackScope=netlist', async () => {
+  const runSync = syncRecipeFixture({ nets: ['GND', 'VCC', 'SIG'], components: [{ designator: 'U1' }] });
+  const run = await runSync({ expectedComponentCount: '1', expectedNetNames: ['GND', 'VCC'] });
+  assert.equal(run.ok, true);
+  assert.equal(run.state, RUN_STATES.COMPLETED);
+  assert.equal(run.steps[0].evidence.readbackScope, 'netlist');
+});
+
+test('P0-1：pcb-sync v3 不传 expectedNetNames → completed，但 readbackScope=componentCountOnly（不静默冒充网表等价）', async () => {
+  const runSync = syncRecipeFixture({ nets: ['GND'], components: [{ designator: 'U1' }] });
+  const run = await runSync({ expectedComponentCount: '1' });
+  assert.equal(run.ok, true);
+  assert.equal(run.state, RUN_STATES.COMPLETED);
+  assert.equal(run.steps[0].evidence.readbackScope, 'componentCountOnly');
+  const recipe = createDefaultRecipeRegistry().get('pcb-sync-from-schematic');
+  assert.equal(recipe.version, 3);
+  assert.deepEqual(recipe.params.expectedNetNames.default, []);
+  assert.match(recipe.summary, /componentCountOnly/);
+});
+
+test('containsAll：集合包含断言（数组/对象/空集/形状不可读）', () => {
+  // 字符串数组 + 对象数组都能比对（网表读回形状随 EDA/bridge 可能变化）。
+  assert.equal(evaluateAssertions([{ path: 'nets', op: 'containsAll', value: ['GND'] }], { nets: ['GND', 'VCC'] }).ok, true);
+  assert.equal(evaluateAssertions([{ path: 'nets', op: 'containsAll', value: ['GND', 'VCC'] }], { nets: [{ net: 'GND' }, { name: 'VCC' }] }).ok, true);
+  // 缺名字必须失败，并把缺失项写进 message（不能只报"断言不符"）。
+  const missing = evaluateAssertions([{ path: 'nets', op: 'containsAll', value: ['GND', 'SIG'] }], { nets: ['GND'] });
+  assert.equal(missing.ok, false);
+  assert.match(missing.message, /SIG/);
+  assert.equal(missing.readbackScope, 'netlist');
+  // 空期望 = 调用方未传网表名：向后兼容恒通过，但 scope 明确是 componentCountOnly。
+  const empty = evaluateAssertions([{ path: 'nets', op: 'containsAll', value: [] }], { nets: {} });
+  assert.equal(empty.ok, true);
+  assert.equal(empty.readbackScope, 'componentCountOnly');
+  // 读回形状不可枚举 + 非空期望 = 失败（"读不到网络表"不能当成"网络都在"）。
+  assert.equal(evaluateAssertions([{ path: 'nets', op: 'containsAll', value: ['GND'] }], { nets: 'not-an-array' }).ok, false);
+  // 路径缺失 = 失败（没有证据不算通过）。
+  assert.equal(evaluateAssertions([{ path: 'nets', op: 'containsAll', value: ['GND'] }], {}).ok, false);
+  // 期望集合形状非法（传成字符串而非数组）= 失败，不能静默降级成"未提供集合"。
+  assert.equal(evaluateAssertions([{ path: 'nets', op: 'containsAll', value: 'GND,VCC' }], { nets: ['GND', 'VCC'] }).ok, false);
+});
+
 test('批准存储：签发→一次性消费；过期/指纹/配方不匹配都拒绝', () => {
   let current = '2026-10-19T00:00:00.000Z';
   const store = createApprovalStore({ now: () => current, ttlMs: 60_000 });

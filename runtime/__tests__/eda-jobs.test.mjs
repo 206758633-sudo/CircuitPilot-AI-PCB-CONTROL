@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdtempSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createFileJournal } from '../engineering/eda-job-journal.mjs';
 import { EdaJobStore, JOB_ITEM_CAP, capJournalResult, cancelJobCode, createMemoryJournal, isJobId, listJobsCode, normalizeJobSnapshot, pollJobCode, sessionCode, startJobCode, waitForEdaJob } from '../engineering/eda-jobs.mjs';
 
@@ -267,4 +267,107 @@ test('normalizeJobSnapshot 兼容桥接层可能的包装形状', () => {
   assert.equal(normalizeJobSnapshot({ result: { state: 'done', result: { kind: 'array', count: 1, items: [1] } } }).result.count, 1);
   assert.equal(normalizeJobSnapshot({ data: { state: 'running', known: true } }).state, 'running');
   assert.equal(normalizeJobSnapshot(null).state, 'unknown');
+});
+
+// ---------------------------------------------------------------------------
+// P2-6（2026-11-05 运行时/运维审计）：journal 轮转。
+// 真机 journal 只追加不轮转已涨到 5.1MB；这里验证"写前切 .1、两代可读、坏行仍跳过、轮转失败不阻断"。
+// ---------------------------------------------------------------------------
+
+const journalRecord = (seq) => ({ jobId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', seq, pad: 'y'.repeat(20) });
+const readJournalLines = (file) => readFileSync(file, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+
+test('journal 轮转：超过注入行数阈值时写前把旧文件切成 .1，新文件从空开始，read() 两代按时间顺序', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cp-jobs-rotate-lines-'));
+  try {
+    const file = join(dir, 'jobs.jsonl');
+    const journal = createFileJournal(file, { maxLines: 3 });
+    for (let seq = 0; seq < 3; seq += 1) journal.append(journalRecord(seq));
+    assert.equal(existsSync(`${file}.1`), false, '未到阈值不应轮转');
+    journal.append(journalRecord(3));
+    assert.equal(existsSync(`${file}.1`), true, '第 4 条写入前应轮转出 .1');
+    assert.deepEqual(readJournalLines(`${file}.1`).map((record) => record.seq), [0, 1, 2], '旧文件整体进 .1');
+    assert.deepEqual(readJournalLines(file).map((record) => record.seq), [3], '新文件只留轮转之后的记录');
+    assert.deepEqual(journal.read().map((record) => record.seq), [0, 1, 2, 3], 'read() 必须把两代按时间顺序拼起来');
+    assert.deepEqual(journal.stats().archived, true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('journal 轮转：字节阈值同样触发（记录大小算出来注入，不依赖魔法数字）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cp-jobs-rotate-bytes-'));
+  try {
+    const file = join(dir, 'jobs.jsonl');
+    const oneRecordBytes = Buffer.byteLength(`${JSON.stringify(journalRecord(0))}\n`, 'utf8');
+    const journal = createFileJournal(file, { maxBytes: oneRecordBytes * 2, maxLines: 100_000 });
+    journal.append(journalRecord(0));
+    journal.append(journalRecord(1));
+    assert.equal(existsSync(`${file}.1`), false, '两条记录恰好未超过字节阈值');
+    journal.append(journalRecord(2));
+    assert.equal(existsSync(`${file}.1`), true, '第三条写入前因字节超限轮转');
+    assert.deepEqual(readJournalLines(`${file}.1`).map((record) => record.seq), [0, 1]);
+    const stats = journal.stats();
+    assert.equal(stats.maxBytes, oneRecordBytes * 2);
+    assert.equal(stats.lines, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('journal 轮转后重启恢复：recover 读到两代，已完成保留结果、在途如实 interrupted', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cp-jobs-rotate-recover-'));
+  try {
+    const file = join(dir, 'jobs.jsonl');
+    const journal = createFileJournal(file, { maxLines: 4 });
+    const store = new EdaJobStore({ journal, now: () => 1000 });
+    const doneId = '11111111-2222-3333-4444-555555555555';
+    const inflightId = '22222222-3333-4444-5555-666666666666';
+    store.create({ jobId: doneId, label: 'done', kind: 'pcb.drc' });
+    store.dispatched({ jobId: doneId, epoch: 'epoch-A' });
+    store.complete({ jobId: doneId, result: { kind: 'array', count: 2, items: [], truncated: false } });
+    store.create({ jobId: inflightId, label: 'inflight', kind: 'pcb.drc' });
+    store.dispatched({ jobId: inflightId, epoch: 'epoch-A' }); // 第 5 条写入前触发轮转（旧 4 行进 .1）
+    assert.equal(existsSync(`${file}.1`), true, '跨代写入应已发生轮转');
+    const { store: recovered, interrupted } = EdaJobStore.recover({ journal: createFileJournal(file, { maxLines: 4 }) });
+    assert.deepEqual(interrupted, [inflightId], '轮转不能把在途任务洗成不存在');
+    assert.equal(recovered.get(doneId).state, 'done');
+    assert.equal(recovered.get(doneId).result.count, 2, '已完成任务的结果必须跨轮转保留');
+    assert.equal(recovered.get(inflightId).state, 'interrupted');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('journal 轮转后坏行仍只跳过：两代正常记录照常可读，不让整份 journal 变不可读', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cp-jobs-rotate-badline-'));
+  try {
+    const file = join(dir, 'jobs.jsonl');
+    const journal = createFileJournal(file, { maxLines: 1 });
+    journal.append(journalRecord(0));
+    journal.append(journalRecord(1)); // 触发轮转：.1 有 1 条，当前文件 1 条
+    appendFileSync(file, '{not-json\n', 'utf8'); // 模拟进程被杀的半行
+    const records = createFileJournal(file, { maxLines: 1 }).read();
+    assert.deepEqual(records.map((record) => record.seq), [0, 1]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('journal 轮转失败不阻断写：返回 rotated=false 标记，本次记录照常追加（恢复真相优先）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cp-jobs-rotate-fail-'));
+  try {
+    const file = join(dir, 'jobs.jsonl');
+    // 用目录占住归档路径 → rename 必然失败（模拟权限/文件被占用等真实故障）。
+    mkdirSync(`${file}.1`);
+    const journal = createFileJournal(file, { maxLines: 1 });
+    journal.append(journalRecord(0));
+    const result = journal.append(journalRecord(1));
+    assert.equal(result.ok, true, '追加本身必须成功');
+    assert.equal(result.rotation.rotated, false, '轮转失败要如实标记，不能假装成功');
+    assert.equal(result.rotation.reason, 'lines');
+    assert.deepEqual(journal.read().map((record) => record.seq), [0, 1], '轮转失败也不能丢记录');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

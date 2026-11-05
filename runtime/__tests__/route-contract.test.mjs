@@ -49,19 +49,17 @@ const KNOWN_UNWIRED_ROUTES = {
   // --- 供应链价格：只接受用户显式提供，当前没有在线询价 UI ---
   // POST /api/supply/pricing 已由 runtimeClient.supplyPricing + 验证页"供应链证据"面板消费。
 
-  // --- 设计执行结果查询：客户端还没有对应方法 ---
-  // GET /api/design/executions 与 /:id 已由 runtimeClient + EdaPage 执行历史面板消费。
-
-  'GET /api/design/executions/:param/evidence': 'TODO: 执行证据查询尚无 runtimeClient 方法与 UI 消费者。',
+  // --- 设计执行结果查询：GET /api/design/executions 与 /:id 已由 runtimeClient + EdaPage 消费。---
+  // 2026-11-05 全链审计（UI-2.2）修正原因：该路由由 DSH 插件消费，不是"无消费者"。
+  'GET /api/design/executions/:param/evidence': '由 DSH 插件 plugin/dsh-circuitpilot/lib/tools.mjs 的 cp_evidence 消费（非 UI）：保留，勿删。',
   // --- 实际静态扫描发现的其它孤儿路由（不在任务给定的最小清单里，但同样没有消费者）---
   'GET /api/eda/commands': 'TODO: 命令清单目前由前端静态命令卡定义，未调用 GET 清单；保留给外部诊断/未来动态命令发现。',
-  'POST /api/evidence/retention/prune': 'TODO: 证据清理是破坏性运维动作，目前只给 CLI/运维脚本用（必须 confirm+写批准），暂无 UI 入口。',
-  'POST /api/design/plan/ai': 'TODO: runtimeClient.generateDesignPlan 已定义但无页面调用（AI 设计草案目前走 netlist/ai），待接线或删除。',
+  'POST /api/evidence/retention/prune': 'TODO: 证据清理是破坏性运维动作（必须 confirm+写批准+二次确认），暂无产品 UI 入口；保留给 CLI/运维，勿删。',
   'POST /api/eda/footprint/integrity': 'TODO: 封装完整性预检当前由 CLI（npm run check:footprint-integrity）经 bridge 直连消费；HTTP 路由留给验证页/门禁后续接线（2026-10-22 新增）。',
-  'POST /api/production/reviews/final': 'TODO: runtimeClient.recordProductionFinalReview 已定义但无 UI 调用，终审登记入口待接线。',
-  // --- W3/W1 知识库与联网检索的运维/内部入口：暂无 UI 消费者，留作采集器/审计工具 ---
-  'GET /api/research/status': 'TODO: 联网检索状态查询暂无 UI（设置页只调 search），保留给诊断。',
-  'POST /api/research/fetch': 'TODO: 单页抓取由 runtime 内部资料采集器调用，暂无 UI 入口。',
+  // --- W3/W1 知识库与联网检索的运维/内部入口：暂无产品 UI 消费者，留作采集器/审计工具 ---
+  // 2026-11-05 全链审计（UI-2.2）修正原因：设计草案与终审登记由 DSH 插件消费；research/status 供诊断。
+  'GET /api/research/status': '由 Agent/诊断读取联网检索真实开关状态；产品 UI 暂未展示：保留，勿删。',
+  'POST /api/research/fetch': '单页抓取供 Agent/采集器使用，暂无产品 UI 入口：保留，勿删。',
 };
 
 // ---------------------------------------------------------------------------

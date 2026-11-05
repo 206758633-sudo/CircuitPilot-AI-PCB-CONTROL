@@ -169,6 +169,35 @@ const expiredOf = (entry, at) => {
   return at.getTime() > createdMs + entry.ttlDays * DAY_MS;
 };
 
+/**
+ * RAG 语料摘要（平台 P1-2）：对"会进 RAG 语料"的条目（未过期）算稳定 sha256。
+ *
+ * 为什么不能只靠内存 revision 判索引失效：`revision` 每次进程启动都从 0 重新计数，
+ * 索引落盘的 `corpusRevision` 与重启后的 0 可能恰好相等，于是"进程停机期间新增/审核的知识"
+ * 永远等不到重建（真实 state 就是这样漏了 9 条）。摘要来自磁盘内容，重启后重算即可发现差异。
+ *
+ * 为什么摘要取"全部未过期条目"而不是只取 approved：RAG 语料本身包含 candidate（只是 meta 标
+ * review），所以 candidate 的增删/改也要让索引失效，否则检索结果与语料对不上。
+ * 摘要只取 id/updatedAt/review/trust/expired：任何 save/review 都会改 updatedAt；时间流逝导致
+ * 的过期体现在 expired 位上，不读 payload 全文以控制成本。
+ */
+export const knowledgeCorpusDigest = (entries, { at = new Date() } = {}) => {
+  const hash = createHash('sha256');
+  const rows = (Array.isArray(entries) ? entries : [])
+    .map((entry) => ({
+      id: String(entry?.id ?? ''),
+      updatedAt: String(entry?.updatedAt ?? ''),
+      review: String(entry?.review?.state ?? ''),
+      trust: String(entry?.trust ?? ''),
+      expired: entry?.expired === true || expiredOf(entry, at) ? '1' : '0',
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  for (const row of rows) {
+    hash.update(`${row.id}\u0000${row.updatedAt}\u0000${row.review}\u0000${row.trust}\u0000${row.expired}\n`);
+  }
+  return hash.digest('hex');
+};
+
 /** 校验磁盘上的条目文档：字段/schema/digest 任一不符都视为损坏（fail-closed）。 */
 const verifyEntryDocument = (parsed, file) => {
   const corrupt = (reason, details = {}) => {
@@ -235,6 +264,9 @@ export function createKnowledgeStore({ root, now = () => new Date() } = {}) {
   // 检索/状态发现 revision 变化就自动失效重建，不再需要用户手动 reindex。
   // 只存内存：进程重启后从头计数，此时已落盘的 RAG 索引会因 revision 不匹配在首次检索时重建一次（安全方向）。
   let revision = 0;
+  // 平台 P1-2：语料摘要按 {revision, 过期日} 缓存。同进程写入会改 revision 触发重算；
+  // 进程重启后缓存为空，首次 status/query 必从磁盘重算，才能发现"停机期间离线写入"的知识。
+  let corpusDigestMemo = null;
 
   const ensureDir = (kind) => {
     const dir = dirFor(kind);
@@ -351,6 +383,22 @@ export function createKnowledgeStore({ root, now = () => new Date() } = {}) {
 
   /** 按类型/可信等级/审核状态列条目；过期条目默认排除，includeExpired 时保留并标 expired:true。 */
   const list = ({ kind, trust, reviewState, includeExpired = false } = {}) => collect({ kind, trust, reviewState, includeExpired, at: now() });
+
+  /**
+   * 语料摘要（平台 P1-2）：RAG 索引把构建时的摘要落盘，重启/离线写入后摘要不一致就自动重建。
+   * 不直接落 revision 的原因见 `knowledgeCorpusDigest` 注释：revision 重启归零会让"停机期间的写入"漏建。
+   * 缓存键含过期日：跨天后过期状态变化也能被摘要感知（不必等 revision 变化）。
+   */
+  const corpusDigest = ({ at } = {}) => {
+    const atDate = at instanceof Date ? at : now();
+    const day = atDate.toISOString().slice(0, 10);
+    if (corpusDigestMemo && corpusDigestMemo.revision === revision && corpusDigestMemo.day === day) {
+      return corpusDigestMemo.value;
+    }
+    const value = knowledgeCorpusDigest(collect({ includeExpired: true, at: atDate }), { at: atDate });
+    corpusDigestMemo = { revision, day, value };
+    return value;
+  };
 
   /**
    * 结构化检索：text 在 title + payload JSON 中不区分大小写包含；entityKey 按条目类型推导后精确匹配。
@@ -592,6 +640,7 @@ export function createKnowledgeStore({ root, now = () => new Date() } = {}) {
     root,
     dirFor,
     get revision() { return revision; },
+    corpusDigest,
     save,
     get,
     list,

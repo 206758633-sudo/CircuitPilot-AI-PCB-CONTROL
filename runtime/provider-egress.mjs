@@ -73,17 +73,85 @@ const ENDPOINTS = Object.freeze([
     ],
     excluded: ['API Key / 登录令牌', '工程文件字节', '本机绝对路径'],
   },
+  // ---------------------------------------------------------------------------
+  // 2026-11-05 全系统闭环审计（平台 P1-5）：补齐此前漏登记的 5 类真实外发点。
+  // 清单口径是"所有会离开本机的请求"，不是"所有 AI provider 请求"。
+  // ---------------------------------------------------------------------------
+  {
+    id: 'web.search',
+    route: 'POST /api/research/search',
+    kind: 'external-web-search',
+    trigger: '用户在设置页点"测试联网检索"，或知识管理 Agent 在联网开关开启后采集资料（每次仍需 allowResearch 放行 + Runtime researchConfig 开启）',
+    data: [
+      { field: 'query', source: '检索关键词（用户输入或已确认需求生成，不含工程文件）' },
+      { field: 'provider', source: '检索源标识（duckduckgo/bing，无需 API Key）' },
+    ],
+    excluded: ['API Key / 登录令牌', '工程文件字节', '本机绝对路径', '未经显式 allowResearch + 开关开启的任何请求'],
+  },
+  {
+    id: 'web.fetch',
+    route: 'POST /api/research/fetch',
+    kind: 'external-web-fetch',
+    trigger: '用户或采集器对白名单网址取单页正文（需开关开启 + allowResearch）',
+    data: [{ field: 'url', source: '待抓取的白名单 URL（域名白名单在 runtime/research.mjs 校验）' }],
+    excluded: ['API Key / 登录令牌', '工程文件字节', '本机绝对路径', '非白名单域名（会被 URL_BLOCKED 拒绝）'],
+  },
+  {
+    id: 'supply.pricing',
+    route: 'POST /api/supply/pricing',
+    kind: 'external-supply-api',
+    trigger: '用户在验证页点"查询供应链证据/价格库存"，或下单参数卡前手动刷新',
+    data: [{ field: 'lcscIds', source: 'BOM 里的嘉立创料号（只发料号，不发工程/网表/坐标）' }],
+    excluded: ['API Key / 登录令牌', '工程文件字节', '本机绝对路径', '板框/布线/Gerber 等设计数据'],
+  },
+  {
+    id: 'supply.alternatives',
+    route: 'POST /api/supply/alternatives',
+    kind: 'external-supply-api',
+    trigger: '用户在缺料时点"查询替代候选"（每次由用户显式发起）',
+    data: [{ field: 'items[].lcscId/mpn/value/package', source: '缺料器件标识与封装（用于检索替代料，不含工程文件）' }],
+    excluded: ['API Key / 登录令牌', '工程文件字节', '本机绝对路径'],
+  },
+  {
+    id: 'provider.modelProbe',
+    route: 'POST /api/providers/:id/test、POST /api/custom-providers/:id/models',
+    kind: 'provider',
+    trigger: '用户在设置页点"测试连接/获取可用模型"',
+    data: [
+      { field: 'authorization', source: '服务端从钥匙串读取的 API Key（仅用于鉴权头，不回传前端）' },
+      { field: 'modelsRequest', source: '标准模型列表请求（GET {base}/models），不含业务数据' },
+    ],
+    excluded: ['API Key 原文（不进入响应/日志）', '工程文件字节', '对话内容与需求文本'],
+  },
+  {
+    id: 'retrospective.ai',
+    route: 'POST /api/knowledge/retro/draft',
+    kind: 'provider',
+    trigger: '用户或收尾流程请求"AI 起草复盘经验草案"（草案只回文本，不直接写库）',
+    data: [
+      { field: 'facts', source: '项目收尾事实摘要：门禁结论/证据摘要/缺陷计数，不含工程文件字节' },
+      { field: 'evidence', source: '证据索引摘要（可用 includeEvidence=false 关闭）' },
+    ],
+    excluded: ['API Key / 登录令牌', '工程文件字节', '本机绝对路径', '未审核的原始报告全文（只发摘要）'],
+  },
 ]);
 
 export function providerEgressManifest() {
+  // 清单级警告：把"这份清单不保证覆盖所有网络行为"变成机器可读字段，UI 才能显示而不是只靠文案。
+  const warnings = [
+    '清单是接口契约：只覆盖本 Runtime 已登记的出网点；EDA 客户端/桥进程自身的网络行为不在本清单内。',
+    '联网开关（researchConfig）只约束本 Runtime 的研究外发；若 EDA 自己联网（库检索/云服务），不受本开关控制。',
+    '外发内容的语义脱敏依赖调用方传入的字段；用户主动上传的附件按原样发送。',
+  ];
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     policyVersion: PROVIDER_EGRESS_POLICY_VERSION,
     consentMode: 'per-action',
     consentNote: '没有后台自动上传路径：每次外发都由用户显式触发（点发送/生成/检索）；运行时不批量上传工程文件。',
     orderEnabled: false,
     redaction: 'runtime/log-redaction.mjs（与日志/诊断包同一套：敏感键整值替换、Bearer/JWT/sk-/邮箱/本机路径擦除）',
     endpoints: ENDPOINTS.map((endpoint) => ({ ...endpoint, data: [...endpoint.data], excluded: [...endpoint.excluded] })),
+    warnings,
     notSent: ['API Key/令牌原文', '工程文件字节（Gerber/STEP/DRC 报告文件本体）', '批准令牌/哈希链私钥材料', '本机绝对路径（外发前脱敏）'],
     boundaries: [
       '清单是人工维护的接口契约：新增调用 AI provider 的路由必须同步更新（测试会断言现有路由集合）。',

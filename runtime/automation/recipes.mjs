@@ -62,6 +62,9 @@ function validateParamsSchema(params, { recipeId }) {
       description: typeof spec.description === 'string' ? spec.description : '',
       pattern: typeof spec.pattern === 'string' ? spec.pattern : null,
       example: spec.example === undefined ? null : spec.example,
+      // 可选参数默认值（2026-11-05 PCB P0-1）：runner 在 run 开始时把 default 合并进 safeParams，
+      // 让"可选参数 + 集合断言"在未传时仍能向后兼容（expectedNetNames 默认 []）。
+      ...(Object.prototype.hasOwnProperty.call(spec, 'default') ? { default: spec.default } : {}),
     };
   }
   return normalized;
@@ -171,6 +174,7 @@ export const RECIPE_CHANGELOG = Object.freeze({
   'pcb-sync-from-schematic': {
     1: { at: '2026-10-19', note: '首版：importChanges 后读回 PCB 器件数；GUI 兜底菜单文案随版本漂移。' },
     2: { at: '2026-10-19', note: '读回改为 PCB 上下文 pcb.placement.read + expectedComponentCount；新增 readRetries（只重读不重放）；clickText 增加文案 alternatives 与漂移诊断。' },
+    3: { at: '2026-11-05', note: 'P0-1 网表级读回：新增可选参数 expectedNetNames（默认 []）；compose 读回 pcb.nets.read 并断言网络名全部出现，未传时 readbackScope=componentCountOnly 且 summary 明示"仅比器件数"，不再静默把弹窗未应用当同步成功。' },
   },
   'pcb-rebuild-pours': {
     1: { at: '2026-10-19', note: '铺铜重建 + 读回铺铜数/器件数/网络数；GUI 兜底菜单文案定位。' },
@@ -406,24 +410,36 @@ export const BUILTIN_RECIPE_DEFINITIONS = Object.freeze([
   {
     id: 'pcb-sync-from-schematic',
     title: '原理图变更同步到 PCB（API 优先，菜单兜底）',
-    version: 2,
-    summary: '先走 pcb_Document.importChanges；若读回不符，则通过"设计 → 更新/转换原理图到 PCB"菜单兜底（带 menu-text alternatives），并用只读读回比较两侧数量。',
+    version: 3,
+    summary: '先走 pcb_Document.importChanges；读回按"器件数 + 网络名集合"校验：传 expectedNetNames 时要求期望网络名全部出现在 PCB 网络表（网表级读回，readbackScope=netlist）；未传时只比器件数（readbackScope=componentCountOnly，不足以证明网表已同步）。读回不符才走"设计 → 更新/转换原理图到 PCB"菜单兜底（带 menu-text alternatives）。',
     params: {
       schematicUuid: { required: false, description: '原理图文档 UUID（importChanges 的参数，可空）' },
       expectedComponentCount: { required: true, description: '原理图器件数（调用方先只读读回后传入，用于判定 PCB 同步后器件数不减少）' },
+      // P0-1（2026-11-05）：只比器件数会被"弹窗未应用但计数已达阈值"骗过；调用方应从原理图网表导出
+      // 后只读传入网络名列表。默认 [] = 向后兼容，但 readbackScope 会明确标成 componentCountOnly。
+      expectedNetNames: { required: false, default: [], description: '原理图网表里的网络名列表（调用方先只读导出后传入）；给出时做网表级读回，未给出时仅比器件数并在 readbackScope 标明' },
     },
     requiredApprovals: ['write'],
     steps: [{
       id: 'import-changes',
-      title: '导入原理图变更并回读两侧器件数',
+      title: '导入原理图变更并回读两侧器件数与网络表',
       action: { kind: 'api', command: 'pcb.importChanges', params: { schematicUuid: { $param: 'schematicUuid' } }, allowWrite: true },
       expect: {
         // 只在 PCB 文档上下文读回：`schematic.*` 命令在 PCB 是活动文档时真机必 500（实测），
-        // 所以原理图器件数由调用方先只读拿到，通过 expectedComponentCount 传入比较。
-        readback: { kind: 'api', command: 'pcb.placement.read' },
+        // 所以原理图器件数/网络名由调用方先只读拿到，通过 expectedComponentCount/expectedNetNames 传入比较。
+        readback: {
+          kind: 'compose',
+          reads: {
+            placement: { kind: 'api', command: 'pcb.placement.read' },
+            nets: { kind: 'api', command: 'pcb.nets.read' },
+          },
+        },
         assertions: [
-          { path: 'components', op: 'nonEmpty', label: 'PCB 器件非空' },
-          { path: 'componentCount', op: 'atLeast', value: { $param: 'expectedComponentCount' }, label: 'PCB 器件数 ≥ 原理图器件数' },
+          { path: 'placement.components', op: 'nonEmpty', label: 'PCB 器件非空' },
+          { path: 'placement.componentCount', op: 'atLeast', value: { $param: 'expectedComponentCount' }, label: 'PCB 器件数 ≥ 原理图器件数' },
+          // 网表级断言：期望集合为空时恒通过（向后兼容），非空时缺任何一个网络名即失败；
+          // 执行器把 readbackScope 写进 step.evidence 供审计区分"只验计数"与"验了网表"。
+          { path: 'nets', op: 'containsAll', value: { $param: 'expectedNetNames' }, label: '期望网络名全部出现在 PCB 网络表（未传 expectedNetNames 时仅验证读回可用）' },
         ],
         // 桥对读命令偶发 HTTP 500（渲染进程抢焦点时尤其明显）：只重读，不重放 importChanges。
         readRetries: 2,
@@ -439,6 +455,9 @@ export const BUILTIN_RECIPE_DEFINITIONS = Object.freeze([
     }],
   },
   {
+    // 读回强度边界（2026-11-05 审计 P2-7）：这里只断言"铺铜图元非空/数量"，
+    // HTTP 路由 /api/eda/pcb/pour/create 做的是网络/层属性级读回。配方走桥命令，不经过路由强断言——
+    // 需要更严格判定时应走路由或在此补 detail 读回，别把"数量达标"当成"属性正确"。
     id: 'pcb-rebuild-pours',
     title: '重建 PCB 铺铜填充（API 优先，铺铜管理器兜底）',
     version: 1,
@@ -469,6 +488,9 @@ export const BUILTIN_RECIPE_DEFINITIONS = Object.freeze([
     // A11：R6 只有"重建"，没有"新建"。新建走真机验证过的
     // PCB_MathPolygon.createComplexPolygon + PCB_PrimitivePour.create(net,layer,cp,...)；
     // outline 为原生单位（mil）的 [[x,y],...]，由调用方从板框内缩/规划得到。
+    // 读回强度边界（2026-11-05 审计 P2-7）：配方只断言 pours.length ≥ expectedPourCount；
+    // "新增的那块是不是期望的 net/layer"由 HTTP 路由 /api/eda/pcb/pour/create 的属性级读回负责，
+    // 配方直连桥命令不经过该强断言（失败/半写仍由 rollback + needs_human 收口，不假装恢复）。
     id: 'pcb-create-pour',
     title: '新建 PCB 覆铜（API 优先，读回断言数量与属性）',
     version: 2,

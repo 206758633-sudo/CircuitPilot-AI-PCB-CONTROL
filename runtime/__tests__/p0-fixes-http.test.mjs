@@ -127,3 +127,120 @@ test('P1-4 复审：PCB 写锁状态可查、解除路由可调用（无锁时�
   const after = await (await fetch(`${base}/api/pcb/write-lock`, { headers })).json();
   assert.equal(after.writeLock.safetyLocked, false);
 });
+
+test('2026-11-05 六门 G1 闭环：服务端从 EDA 只读板框/层数自动生成 design-spec（不信任客户端自报）', async (context) => {
+  const root = mkdtempSync(join(tmpdir(), 'cp-g1-http-'));
+  const ENV = ['CIRCUITPILOT_STATE_DIR', 'CIRCUITPILOT_EVIDENCE_DIR', 'CIRCUITPILOT_AUTOMATION_DIR'];
+  const previous = Object.fromEntries(ENV.map((key) => [key, process.env[key]]));
+  for (const dir of ['state', 'evidence', 'automation']) mkdirSync(join(root, dir), { recursive: true });
+  process.env.CIRCUITPILOT_STATE_DIR = join(root, 'state');
+  process.env.CIRCUITPILOT_EVIDENCE_DIR = join(root, 'evidence');
+  process.env.CIRCUITPILOT_AUTOMATION_DIR = join(root, 'automation');
+  context.after(() => {
+    for (const key of ENV) { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; }
+    rmSync(root, { recursive: true, force: true });
+  });
+  const calls = [];
+  const bridge = {
+    port: 49631,
+    selectedWindowId: 'W-G1',
+    async discover() { return { port: 49631 }; },
+    async windows() { return { windows: [{ id: 'W-G1' }], selectedWindowId: 'W-G1', selectionRequired: false }; },
+    listCommands() { return []; },
+    async execute(command) {
+      calls.push(command);
+      if (command === 'pcb.outline.read') return { result: { count: 1, boundsMm: { minXMm: 0, minYMm: 0, maxXMm: 60, maxYMm: 40 }, items: [] } };
+      if (command === 'pcb.layers.copperCount') return { result: 4 };
+      if (command === 'pcb.placement.read') return { result: { components: [], componentCount: 0, outline: [] } };
+      if (command === 'schematic.netlist.export') throw Object.assign(new Error('离线测试不导出网表'), { code: 'EDA_OFFLINE' });
+      if (command === 'project.current') return { result: { uuid: 'proj-g1', data: [{ itemType: 'Board', pcb: { uuid: 'pcb-g1' } }] } };
+      if (command === 'document.current') return { result: { documentType: 3, uuid: 'pcb-g1' } };
+      throw Object.assign(new Error(`离线测试不执行 ${command}`), { code: 'EDA_OFFLINE' });
+    },
+  };
+  const { server } = createRuntimeServer({ keychain: fakeKeychain, bridge });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const health = await (await fetch(`${base}/api/health`, { headers: { origin: TRUSTED_ORIGIN } })).json();
+  const headers = { 'content-type': 'application/json', origin: TRUSTED_ORIGIN, 'x-circuitpilot-token': health.sessionProof };
+  const response = await fetch(`${base}/api/eda/gates/collect`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      pcbUuid: 'pcb-g1', projectId: 'proj-g1', readActualNetlist: false,
+      specInput: { project: { id: 'proj-g1', name: 'G1 测试板' }, requirements: [{ id: 'r1', category: 'power', requirement: 'power · 输入：5V' }] },
+    }),
+  });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.boards.source, 'eda', '板卡规格必须来自 EDA 只读回读，不用手填/猜测');
+  assert.equal(body.boards.boards[0].layers, 4);
+  assert.equal(body.boards.boards[0].outline.widthMm, 60);
+  assert.equal(body.boards.boards[0].outline.heightMm, 40);
+  assert.ok(calls.includes('pcb.outline.read') && calls.includes('pcb.layers.copperCount'));
+  assert.ok((body.saved ?? []).some((item) => item.kind === 'design-spec'), 'design-spec 证据必须落盘（合格与否由内容决定，不伪造 pass）');
+});
+
+test('2026-11-05 审计 P1-8：项目状态里无法核验的阶段证据被剔除（客户端不能自报"原理图已生成"）', async (context) => {
+  const { base, headers } = await start(context);
+  const forged = {
+    projects: [{
+      id: 'proj-forge', name: '伪造证据项目', stage: '生产',
+      edaWorkspace: { schematicStatus: 'generated', schematicExecutedAt: new Date().toISOString(), schematicExecutionId: 'whatever-id', pcbPlacementExecutedAt: new Date().toISOString(), pcbPlacementApprovalId: 'fake-approval' },
+    }],
+    activeProjectId: 'proj-forge', requirements: [], components: [], assets: [],
+  };
+  const put = await fetch(`${base}/api/project-state`, { method: 'PUT', headers, body: JSON.stringify({ state: forged }) });
+  assert.equal(put.status, 200);
+  const putBody = await put.json();
+  assert.ok(Array.isArray(putBody.evidenceRejected) && putBody.evidenceRejected.length >= 2, '伪造的阶段证据必须被剔除并如实回报');
+  assert.ok(putBody.evidenceRejected.some((item) => item.field === 'edaWorkspace.schematicStatus'));
+  assert.ok(putBody.evidenceRejected.some((item) => item.field === 'edaWorkspace.pcbPlacementExecutedAt'));
+  const readBack = await (await fetch(`${base}/api/project-state`, { headers })).json();
+  const savedProject = readBack.state.projects.find((item) => item.id === 'proj-forge');
+  assert.equal(savedProject.edaWorkspace.schematicStatus, undefined, '伪造字段不得落盘');
+  assert.equal(savedProject.edaWorkspace.schematicExecutionId, undefined);
+  assert.equal(savedProject.edaWorkspace.pcbPlacementApprovalId, undefined);
+  assert.equal(savedProject.edaWorkspace.pcbPlacementExecutedAt, undefined);
+  assert.equal(savedProject.name, '伪造证据项目', '其它正常字段必须保留（剔除不等于整包拒绝）');
+});
+
+test('2026-11-05 平台闭环 P1-4：research 的 allowResearch 还须服从 Runtime 权威开关（不能绕过设置页）', async (context) => {
+  const { base, headers } = await start(context);
+  const blocked = await fetch(`${base}/api/research/search`, { method: 'POST', headers, body: JSON.stringify({ query: 'WS2812B datasheet', allowResearch: true }) });
+  assert.equal(blocked.status, 403);
+  const blockedBody = await blocked.json();
+  assert.equal(blockedBody.error.code, 'RESEARCH_DISABLED');
+  assert.equal(blockedBody.error.details?.configEnabled, false, '必须说明是 Runtime 开关未开启，而不是请求没带 allowResearch');
+});
+
+test('2026-11-05 审计（设计 P1-6）：netlist-diff/rules 证据被放行裁决消费，不再是无生产者的死门', async (context) => {
+  const { createEvidenceStore } = await import('../evidence-store.mjs');
+  const { createEvidenceEnvelope } = await import('../evidence-contract.mjs');
+  const { base, headers } = await start(context);
+  const store = createEvidenceStore({ root: process.env.CIRCUITPILOT_EVIDENCE_DIR });
+  const pcbUuid = 'pcb-p16';
+  const netlistEnvelope = createEvidenceEnvelope({
+    kind: 'netlist-diff', subject: { type: 'pcb', id: pcbUuid }, fingerprint: { pcbUuid },
+    source: { agent: 'netlist-auditor', readOnly: true }, verdict: 'pass', findings: [],
+  });
+  const rulesEnvelope = createEvidenceEnvelope({
+    kind: 'rules', subject: { type: 'pcb', id: pcbUuid }, fingerprint: { pcbUuid },
+    source: { agent: 'rule-runner', readOnly: true }, verdict: 'pass', findings: [],
+  });
+  store.save({ kind: 'netlist-diff', payload: netlistEnvelope, fingerprint: { pcbUuid }, note: 'test' });
+  store.save({ kind: 'rules', payload: rulesEnvelope, fingerprint: { pcbUuid }, note: 'test' });
+
+  const response = await fetch(`${base}/api/eda/release/gate`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ pcbUuid, acceptance: null, design: null, placementVerification: null, artifacts: [], artifactsDir: process.env.CIRCUITPILOT_ARTIFACTS_DIR || undefined }),
+  });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  const gateIds = (body.gates ?? []).map((gate) => gate.id);
+  assert.ok(gateIds.includes('netlist'), 'netlist 子门必须被真实证据驱动（不再缺席）');
+  assert.ok(gateIds.includes('rules'), 'rules 子门必须被真实证据驱动（不再缺席）');
+  assert.ok(body.evidenceBinding?.netlist, '放行报告要记录消费了哪份 netlist 证据');
+  assert.ok(body.evidenceBinding?.rules, '放行报告要记录消费了哪份 rules 证据');
+});

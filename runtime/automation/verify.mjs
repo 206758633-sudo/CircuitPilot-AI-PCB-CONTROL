@@ -20,7 +20,39 @@
  *   - 所有断言通过才算 verified。
  */
 
-export const ASSERTION_OPS = Object.freeze(['equals', 'notEquals', 'atLeast', 'atMost', 'contains', 'matches', 'nonEmpty', 'truthy', 'falsy', 'in', 'equalsPath', 'atLeastPath', 'atMostPath']);
+export const ASSERTION_OPS = Object.freeze(['equals', 'notEquals', 'atLeast', 'atMost', 'contains', 'containsAll', 'matches', 'nonEmpty', 'truthy', 'falsy', 'in', 'equalsPath', 'atLeastPath', 'atMostPath']);
+
+/**
+ * `containsAll`：数组/对象集合的包含断言（网表名、位号这类"A 必须都在 B 里"的读回）。
+ *
+ * 为什么需要它：pcb-sync-from-schematic 原来只比器件数，真机出现过"importChanges 弹窗未应用但
+ * 器件数已达阈值 → 判 completed"的假成功；网表级读回必须能表达"期望网络名全部出现在 PCB 网络表"。
+ * 空期望集合 = 调用方没传网表名 → 恒通过（向后兼容），但会把 readbackScope 标成 componentCountOnly
+ * 供审计区分"只验了器件数"与"验了网表"。
+ */
+const nameOf = (item) => {
+  if (typeof item === 'string') return item.trim();
+  if (item && typeof item === 'object') {
+    const name = item.net ?? item.name ?? item.netName ?? item.netname ?? item.designator ?? item.ref ?? null;
+    return name === null || name === undefined ? null : String(name).trim();
+  }
+  return null;
+};
+/** 兼容桥的几种返回形状：['GND'] / [{net:'GND'}] / {nets:[...]} / {netNames:[...]}。 */
+const namesOf = (actual) => {
+  if (Array.isArray(actual)) return actual.map(nameOf).filter(Boolean);
+  if (actual && typeof actual === 'object') {
+    const nested = actual.nets ?? actual.netNames ?? actual.items ?? actual.data;
+    if (Array.isArray(nested)) return nested.map(nameOf).filter(Boolean);
+  }
+  return null;
+};
+/** 期望集合归一化；非数组（调用方传错形状）返回 null，由断言层 fail-closed，避免静默降级成"只验计数"。 */
+const expectedNamesOf = (expected) => {
+  if (expected === undefined || expected === null) return [];
+  if (!Array.isArray(expected)) return null;
+  return expected.map((item) => String(item ?? '').trim()).filter(Boolean);
+};
 
 /** 取 obj 的点路径；数组用 `arr.0` 或 `arr[0]` 都可以。 */
 export function getPath(value, path) {
@@ -57,6 +89,10 @@ export function evaluateAssertion(assertion, state) {
   }
   const actual = picked.value;
   const expected = assertion.value;
+  const expectedNames = op === 'containsAll' ? expectedNamesOf(expected) : null;
+  // readbackScope 供执行器/审计区分"只验了计数"与"验了网表集合"（见 evaluateAssertions 聚合）。
+  // 形状非法也按 netlist 记（fail-closed，不降级成 componentCountOnly 骗过审计）。
+  const scope = op === 'containsAll' ? ((expectedNames === null || expectedNames.length) ? 'netlist' : 'componentCountOnly') : null;
   let ok = false;
   let detail = '';
   switch (op) {
@@ -70,6 +106,19 @@ export function evaluateAssertion(assertion, state) {
         : Array.isArray(actual) ? actual.map((item) => String(item)).join(' ').includes(String(expected)) : false;
       detail = `期望包含 ${describe(expected)}`;
       break;
+    case 'containsAll': {
+      // 形状非法（非数组）：fail-closed，不能静默降级成"未提供集合"（那会让网表校验形同虚设）。
+      if (expectedNames === null) { ok = false; detail = '期望集合必须是字符串数组（expectedNetNames）'; break; }
+      // 空期望 = 调用方没传网表名：保持向后兼容（恒通过），但 scope 标成 componentCountOnly。
+      if (!expectedNames.length) { ok = true; detail = '未提供期望集合（仅验证读回可用，不足以证明网表等价）'; break; }
+      const actualNames = namesOf(actual);
+      // 集合形状不可枚举时必须失败：不能把"读不到网络表"当成"网络都在"。
+      if (!actualNames) { ok = false; detail = `期望可枚举的数组/集合，实际 ${describe(actual)}`; break; }
+      const missing = expectedNames.filter((name) => !actualNames.includes(name));
+      ok = missing.length === 0;
+      detail = `期望包含 ${expectedNames.length} 个名字，缺 ${missing.slice(0, 8).join('、')}${missing.length > 8 ? '…' : ''}（实际 ${actualNames.length} 个）`;
+      break;
+    }
     case 'matches': {
       let regex = null;
       try { regex = new RegExp(String(expected), 'i'); } catch { regex = null; }
@@ -105,6 +154,7 @@ export function evaluateAssertion(assertion, state) {
     ok,
     label,
     op,
+    ...(scope ? { scope } : {}),
     message: ok ? `${label}：通过` : `${label}：${detail}，实际 ${describe(actual)}`,
     expected: expected === undefined ? null : expected,
     actual: actual === undefined ? null : actual,
@@ -118,10 +168,15 @@ export function evaluateAssertions(assertions, state) {
   }
   const checks = assertions.map((assertion) => evaluateAssertion(assertion, state));
   const failed = checks.filter((check) => !check.ok);
+  // readbackScope：只要有一条 containsAll，就说明这步声明了集合级读回；期望集合为空时是
+  // componentCountOnly（向后兼容），非空才是 netlist。runner 会把它写进 step.evidence 供审计。
+  const scopes = checks.map((check) => check.scope).filter(Boolean);
+  const readbackScope = scopes.includes('netlist') ? 'netlist' : scopes.includes('componentCountOnly') ? 'componentCountOnly' : null;
   return {
     ok: failed.length === 0,
     checks,
     failedCount: failed.length,
+    ...(readbackScope ? { readbackScope } : {}),
     message: failed.length ? failed.map((check) => check.message).join('；') : '全部断言通过',
   };
 }

@@ -25,6 +25,8 @@ export const EVIDENCE_KINDS = Object.freeze([
   'placement', 'fabrication-release',
   // P0-5：门禁评估报告与门禁终审签字必须独立 kind——不能再写进 'signoff' 遮蔽交付签核。
   'gate-report', 'gate-signoff',
+  // 2026-11-05 审计（设计 P1-7）：引脚证据摘要落盘，让网表生成能回答"基于哪份引脚证据"。
+  'pin-evidence',
   // W5-01 复盘学习 Agent（RLA）：项目收尾复盘的事实 → 知识候选，单独成类，不混进 signoff/gate-report。
   'retrospective',
 ]);

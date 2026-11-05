@@ -130,3 +130,28 @@ test('A4 门禁：要求证据却没给 ⇒ 409 PIN_EVIDENCE_REQUIRED', async (c
   const body = await response.json();
   assert.equal(body.error.code, 'PIN_EVIDENCE_REQUIRED');
 });
+
+test('2026-11-05 审计 P1-7：引脚证据落盘并可用 digest 引用生成网表（服务端回查，不信任客户端）', async (context) => {
+  const api = await start(context, PADS, fakeChat);
+  const collected = await api.post({});
+  assert.equal(collected.status, 200);
+  const collectedBody = await collected.json();
+  assert.equal(typeof collectedBody.evidenceDigest, 'string');
+  assert.ok(collectedBody.saved?.digest, '引脚证据摘要必须落盘（可回溯）');
+  const boundPcbUuid = collectedBody.pcbUuid;
+  assert.ok(typeof boundPcbUuid === 'string' && boundPcbUuid.length > 0, '必须回传实际证据所属 PCB');
+
+  const byReference = await api.postJson('/api/design/netlist/ai', { pcbUuid: boundPcbUuid, pinEvidenceDigest: collectedBody.evidenceDigest });
+  assert.equal(byReference.status, 200);
+  const byReferenceBody = await byReference.json();
+  assert.equal(byReferenceBody.netlist.pinEvidence.digest, collectedBody.evidenceDigest);
+  assert.equal(byReferenceBody.netlist.pinEvidence.source, 'stored');
+
+  const forged = await api.postJson('/api/design/netlist/ai', { pcbUuid: boundPcbUuid, pinEvidenceDigest: 'f'.repeat(64) });
+  assert.equal(forged.status, 409);
+  assert.equal((await forged.json()).error.code, 'PIN_EVIDENCE_UNKNOWN');
+
+  const wrongBoard = await api.postJson('/api/design/netlist/ai', { pcbUuid: 'pcb-other', pinEvidenceDigest: collectedBody.evidenceDigest });
+  assert.equal(wrongBoard.status, 409);
+  assert.equal((await wrongBoard.json()).error.code, 'PIN_EVIDENCE_UNKNOWN');
+});

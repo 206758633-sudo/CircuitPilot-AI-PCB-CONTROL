@@ -72,6 +72,8 @@ test('参数校验：未知证据类型/空 payload 一律拒绝', () => {
     'placement', 'fabrication-release',
     // P0-5：门禁评估报告与门禁终审签字独立 kind，不再占用 signoff。
     'gate-report', 'gate-signoff',
+    // 2026-11-05 审计（设计 P1-7）：引脚证据摘要独立成类，供网表生成按 digest 回查。
+    'pin-evidence',
     // W5-01：项目复盘证据独立成类。
     'retrospective',
   ]);

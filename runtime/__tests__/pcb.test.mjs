@@ -58,7 +58,7 @@ function fixturePlan() {
 /** 每个测试用独立 stateDir：持久写锁不能写进仓库 artifacts/state，也不能互相串。 */
 const makeStateDir = () => mkdtempSync(join(tmpdir(), 'cp-pcb-state-'));
 
-function fakeBridge({ failDrc = false, failRestore = false } = {}) {
+function fakeBridge({ failDrc = false, failRestore = false, truncatedDrc = false } = {}) {
   let drcPolls = 0;
   let source = '{"board":"before"}';
   // WP2 P1-4：板面读回必须反映"创建操作真的落板"，否则执行器的按类型回读断言无法区分真写/假写。
@@ -94,7 +94,11 @@ function fakeBridge({ failDrc = false, failRestore = false } = {}) {
       if (id === 'pcb.job.poll') {
         drcPolls += 1;
         const findings = failDrc && drcPolls > 1 ? [{ code: 'D1' }] : [];
-        return { result: { jobId: args.jobId, state: 'done', result: { kind: 'array', count: findings.length, items: findings, truncated: false } } };
+        // P1-7：truncatedDrc 模拟大板/规则刷屏导致官方 DRC 报告被截断（count > items.length）。
+        // 基线（第一次 poll）保持干净；最终报告截断 → 裁决必须 fail-closed，而不是按"无新增违规"放行。
+        const truncated = truncatedDrc && drcPolls > 1;
+        const reportedCount = truncated ? 5 : findings.length;
+        return { result: { jobId: args.jobId, state: 'done', result: { kind: 'array', count: reportedCount, items: findings, truncated } } };
       }
       source = '{"board":"mutated"}';
       return { result: { primitiveId: `${id}-1` } };
@@ -135,6 +139,42 @@ test('PCB DRC failure restores, saves and verifies the snapshot', async () => {
   assert.equal(result.snapshotRestored, true);
   assert.match(result.rollback?.message ?? '', /已恢复执行前快照/);
   assert.ok(result.events.some((event) => event.stage === 'rollback' && event.status === 'passed'));
+});
+
+test('P1-7：官方 DRC 报告被截断时必须判 passed=false（截图内无违规也不算放行）', async () => {
+  // 纯函数层：截断就是 blocking，不依赖 findings 是否为空。
+  const truncatedVerdict = drcVerdict({ baseline: [], findings: [], truncated: true, reportedCount: 5 });
+  assert.equal(truncatedVerdict.passed, false);
+  assert.equal(truncatedVerdict.truncated, true);
+  assert.equal(truncatedVerdict.reportedCount, 5);
+  assert.match(truncatedVerdict.reason ?? '', /截断/);
+
+  const manager = new PcbManager({ stateDir: makeStateDir(), bridge: fakeBridge({ truncatedDrc: true }), approvals: new ApprovalStore() });
+  const result = await approvedExecution(manager, fixturePlan());
+  // 不得 completed（否则就是"没看全 = 没问题"的假成功），并且执行记录要能解释为什么。
+  assert.notEqual(result.state, 'completed');
+  assert.equal(result.drc?.passed, false);
+  assert.equal(result.drc?.truncated, true);
+  assert.equal(result.drc?.reportedCount, 5);
+  assert.match(result.drc?.reason ?? '', /截断/);
+  assert.equal(result.error?.code, 'PCB_DRC_FAILED');
+  assert.match(result.error?.message ?? '', /截断/);
+  assert.equal(result.error?.details?.truncated, true);
+});
+
+test('P1-7：不截断且相对基线无新增违规时保持原行为 passed=true', async () => {
+  const clean = drcVerdict({ baseline: [{ code: 'CLEARANCE', count: 2 }], findings: [{ code: 'CLEARANCE', count: 2 }], truncated: false });
+  assert.equal(clean.passed, true);
+  assert.equal(clean.truncated, false);
+  assert.equal(clean.reason, null);
+  assert.equal(clean.reportedCount, null);
+
+  const manager = new PcbManager({ stateDir: makeStateDir(), bridge: fakeBridge(), approvals: new ApprovalStore() });
+  const result = await approvedExecution(manager, fixturePlan());
+  assert.equal(result.state, 'completed');
+  assert.equal(result.drc?.passed, true);
+  assert.equal(result.drc?.truncated, false);
+  assert.equal(result.drc?.reason, null);
 });
 
 test('PCB rollback failure locks subsequent writes', async () => {

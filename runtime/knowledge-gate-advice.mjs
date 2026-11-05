@@ -11,11 +11,17 @@
  *   - 每条被采用的知识都写 usage（agent / outcome=used / 对应门与原因码），写失败不再静默吞掉，
  *     记入 `usageFailures` 并在返回值里给出 `usageRecorded` 数量。
  *
+ * P1-1：`store.query` 失败不再被吞成"没有知识"——每次失败记入 `queryErrors({query,code,message})`；
+ * 若全部检索都失败且没有任何建议，返回 `degraded: true` 且 note 明确"知识库不可读"，
+ * 调用方（HTTP/UI）才能把"知识库坏了"与"没有 approved 知识"分开处理。
+ *
  * 注意：这里只产"建议/依据"，不改变门禁裁决；门禁通过仍只由证据决定。
  */
 
 export const GATE_ADVICE_CODES = Object.freeze({
   INVALID: 'GATE_ADVICE_INVALID',
+  // P1-1：知识库检索本身失败时的原因码（调用方据此区分"知识库不可读"与"没有 approved 知识"）。
+  QUERY_FAILED: 'GATE_ADVICE_QUERY_FAILED',
 });
 
 /**
@@ -66,6 +72,10 @@ export function buildGateKnowledgeAdvice({ store, report, agent = 'gate-engine',
   const candidates = [];
   const considered = [];
   const usageFailures = [];
+  // P1-1：知识库损坏不能被吞成"没有知识"。每次 store.query 失败都记录（query/code/message），
+  // 让调用方能区分"知识库不可读"（degraded）与"确实没有 approved 知识"。
+  const queryErrors = [];
+  let queryAttempts = 0;
   const seenSuggested = new Set();
   const seenCandidates = new Set();
   let unusableSkipped = 0;
@@ -77,7 +87,19 @@ export function buildGateKnowledgeAdvice({ store, report, agent = 'gate-engine',
     const entries = [];
     for (const text of queries) {
       let found = [];
-      try { found = store.query({ text }); } catch { found = []; }
+      queryAttempts += 1;
+      try {
+        found = store.query({ text });
+      } catch (error) {
+        // 原来这里 catch 成空数组，导致"知识库文件损坏"在下游看起来等价于"没有 approved 知识"。
+        // 修复：失败单条记录，不阻断其它命中；是否整体降级在返回值里另行判定。
+        found = [];
+        queryErrors.push({
+          query: text,
+          code: error?.code ?? GATE_ADVICE_CODES.QUERY_FAILED,
+          message: String(error?.message || error).slice(0, 240),
+        });
+      }
       for (const entry of found) {
         if (!entry?.id || entries.some((item) => item.id === entry.id)) continue;
         entries.push(entry);
@@ -152,9 +174,17 @@ export function buildGateKnowledgeAdvice({ store, report, agent = 'gate-engine',
     }
   }
 
+  // 所有检索都失败且没有任何建议 = 知识库不可读；此时不能对调用方说"没有 approved 知识"。
+  const degraded = queryAttempts > 0 && queryErrors.length === queryAttempts && suggested.length === 0;
+
   const noteParts = [];
-  if (!suggested.length) {
+  if (degraded) {
+    noteParts.push(`知识库不可读：${queryErrors.length} 次检索全部失败（${queryErrors[0].code}），无法判断是否存在可用知识；请先修复知识库再看建议`);
+  } else if (!suggested.length) {
     noteParts.push('没有 approved + 未过期的相关知识；未审核/未核验条目不会进入门禁建议');
+  }
+  if (!degraded && queryErrors.length) {
+    noteParts.push(`${queryErrors.length} 次知识检索失败，建议可能不完整（见 queryErrors）`);
   }
   if (candidates.length) {
     noteParts.push(`发现 ${candidates.length} 条同主题但未审核/未核验的知识，需审核后才可作为依据`);
@@ -171,6 +201,8 @@ export function buildGateKnowledgeAdvice({ store, report, agent = 'gate-engine',
     usageRecorded,
     usageSkipped: record !== true,
     usageFailures,
+    queryErrors,
+    degraded,
     note: noteParts.length ? noteParts.join('；') : null,
   };
 }

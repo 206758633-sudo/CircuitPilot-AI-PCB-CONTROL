@@ -168,6 +168,56 @@ test('WP4 P0-6：usage 写失败不再静默吞掉（建议仍返回，failures/
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('WP4 P1-1：store.query 抛 KNOWLEDGE_CORRUPT → degraded=true、queryErrors 非空，不伪装成“没有知识”', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cp-p11-corrupt-'));
+  try {
+    const store = createKnowledgeStore({ root, now: () => NOW });
+    const approved = store.save({
+      kind: 'rule', title: 'DRC 间距规则', trust: 'reference',
+      payload: { ruleId: 'DRC-CLEARANCE', value: '信号线间距 ≥ 0.2mm' }, provenance: { source: 'test' },
+    }).entry;
+    store.review(approved.id, { state: 'approved', reviewedBy: 'lead' });
+
+    // 模拟知识库文件损坏：store.query 抛 KNOWLEDGE_CORRUPT（旧实现会 catch 成 []）。
+    const corruptStore = Object.assign(Object.create(store), {
+      query: () => { throw Object.assign(new Error('知识库文件不是合法 JSON'), { code: 'KNOWLEDGE_CORRUPT' }); },
+    });
+    const advice = buildGateKnowledgeAdvice({ store: corruptStore, report });
+    assert.equal(advice.degraded, true, '全部检索失败且无建议 → 必须标记降级');
+    assert.equal(advice.suggested.length, 0);
+    assert.equal(advice.queryErrors.length, 1 + GATE_REASON_TAGS.GATE_EVIDENCE_MISSING.length, '原因码 + 每个语义标签各失败一次都要记录');
+    assert.equal(advice.queryErrors[0].code, 'KNOWLEDGE_CORRUPT');
+    assert.equal(advice.queryErrors[0].query, 'GATE_EVIDENCE_MISSING');
+    assert.ok(advice.queryErrors.every((item) => typeof item.message === 'string' && item.message.length > 0));
+    assert.match(String(advice.note), /知识库不可读/);
+    assert.doesNotMatch(String(advice.note), /没有 approved/, '不可读不能被说成“没有 approved 知识”');
+    assert.deepEqual(advice.usageFailures, []);
+
+    // 部分失败但仍有命中：不能整体判降级，但失败必须仍然可见。
+    let first = true;
+    const partialStore = Object.assign(Object.create(store), {
+      query: ({ text }) => {
+        if (text === 'GATE_EVIDENCE_MISSING' && first) {
+          first = false;
+          throw Object.assign(new Error('单次检索失败'), { code: 'KNOWLEDGE_CORRUPT' });
+        }
+        return store.query({ text });
+      },
+    });
+    const partial = buildGateKnowledgeAdvice({ store: partialStore, report });
+    assert.equal(partial.degraded, false);
+    assert.equal(partial.queryErrors.length, 1);
+    assert.ok(partial.suggested.some((item) => item.knowledgeId === approved.id), '单次失败不得吞掉其它查询已经找到的建议');
+    assert.match(String(partial.note), /检索失败，建议可能不完整/);
+
+    // 没有任何 blocking 原因 → 根本没检索，不应误报降级。
+    const noGateReport = { gates: [{ id: 'G1', name: '证据门', reasons: [] }] };
+    const idle = buildGateKnowledgeAdvice({ store: corruptStore, report: noGateReport });
+    assert.equal(idle.degraded, false);
+    assert.deepEqual(idle.queryErrors, []);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('WP4 P0-6：语义标签覆盖 gate-engine 全部 7 个 GATE_* 原因码', () => {
   for (const code of [
     'GATE_EVIDENCE_MISSING', 'GATE_EVIDENCE_INVALID', 'GATE_EVIDENCE_UNBOUND', 'GATE_EVIDENCE_BLOCKED',

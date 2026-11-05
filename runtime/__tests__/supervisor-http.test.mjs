@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createRuntimeServer } from '../server.mjs';
+import { createEvidenceStore } from '../evidence-store.mjs';
 import { ensureAgentTokenFile } from '../agent-token.mjs';
 
 const STATE_DIR = mkdtempSync(join(tmpdir(), 'cp-supervisor-http-state-'));
@@ -14,10 +15,13 @@ process.env.CIRCUITPILOT_EVIDENCE_DIR = EVIDENCE_DIR;
 process.env.CIRCUITPILOT_AGENT_TOKEN_FILE = AGENT_FILE;
 
 const TRUSTED_ORIGIN = 'http://127.0.0.1:4177';
+// 2026-11-05 审计 P1-3：官方验证记录必须引用证据库里真实存在的 digest。
+// 这里先落一份真实 DRC 证据，再让官方记录引用它（不再用伪造摘要）。
+const DRC_DIGEST = createEvidenceStore({ root: EVIDENCE_DIR }).save({ kind: 'drc-report', payload: { report: { items: [] } }, fingerprint: { pcbUuid: 'P1' }, note: 'supervisor http test drc' }).digest;
 const OFFICIAL_DRC = {
   id: 'http-official-drc', name: 'DRC', description: '官方 DRC', status: 'fail', count: 1,
   source: 'official', projectId: 'p1', updatedAt: '2026-11-02T09:59:00.000Z',
-  evidence: { engine: 'DRC', digest: 'e'.repeat(64) },
+  evidence: { engine: 'DRC', digest: DRC_DIGEST },
   findings: [{ id: 'f1', title: '间距不足', object: 'U1', rule: 'DRC-001', severity: 'error', suggestion: '调整', status: 'open' }],
 };
 const ISSUE = {

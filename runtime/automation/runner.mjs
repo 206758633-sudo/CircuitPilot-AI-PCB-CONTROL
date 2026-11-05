@@ -185,7 +185,15 @@ export async function runRecipe({ recipe, executors = {}, params = {}, approvals
     return { ok: false, state: RUN_STATES.ABORTED, runId, recipeId: normalized.id, aborted, steps: stepResults };
   };
 
-  const safeParams = params && typeof params === 'object' ? params : {};
+  // 参数默认值（2026-11-05 PCB P0-1）：配方可为可选参数声明 `default`，未传时补默认值。
+  // 这样"可选参数 + 断言"不需要条件断言引擎：例如 expectedNetNames 默认 []，空集断言恒通过，
+  // readbackScope 会标成 componentCountOnly（只验了器件数），传了非空集合才升级为网表级读回。
+  // 只做浅拷贝默认数组，避免不同 run 共享同一引用。
+  const explicitParams = params && typeof params === 'object' ? params : {};
+  const paramDefaults = Object.fromEntries(Object.entries(normalized.params || {})
+    .filter(([, spec]) => spec && spec.default !== undefined)
+    .map(([name, spec]) => [name, Array.isArray(spec.default) ? [...spec.default] : spec.default]));
+  const safeParams = { ...paramDefaults, ...explicitParams };
   const base = { runId, recipeId: normalized.id, recipeVersion: normalized.version };
   const requiredParams = Object.entries(normalized.params || {})
     .filter(([name, spec]) => spec.required && (safeParams[name] === undefined || safeParams[name] === null || safeParams[name] === ''))
@@ -309,7 +317,8 @@ export async function runRecipe({ recipe, executors = {}, params = {}, approvals
       const assertions = resolveParams(step.expect.assertions, safeParams, 'expect.assertions');
       const evaluation = evaluateAssertions(assertions, state);
       if (evaluation.ok) {
-        evidence = { strategy, stateDigest: sha256Of(state), checks: evaluation.checks.length };
+        // readbackScope 由断言层聚合（componentCountOnly / netlist），写进证据供审计区分读回强度。
+        evidence = { strategy, stateDigest: sha256Of(state), checks: evaluation.checks.length, ...(evaluation.readbackScope ? { readbackScope: evaluation.readbackScope } : {}) };
         record({ ...base, ...where, phase: 'readback', attempt: readAttempt, strategy, ok: true, stateDigest: evidence.stateDigest });
         return true;
       }

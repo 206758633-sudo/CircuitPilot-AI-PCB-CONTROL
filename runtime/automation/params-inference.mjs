@@ -57,6 +57,11 @@ export function inferRecipeParams({ recipeId, evidence = null } = {}) {
       const schematicUuid = text(ev.schematic?.uuid);
       if (schematicUuid) set('schematicUuid', schematicUuid, 'schematic document uuid');
       else notes.push('未提供原理图 UUID：importChanges 使用当前原理图文档（运行时会读回校验）');
+      // P0-1（2026-11-05）：网表名能读到才推断；读不到就保持空（配方只比器件数，readbackScope=componentCountOnly），
+      // 绝不猜网络名——猜错会让网表级断言给出假失败/假通过。
+      const nets = arr(ev.schematic?.nets ?? ev.schematic?.netNames).map((net) => text(net?.name ?? net)).filter(Boolean);
+      if (nets.length) set('expectedNetNames', nets, 'schematic netlist export');
+      else notes.push('未提供原理图网表 → 不推断 expectedNetNames：本次只比器件数（readbackScope=componentCountOnly），网表等价需调用方传入');
     }
   } else if (recipeId === 'pcb-rebuild-pours') {
     notes.push('该配方无必填参数；铺铜数量以运行后读回断言为准');

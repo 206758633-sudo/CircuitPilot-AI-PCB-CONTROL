@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { createRuntimeServer } from '../server.mjs';
 import { createValidationStateStore, VALIDATION_LIMIT, normalizeValidationState } from '../validation-state.mjs';
+import { createEvidenceStore } from '../evidence-store.mjs';
 
 process.env.CIRCUITPILOT_STATE_DIR = mkdtempSync(join(tmpdir(), 'cp-validation-state-'));
 process.env.CIRCUITPILOT_EVIDENCE_DIR = mkdtempSync(join(tmpdir(), 'cp-validation-evidence-'));
@@ -55,7 +56,12 @@ test('P0-1 HTTP：GET/PUT 往返、重启后仍读回、非法请求 400', async
   const empty = await (await api.get()).json();
   assert.equal(empty.ok, true);
   assert.deepEqual(empty.state.validations, []);
-  const saved = await api.put({ validations: [CHECK('http-1'), CHECK('http-2', { name: 'ERC', status: 'fail', count: 2 })] });
+  // 2026-11-05 审计 P1-3：official 记录必须引用 Runtime 证据库里真实存在的 digest。
+  // 这里先落两份真实证据（DRC/ERC），再写官方结论，避免用伪造摘要通过。
+  const evidence = createEvidenceStore({ root: process.env.CIRCUITPILOT_EVIDENCE_DIR });
+  const drcDigest = evidence.save({ kind: 'drc-report', payload: { report: { items: [] } }, fingerprint: { pcbUuid: 'P1' }, note: 'test drc' }).digest;
+  const ercDigest = evidence.save({ kind: 'schematic-erc', payload: { report: { findings: [] } }, fingerprint: { projectUuid: 'P1' }, note: 'test erc' }).digest;
+  const saved = await api.put({ validations: [CHECK('http-1', { evidence: { engine: 'DRC', digest: drcDigest } }), CHECK('http-2', { name: 'ERC', status: 'fail', count: 2, evidence: { engine: 'ERC', digest: ercDigest } })] });
   assert.equal(saved.status, 200);
   const savedBody = await saved.json();
   assert.equal(savedBody.total, 2);

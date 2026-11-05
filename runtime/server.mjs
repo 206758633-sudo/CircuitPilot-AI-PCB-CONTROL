@@ -7,7 +7,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ALLOWED_ORIGINS, BODY_LIMIT, RUNTIME_HOST, RUNTIME_PORT } from './config.mjs';
 import { appDataDir, edaAppCandidates, openApplication } from './platform.mjs';
 import { BridgeClient } from './bridge.mjs';
-import { EdaGuiClient } from './eda-gui.mjs';
+import { EdaGuiClient, assertGuiAction } from './eda-gui.mjs';
+import { assertSafeText, assertShortcutAllowed, assertNotCheckoutTarget } from './automation/safety.mjs';
 import { createApprovalStore, fingerprintOf } from './automation/approvals.mjs';
 import { createApprovalLedger } from './approval-ledger.mjs';
 import { createAutomationJournal } from './automation/journal.mjs';
@@ -59,7 +60,7 @@ import { AGENT_TOKEN_HEADER, agentTokenFile, ensureAgentTokenFile, readAgentToke
 import { assertAgentRouteAllowed } from './agent-auth.mjs';
 import { PlanRequestStore } from './plan-requests.mjs';
 import { agentAuditFile, agentConsoleStatus, appendAgentAudit, readAgentAudit, rotateAgentToken } from './agent-console.mjs';
-import { withEdaWriteLock } from './eda-write-lock.mjs';
+import { acquireEdaWriteLock } from './eda-write-lock.mjs';
 import { createReleaseArchiveStore } from './release-archive.mjs';
 import { buildTimeline } from './timeline.mjs';
 import { appendTimelineLink, loadTimelineLinks, validateTimelineLink } from './timeline-links.mjs';
@@ -180,6 +181,31 @@ const EDA_WRITE_ROUTES = new Set([
 ]);
 /** GUI 动作里只有这两个纯只读；其余（click/type/shortcut/eval…）都可能在点"应用修改"写板。 */
 const GUI_READONLY_ACTIONS = new Set(['state', 'screenshot']);
+/**
+ * 需要"跨进程 EDA 写锁"的写路由（P1-11 闭环的实际覆盖集合）。
+ *
+ * 为什么不是整份 EDA_WRITE_ROUTES：
+ *   - `/api/design/approve`、`/api/pcb/approve`、`/api/automation/approvals` 只是签发/记录批准，不写 EDA；
+ *   - `/api/pcb/execute` 已有 PcbManager 的跨进程租约（pcb-write-lock.json）；
+ *   - `/api/automation/run` 已有跨进程 run-lock（automation-run-lock 用例验证并发返回 RUN_BUSY）。
+ * 这些路由若再抢同一把 EDA 锁，会让"并发第二个 run"从语义化错误变成 EDA_WRITE_LOCKED（测试已复现）。
+ * 其余路由直接 bridge.execute 写 EDA、没有自己的跨进程互斥，才需要这把锁兜住。
+ */
+const EDA_LOCK_ROUTES = new Set([
+  '/api/eda/schematic/repair',
+  '/api/eda/schematic/net-connect',
+  '/api/eda/schematic/net-connect/rollback',
+  '/api/eda/schematic/designators/set',
+  '/api/eda/schematic/component-batch',
+  '/api/eda/pcb/placement/apply',
+  '/api/eda/pcb/routing/apply',
+  '/api/eda/pcb/routing/rollback',
+  '/api/eda/pcb/routing/finish',
+  '/api/eda/pcb/pour/create',
+  '/api/eda/pcb/layers',
+  '/api/eda/workspaces',
+  '/api/design/execute',
+]);
 
 /**
  * 统一的"错误 → HTTP 状态"映射。显式 error.status 永远优先（保持既有路由契约），
@@ -478,6 +504,8 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
   // 业务状态落盘目录：生产放行/执行历史/（后续）项目与聊天共用同一个 state 目录，
   // 便于整体备份与迁移；单文件损坏只影响对应子系统，不互相带崩。
   const stateDir = process.env.CIRCUITPILOT_STATE_DIR || join(process.cwd(), 'artifacts/state');
+  // P1-11 闭环：EDA 写互斥的锁文件目录（与其它状态同根，跨进程/跨重启都可见）。
+  const edaWriteLockDir = join(stateDir, 'locks');
   /**
    * 计划级待审批队列（task-40）：Agent 登记已生成计划，UI 只做 approve/reject；
    * 带 approvalRequestId 的 design/pcb approve 必须消费「已批准且绑定一致」的请求。
@@ -555,6 +583,20 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
       });
     }
   };
+  /**
+   * 2026-11-05 平台闭环（P1-6）：Supervisor 的 source 可用性必须随队列一起返回。
+   * 修复前 plan 源在启动时损坏 → `planRequests: []` 静默省略，UI 只看到"队列里没有计划待办"，
+   * 无法区分"真的没有"与"这个源读不了"。这里把每个源的可用性/原因显式下发；
+   * validations/issues 读失败会在 scanSupervisor 里抛 SOURCE_UNAVAILABLE→503，因此 200 时它们是可用的。
+   */
+  const supervisorSources = () => ({
+    validations: { available: true },
+    issues: { available: true },
+    planRequests: planRequestStore
+      ? { available: true }
+      : { available: false, reason: 'PLAN_REQUEST_STORE_UNAVAILABLE', detail: String(planRequestStoreError?.message || '计划级待审批队列状态文件不可用').slice(0, 240) },
+  });
+
   const handleSupervisorTicketAction = async (request, url, action) => {
     // 值守队列的人工动作只允许本机 UI：Agent 可以读，但不能替人“接单/忽略/关闭”。
     if (request.agent) {
@@ -770,7 +812,13 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
    */
   const isReleaseSignoffPayload = (payload) => {
     if (!payload || typeof payload !== 'object') return false;
-    if (payload.kind === 'signoff-record') return true;
+    // 2026-11-05 全链审计 P1-1：`kind==='signoff-record'` 不能直接放行。
+    // 旧 W5 门禁签字也写这个 kind（decision:'reject'、无 passed/roles），它比真实交付签核更新时
+    // 会把有效签核遮蔽成 null（现网 artifacts/evidence/signoff 实测命中）。交付签核必须自己
+    // 带"通过 + 至少一个角色"，与旧门禁终审记录区分开。
+    if (payload.kind === 'signoff-record') {
+      return payload.passed === true && Array.isArray(payload.roles) && payload.roles.length > 0;
+    }
     // 向后兼容：修复前落盘的三方签核没有 kind 字段，但一定有 passed:true 与 roles；
     // 旧 gate-report 没有 passed，因此仍会被挡住。
     return payload.kind === undefined && payload.passed === true && Array.isArray(payload.roles) && payload.roles.length > 0;
@@ -1007,6 +1055,60 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
     return gate;
   };
 
+  /**
+   * 2026-11-05 全系统闭环审计（设计 P1-8 / 交付 P2-3）：项目状态里的"阶段证据"是客户端可写字段，
+   * 不能由脚本/Agent/前端自报。保存前只保留**能对上 Runtime 真实记录**的证据：
+   *   - 原理图/网表执行证据：`designManager.get(executionId).state === 'completed'`；
+   *   - PCB 布局写回证据：`pcbManager.get(pcbExecutionId).state === 'completed'`，或批准账本里确有该 approvalId；
+   * 对不上的字段直接剔除（不覆盖用户其它编辑），并在响应 `evidenceRejected` 里如实列出原因。
+   * 这比"整包 409"更可用：用户清理不了历史脏字段时仍能保存需求/BOM，同时伪造的阶段证据进不了权威状态。
+   */
+  const sanitizeProjectStateEvidence = (state) => {
+    const rejected = [];
+    const projects = Array.isArray(state?.projects) ? state.projects : [];
+    if (!projects.length) return { state, rejected };
+    let approvalIds = new Set();
+    try {
+      const snapshot = approvalLedger.snapshot({ limit: 2000 });
+      approvalIds = new Set((snapshot?.entries || []).map((entry) => String(entry?.approvalId ?? '')).filter(Boolean));
+    } catch { approvalIds = new Set(); }
+    const cleanProject = (project) => {
+      if (!project || typeof project !== 'object') return project;
+      const workspace = project.edaWorkspace;
+      if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) return project;
+      const next = { ...workspace };
+      let changed = false;
+      const reject = (field, reason) => rejected.push({ projectId: text(project.id) || null, field: `edaWorkspace.${field}`, reason });
+      const schematicId = text(next.schematicExecutionId);
+      if ((next.schematicStatus && next.schematicStatus !== 'empty') || next.schematicExecutedAt) {
+        const execution = schematicId ? designManager.get?.(schematicId) : null;
+        if (!execution || execution.state !== 'completed') {
+          reject('schematicStatus', '没有对应的已完成原理图受控执行记录：阶段证据不能由客户端自报');
+          delete next.schematicStatus; delete next.schematicExecutedAt; delete next.schematicExecutionId; changed = true;
+        }
+      }
+      const netlistId = text(next.netlistExecutionId);
+      if (next.netlistExecutedAt || next.netlistExecutionId) {
+        const execution = netlistId ? designManager.get?.(netlistId) : null;
+        if (!execution || execution.state !== 'completed') {
+          reject('netlistExecutedAt', '没有对应的已完成网表受控执行记录');
+          delete next.netlistExecutedAt; delete next.netlistExecutionId; changed = true;
+        }
+      }
+      if (next.pcbPlacementExecutedAt || next.pcbPlacementApprovalId || next.pcbPlacementExecutionId) {
+        const executionId = text(next.pcbPlacementExecutionId);
+        const execution = executionId ? pcbManager.get?.(executionId) : null;
+        const approvalSeen = text(next.pcbPlacementApprovalId) && approvalIds.has(text(next.pcbPlacementApprovalId));
+        if (!(execution && execution.state === 'completed') && !approvalSeen) {
+          reject('pcbPlacementExecutedAt', '没有对应的已完成 PCB 布局写回记录或批准账本条目');
+          delete next.pcbPlacementExecutedAt; delete next.pcbPlacementApprovalId; delete next.pcbPlacementExecutionId; changed = true;
+        }
+      }
+      return changed ? { ...project, edaWorkspace: next } : project;
+    };
+    return { state: { ...state, projects: projects.map(cleanProject) }, rejected };
+  };
+
   const requireWriteApproval = async (body, { recipeId = null } = {}) => {
     // P0-8：即便调用方带来了有效的一次性写批准，暂停期间也不允许执行。
     await assertEdaWritesOpen();
@@ -1043,6 +1145,37 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
     throw Object.assign(new Error('当前活动文档不是原理图，拒绝写入（请先打开原理图页面）'), { code: 'EDA_DOCUMENT_REQUIRED', status: 409 });
+  };
+
+  /**
+   * 在途文档漂移守卫（2026-11-05 全系统闭环审计 PCB P1-4）。
+   *
+   * 直接写路由只在请求开始时校验一次批准指纹；而官方 DRC/长写批次可跑分钟级，
+   * 用户在这期间切到另一块板/另一页，后续写命令就会落到别的文档上。
+   * 这里包一层 execute：**每个 allowWrite 命令执行前**确认活动文档仍是目标文档，
+   * 不是就重新激活目标（切回目标而不是拒绝/写错板），读命令与导航命令不拦。
+   */
+  const guardedExecuteForPcb = (pcbUuid) => async (commandId, args = {}, options = {}) => {
+    if (options?.allowWrite === true && pcbUuid) {
+      const current = (await bridge.execute('document.current', {}))?.result;
+      const onTarget = Number(current?.documentType) === PCB_DOCUMENT_TYPE && String(current?.uuid || '') === String(pcbUuid);
+      if (!onTarget) {
+        await activatePcbDocument(pcbUuid);
+        logger.warn('Pcb', '写入期间活动文档漂移，已切回批准目标文档', { target: pcbUuid, actual: current?.uuid ?? null });
+      }
+    }
+    return bridge.execute(commandId, args, options);
+  };
+  const guardedExecuteForSchematic = (pageUuid) => async (commandId, args = {}, options = {}) => {
+    if (options?.allowWrite === true) {
+      const current = (await bridge.execute('document.current', {}))?.result;
+      const onTarget = Number(current?.documentType) === SCHEMATIC_DOCUMENT_TYPE && (!pageUuid || String(current?.uuid || '') === String(pageUuid));
+      if (!onTarget) {
+        await ensureSchematicActive({ pageUuid, documentUuid: pageUuid });
+        logger.warn('Schematic', '写入期间活动文档漂移，已切回批准目标页', { target: pageUuid ?? null, actual: current?.uuid ?? null });
+      }
+    }
+    return bridge.execute(commandId, args, options);
   };
 
   /**
@@ -1117,11 +1250,15 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
   };
 
   const ensurePcbDocument = async (pcbUuid) => {
+    const requested = typeof pcbUuid === 'string' && pcbUuid.trim() ? pcbUuid.trim() : null;
     const current = (await bridge.execute('document.current', {})).result;
     if (Number(current?.documentType) === 3 && typeof current?.uuid === 'string' && current.uuid) {
-      return { pcbUuid: current.uuid, activated: false };
+      // 2026-11-05 全链审计 P1-5：请求明确指定了另一块 PCB 时，不能"当前已是 PCB 就直接用当前板"，
+      // 否则 pour/create 等路由会静默把内容写到活动板（请求的 pcbUuid 被忽略），调用方还以为写的是指定板。
+      // 与请求一致（或没指定）才复用当前文档；指定了别的板就显式切换。
+      if (!requested || requested === current.uuid) return { pcbUuid: current.uuid, activated: false };
     }
-    let target = (typeof pcbUuid === 'string' && pcbUuid) ? pcbUuid : await resolveProjectPcbUuid();
+    let target = requested ?? await resolveProjectPcbUuid();
     if (!target && !pcbUuid) {
       // EDA 重启后停在首页（project.current 为 null）：自己把上次的工程打开，而不是让用户去点。
       const project = (await bridge.execute('project.current', {})).result;
@@ -1631,6 +1768,13 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
           logger.info('Release', '放行门已消费本机仿真证据（仅关键子电路，覆盖范围如实标注）', { evidencePath: outcome.simulation.evidencePath, netlistSha256: outcome.simulation.netlist.sha256 });
         }
       }
+    // 2026-11-05 审计（设计 P1-6）：六门生产者已落盘的 netlist-diff / rules 证据必须能被放行裁决消费，
+    // 否则 release-gate 里那两个子门是"永远没人喂的死参数"（放行可以在没有网表一致性/规则证据时 ready）。
+    // 只有真的存在该 PCB 的证据才传；按 release-gate 既有规则：只给一类时另一类按缺证据阻断（fail-closed）。
+    const envelopeFor = (kind, pcbUuid) => {
+      if (!pcbUuid) return null;
+      try { return evidenceStore.latest(kind, { fingerprint: { pcbUuid } })?.payload ?? null; } catch { return null; }
+    };
     return {
       acceptance, artifacts, design, placementVerification,
       // 第 61 轮：DRC 输入归一化的同时保留绑定（pcbUuid），gateDrc 用它判断"是不是当前这块板"。
@@ -1638,6 +1782,8 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
       exemptions: Array.isArray(body.exemptions) ? body.exemptions : (await loadDrcExemptionFileForCurrentProject()).exemptions,
       writeback: body.writeback || null, userConfirmed: body.userConfirmed === true, pricing: body.pricing || null,
       targetPcbUuid, simulationEvidence,
+      netlistEvidence: envelopeFor('netlist-diff', targetPcbUuid),
+      rulesEvidence: envelopeFor('rules', targetPcbUuid),
     };
   };
 
@@ -1717,6 +1863,19 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
       }
     }
 
+    let edaWriteLockHandle = null;
+    /**
+     * 释放写锁必须在**发送响应之前**：HTTP 客户端收到响应就会发下一个请求，
+     * 若拖到 after-response 的 finally 里才释放，紧邻的第二个写请求会撞上 409 EDA_WRITE_LOCKED
+     * （真机/自动化连续写就是这个形态）。finally 只做兜底，重复释放是幂等的。
+     */
+    const releaseEdaWriteLock = async () => {
+      if (!edaWriteLockHandle) return;
+      const handle = edaWriteLockHandle;
+      edaWriteLockHandle = null;
+      try { await handle.release(); }
+      catch (error) { logger.warn('EdaWriteLock', '释放 EDA 写锁失败（陈旧锁会由 staleMs 兜底接管）', { requestId, code: error?.code, message: error?.message }); }
+    };
     try {
       let result;
       /**
@@ -1724,8 +1883,19 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
        *
        * 放在分发前而不是各路由内，是为了避免"以后新增写路由忘了加判断"再次退化；
        * 只读分析、文件导出、证据落盘不在名单里（暂停写入不能让人连检查都做不了）。
+       *
+       * P1-11 闭环（2026-11-05）：写暂停之后还要过**跨进程写锁**——EDA 桌面端只有一个，
+       * UI/自动化/脚本可能同时发写命令，两个写动作并发打到桥会半写/串板。这里对已登记的
+       * EDA 写路由抢同一把文件锁（`runtime/eda-write-lock.mjs`），持锁到本次请求结束。
+       * 陈旧锁（进程崩溃）由 staleMs（15 分钟）接管，不会永久锁死写入口。
        */
-      if (method === 'POST' && EDA_WRITE_ROUTES.has(url.pathname)) await assertEdaWritesOpen(url.pathname);
+      if (method === 'POST' && EDA_WRITE_ROUTES.has(url.pathname)) {
+        await assertEdaWritesOpen(url.pathname);
+        if (EDA_LOCK_ROUTES.has(url.pathname)) {
+          edaWriteLockHandle = await acquireEdaWriteLock({ dir: edaWriteLockDir, key: 'eda-write' }, { owner: url.pathname });
+          logger.info('EdaWriteLock', 'EDA 写锁已获取', { requestId, method, path: url.pathname });
+        }
+      }
       // C6：项目级路由用 URL 里的项目 id 做隔离键（声明在 try 内，避免全局变量）。
       let projectMatch = null;
       if (method === 'GET' && url.pathname === '/api/health') {
@@ -1942,12 +2112,69 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         if (!body || typeof body !== 'object' || !body.state || typeof body.state !== 'object' || Array.isArray(body.state)) {
           throw Object.assign(new Error('验证状态请求体必须是 {state:{validations}}'), { code: 'VALIDATION_STATE_INVALID', status: 400 });
         }
+        // 2026-11-05 全链审计 P1-3：官方结论必须能对上 Runtime 里真实落盘的证据。
+        // 修复前这里原样落盘——本机任意脚本/Agent 只要 PUT 一条 {source:'official',status:'pass'}
+        // 就能把 KPI/阶段推进到"官方已通过"（validate-state 是前端可写的通用状态通道）。
+        // 现在 fail-closed：engine→证据 kind、digest 必须在证据库真实存在；同一份证据也不能被
+        // 两个不同项目同时声称（跨项目借证据）。非官方记录（demo/manual/seed）保持原样放行。
+        const incomingValidations = Array.isArray(body.state.validations) ? body.state.validations : [];
+        const evidenceKindForEngine = (engine) => (engine === 'ERC' ? 'schematic-erc' : engine === 'DRC' ? 'drc-report' : null);
+        const loadEvidenceKind = (kind) => {
+          try { return evidenceStore.list(kind); }
+          catch (error) {
+            throw Object.assign(new Error(`官方验证证据库不可读，拒绝写入验证状态：${String(error?.message || error).slice(0, 160)}`), { code: 'VALIDATION_EVIDENCE_UNAVAILABLE', status: 503 });
+          }
+        };
+        const claim = (map, digest, projectId, record) => {
+          const previous = map.get(digest);
+          if (previous !== undefined && previous !== projectId) {
+            throw Object.assign(new Error(`同一份 ${record?.evidence?.engine || '官方'} 证据被两个项目同时声称（${previous} / ${projectId || '—'}）：拒绝用别的项目的证据推进本项目的验证状态`), {
+              code: 'VALIDATION_EVIDENCE_CROSS_PROJECT', status: 409,
+              details: { id: record?.id ?? null, digest: String(digest).slice(0, 12), previousProjectId: previous, projectId: projectId || null },
+            });
+          }
+          map.set(digest, projectId);
+        };
+        const digestProject = new Map();
+        // 已落盘的旧记录也参与"同一份证据只能属于一个项目"的判定（避免新记录借用旧项目的证据）。
+        try {
+          const stored = validationStateStore.load();
+          for (const record of stored.state?.validations || []) {
+            if (!record || record.source !== 'official') continue;
+            const digest = text(record?.evidence?.digest);
+            const kind = evidenceKindForEngine(text(record?.evidence?.engine).toUpperCase());
+            if (digest && kind) claim(digestProject, digest, text(record.projectId), record);
+          }
+        } catch (error) {
+          if (error?.code === 'VALIDATION_EVIDENCE_CROSS_PROJECT') throw error;
+          // 读旧状态失败不阻断写入（写操作本身会再次校验），但不能把失败洗成"没有旧记录"的证据。
+        }
+        for (const record of incomingValidations) {
+          if (!record || typeof record !== 'object' || record.source !== 'official') continue;
+          const engine = text(record?.evidence?.engine).toUpperCase();
+          const kind = evidenceKindForEngine(engine);
+          if (!kind) {
+            throw Object.assign(new Error(`官方验证记录必须声明证据引擎（ERC/DRC）：${String(record?.id || '')}`), { code: 'VALIDATION_EVIDENCE_ENGINE_INVALID', status: 400, details: { id: record?.id ?? null, engine: text(record?.evidence?.engine) || null } });
+          }
+          const digest = text(record?.evidence?.digest);
+          if (!digest) {
+            throw Object.assign(new Error(`官方验证记录缺少证据摘要（digest）：${String(record?.id || '')}`), { code: 'VALIDATION_EVIDENCE_DIGEST_REQUIRED', status: 400, details: { id: record?.id ?? null, engine } });
+          }
+          const entries = loadEvidenceKind(kind);
+          if (!entries.some((entry) => entry.digest === digest)) {
+            throw Object.assign(new Error(`官方验证记录引用的证据在 Runtime 证据库里不存在（${engine} ${digest.slice(0, 12)}）：不能把伪造/别机的结论写成官方通过`), {
+              code: 'VALIDATION_EVIDENCE_UNKNOWN', status: 409,
+              details: { id: record?.id ?? null, engine, digest: digest.slice(0, 12) },
+            });
+          }
+          claim(digestProject, digest, text(record.projectId), record);
+        }
         const saved = validationStateStore.save(body.state);
         result = { ok: true, state: saved.state, savedAt: saved.savedAt, truncated: saved.truncated, total: saved.total };
       } else if (method === 'GET' && url.pathname === '/api/supervisor/attention') {
         // 只读值守队列：每次读取前扫描现有 Store，让 DRC/ERC、问题中心、计划审批的新事实及时出现。
         const snapshot = scanSupervisor();
-        result = { ok: true, ...snapshot, tickets: snapshot.tickets.filter((ticket) => SUPERVISOR_ATTENTION_STATUSES.includes(ticket.status)) };
+        result = { ok: true, ...snapshot, sources: supervisorSources(), tickets: snapshot.tickets.filter((ticket) => SUPERVISOR_ATTENTION_STATUSES.includes(ticket.status)) };
         logger.info('Supervisor', 'Read-only attention scan completed', { total: snapshot.summary.total, attention: snapshot.summary.attention });
       } else if (method === 'GET' && url.pathname === '/api/supervisor/tickets') {
         const snapshot = scanSupervisor();
@@ -1956,7 +2183,7 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
           throw Object.assign(new Error(`status 只能是 ${SUPERVISOR_STATUSES.join('/')} 或 all`), { code: SUPERVISOR_CODES.INVALID, status: 400 });
         }
         const tickets = !status || status === 'all' ? snapshot.tickets : snapshot.tickets.filter((ticket) => ticket.status === status);
-        result = { ok: true, ...snapshot, tickets };
+        result = { ok: true, ...snapshot, sources: supervisorSources(), tickets };
       } else if (method === 'POST' && /^\/api\/supervisor\/tickets\/[^/]+\/ack$/.test(url.pathname)) {
         result = { ok: true, ticket: await handleSupervisorTicketAction(request, url, 'ack') };
       } else if (method === 'POST' && /^\/api\/supervisor\/tickets\/[^/]+\/dismiss$/.test(url.pathname)) {
@@ -1975,8 +2202,10 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         if (!body || typeof body !== 'object' || !body.state || typeof body.state !== 'object' || Array.isArray(body.state)) {
           throw Object.assign(new Error('项目状态请求体必须是 {state:{...}}'), { code: 'PROJECT_STATE_INVALID', status: 400 });
         }
-        const saved = projectStateStore.replace(body.state);
-        result = { ok: true, state: saved.state, savedAt: saved.savedAt };
+        const sanitized = sanitizeProjectStateEvidence(body.state);
+        if (sanitized.rejected.length) logger.warn('ProjectState', '剔除了无法核验的阶段证据（客户端自报）', { count: sanitized.rejected.length, rejected: sanitized.rejected.slice(0, 5) });
+        const saved = projectStateStore.replace(sanitized.state);
+        result = { ok: true, state: saved.state, savedAt: saved.savedAt, evidenceRejected: sanitized.rejected };
       } else if (method === 'GET' && url.pathname === '/api/projects') {
         // C6：项目列表 + 每个项目状态文件的独立性（savedAt/计数来自各自文件，不是全局状态）。
         const legacy = projectStateStore.read().state;
@@ -2003,8 +2232,10 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         if (!body || typeof body !== 'object' || !body.state || typeof body.state !== 'object' || Array.isArray(body.state)) {
           throw Object.assign(new Error('项目状态请求体必须是 {state:{...}}'), { code: PROJECT_STATE_CODES.INVALID, status: 400 });
         }
-        const saved = projectScopedStore.replace(projectId, body.state);
-        result = { ok: true, projectId: saved.projectId, state: saved.state, savedAt: saved.savedAt, tagged: saved.tagged };
+        const sanitized = sanitizeProjectStateEvidence(body.state);
+        if (sanitized.rejected.length) logger.warn('ProjectState', '剔除了无法核验的阶段证据（项目切面）', { projectId, count: sanitized.rejected.length });
+        const saved = projectScopedStore.replace(projectId, sanitized.state);
+        result = { ok: true, projectId: saved.projectId, state: saved.state, savedAt: saved.savedAt, tagged: saved.tagged, evidenceRejected: sanitized.rejected };
       } else if (method === 'GET' && (projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/binding\/verify$/))) {
         /**
          * C6：EDA 窗口与项目绑定校验（只读）。
@@ -2140,6 +2371,30 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
           : evidenceStore.latest('drc-report');
         const erc = body?.erc ?? (ercEntry?.payload?.report ?? ercEntry?.payload ?? null);
         const drc = body?.drc ?? (drcEntry?.payload?.report ?? drcEntry?.payload ?? null);
+        // G1 闭环（2026-11-05 全系统闭环审计 交付 P0-1）：板卡规格不再要求用户在 UI 手填。
+        // 能连 EDA 时用只读命令读出板框（pcb.outline.read.boundsMm）与铜层数（pcb.layers.copperCount），
+        // 由服务端 buildDesignSpec 生成 design-spec；读不到就如实进 missing，绝不编造尺寸。
+        let boardsFromEda = null;
+        let boardsError = null;
+        const specInputRaw = body?.specInput && typeof body.specInput === 'object' && !Array.isArray(body.specInput) ? body.specInput : null;
+        if (specInputRaw && !Array.isArray(specInputRaw.boards) && pcbUuid && bridge && typeof bridge.execute === 'function') {
+          try {
+            const outlineResult = (await bridge.execute('pcb.outline.read', {}))?.result ?? null;
+            const copperResult = (await bridge.execute('pcb.layers.copperCount', {}))?.result ?? null;
+            const bounds = outlineResult?.boundsMm;
+            const widthMm = bounds ? Number((Number(bounds.maxXMm) - Number(bounds.minXMm)).toFixed(3)) : null;
+            const heightMm = bounds ? Number((Number(bounds.maxYMm) - Number(bounds.minYMm)).toFixed(3)) : null;
+            const layers = Number(copperResult);
+            if (Number.isFinite(widthMm) && widthMm > 0 && Number.isFinite(heightMm) && heightMm > 0 && Number.isInteger(layers) && layers >= 2) {
+              boardsFromEda = [{ id: pcbUuid, name: text(body?.boardName) || `PCB-${pcbUuid.slice(0, 8)}`, layers, outline: { widthMm, heightMm } }];
+              body.specInput = { ...specInputRaw, boards: boardsFromEda };
+            } else {
+              boardsError = 'EDA 未返回可用的板框/铜层数（需要 pcb.outline.read 的 boundsMm 与 copperCount>=2）';
+            }
+          } catch (error) {
+            boardsError = `读取 EDA 板框/层数失败：${String(error?.message || error).slice(0, 160)}`;
+          }
+        }
         // G1：spec 可以由调用方传已校验对象，也可以传 specInput 由服务端 buildDesignSpec 生成（不要信客户端自报“已校验”）。
         let spec = body?.spec && typeof body.spec === 'object' ? body.spec : null;
         let specError = null;
@@ -2180,10 +2435,15 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
           drcExemptions: Array.isArray(body?.drcExemptions) ? body.drcExemptions : [],
         });
         if (specError) collected.missing.push({ kind: 'design-spec', reason: `specInput 无法生成合法 design-spec：${specError}` });
+        if (boardsError && !boardsFromEda && specInputRaw && !Array.isArray(specInputRaw.boards)) collected.missing.push({ kind: 'design-spec', reason: `自动读取板卡规格失败：${boardsError}` });
         if (actualNetlistError && !actualNetlist) collected.missing.push({ kind: 'netlist-diff', reason: `读取 EDA 实际网表失败：${actualNetlistError}` });
         const status = gateService.status({ pcbUuid });
         // `report` 保留门禁裁决报告（UI 按六门展示）；取证自身的汇总放 evidenceReport，避免两个 report 互相覆盖。
-        result = { ok: true, saved: collected.saved, missing: collected.missing, skipped: collected.skipped, evidenceReport: collected.report, ...status };
+        result = {
+          ok: true, saved: collected.saved, missing: collected.missing, skipped: collected.skipped, evidenceReport: collected.report, ...status,
+          // G1 证据来源可追溯：EDA 自动读 → 'eda'；请求体自带 → 'request'；空 → null。
+          boards: { source: boardsFromEda ? 'eda' : (Array.isArray(specInputRaw?.boards) ? 'request' : null), enrichmentError: boardsError, boards: boardsFromEda },
+        };
         logger.info('Gates', 'Gate evidence collected', { pcbUuid, projectId, saved: collected.saved?.length ?? 0, missing: collected.missing?.length ?? 0, verdict: status.report?.verdict ?? null });
       } else if (method === 'POST' && url.pathname === '/api/eda/gates/evaluate') {
         const body = await readBody(request);
@@ -2370,6 +2630,15 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         // 避免用户关掉设置后，旧页面/旧请求仍在偷偷联网。
         const body = await readBody(request);
         if (body?.allowResearch !== true) throw Object.assign(new Error('联网检索未开启：请先在设置中允许 AI 查询公网'), { code: RESEARCH_CODES.DISABLED, status: 403 });
+        // 2026-11-05 全平台闭环（P1-4）：allowResearch 只是"本次请求显式同意"，还必须服从
+        // Runtime 权威开关 researchConfig；否则设置页关掉联网后，旧页面/Agent 仍能带
+        // allowResearch:true 直接外发（开关形同虚设）。
+        const researchGate = await researchConfig.load();
+        if (researchGate.enabled !== true) {
+          throw Object.assign(new Error('联网研究开关（Runtime 权威配置）未开启：请先在设置页允许联网检索，再发起检索请求'), {
+            code: RESEARCH_CODES.DISABLED, status: 403, details: { allowResearch: true, configEnabled: false, configLoadError: researchGate.loadError ?? null },
+          });
+        }
         const research = await searchWeb({ query: body?.query, provider: body?.provider || null, limit: body?.limit });
         if (!research.ok) throw Object.assign(new Error(research.message), { code: research.code, status: research.code === RESEARCH_CODES.NO_RESULTS ? 404 : 502 });
         result = { ok: true, research };
@@ -2377,6 +2646,12 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
       } else if (method === 'POST' && url.pathname === '/api/research/fetch') {
         const body = await readBody(request);
         if (body?.allowResearch !== true) throw Object.assign(new Error('联网检索未开启：请先在设置中允许 AI 查询公网'), { code: RESEARCH_CODES.DISABLED, status: 403 });
+        const researchGate = await researchConfig.load();
+        if (researchGate.enabled !== true) {
+          throw Object.assign(new Error('联网研究开关（Runtime 权威配置）未开启：请先在设置页允许联网检索，再抓取网页'), {
+            code: RESEARCH_CODES.DISABLED, status: 403, details: { allowResearch: true, configEnabled: false, configLoadError: researchGate.loadError ?? null },
+          });
+        }
         const page = await fetchPage({ url: body?.url });
         if (!page.ok) throw Object.assign(new Error(page.message), { code: page.code, status: page.code === RESEARCH_CODES.URL_BLOCKED ? 400 : 502 });
         result = { ok: true, page };
@@ -2503,8 +2778,28 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         const body = await readBody(request);
         const gate = gateFabricationRelease({ ...(await gatherReleaseEvidence(body)), constraints: Array.isArray(body.constraints) ? body.constraints : [], designFacts: body.designFacts ?? null, draftPathsReplaced: selfDraftReplacedPaths(body), engineering: body.engineering && typeof body.engineering === 'object' ? body.engineering : null, layoutAudit: body.layoutAudit && typeof body.layoutAudit === 'object' ? body.layoutAudit : null, engineeringExemptions: Array.isArray(body.engineeringExemptions) ? body.engineeringExemptions : [] });
         // 统一裁决：本地门禁 + 落盘的人工证据（在线 DFM / 终审签核）只有一条结论。
-        // 给了 PCB/计划标识就强制校验证据绑定：不能拿别的板/别的计划的 DFM 或签核来充数。
-        const releaseBinding = { pcbUuid: text(body.pcbUuid) || null, planHash: text(body.planHash) || null };
+        // 2026-11-05 审计（交付 P1-2）：这里的 binding 必须与正式导出**完全同域**。
+        // 修复前只用 {pcbUuid, planHash}，而导出用完整 binding + 重算 manifestHash，
+        // 于是 UI 按闸门的 releaseDecision.ready 解锁"导出正式文件"，点下去却因绑定域不同被 409。
+        const gateProvidedBinding = body.binding && typeof body.binding === 'object' ? body.binding : {};
+        const gateExportBinding = {
+          pcbUuid: text(body.pcbUuid) || text(gateProvidedBinding.pcbUuid) || null,
+          planHash: text(body.planHash) || text(body.semanticPlanHash) || text(gateProvidedBinding.planHash) || null,
+          semanticPlanHash: text(body.semanticPlanHash) || text(gateProvidedBinding.semanticPlanHash) || null,
+          compiledPlanHash: text(body.compiledPlanHash) || text(gateProvidedBinding.compiledPlanHash) || null,
+          executionId: text(body.executionId) || text(body.pcbExecutionId) || text(gateProvidedBinding.executionId) || null,
+          projectId: text(body.projectId) || text(gateProvidedBinding.projectId) || null,
+          projectName: text(body.projectName) || text(gateProvidedBinding.projectName) || null,
+          documentId: text(body.documentId) || text(gateProvidedBinding.documentId) || null,
+          sourceDigest: text(body.sourceDigest) || text(gateProvidedBinding.sourceDigest) || null,
+        };
+        let gateManifestHash = text(body.manifestHash) || null;
+        try {
+          const gateArtifactsDir = typeof body.artifactsDir === 'string' && body.artifactsDir.trim() ? resolvePath(body.artifactsDir) : productionArtifactsRoot;
+          const recomputed = inspectProductionArtifacts(gateArtifactsDir, gateExportBinding).manifest?.manifestHash ?? null;
+          gateManifestHash = gateManifestHash || recomputed;
+        } catch { /* 产物读不到不影响闸门本身；manifestHash 缺失由裁决按证据不足处理 */ }
+        const releaseBinding = { ...gateExportBinding, ...(gateManifestHash ? { manifestHash: gateManifestHash } : {}) };
         const releaseDecision = buildReleaseDecision({ gate, dfm: evidenceStore.latest('dfm-evidence'), signoff: latestReleaseSignoff(), binding: releaseBinding });
         // P0-2/G6：每次真实放行判定都固化一份 fabrication-release 门禁证据（可按请求关闭）。
         if (text(body.pcbUuid) && body.recordGateEvidence !== false) {
@@ -2552,16 +2847,21 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
           binding: { pcbUuid: text(body.pcbUuid) || null, planHash: archivePlanHash, manifestHash },
         });
         // P1-6 复审：归档 binding 必须与导出/签核同域，服务端才能重算 manifestHash（稀疏 binding 会结构性 400/409）。
+        // 2026-11-05 全链审计 P0-2：manifest 哈希域包含 projectName（runtime/production.mjs），
+        // 这里若丢掉它，重算哈希必然与签核/readiness 不同 → 合法签核也永远归档失败（fail-closed 但不可达）。
+        // body 顶层没给时从交接的 binding 里取；仍取不到就保持 null（服务端会按缺域如实处理）。
+        const archiveProvidedBinding = body.binding && typeof body.binding === 'object' ? body.binding : {};
         const archiveBinding = {
           planHash: archivePlanHash,
           semanticPlanHash: text(body.semanticPlanHash) || (typeof signoffEvidence?.payload?.semanticPlanHash === 'string' ? signoffEvidence.payload.semanticPlanHash : null),
-          compiledPlanHash: text(body.compiledPlanHash) || null,
+          compiledPlanHash: text(body.compiledPlanHash) || text(archiveProvidedBinding.compiledPlanHash) || null,
           pcbUuid: text(body.pcbUuid) || null,
           pcbExecutionId: text(body.pcbExecutionId) || null,
           executionId: text(body.executionId) || text(body.pcbExecutionId) || null,
-          projectId: text(body.projectId) || null,
-          documentId: text(body.documentId) || null,
-          sourceDigest: text(body.sourceDigest) || null,
+          projectId: text(body.projectId) || text(archiveProvidedBinding.projectId) || null,
+          projectName: text(body.projectName) || text(archiveProvidedBinding.projectName) || null,
+          documentId: text(body.documentId) || text(archiveProvidedBinding.documentId) || null,
+          sourceDigest: text(body.sourceDigest) || text(archiveProvidedBinding.sourceDigest) || null,
           reviewHash: text(body.reviewHash) || signoffEvidence?.digest || null,
           manifestHash: text(body.manifestHash) || manifestHash || (typeof signoffEvidence?.payload?.manifestHash === 'string' ? signoffEvidence.payload.manifestHash : null),
         };
@@ -2613,6 +2913,9 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         const requestedManifestHash = typeof body.manifestHash === 'string' && body.manifestHash.trim() ? body.manifestHash.trim() : null;
         const providedBinding = body.binding && typeof body.binding === 'object' ? body.binding : {};
         // P0-3/P1-7 复审：导出/签核/归档共用同一套完整 binding（缺域由生产方按 body 补齐）。
+        // 2026-11-05 全链审计 P0-2：manifest 哈希域包含 projectName，这里必须同样带上，
+        // 否则"签核时算出的 manifestHash"与"导出时重算的 manifestHash"必然不同 → 合法签核
+        // 永远被 RELEASE_MANIFEST_MISMATCH 拒绝（正式导出这条路结构性不可达）。
         const exportBinding = {
           pcbUuid: text(body.pcbUuid) || text(providedBinding.pcbUuid) || null,
           planHash: text(body.planHash) || text(body.semanticPlanHash) || text(providedBinding.planHash) || null,
@@ -2620,6 +2923,7 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
           compiledPlanHash: text(body.compiledPlanHash) || text(providedBinding.compiledPlanHash) || null,
           executionId: text(body.executionId) || text(body.pcbExecutionId) || text(providedBinding.executionId) || null,
           projectId: text(body.projectId) || text(providedBinding.projectId) || null,
+          projectName: text(body.projectName) || text(providedBinding.projectName) || null,
           documentId: text(body.documentId) || text(providedBinding.documentId) || null,
           sourceDigest: text(body.sourceDigest) || text(providedBinding.sourceDigest) || null,
         };
@@ -2729,20 +3033,30 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
          *  3. 复核按**计数**比对：未标注元件位号都是 `R?`，用集合去重会把两个引脚算成一个。
          */
         const body = await readBody(request);
+        // 2026-11-05 全链审计 P1-3：修复写入也必须绑定"批准时的那一页"。
+        // 修复前 requireWriteApproval 的返回值被丢弃，只要 body.pageUuid 存在就打开并写它——
+        // 批准 S-A、请求 S-B 就会在 S-B 上写（离线探针已复现 open(S-B)）。
+        // 预检放在"消费批准"之前：当前就在某张原理图上时，请求页必须与批准时所在页一致；
+        // 当前是 PCB/其它文档时无法从指纹推断批准页（批准只存指纹），此时仍由一次性批准+指纹校验兜底。
+        const requestedPageUuid = typeof body.pageUuid === 'string' && body.pageUuid ? body.pageUuid : (typeof body.documentUuid === 'string' && body.documentUuid ? body.documentUuid : null);
+        if (body.dryRun === false && requestedPageUuid) {
+          const currentDoc = (await bridge.execute('document.current', {})).result;
+          if (Number(currentDoc?.documentType) === SCHEMATIC_DOCUMENT_TYPE && currentDoc?.uuid && requestedPageUuid !== currentDoc.uuid) {
+            throw Object.assign(new Error(`写板批准绑定的是原理图页 ${currentDoc.uuid}，请求修复的是 ${requestedPageUuid}：不能在另一页上复用批准`), {
+              code: 'AUTOMATION_APPROVAL_INVALID', status: 409,
+              details: { approvedDocumentUuid: currentDoc.uuid, requestedPageUuid },
+            });
+          }
+        }
         if (body.dryRun === false) await requireWriteApproval(body);
         await ensureEdaSession();
-        const bridgeExecute = (commandId, args, options) => bridge.execute(commandId, args, options);
+        // 在途漂移守卫：修复写入多、耗时长，中途被切页时把活动文档切回批准页，而不是写到别的页上。
+        const bridgeExecute = body.dryRun === false
+          ? guardedExecuteForSchematic(requestedPageUuid)
+          : (commandId, args, options) => bridge.execute(commandId, args, options);
         const unwrapResult = (value) => value?.result ?? value;
-        if (typeof body.pageUuid === 'string' && body.pageUuid) {
-          const opened = unwrapResult(await bridge.execute('schematic.open', { pageUuid: body.pageUuid }));
-          if (!opened?.opened) throw Object.assign(new Error('原理图打不开，拒绝在不确定的文档上写入'), { code: 'EDA_DOCUMENT_OPEN_FAILED', status: 409 });
-          let activated = false;
-          for (let attempt = 0; attempt < 25; attempt += 1) {
-            const current = unwrapResult(await bridge.execute('document.current', {}));
-            if (current?.documentType === 1) { activated = true; break; }
-            await new Promise((resolve) => setTimeout(resolve, 200));
-          }
-          if (!activated) throw Object.assign(new Error('原理图已打开但不是活动文档，拒绝写入'), { code: 'EDA_DOCUMENT_REQUIRED', status: 409 });
+        if (requestedPageUuid) {
+          await ensureSchematicActive({ pageUuid: requestedPageUuid, documentUuid: requestedPageUuid });
         }
         const readNetlist = async () => {
           const exported = unwrapResult(await bridge.execute('schematic.netlist.export', { fileName: 'circuitpilot-repair', netlistType: 'EasyEDA', inlineLimit: 262144 }));
@@ -3119,9 +3433,24 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         const body = await readBody(request);
         const layoutIntent = (body.designIntent ?? body.intent) ? normalizeLayoutIntent(body.designIntent ?? body.intent) : null;
         if (!body.plan || !Array.isArray(body.plan.placements)) throw Object.assign(new Error('缺少 plan.placements'), { code: 'EDA_COMMAND_ARGS_INVALID', status: 400 });
+        // 2026-11-05 全链审计 P0-2：批准绑定的是"签发时的活动文档"（A 板），
+        // 但随后 readPcbPlacement(body.pcbUuid) 会按请求体切到 B 板并在 B 板写回 ——
+        // 等于批准 A、写 B（离线探针已复现 200 + pcb.open(D2)）。
+        // 强制：显式请求的 pcbUuid 必须与批准时所在文档一致。校验放在"消费批准"之前，
+        // 这样被拒绝的请求不会烧掉一次性批准（用户改正后仍可用同一批准重试）。
+        const requestedPcbUuid = typeof body.pcbUuid === 'string' && body.pcbUuid.trim() ? body.pcbUuid.trim() : null;
+        if (body.dryRun === false && requestedPcbUuid) {
+          const currentTarget = await currentEdaFingerprint();
+          if (currentTarget.documentUuid && requestedPcbUuid !== currentTarget.documentUuid) {
+            throw Object.assign(new Error(`写板批准绑定的目标是文档 ${currentTarget.documentUuid}，请求写回的是 ${requestedPcbUuid}：不能在另一块板上复用批准`), {
+              code: 'AUTOMATION_APPROVAL_INVALID', status: 409,
+              details: { approvedDocumentUuid: currentTarget.documentUuid, requestedPcbUuid },
+            });
+          }
+        }
         if (body.dryRun === false) await requireWriteApproval(body);
         await ensureEdaSession();
-        const { readback, pcbUuid: resolvedPcbUuid } = await readPcbPlacement(body.pcbUuid);
+        const { readback, pcbUuid: resolvedPcbUuid } = await readPcbPlacement(requestedPcbUuid);
         const outline = body.outline?.points ? { points: body.outline.points } : parsePolygonSource(readback?.outline?.[0]?.source);
         const verifyOptions = { outline, outlineField: buildOutlineField(outline), edgeClearanceMm: Number.isFinite(body.edgeClearanceMm) ? body.edgeClearanceMm : 1, spacingMm: Number.isFinite(body.spacingMm) ? body.spacingMm : 0.5, overhangAllowances: body.overhangAllowances && typeof body.overhangAllowances === 'object' ? body.overhangAllowances : {} };
         // A9：写回前先过 151 条规则审计；硬门禁里"真的量到违规"的项阻断写入。
@@ -3136,7 +3465,7 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         if (body.dryRun === false && !layoutAudit.ok) {
           throw Object.assign(new Error(`布局计划未通过规则审计：${layoutAudit.blocking.map((item) => `${item.ruleId} ${item.message}`).join('；') || '命中硬门禁'}`), { code: 'PLACEMENT_RULES_BLOCKED', status: 409, details: { audit: layoutAudit } });
         }
-        result = await applyPlacementPlan({ execute: (commandId, args, options) => bridge.execute(commandId, args, options), plan: body.plan, readback, dryRun: body.dryRun !== false, verifyOptions, save: false });
+        result = await applyPlacementPlan({ execute: guardedExecuteForPcb(resolvedPcbUuid), plan: body.plan, readback, dryRun: body.dryRun !== false, verifyOptions, save: false });
         result.layoutAudit = layoutAudit;
         result.drcAuto = { requested: body.autoDrc === true, used: Boolean(autoDrcReport), error: autoDrcError };
         // P0-2/G5：真实写回成功后把布局复核落成门禁证据（默认开启，可显式关闭）。失败不影响写回结果，但要如实回报。
@@ -3161,7 +3490,7 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         const body = await readBody(request);
         const assumptions = Array.isArray(body.assumptions) ? body.assumptions : [];
         await ensureEdaSession();
-        await ensurePcbDocument(body.pcbUuid);
+        const pinPcbTarget = await ensurePcbDocument(body.pcbUuid);
         const copper = (await bridge.execute('pcb.copper.read', {}))?.result ?? {};
         const pads = Array.isArray(copper.pads) ? copper.pads : [];
         let schematicParts = null;
@@ -3179,10 +3508,40 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         }
         const evidence = buildPinEvidence({ pads, schematicParts: schematicParts || [], assumptions });
         const audit = auditPinEvidence(evidence);
+        // 2026-11-05 审计（设计 P1-7）：把引脚证据摘要落盘并回传 digest，
+        // 网表生成/批准计划因此能回答"基于哪份引脚证据"，而不是只信任客户端自报对象。
+        const pinEvidenceDigest = crypto.createHash('sha256').update(JSON.stringify(evidence)).digest('hex');
+        let pinEvidenceSaved = null;
+        if (body.persist !== false) {
+          try {
+            const saved = evidenceStore.save({
+              kind: 'pin-evidence',
+              payload: {
+                schemaVersion: 1,
+                digest: pinEvidenceDigest,
+                pcbUuid: pinPcbTarget.pcbUuid,
+                collectedAt: new Date().toISOString(),
+                ok: audit.ok === true,
+                counts: audit.counts ?? null,
+                blockers: Array.isArray(audit.blockers) ? audit.blockers.slice(0, 20) : [],
+                warnings: Array.isArray(audit.warnings) ? audit.warnings.slice(0, 20) : [],
+              },
+              fingerprint: { pcbUuid: pinPcbTarget.pcbUuid, projectId: text(body.projectId) || null },
+              note: 'A4 引脚证据摘要（完整 rows 见响应/执行记录）',
+            });
+            pinEvidenceSaved = { digest: saved.digest, path: saved.path, savedAt: saved.savedAt };
+          } catch (error) {
+            // 落盘失败不能把"采到了证据"说成采到：如实报错，让调用方决定是否继续（不静默丢 digest）。
+            throw Object.assign(new Error(`引脚证据落盘失败：${String(error?.message || error).slice(0, 160)}`), { code: 'PIN_EVIDENCE_SAVE_FAILED', status: 503, details: { cause: error?.code ?? null } });
+          }
+        }
         result = {
           ok: true,
           evidence,
           audit,
+          evidenceDigest: pinEvidenceDigest,
+          saved: pinEvidenceSaved,
+          pcbUuid: pinPcbTarget.pcbUuid,
           readback: { pads: pads.length, components: Array.isArray(copper.pads) ? new Set(pads.map((pad) => String(pad?.designator ?? ''))).size : 0, schematicParts: schematicParts === null ? null : schematicParts.length },
         };
       } else if (method === 'POST' && url.pathname === '/api/eda/pcb/routing/plan') {
@@ -3231,13 +3590,13 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         if (!body.plan || !Array.isArray(body.plan.routes)) throw Object.assign(new Error('缺少 plan.routes'), { code: 'EDA_COMMAND_ARGS_INVALID', status: 400 });
         if (body.dryRun === false) await requireWriteApproval(body);
         await ensureEdaSession();
-        await ensurePcbDocument();
+        const routingPcbTarget = await ensurePcbDocument(body.pcbUuid);
         const snapshot = await bridge.execute('pcb.copper.read', {});
         // 真机教训：计划复核通过 ≠ EDA 精确几何 DRC 通过。真实写入后必须跑一次官方 DRC，
         // 只比较"新增"违规；有新增就自动回滚本批铜（见 engineering/routing-drc.mjs）。
         // body.verifyDrc === false 是显式逃生门（会记录在返回里，便于审计"为什么没校验"）。
         result = await applyRoutingWithDrcGuard({
-          execute: (commandId, args, options) => bridge.execute(commandId, args, options),
+          execute: guardedExecuteForPcb(routingPcbTarget.pcbUuid),
           plan: body.plan,
           geometry: snapshot?.result ?? snapshot,
           dryRun: body.dryRun !== false,
@@ -3251,9 +3610,9 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         const body = await readBody(request);
         await requireWriteApproval(body);
         await ensureEdaSession();
-        await ensurePcbDocument();
+        const rollbackPcbTarget = await ensurePcbDocument(body.pcbUuid);
         result = await rollbackRouting({
-          execute: (commandId, args, options) => bridge.execute(commandId, args, options),
+          execute: guardedExecuteForPcb(rollbackPcbTarget.pcbUuid),
           items: body.items,
         });
       } else if (method === 'POST' && url.pathname === '/api/eda/pcb/routing/finish') {
@@ -3261,9 +3620,9 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         const body = await readBody(request);
         await requireWriteApproval(body);
         await ensureEdaSession();
-        await ensurePcbDocument();
+        const finishPcbTarget = await ensurePcbDocument(body.pcbUuid);
         result = await finishRouting({
-          execute: (commandId, args, options) => bridge.execute(commandId, args, options),
+          execute: guardedExecuteForPcb(finishPcbTarget.pcbUuid),
           rebuildPours: body.rebuildPours !== false,
           save: body.save !== false,
         });
@@ -3296,7 +3655,9 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         };
         await requireWriteApproval(body);
         await ensureEdaSession();
-        await ensurePcbDocument(body.pcbUuid);
+        // 2026-11-05 全链审计 P1-5：把实际写入的板回给调用方，避免"请求 D2、实际写 D1"无法察觉。
+        const pourPcbTarget = await ensurePcbDocument(body.pcbUuid);
+        const pourWrite = guardedExecuteForPcb(pourPcbTarget.pcbUuid);
         const readPours = async () => {
           const value = await bridge.execute('pcb.pours.detail', {});
           return Array.isArray(value?.result) ? value.result : (Array.isArray(value) ? value : []);
@@ -3305,7 +3666,7 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         const beforeIds = before.map((item) => String(item.primitiveId));
         const rollbackCreated = async (createdId) => {
           try {
-            await bridge.execute('pcb.pour.delete', { primitiveId: createdId }, { allowWrite: true });
+            await pourWrite('pcb.pour.delete', { primitiveId: createdId }, { allowWrite: true });
             const afterRollback = await readPours();
             return { attempted: true, ok: !afterRollback.some((item) => String(item.primitiveId) === createdId), pours: afterRollback.length };
           } catch (error) {
@@ -3314,7 +3675,7 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         };
         let createdId = null;
         try {
-          const created = await bridge.execute('pcb.pour.create', pourArgs, { allowWrite: true });
+          const created = await pourWrite('pcb.pour.create', pourArgs, { allowWrite: true });
           const createdValue = created?.result ?? created;
           createdId = typeof createdValue?.primitiveId === 'string' ? createdValue.primitiveId : null;
           const after = await readPours();
@@ -3337,11 +3698,11 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
             const cleanup = await rollbackCreated(createdId);
             const finalPours = cleanup.pours ?? null;
             if (!cleanup.ok) throw Object.assign(new Error('覆铜验证模式清理失败：新建图元未删干净，不能声称验证通过'), { code: 'PCB_POUR_ROLLBACK_INCOMPLETE', status: 409, details: { verification, cleanup } });
-            result = { ok: true, mode: 'verify-cleanup', created: { primitiveId: createdId, net, layer }, verification, cleanup, saved: false };
+            result = { ok: true, mode: 'verify-cleanup', pcbUuid: pourPcbTarget.pcbUuid, created: { primitiveId: createdId, net, layer }, verification, cleanup, saved: false };
           } else {
             let saved = null;
             if (body.save !== false) {
-              const saveResult = await bridge.execute('pcb.save', {}, { allowWrite: true });
+              const saveResult = await pourWrite('pcb.save', {}, { allowWrite: true });
               const saveValue = saveResult?.result ?? saveResult;
               if (saveValue !== true) {
                 const rollback = await rollbackCreated(createdId);
@@ -3349,7 +3710,7 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
               }
               saved = true;
             }
-            result = { ok: true, mode: 'create', created: { primitiveId: createdId, net, layer }, verification, saved };
+            result = { ok: true, mode: 'create', pcbUuid: pourPcbTarget.pcbUuid, created: { primitiveId: createdId, net, layer }, verification, saved };
           }
         } catch (error) {
           if (error?.code === 'PCB_POUR_VERIFY_FAILED' || error?.code === 'PCB_POUR_ROLLBACK_INCOMPLETE' || error?.code === 'SAVE_FAILED') throw error;
@@ -3409,7 +3770,9 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         }
         const approvedTarget = await requireWriteApproval(body);
         await ensureEdaSession();
-        await ensurePcbDocument();
+        await ensurePcbDocument(body.pcbUuid);
+        // 在途漂移守卫：叠层写入的 setCount/save 前确认活动文档仍是批准时那块板。
+        const layersWrite = guardedExecuteForPcb(approvedTarget?.documentUuid ?? null);
         // 读 before/after 都走同一套读取函数：任何一次铜层数读失败都显式报错，不返回伪快照。
         const readLayerStack = async () => {
           const copperCountNow = (await bridge.execute('pcb.layers.copperCount'))?.result;
@@ -3421,7 +3784,7 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
           return { copperCount: copperCountNow, layers: listedLayers };
         };
         const before = await readLayerStack();
-        const setOutcome = await bridge.execute('pcb.layers.setCount', { layers: copperLayers }, { allowWrite: true });
+        const setOutcome = await layersWrite('pcb.layers.setCount', { layers: copperLayers }, { allowWrite: true });
         if ((setOutcome?.result ?? setOutcome) !== true) {
           throw Object.assign(new Error('设置铜层数未确认（pcb.layers.setCount 未返回 true）'), {
             code: 'PCB_LAYER_COUNT_SET_FAILED', status: 409,
@@ -3442,7 +3805,7 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         }
         let saved = false;
         if (body.save !== false) {
-          const saveOutcome = await bridge.execute('pcb.save', {}, { allowWrite: true });
+          const saveOutcome = await layersWrite('pcb.save', {}, { allowWrite: true });
           if ((saveOutcome?.result ?? saveOutcome) !== true) {
             throw Object.assign(new Error('铜层数设置成功但保存未确认（pcb.save 未返回 true）'), {
               code: 'SAVE_FAILED', status: 409,
@@ -4004,9 +4367,31 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         // - 显式 requirePinEvidence:true 但没传证据 ⇒ 409（不能凭"没证据"生成可执行网表）；
         // - 不传也不要求（旧调用/从零设计）⇒ 保持原行为，但结果里明确 pinEvidence:null，不假装有证据。
         let pinEvidenceAudit = null;
-        if (body.pinEvidence) pinEvidenceAudit = assertPinEvidenceForNetlist(body.pinEvidence);
-        if (body.requirePinEvidence === true && !pinEvidenceAudit) {
-          throw Object.assign(new Error('这次网表生成要求引脚证据，但请求里没有 pinEvidence：先采集证据（含每个未知网络的 assumption）再生成。'), { code: 'PIN_EVIDENCE_REQUIRED', status: 409 });
+        let pinEvidenceReference = null;
+        if (body.pinEvidence) {
+          pinEvidenceAudit = assertPinEvidenceForNetlist(body.pinEvidence);
+          pinEvidenceReference = { digest: crypto.createHash('sha256').update(JSON.stringify(body.pinEvidence)).digest('hex'), counts: pinEvidenceAudit.counts };
+        }
+        // 2026-11-05 审计（设计 P1-7）：也接受"引脚证据摘要引用"——客户端只给 Runtime 落盘的 digest，
+        // 服务端回查证据库确认存在且属于同一块板；查不到就 409，不允许用别的板/伪造的摘要充数。
+        const referencedDigest = text(body.pinEvidenceDigest);
+        if (referencedDigest) {
+          const pcbUuid = text(body.pcbUuid);
+          let entries = [];
+          try { entries = evidenceStore.list('pin-evidence') ?? []; }
+          catch (error) { throw Object.assign(new Error(`引脚证据库不可读：${String(error?.message || error).slice(0, 160)}`), { code: 'PIN_EVIDENCE_UNAVAILABLE', status: 503 }); }
+          const match = entries.find((entry) => entry?.payload?.digest === referencedDigest
+            && (!pcbUuid || String(entry?.payload?.pcbUuid ?? '') === pcbUuid)
+            && (entry?.payload?.ok === true));
+          if (!match) {
+            throw Object.assign(new Error(`引脚证据摘要引用无效：证据库里没有这份 digest${pcbUuid ? `（或不属于 PCB ${pcbUuid}）` : ''}，请重新采集`), {
+              code: 'PIN_EVIDENCE_UNKNOWN', status: 409, details: { digest: referencedDigest.slice(0, 12), pcbUuid: pcbUuid || null },
+            });
+          }
+          pinEvidenceReference = { digest: referencedDigest, counts: match.payload?.counts ?? null, evidencePath: match.path, savedAt: match.savedAt };
+        }
+        if (body.requirePinEvidence === true && !pinEvidenceAudit && !pinEvidenceReference) {
+          throw Object.assign(new Error('这次网表生成要求引脚证据，但请求里没有 pinEvidence / pinEvidenceDigest：先采集证据（含每个未知网络的 assumption）再生成。'), { code: 'PIN_EVIDENCE_REQUIRED', status: 409 });
         }
         const netlistResult = await chatManager.netlist(body);
         // A4：assumption 结构标注（方向+来源）随网表一起返回；strict 模式下未标注方向直接 409。
@@ -4017,11 +4402,8 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
             code: 'NETLIST_ASSUMPTION_UNMARKED', status: 409, details: { assumptionAudit },
           });
         }
-        if (pinEvidenceAudit) {
-          netlistResult.pinEvidence = {
-            digest: crypto.createHash('sha256').update(JSON.stringify(body.pinEvidence)).digest('hex'),
-            counts: pinEvidenceAudit.counts,
-          };
+        if (pinEvidenceReference) {
+          netlistResult.pinEvidence = { ...pinEvidenceReference, source: body.pinEvidence ? 'inline' : 'stored' };
         }
         result = { ok: true, netlist: netlistResult };
       } else if (method === 'POST' && url.pathname === '/api/automation/flows/pin-first-netlist') {
@@ -4274,9 +4656,24 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         if (body?.action === 'eval' && process.env.CIRCUITPILOT_ALLOW_GUI_EVAL !== '1') {
           throw Object.assign(new Error('GUI eval 默认禁用：任意 JS 注入不是产品能力；需要本地诊断时显式设置 CIRCUITPILOT_ALLOW_GUI_EVAL=1'), { code: 'GUI_EVAL_DISABLED', status: 403 });
         }
+        const guiAction = String(body?.action || '');
+        const guiParams = body?.params && typeof body.params === 'object' && !Array.isArray(body.params) ? body.params : {};
+        // 先过 GUI 动作白名单：未知动作不能在"要不要批准"的分支里落到下面（错误码保持 EDA_GUI_ACTION_NOT_ALLOWED）。
+        assertGuiAction(guiAction);
         // P0-8：GUI 通道也能点"应用修改"写板；暂停期间只放行 state/screenshot 两个只读动作。
-        if (!GUI_READONLY_ACTIONS.has(String(body?.action || ''))) await assertEdaWritesOpen(url.pathname);
-        const execution = await guiClient.execute(body.action, body.params || {});
+        if (!GUI_READONLY_ACTIONS.has(guiAction)) {
+          await assertEdaWritesOpen(url.pathname);
+          // P1-6 闭环（2026-11-05 全系统闭环审计）：GUI 写动作对 EDA 等价于真人点击，
+          // 修复前只过写暂停、不需要一次性写批准，也不套用 automation 的 safety 矩阵
+          // （危险文案/结账目标/关窗快捷键）。这里补齐：写动作必须带 approvalIds，
+          // 且 clickText/type 的危险文案、target 的结账目标、shortcut/key 的关窗组合一律拒绝。
+          await requireWriteApproval(body);
+          if (guiAction === 'clickText') assertSafeText(guiParams.text);
+          if (guiParams.target !== undefined) assertNotCheckoutTarget(guiParams.target);
+          if (guiAction === 'shortcut' || guiAction === 'key') assertShortcutAllowed({ key: guiParams.key, modifiers: guiParams.modifiers });
+          logger.info('Gui', 'GUI write action executed with one-time approval', { action: guiAction });
+        }
+        const execution = await guiClient.execute(guiAction, guiParams);
         // 截图是唯一会返回 MB 级 base64 的 GUI 动作：小图内联、大图落盘 + sha256，
         // 否则响应体过大在传输层被截断，调用方只会拿到半截 base64（真机第 59 轮踩过）。
         if (body.action === 'screenshot' && typeof execution?.base64 === 'string') {
@@ -4715,15 +5112,21 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
       logger.info('Http', 'Request completed', { requestId, method, path: url.pathname, duration: Math.round(performance.now() - startedAt) });
       if (result && typeof result === 'object' && result.__file) {
         logger.info('Http', 'Artifact download served', { requestId, file: result.__file.name, size: result.__file.size });
+        await releaseEdaWriteLock();
         sendFile(response, result.__file, origin);
         return;
       }
+      await releaseEdaWriteLock();
       return sendJson(response, 200, result, origin);
     } catch (error) {
       logger.error('Http', 'Request failed', { requestId, method, path: url.pathname, code: error.code, message: error.message });
       // 桥连通性错误（BRIDGE_UNREACHABLE/TIMEOUT/NOT_FOUND）→ 503；显式 status 优先；
       // 其余未知错误维持历史兜底 400。见 httpStatusForError 的注释。
+      await releaseEdaWriteLock();
       return sendJson(response, httpStatusForError(error), runtimeError(error), origin);
+    } finally {
+      // 兜底释放（正常路径已在发送响应前释放；这里防止异常分支漏放）。
+      await releaseEdaWriteLock();
     }
   });
   // 没有 error 监听器时，EADDRINUSE / EACCES 会变成未捕获异常直接击穿进程；

@@ -70,16 +70,18 @@ export async function inspectEdaWriteLock({ dir, key, staleMs = DEFAULT_STALE_MS
 }
 
 /**
- * @param {{dir: string, key: string}} target 锁目录 + 资源 key（如 'eda-write' / 'automation-run'）
- * @param {Function} fn 持锁执行体（可异步）
+ * 抢锁并返回可释放的句柄（供 HTTP 请求生命周期使用：先抢锁，整个写请求结束再释放）。
+ *
+ * 与 `withEdaWriteLock` 的区别只是 API 形状：有些调用点（HTTP 分发表）无法把整个后续逻辑
+ * 包成一个回调，只能先拿锁、在 finally 里释放。两者共用同一套 meta/stale 接管/释放校验逻辑。
+ *
+ * @param {{dir: string, key: string}} target
  * @param {{staleMs?: number, now?: () => number, owner?: string}} [options]
+ * @returns {Promise<{file: string, token: string, release: () => Promise<void>}>}
  */
-export async function withEdaWriteLock({ dir, key } = {}, fn, { staleMs = DEFAULT_STALE_MS, now = Date.now, owner = null } = {}) {
+export async function acquireEdaWriteLock({ dir, key } = {}, { staleMs = DEFAULT_STALE_MS, now = Date.now, owner = null } = {}) {
   if (typeof dir !== 'string' || !dir.trim()) {
     throw Object.assign(new Error('EDA 写锁需要 dir'), { code: EDA_WRITE_LOCK_CODES.INVALID, status: 400, details: { dir } });
-  }
-  if (typeof fn !== 'function') {
-    throw Object.assign(new Error('EDA 写锁需要持锁函数'), { code: EDA_WRITE_LOCK_CODES.INVALID, status: 400 });
   }
   const effectiveStaleMs = Number.isFinite(Number(staleMs)) && Number(staleMs) >= 0 ? Number(staleMs) : DEFAULT_STALE_MS;
   const file = edaWriteLockFile({ dir, key });
@@ -126,12 +128,38 @@ export async function withEdaWriteLock({ dir, key } = {}, fn, { staleMs = DEFAUL
     }
   }
 
+  let released = false;
+  return {
+    file,
+    token,
+    async release() {
+      // 释放只删自己 token 的那把锁：避免接管者/后来者被误删；重复释放是幂等的。
+      if (released) return;
+      released = true;
+      try {
+        const current = await readLockFile(file);
+        if (current?.token === token) await fs.unlink(file);
+      } catch { /* 释放失败不能掩盖调用方结果；陈旧锁会由 staleMs 兜底接管 */ }
+    },
+  };
+}
+
+/**
+ * 包住一段持锁执行体（自动化 run 等既有调用方式）：抢锁 → 执行 → 一定释放。
+ * 合法参数/锁语义与 `acquireEdaWriteLock` 完全一致。
+ *
+ * @param {{dir: string, key: string}} target 锁目录 + 资源 key（如 'eda-write' / 'automation-run'）
+ * @param {Function} fn 持锁执行体（可异步）
+ * @param {{staleMs?: number, now?: () => number, owner?: string}} [options]
+ */
+export async function withEdaWriteLock({ dir, key } = {}, fn, options = {}) {
+  if (typeof fn !== 'function') {
+    throw Object.assign(new Error('EDA 写锁需要持锁函数'), { code: EDA_WRITE_LOCK_CODES.INVALID, status: 400 });
+  }
+  const handle = await acquireEdaWriteLock({ dir, key }, options);
   try {
     return await fn();
   } finally {
-    try {
-      const current = await readLockFile(file);
-      if (current?.token === token) await fs.unlink(file);
-    } catch { /* 释放失败不能掩盖 fn 的结果；陈旧锁会由 staleMs 兜底接管 */ }
+    await handle.release();
   }
 }

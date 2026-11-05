@@ -210,8 +210,12 @@ export const drcGroups = (items) => {
  * 为什么必须有基线：真机实测（第 16 轮）——这块 6 层板**不做任何改动**跑官方 DRC 也报 4 项
  * `Clearance Error`（既有违规）。若"有违规就回滚"，那么任何写入都会被既有违规永远回滚，
  * 等于把工程锁死，这不是安全而是失效。有基线之后，回滚只会发生在"你这次真的弄坏了什么"的时候。
+ *
+ * P1-7（2026-11-05 审计）：截断（`truncated===true`）不进裁决是假 pass 通道——报告被截断时
+ * "没看到新增违规"只说明**没看全**，不能证明板子没变差。这里与 runtime/drc.mjs:289 的既有口径
+ * 保持一致：截断一律按 blocking 处理，绝不判 passed（同时把 truncated/reportedCount 透出供审计）。
  */
-export const drcVerdict = ({ baseline, findings } = {}) => {
+export const drcVerdict = ({ baseline, findings, truncated = false, reportedCount = null } = {}) => {
   const groups = drcGroups(findings);
   const baselineGroups = Array.isArray(baseline) ? drcGroups(baseline) : null;
   const regressions = baselineGroups
@@ -219,8 +223,17 @@ export const drcVerdict = ({ baseline, findings } = {}) => {
       .filter(([key, count]) => count > (baselineGroups.get(key) || 0))
       .map(([key, count]) => ({ group: key, before: baselineGroups.get(key) || 0, after: count }))
     : [];
-  const passed = baselineGroups ? regressions.length === 0 : groups.size === 0;
-  return { passed, groups, baselineGroups, regressions, strict: !baselineGroups };
+  const drcTruncated = truncated === true;
+  const passed = !drcTruncated && (baselineGroups ? regressions.length === 0 : groups.size === 0);
+  // 注意 Number(null) === 0：报告数缺失时必须保持 null，不能伪造成 0（截断测试用 0 会被误判"完整"）。
+  const parsedReported = reportedCount === null || reportedCount === undefined || reportedCount === '' ? null : Number(reportedCount);
+  return {
+    passed, groups, baselineGroups, regressions, strict: !baselineGroups,
+    truncated: drcTruncated,
+    reportedCount: parsedReported !== null && Number.isFinite(parsedReported) ? parsedReported : null,
+    // reason 只在截断时给：让执行记录/UI 能解释"为什么一条违规都没有还不算 pass"。
+    reason: drcTruncated ? 'DRC 报告被截断：无法断言已看完全部问题，按 blocking 处理，不能作为放行依据' : null,
+  };
 };
 
 /**
@@ -907,17 +920,29 @@ export class PcbManager {
         const drcResult = drcEvent?.detail?.result ?? drcEvent?.detail;
         if (!Array.isArray(drcResult)) throw Object.assign(new Error('计划未返回有效的官方PCB DRC结果'), { code: 'PCB_DRC_UNKNOWN_RESULT' });
         const findings = drcResult;
-        const verdict = drcVerdict({ baseline: execution.baselineDrc, findings });
+        // P1-7：截断信息来自任务信封（count/truncated），必须参与裁决，否则"没看全"会被当成"没问题"。
+        const drcMeta = drcEvent?.detail?.drc ?? null;
+        const verdict = drcVerdict({
+          baseline: execution.baselineDrc, findings,
+          truncated: drcMeta?.truncated === true, reportedCount: drcMeta?.count ?? null,
+        });
         execution.drc = {
           passed: verdict.passed, findings, strict: verdict.strict,
+          // 截断/报告数与 reason 一并落执行记录，供 UI/审计解释"为什么没有新增违规仍不放行"。
+          truncated: verdict.truncated, reportedCount: verdict.reportedCount, reason: verdict.reason,
           groups: Object.fromEntries(verdict.groups), baselineGroups: verdict.baselineGroups ? Object.fromEntries(verdict.baselineGroups) : null,
-          regressions: verdict.regressions, job: drcEvent?.detail?.drc ?? null,
+          regressions: verdict.regressions, job: drcMeta,
         };
         if (!execution.drc.passed) {
-          const detail = verdict.regressions.length
-            ? `本次改动新增/加重：${verdict.regressions.map((item) => `${item.group} ${item.before}→${item.after}`).join('、')}`
-            : `严格模式（没有可用基线）下不允许任何违规`;
-          throw Object.assign(new Error(`PCB DRC存在${findings.length}项问题（${detail}）`), { code: 'PCB_DRC_FAILED', regressions: verdict.regressions });
+          const detail = verdict.truncated
+            ? (verdict.reason || 'DRC 报告被截断，无法断言已看完全部问题')
+            : verdict.regressions.length
+              ? `本次改动新增/加重：${verdict.regressions.map((item) => `${item.group} ${item.before}→${item.after}`).join('、')}`
+              : `严格模式（没有可用基线）下不允许任何违规`;
+          throw Object.assign(new Error(`PCB DRC存在${findings.length}项问题（${detail}）`), {
+            code: 'PCB_DRC_FAILED', regressions: verdict.regressions,
+            ...(verdict.truncated ? { details: { truncated: true, reportedCount: verdict.reportedCount, reason: verdict.reason } } : {}),
+          });
         }
         execution.state = 'completed';
       } catch (error) {

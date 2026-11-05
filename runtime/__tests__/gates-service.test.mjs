@@ -140,3 +140,21 @@ test('task-16：缺任意一门 → 整体不是 pass，approve 被拒并说明�
     );
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('2026-11-05 审计 P1-4：过期证据不得参与 pass（降级 unknown 并标 stale）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'gates-stale-'));
+  try {
+    const store = createEvidenceStore({ root: join(root, 'evidence') });
+    // 服务端时间比证据落盘时间晚 10 天：所有 kind 的证据都应判定为过期/不新鲜。
+    const service = createGateService({ evidenceStore: store, now: () => new Date(Date.now() + 10 * 24 * 60 * 60 * 1000) });
+    for (const kind of ['design-spec', 'lib-evidence', 'netlist-diff', 'rules', 'placement', 'fabrication-release']) {
+      store.save({ kind, payload: envelope(kind), fingerprint: { pcbUuid: 'pcb-a' } });
+    }
+    const { report, evidenceRefs } = service.status({ pcbUuid: 'pcb-a' });
+    assert.notEqual(report.verdict, 'pass', '过期证据不能把门禁判成 pass');
+    assert.ok(evidenceRefs.length >= 6);
+    assert.ok(evidenceRefs.every((ref) => ref.fresh === false && ref.stale === true), '每条过期证据都要标 stale，不能静默当新鲜');
+    assert.ok(evidenceRefs.every((ref) => Array.isArray(ref.problems) && ref.problems.length), '过期证据必须带原因');
+    assert.throws(() => service.signoff({ pcbUuid: 'pcb-a', signedBy: 'lead' }), (error) => error.code === GATE_SERVICE_CODES.SIGNOFF_BLOCKED, '过期证据下不得签字放行');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
