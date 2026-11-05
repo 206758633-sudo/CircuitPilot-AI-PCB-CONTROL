@@ -10,6 +10,23 @@ export const STORAGE_KEY = 'circuitpilot-state-v4';
 const PREVIOUS_STORAGE_KEY = 'circuitpilot-state-v3';
 const LEGACY_STORAGE_KEY = 'circuitpilot-demo-state-v1';
 
+/**
+ * 平台 P1-3（2026-11-05 全链审计）：需要"读取失败即停止自动写回"的四个 Runtime 权威 Store。
+ *
+ * 为什么必须停写：Runtime 上的 state 文件是权威副本；读失败（损坏/不可读）时内存里只有
+ * localStorage 缓存或种子数据，若仍按 800ms/1000ms 防抖写回，就会用本地假数据覆盖掉
+ * 那份"坏了但还能人工修复"的权威文件，用户彻底失去原始证据。
+ */
+type HydratedStore = 'project' | 'validation' | 'trace' | 'issue';
+
+const HYDRATE_FAILURE: Record<HydratedStore, { code: string; title: string }> = {
+  project: { code: 'PROJECT_STATE_HYDRATE_FAILED', title: 'Runtime 项目状态不可读，已停止自动写回' },
+  validation: { code: 'VALIDATION_STATE_HYDRATE_FAILED', title: 'Runtime 验证结果不可读，已停止自动写回' },
+  trace: { code: 'TRACE_STATE_HYDRATE_FAILED', title: 'Runtime 追溯状态不可读，已停止自动写回' },
+  issue: { code: 'ISSUE_STATE_HYDRATE_FAILED', title: 'Runtime 问题记录不可读，已停止自动写回' },
+};
+
+
 const createProjectChat = (projectId: string): ChatState => ({
   sessionId: `chat-${projectId}-${Date.now()}`,
   messages: [],
@@ -269,6 +286,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // 没建立切面指纹时不写项目文件，避免把上一个项目的内存数据写进新项目。
   const scopedProjectRef = useRef<string | null>(null);
   const initialHydratedRef = useRef(false);
+  /**
+   * 平台 P1-3：各 Store 的读取失败原因（空 = 可写回）。
+   * 用 ref 存原因（effect 内同步读取），再用 hydrateEpoch 触发烘回 effect 重新求值，
+   * 这样"读成功后恢复写回"不需要刷新页面——只要该 Store 之后有一次成功读取即可。
+   */
+  const hydrateErrorsRef = useRef<Partial<Record<HydratedStore, string>>>({});
+  const [hydrateEpoch, setHydrateEpoch] = useState(0);
+
+  /**
+   * 记录一次 hydrate 结果：成功则清除失败标记（恢复写回），失败则标记并在问题中心报一条
+   * error 级问题（提示用户先修/移走权威文件，而不是让 UI 静默用本地缓存覆盖它）。
+   */
+  const settleHydration = useCallback((store: HydratedStore, error?: unknown) => {
+    const previous = hydrateErrorsRef.current[store];
+    if (error === undefined) {
+      if (previous) delete hydrateErrorsRef.current[store];
+    } else {
+      const detail = error instanceof RuntimeApiError ? `[${error.code}] ${error.message}` : safeError(error).message;
+      hydrateErrorsRef.current[store] = detail;
+      // 只在"从可读变成不可读"时报一次；后续失败靠同一 fingerprint 累加 occurrences，避免刷屏。
+      if (!previous) {
+        const time = new Date().toLocaleString('zh-CN', { hour12: false });
+        const { code, title } = HYDRATE_FAILURE[store];
+        dispatch({
+          type: 'REPORT_ISSUE',
+          issue: {
+            id: `issue-hydrate-${store}-${Date.now()}`,
+            fingerprint: `persistence:hydrate:${store}`,
+            source: 'runtime',
+            severity: 'error',
+            status: 'open',
+            code,
+            summary: title,
+            detail: `${detail}；本次会话已停止自动写回该状态，避免用本地缓存/种子覆盖 Runtime 权威文件。`,
+            firstOccurredAt: time,
+            lastOccurredAt: time,
+            occurrences: 1,
+            context: { store },
+            suggestedAction: '检查/移走 Runtime state 目录下对应的 JSON 文件（或修复其内容）后重启 Runtime，再刷新页面重新读取；修复前写入不会被自动覆盖。',
+            handling: [],
+          },
+        });
+      }
+    }
+    setHydrateEpoch((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     try {
@@ -290,6 +353,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const loaded = await runtimeClient.getProjectState();
         if (cancelled) return;
+        // 平台 P1-3：聚合状态读成功 → 解除"项目 Store 停写"，写回效应随 hydrateEpoch 重新求值。
+        settleHydration('project');
         if (loaded.state.projects.length) {
           dispatch({
             type: 'HYDRATE_BUSINESS_STATE',
@@ -322,10 +387,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (cancelled) return;
             scopedProjectRef.current = null;
             logger.warn('Persistence', '项目级状态切面读取失败，暂用聚合状态（不会跨项目写项目文件）', safeError(error));
+            // 项目文件损坏/不可读（不是"新项目还没有文件"）同样算 project Store 读失败：
+            // 否则防抖写回会用聚合缓存把它覆盖掉，用户失去可修复的原始文件。
+            if (!(error instanceof RuntimeApiError && error.code === 'PROJECT_STATE_NOT_FOUND')) settleHydration('project', error);
           }
         }
       } catch (error) {
         logger.warn('Persistence', 'Runtime 项目状态读取失败，继续使用本地缓存', safeError(error));
+        // 平台 P1-3：读失败 → 停止该项目 Store 的自动写回（否则会用本地/种子覆盖权威文件）。
+        settleHydration('project', error);
       } finally {
         if (!cancelled) initialHydratedRef.current = true;
       }
@@ -368,8 +438,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const loaded = await runtimeClient.getValidationState();
         if (cancelled) return;
         dispatch({ type: 'HYDRATE_VALIDATIONS', validations: loaded.state.validations });
+        settleHydration('validation');
       } catch (error) {
         logger.warn('Persistence', 'Runtime 验证状态读取失败，继续使用本地缓存', safeError(error));
+        // 平台 P1-3：读失败后 validationReadyRef 仍会置 true，必须靠这个失败标记挡住写回。
+        settleHydration('validation', error);
       } finally {
         if (!cancelled) validationReadyRef.current = true;
       }
@@ -380,6 +453,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!state.runtime.reachable || !validationReadyRef.current) return undefined;
+    // 平台 P1-3：读取失败时禁止写回（否则本地缓存会覆盖 Runtime 上不可读但可修复的权威文件）。
+    if (hydrateErrorsRef.current.validation) return undefined;
     const timer = window.setTimeout(() => {
       void runtimeClient.saveValidationState(state.validations)
         .catch((error) => {
@@ -407,7 +482,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
     }, 800);
     return () => window.clearTimeout(timer);
-  }, [state.runtime.reachable, state.validations]);
+  }, [state.runtime.reachable, state.validations, hydrateEpoch]);
 
   // C6：切换项目时加载该项目自己的切面（两项目并行不串数据）。
   // 切换前先把上一个项目当前内存里的最后编辑落盘（800ms 防抖可能还没触发）。
@@ -418,21 +493,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const previousProjectId = scopedProjectRef.current;
     let cancelled = false;
     if (previousProjectId && previousProjectId !== projectId) {
-      void runtimeClient.saveProjectState({
-        projects: state.projects,
-        activeProjectId: previousProjectId,
-        requirements: state.requirements,
-        components: state.components,
-        assets: state.assets,
-      }).catch((error) => logger.warn('Persistence', '切换项目前写回聚合状态失败', safeError(error)));
-      // 切面写入被服务端拒绝（例如实体跨项目）时保持安静：拒绝本身就是隔离生效的证据，不能绕过。
-      void runtimeClient.saveProjectStateScoped(previousProjectId, {
-        projects: state.projects.filter((item) => item.id === previousProjectId),
-        activeProjectId: previousProjectId,
-        requirements: state.requirements,
-        components: state.components,
-        assets: state.assets,
-      }).catch(() => undefined);
+      // 平台 P1-3：项目权威文件读失败时不再"切换前先写回"，否则等于用内存缓存覆盖它。
+      if (!hydrateErrorsRef.current.project) {
+        void runtimeClient.saveProjectState({
+          projects: state.projects,
+          activeProjectId: previousProjectId,
+          requirements: state.requirements,
+          components: state.components,
+          assets: state.assets,
+        }).catch((error) => logger.warn('Persistence', '切换项目前写回聚合状态失败', safeError(error)));
+        // 切面写入被服务端拒绝（例如实体跨项目）时保持安静：拒绝本身就是隔离生效的证据，不能绕过。
+        void runtimeClient.saveProjectStateScoped(previousProjectId, {
+          projects: state.projects.filter((item) => item.id === previousProjectId),
+          activeProjectId: previousProjectId,
+          requirements: state.requirements,
+          components: state.components,
+          assets: state.assets,
+        }).catch(() => undefined);
+      }
     }
     scopedProjectRef.current = null;
     void (async () => {
@@ -463,6 +541,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return;
         }
         logger.warn('Persistence', '项目级状态切面读取失败，保留当前工作集', safeError(error));
+        // 非"新项目没有文件"的读失败按 project Store 失败处理：读不到就不写，避免覆盖。
+        if (!(error instanceof RuntimeApiError && error.code === 'PROJECT_STATE_NOT_FOUND')) settleHydration('project', error);
       }
     })();
     return () => { cancelled = true; };
@@ -471,6 +551,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!state.runtime.reachable) return undefined;
+    // 平台 P1-3：项目权威文件不可读时停止自动写回（含项目切面），避免覆盖可修复的原始文件。
+    if (hydrateErrorsRef.current.project) return undefined;
     const projectId = state.activeProjectId;
     const timer = window.setTimeout(() => {
       void runtimeClient.saveProjectState({
@@ -492,7 +574,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }, 800);
     return () => window.clearTimeout(timer);
-  }, [state.runtime.reachable, state.projects, state.requirements, state.components, state.assets, state.activeProjectId]);
+  }, [state.runtime.reachable, state.projects, state.requirements, state.components, state.assets, state.activeProjectId, hydrateEpoch]);
 
   // C1（扩展）：版本/修改/审计的 Runtime 权威副本。读回时以服务端为准（本地 localStorage 只是缓存）；
   // 变化后防抖写回。Runtime 不可达时纯本地，不阻塞操作。
@@ -504,8 +586,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const loaded = await runtimeClient.getTraceState();
         if (cancelled) return;
         dispatch({ type: 'HYDRATE_TRACE_STATE', versions: loaded.state.versions, changes: loaded.state.changes, audit: loaded.state.audit });
+        settleHydration('trace');
       } catch (error) {
         logger.warn('Persistence', 'Runtime 追溯状态读取失败，继续使用本地缓存', safeError(error));
+        // 平台 P1-3：追溯权威文件不可读时停止写回，避免用本地审计/版本缓存覆盖证据文件。
+        settleHydration('trace', error);
       }
     })();
     return () => { cancelled = true; };
@@ -520,8 +605,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const loaded = await runtimeClient.getIssueState();
         if (cancelled) return;
         dispatch({ type: 'HYDRATE_ISSUES', issues: loaded.state.issues });
+        settleHydration('issue');
       } catch (error) {
         logger.warn('Persistence', 'Runtime 问题记录读取失败，继续使用本地缓存', safeError(error));
+        // 平台 P1-3：问题中心同样是权威文件；读失败停写防止覆盖用户已处理的票据状态。
+        settleHydration('issue', error);
       }
     })();
     return () => { cancelled = true; };
@@ -530,21 +618,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!state.runtime.reachable) return undefined;
+    // 平台 P1-3：问题/追溯权威文件读失败时停止写回（分别由 issue/trace 标记挡住）。
+    if (hydrateErrorsRef.current.issue) return undefined;
     const timer = window.setTimeout(() => {
       void runtimeClient.saveIssueState({ issues: state.issues })
         .catch((error) => logger.warn('Persistence', 'Runtime 问题记录写回失败（本地缓存仍然保留）', safeError(error)));
     }, 1000);
     return () => window.clearTimeout(timer);
-  }, [state.runtime.reachable, state.issues]);
+  }, [state.runtime.reachable, state.issues, hydrateEpoch]);
 
   useEffect(() => {
     if (!state.runtime.reachable) return undefined;
+    // 平台 P1-3：追溯三件套读失败时停写，避免用本地缓存覆盖审计/版本证据。
+    if (hydrateErrorsRef.current.trace) return undefined;
     const timer = window.setTimeout(() => {
       void runtimeClient.saveTraceState({ versions: state.versions, changes: state.changes, audit: state.audit })
         .catch((error) => logger.warn('Persistence', 'Runtime 追溯状态写回失败（本地缓存仍然保留）', safeError(error)));
     }, 1000);
     return () => window.clearTimeout(timer);
-  }, [state.runtime.reachable, state.versions, state.changes, state.audit]);
+  }, [state.runtime.reachable, state.versions, state.changes, state.audit, hydrateEpoch]);
 
   useEffect(() => {
     let cancelled = false;

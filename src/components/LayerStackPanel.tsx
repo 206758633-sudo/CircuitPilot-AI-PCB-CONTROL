@@ -4,6 +4,7 @@ import { useApp } from '../state/AppContext';
 import { RuntimeApiError, runtimeClient } from '../services/runtimeClient';
 import { Badge, Button, Field, Panel, TableFrame } from '../components/ui';
 import { ConfirmDialog } from '../components/overlays';
+import { isWriteGateClosed, writeGateClosedReason } from '../services/writeGate';
 import type { PcbLayerStack, PcbLayerStackChange } from '../types';
 
 /** 官方 setTheNumberOfCopperLayers 允许的偶数值：2,4,…,32。 */
@@ -30,7 +31,10 @@ export function LayerStackPanel() {
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const demo = !state.runtime.reachable || state.runtime.mode === 'demo';
-  const writeBlocked = demo || !state.eda.connected || state.settings.writePaused || state.eda.writePaused;
+  // UI P2-2（2026-11-05 审计）：写门禁有两个权威作用域（全局 paused + 本会话 sessionPaused）。
+  // 修复前这里只镜像 settings.writePaused/eda.writePaused，会话级暂停时按钮仍可点、确认框仍能确认。
+  const gateClosed = isWriteGateClosed(state.settings);
+  const writeBlocked = demo || !state.eda.connected || gateClosed || state.eda.writePaused;
 
   const fail = (caught: unknown, action: string) => {
     const detail = caught instanceof RuntimeApiError ? `[${caught.code}] ${caught.message}` : caught instanceof Error ? caught.message : '未知错误';
@@ -81,6 +85,10 @@ export function LayerStackPanel() {
 
   const write = async () => {
     setConfirmOpen(false);
+    // 首行守卫：确认框可能是在暂停前打开的，或者暂停来自另一个窗口；服务端仍会 409 兜底，但 UI 先明确拦。
+    if (gateClosed || state.eda.writePaused) {
+      return notify('写入已暂停', `${writeGateClosedReason(state.settings)}，本次未执行叠层写入。`, 'warning');
+    }
     const copperLayers = Number(target);
     setBusy('write');
     setError(null);
@@ -125,7 +133,9 @@ export function LayerStackPanel() {
             icon={<KeyRound size={15} />}
             loading={busy === 'write'}
             disabled={Boolean(busy) || writeBlocked || !stack || !target.trim()}
-            title={writeBlocked ? '需要 Runtime + 已连接 EDA，且未暂停写入' : !stack ? '先读取当前叠层' : undefined}
+            title={writeBlocked
+              ? (!demo && state.eda.connected ? `${writeGateClosedReason(state.settings)}，恢复后才能写叠层` : '需要 Runtime + 已连接 EDA，且未暂停写入')
+              : !stack ? '先读取当前叠层' : undefined}
             onClick={requestWrite}
           >
             签发批准并设置层数
@@ -205,6 +215,8 @@ export function LayerStackPanel() {
         title={`把铜层数改为 ${target} 层？`}
         description={`这是写板动作：将签发一次性写批准并调用官方 Beta API 设置铜层数（当前 ${stack?.copperCount ?? '未读取'} → ${target}）。Runtime 会写后读回校验并默认保存；校验不符会报错且不会伪造成功。变更后请人工复核叠层与设计规则。`}
         confirmLabel="确认设置层数"
+        confirmDisabled={gateClosed || state.eda.writePaused}
+        confirmDisabledReason={`${writeGateClosedReason(state.settings)}，恢复后才能确认写叠层`}
       />
     </Panel>
   );

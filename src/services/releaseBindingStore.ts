@@ -1,6 +1,72 @@
 import type { ExecutionHistoryItem } from '../types';
 
 /**
+ * UI P2-5（2026-11-05 审计）：`circuitpilot:release-binding` 是 AssetsPage → ValidationPage 的
+ * readiness 交接。修复前 ValidationPage 直接 JSON.parse 后无条件信任：切项目后旧交接照样被预填，
+ * 隔天再打开页面也照样把过期哈希当作"本次"证据。这里把读取收口成带项目/时效校验的函数，
+ * 失效时给出明确原因（而不是静默当没交接，或更糟：静默当真）。
+ */
+export const RELEASE_HANDOFF_KEY = 'circuitpilot:release-binding';
+/** 交接默认最长可用 24h：超过就要求重跑 readiness，避免把旧结论当新证据。 */
+export const RELEASE_HANDOFF_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+export interface ReleaseHandoff {
+  manifestHash: string | null;
+  binding: Record<string, string> | null;
+  savedAt: string | null;
+  /** null = 可用；否则是给人看的失效原因（跨项目/过期/时间戳不可信）。 */
+  staleReason: string | null;
+}
+
+export interface ReleaseHandoffReadOptions {
+  /** 当前 App 项目 id：交接若带 projectId（新版写入）就据此校验归属。 */
+  activeProjectId?: string | null;
+  /** 当前项目绑定的 EDA 工程 uuid：readiness binding.projectId 存的是 EDA 工程 uuid（不是 App 项目 id）。 */
+  edaProjectUuid?: string | null;
+  maxAgeMs?: number;
+  /** 仅测试注入"当前时间"。 */
+  now?: number;
+}
+
+/** 读取 readiness 交接并校验项目归属/时效；没有交接或结构不可解析时返回 null。 */
+export function readReleaseHandoff(options: ReleaseHandoffReadOptions = {}): ReleaseHandoff | null {
+  let parsed: unknown;
+  try {
+    const raw = typeof window !== 'undefined' && window.sessionStorage ? window.sessionStorage.getItem(RELEASE_HANDOFF_KEY) : null;
+    if (!raw) return null;
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const record = parsed as { manifestHash?: unknown; binding?: unknown; savedAt?: unknown; projectId?: unknown };
+  const binding = record.binding && typeof record.binding === 'object' ? record.binding as Record<string, string> : null;
+  const manifestHash = typeof record.manifestHash === 'string' && record.manifestHash ? record.manifestHash : null;
+  const savedAt = typeof record.savedAt === 'string' && record.savedAt ? record.savedAt : null;
+  const maxAgeMs = options.maxAgeMs ?? RELEASE_HANDOFF_MAX_AGE_MS;
+  const now = options.now ?? Date.now();
+
+  let staleReason: string | null = null;
+  const handoffProjectId = typeof record.projectId === 'string' && record.projectId ? record.projectId : null;
+  if (handoffProjectId && options.activeProjectId && handoffProjectId !== options.activeProjectId) {
+    staleReason = 'readiness 交接属于别的项目，请在本项目重跑 readiness 生成新交接。';
+  } else if (binding?.projectId && options.edaProjectUuid && binding.projectId !== options.edaProjectUuid) {
+    staleReason = 'readiness 交接绑定的 EDA 工程与当前项目不一致，请在本项目重跑 readiness。';
+  } else {
+    const savedMs = savedAt ? Date.parse(savedAt) : NaN;
+    if (!Number.isFinite(savedMs)) {
+      staleReason = 'readiness 交接缺少可校验的时间戳，请重跑 readiness。';
+    } else if (now - savedMs > maxAgeMs) {
+      staleReason = `readiness 交接已超过 ${Math.round(maxAgeMs / 3_600_000)} 小时（保存于 ${savedAt}），请重跑 readiness。`;
+    } else if (savedMs - now > 5 * 60_000) {
+      staleReason = 'readiness 交接时间戳在未来，无法确认时效，请重跑 readiness。';
+    }
+  }
+  return { manifestHash, binding, savedAt, staleReason };
+}
+
+
+/**
  * P0-7：readiness 输入的唯一来源。
  *
  * 修复前 AssetsPage 把 `state.task.planHash` 同时当 semanticPlanHash 与 compiledPlanHash、
@@ -14,38 +80,12 @@ import type { ExecutionHistoryItem } from '../types';
  * 任何一项拿不到就明确报错，不再用 task id / 同一个 hash 冒充。
  */
 
-const STORAGE_KEY = 'circuitpilot.release-readiness-inputs';
-
-export interface ReleaseReadinessInputs {
-  semanticPlanHash: string;
-  compiledPlanHash: string;
-  pcbExecutionId: string;
-  executionState?: string;
-  drcPassed?: boolean;
-  updatedAt: string;
-}
-
-export function saveReadinessInputs(inputs: Omit<ReleaseReadinessInputs, 'updatedAt'>): ReleaseReadinessInputs {
-  const value: ReleaseReadinessInputs = { ...inputs, updatedAt: new Date().toISOString() };
-  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch { /* 存储不可用不阻塞流程 */ }
-  return value;
-}
-
-export function readReadinessInputs(): ReleaseReadinessInputs | null {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<ReleaseReadinessInputs>;
-    if (typeof parsed.semanticPlanHash !== 'string' || !parsed.semanticPlanHash) return null;
-    if (typeof parsed.compiledPlanHash !== 'string' || !parsed.compiledPlanHash) return null;
-    if (typeof parsed.pcbExecutionId !== 'string' || !parsed.pcbExecutionId) return null;
-    return { ...parsed, updatedAt: parsed.updatedAt || new Date().toISOString() } as ReleaseReadinessInputs;
-  } catch { return null; }
-}
-
-export function clearReadinessInputs() {
-  try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
-}
+/**
+ * 2026-11-05 全链闭环审计（交付 P2-1）：这里原本还有一组 `saveReadinessInputs/readReadinessInputs`
+ * 的 sessionStorage 读写，但产品内没有任何消费者（只有测试在读），且真实交接走
+ * `circuitpilot:release-binding`（AssetsPage 写 → ValidationPage 读）。死存储会让"交接成功"
+ * 看起来有两条互相可能不一致的来源，已删除；readiness 输入仍由服务端重算校验。
+ */
 
 /**
  * 从真实执行历史挑"可用于 readiness"的 PCB 执行：必须 completed 且官方 DRC 通过。

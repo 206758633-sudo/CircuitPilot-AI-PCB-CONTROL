@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { clearReadinessInputs, pickReadinessPcbExecution, readReadinessInputs, releaseBindingRequestFields, saveReadinessInputs } from '../releaseBindingStore';
+import { describe, expect, it } from 'vitest';
+import { pickReadinessPcbExecution, releaseBindingRequestFields } from '../releaseBindingStore';
 import type { ExecutionHistoryItem } from '../../types';
 
 const execution = (overrides: Partial<ExecutionHistoryItem> = {}): ExecutionHistoryItem => ({
@@ -11,32 +11,6 @@ const execution = (overrides: Partial<ExecutionHistoryItem> = {}): ExecutionHist
   eventCount: 3,
   drc: { passed: true, findings: 0 },
   ...overrides,
-});
-
-describe('P0-7 readiness 输入：真实计划哈希 + 真实执行记录', () => {
-  beforeEach(() => clearReadinessInputs());
-
-  it('保存/读回三项真实引用；任一缺失都不返回（不拿 task id 凑）', () => {
-    saveReadinessInputs({ semanticPlanHash: 'a'.repeat(16), compiledPlanHash: 'b'.repeat(16), pcbExecutionId: 'exec-1', executionState: 'completed', drcPassed: true });
-    const inputs = readReadinessInputs();
-    expect(inputs).toMatchObject({ semanticPlanHash: 'a'.repeat(16), compiledPlanHash: 'b'.repeat(16), pcbExecutionId: 'exec-1' });
-    expect(inputs?.updatedAt).toBeTruthy();
-    sessionStorage.setItem('circuitpilot.release-readiness-inputs', JSON.stringify({ semanticPlanHash: 'a', compiledPlanHash: '', pcbExecutionId: 'x' }));
-    expect(readReadinessInputs()).toBeNull();
-  });
-
-  it('只挑 completed 且官方 DRC 通过的 PCB 执行记录，并给出精确失败原因', () => {
-    const rolled = execution({ id: 'rolled', state: 'rolled_back' });
-    const failedDrc = execution({ id: 'drc-fail', drc: { passed: false, findings: 2 } });
-    const good = execution({ id: 'good', createdAt: '2026-10-22T00:00:00.000Z' });
-    expect(pickReadinessPcbExecution([rolled, failedDrc, good])).toEqual({ execution: good });
-
-    const onlyDrcFail = pickReadinessPcbExecution([failedDrc]);
-    expect('error' in onlyDrcFail && onlyDrcFail.error).toMatch(/官方 DRC 未通过/);
-
-    const none = pickReadinessPcbExecution([rolled]);
-    expect('error' in none && none.error).toMatch(/没有已完成的 PCB 受控执行记录/);
-  });
 });
 
 describe('P1-7/P1-8 复审 2026-10-29：放行/导出/归档 binding 请求字段', () => {

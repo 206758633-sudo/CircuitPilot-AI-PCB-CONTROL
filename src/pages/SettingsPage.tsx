@@ -3,7 +3,7 @@ import { Bot, CheckCircle2, Database, Download, ExternalLink, KeyRound, Plus, Re
 import { useApp } from '../state/AppContext';
 import { demoAdapter } from '../services/demoAdapter';
 import { RuntimeApiError, runtimeClient } from '../services/runtimeClient';
-import type { ProviderId, SettingsState } from '../types';
+import type { ProviderId, ResearchStatus, SettingsState } from '../types';
 import { Badge, Button, Field, Panel, SegmentedTabs, SelectField, Stat, Toggle } from '../components/ui';
 import { ConfirmDialog } from '../components/overlays';
 import { CustomProviderEditor } from '../components/CustomProviderEditor';
@@ -20,7 +20,7 @@ type ProviderTab = 'platform' | 'custom';
 const MANAGE_CUSTOM_PROVIDER_VALUE = '__manage_custom_provider__';
 
 export function SettingsPage() {
-  const { state, dispatch, notify, addAudit, recordChange, reportIssue, resetDemo } = useApp();
+  const { state, dispatch, notify, addAudit, recordChange, reportIssue, resetDemo, navigate } = useApp();
   const [draft, setDraft] = useState<SettingsState>(state.settings);
   const [apiKey, setApiKey] = useState('');
   const [providerTab, setProviderTab] = useState<ProviderTab>('platform');
@@ -43,6 +43,16 @@ export function SettingsPage() {
   const [researchEnabled, setResearchEnabled] = useState<boolean>(Boolean(state.settings.researchEnabled));
   const [researchSource, setResearchSource] = useState<'unknown' | 'runtime' | 'local'>('unknown');
   const [researchError, setResearchError] = useState<string | null>(null);
+  /**
+   * 平台 P1-4：联网检索的“运行时真实状态”（GET /api/research/status）。
+   *
+   * 为什么不复用上面的 config 镜像：config 只说明"配置里写着开/关"，
+   * 不说明调度器是否真在跑，也不会告诉 UI 配置文件是否损坏（损坏时服务端 fail-closed 为关闭，
+   * 但那是"状态不可信"，不能显示成"用户关闭"）。null = 尚未读到；error 非空 = 状态未知。
+   */
+  const [researchRuntime, setResearchRuntime] = useState<ResearchStatus | null>(null);
+  const [researchRuntimeError, setResearchRuntimeError] = useState<string | null>(null);
+  const [researchRuntimeBusy, setResearchRuntimeBusy] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const loginGeneration = useRef(0);
   const dirty = JSON.stringify(draft) !== JSON.stringify(state.settings);
@@ -90,11 +100,41 @@ export function SettingsPage() {
         setResearchSource('local');
         setResearchError(detail);
       }
+      /**
+       * 平台 P1-4：再读一次“运行时真实状态”。与 config 独立降级：
+       * config 读到了但 status 读不到时，真实状态仍是"未知"，不能拿配置值冒充。
+       */
+      try {
+        const { research } = await runtimeClient.researchStatus();
+        if (cancelled) return;
+        setResearchRuntime(research);
+        setResearchRuntimeError(research.loadError ? `配置文件读取告警：${research.loadError}` : null);
+      } catch (error) {
+        if (cancelled) return;
+        setResearchRuntime(null);
+        const detail = error instanceof RuntimeApiError ? `[${error.code}] ${error.message}` : error instanceof Error ? error.message : '未知错误';
+        setResearchRuntimeError(detail);
+      }
     })();
     return () => { cancelled = true; };
   // 只在 Runtime 可达性变化时读一次；之后以用户保存结果为准。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.runtime.reachable]);
+
+  /** 平台 P1-4：手动重读运行时真实状态（失败时保留"未知"，不回落成"已关闭"）。 */
+  const refreshResearchStatus = async () => {
+    setResearchRuntimeBusy(true);
+    try {
+      const { research } = await runtimeClient.researchStatus();
+      setResearchRuntime(research);
+      setResearchRuntimeError(research.loadError ? `配置文件读取告警：${research.loadError}` : null);
+    } catch (error) {
+      setResearchRuntime(null);
+      setResearchRuntimeError(explain(error));
+    } finally {
+      setResearchRuntimeBusy(false);
+    }
+  };
 
   /**
    * P1-15：保存联网开关 —— 先乐观显示，再以 Runtime 返回为准；失败回滚并报错（不假装成功）。
@@ -123,6 +163,17 @@ export function SettingsPage() {
     }
   };
   const explain = (error: unknown) => error instanceof RuntimeApiError ? `${error.code} · ${error.message}` : error instanceof Error ? error.message : '未知错误';
+
+  /**
+   * 平台 P1-4：把运行时真实状态翻译成一句人话。
+   * 红线：读失败或服务端报 loadError 时必须说"状态未知"，不能拿 config 镜像/默认值冒充"已关闭"。
+   */
+  const researchRuntimeSummary = researchRuntimeError
+    ? `状态未知：${researchRuntimeError}（这不代表已关闭；请修复 Runtime 配置后点「重读真实状态」）`
+    : !researchRuntime
+      ? '状态未知：尚未读取 /api/research/status（等待 Runtime 或点「重读真实状态」）'
+      : `真实状态：${researchRuntime.enabled ? '已开启' : '已关闭'}${researchRuntime.schedulerRunning === true ? ' · 调度器运行中' : researchRuntime.schedulerRunning === false ? ' · 调度器未运行' : ' · 调度器状态未上报'}${researchRuntime.source ? ` · 来源 ${researchRuntime.source}` : ''}`;
+  const researchUnknown = researchRuntimeError !== null || researchRuntime === null;
 
   const selectProvider = (event: ChangeEvent<HTMLSelectElement>) => {
     // 下拉里的自定义入口只是导航，不改变当前 Provider（受控 value 会立刻把它恢复回去）。
@@ -371,7 +422,7 @@ export function SettingsPage() {
     <div className="stats-grid stats-grid--4"><Stat label="本机Runtime" value={state.runtime.reachable ? '在线' : '未连接'} hint={state.runtime.serviceVersion ? `v${state.runtime.serviceVersion}` : runtimeClient.baseUrl} tone={state.runtime.reachable ? 'success' : 'danger'} /><Stat label="AI Provider" value={selectedReady ? '就绪' : '待配置'} hint={displayLabel} tone={selectedReady ? 'success' : 'warning'} /><Stat label="运行模式" value={state.runtime.mode === 'real_read_only' ? '真实只读' : 'Demo 降级'} hint="真实写入仍默认关闭" tone={state.runtime.mode === 'real_read_only' ? 'info' : 'warning'} /><Stat label="安全存储" value="macOS钥匙串" hint="Schema v2 · 不保存密钥" tone="success" /></div>
     <div className="settings-layout">
       <Panel eyebrow="01 · LOCAL RUNTIME" title="本机能力检查" meta="安装后自动探测，不自动更改账号">
-        <div className="setup-progress"><div className={state.runtime.reachable ? 'is-done' : ''}><span>1</span><strong>Runtime</strong><small>{state.runtime.reachable ? '已连接' : '请运行 npm run dev:full'}</small></div><div className={selectedReady ? 'is-done' : ''}><span>2</span><strong>AI Provider</strong><small>{selectedReady ? '已就绪' : '等待登录或Key'}</small></div><div className={state.eda.connected && state.runtime.mode !== 'demo' ? 'is-done' : ''}><span>3</span><strong>嘉立创EDA</strong><small>{state.eda.connected && state.runtime.mode !== 'demo' ? 'Bridge已连接' : '前往EDA控制检查'}</small></div></div>
+        <div className="setup-progress"><div className={state.runtime.reachable ? 'is-done' : ''}><span>1</span><strong>Runtime</strong><small>{state.runtime.reachable ? '已连接' : '请运行 npm run dev:full'}</small></div><div className={selectedReady ? 'is-done' : ''}><span>2</span><strong>AI Provider</strong><small>{selectedReady ? '已就绪' : '等待登录或Key'}</small></div><div className={state.eda.connected && state.runtime.mode !== 'demo' ? 'is-done' : ''}><span>3</span><strong>嘉立创EDA</strong><small>{state.eda.connected && state.runtime.mode !== 'demo' ? 'Bridge已连接' : <button type="button" className="link-button" onClick={() => navigate('eda')}>前往EDA控制检查</button>}</small></div></div>
         <div className="diagnostic-list runtime-diagnostics">{state.runtime.diagnostics.length ? state.runtime.diagnostics.map((item) => <div className={`diagnostic diagnostic--${item.available ? 'pass' : 'fail'}`} key={item.id}>{item.available ? <CheckCircle2 size={17} /> : <TriangleAlert size={17} />}<span><strong>{item.name}</strong><small>{item.detail}</small></span><Badge tone={item.available ? 'success' : item.id === 'cargo' ? 'warning' : 'danger'}>{item.available ? '通过' : item.id === 'cargo' ? '桌面构建待安装' : '缺失'}</Badge></div>) : <div className="empty-inline">尚未获得真实诊断结果。</div>}</div>
         {state.runtime.lastError && <div className="inline-alert inline-alert--warning"><TriangleAlert size={16} /><span>{state.runtime.lastError.code} · {state.runtime.lastError.message}</span></div>}
         <div className="row-actions">
@@ -426,7 +477,7 @@ export function SettingsPage() {
       <Panel
         eyebrow="02c · WEB RESEARCH"
         title="联网检索（让 AI 查 datasheet / 器件资料）"
-        meta={<Badge tone={researchEnabled ? 'success' : 'info'}>{researchEnabled ? '已允许' : '默认关闭'}</Badge>}
+        meta={<Badge tone={researchUnknown ? 'warning' : researchEnabled ? 'success' : 'info'}>{researchUnknown ? '状态未知' : researchEnabled ? '已允许' : '默认关闭'}</Badge>}
       >
         <div className="toggle-stack">
           <Toggle
@@ -442,6 +493,17 @@ export function SettingsPage() {
               : researchSource === 'local'
                 ? `状态来源：本地缓存，Runtime 未确认${researchError ? `（${researchError}）` : ''}。`
                 : '正在读取 Runtime 配置…'}
+          </div>
+          {/* 平台 P1-4：配置镜像 ≠ 运行时真实状态；读不到时明确"状态未知"，不显示成"已关闭"。 */}
+          <div className={`inline-alert ${researchUnknown ? 'inline-alert--warning' : 'inline-alert--info'}`} role="status" data-testid="research-runtime-status">
+            <Shield size={16} />
+            <span>
+              <strong>{researchRuntimeSummary}</strong>
+              {researchRuntime?.note ? <small>{researchRuntime.note}</small> : null}
+              <span className="row-actions">
+                <Button size="sm" icon={<RefreshCw size={14} />} loading={researchRuntimeBusy} onClick={() => void refreshResearchStatus()}>重读真实状态</Button>
+              </span>
+            </span>
           </div>
         </div>
         <div className="form-grid">
@@ -471,10 +533,32 @@ export function SettingsPage() {
         meta={<Badge tone="info">{egress ? `策略 ${egress.policyVersion}` : '未读取'}</Badge>}
         actions={<Button size="sm" icon={<RefreshCw size={14} />} loading={egressBusy} onClick={() => void loadEgress()}>读取外发清单</Button>}
       >
-        <p><small>每次外发都由你在页面显式触发（点发送/生成/检索），没有后台批量上传工程文件的路径；发送前与日志/诊断包使用同一套脱敏规则。下面是现有 4 个调用点会发什么、明确不发什么。</small></p>
+        {/*
+          平台 P1-5：清单是"已知外发点的接口契约"，不是"全部网络行为"的证明。
+          前端数据/内嵌资源/操作系统/其它进程都可能联网，这份清单管不到——必须前置说明，
+          否则用户会把"没列在这里"理解成"不会外发"。
+        */}
+        <div className="inline-alert inline-alert--warning" role="status" data-testid="egress-boundary">
+          <TriangleAlert size={16} />
+          <span>
+            <strong>清单 = 接口契约，不是全部网络行为。</strong>
+            它只保证"列出的调用点在发什么、绝不发什么"，不能证明 Runtime/前端/操作系统没有其它网络请求；
+            未列出但会外发的路径同样按脱敏规则与用户显式触发处理，发现漏项请报告并更新清单。
+          </span>
+        </div>
+        <p><small>每次外发都由你在页面显式触发（点发送/生成/检索），没有后台批量上传工程文件的路径；发送前与日志/诊断包使用同一套脱敏规则。下面是现有 {egress?.endpoints.length ?? 5} 个调用点会发什么、明确不发什么。</small></p>
         {egress ? (
           <div className="detail-stack">
             <div className="inline-alert inline-alert--info"><Shield size={16} /><span>{egress.consentNote}</span></div>
+            {egress.warnings?.length ? (
+              <div className="inline-alert inline-alert--warning" role="alert" data-testid="egress-warnings">
+                <TriangleAlert size={16} />
+                <span>
+                  <strong>Runtime 对外发清单的告警（{egress.warnings.length} 条）</strong>
+                  {egress.warnings.map((warning) => <small key={warning}>{warning}</small>)}
+                </span>
+              </div>
+            ) : null}
             {egress.endpoints.map((endpoint) => (
               <div className="detail-block" key={endpoint.id}>
                 <span><strong>{endpoint.id}</strong> · <code>{endpoint.route}</code></span>
@@ -489,12 +573,12 @@ export function SettingsPage() {
             </div>
             {egressPreview ? <div className="detail-block"><span>脱敏预览：{egressPreview.changed ? '检测到并擦除了敏感内容' : '示例内容无需擦除'} · {egressPreview.bytes} 字节</span><pre style={{ whiteSpace: 'pre-wrap', maxHeight: 220, overflow: 'auto' }}>{JSON.stringify(egressPreview.sanitized, null, 2)}</pre><small>{egressPreview.note}（本预览不会发送任何数据）</small></div> : null}
           </div>
-        ) : <div className="empty-inline"><Shield size={22} /><strong>尚未读取</strong><span>连接 Runtime 后点「读取外发清单」；清单是接口契约，不是营销文案。</span></div>}
+        ) : <div className="empty-inline"><Shield size={22} /><strong>尚未读取</strong><span>连接 Runtime 后点「读取外发清单」；清单是接口契约，不是营销文案，也不等于全部网络行为。</span></div>}
       </Panel>
 
-      <Panel eyebrow="03 · SAFETY POLICIES" title="安全门禁" meta="策略优先于任务审批"><div className="toggle-stack"><Toggle checked={draft.readOnlyDefault} onChange={(readOnlyDefault) => setDraft({ ...draft, readOnlyDefault })} label="新任务默认只读" description="每个新任务先从分析开始，避免默认获取写权限。" /><Toggle checked={draft.autoSnapshot} onChange={(autoSnapshot) => setDraft({ ...draft, autoSnapshot })} label="写入前自动快照" description="执行受控写入前创建可回滚的版本节点。" /><Toggle checked={draft.autoSave} onChange={(autoSave) => setDraft({ ...draft, autoSave })} label="验证通过后自动保存" description="当前真实运行时尚未开放保存命令。" /><Toggle checked={draft.confirmExport} onChange={(confirmExport) => setDraft({ ...draft, confirmExport })} label="导出前二次确认" description="BOM、诊断包和评审包下载前显示用途边界。" /><Toggle checked={draft.writePaused} onChange={(writePaused) => setDraft({ ...draft, writePaused })} label="全局暂停所有写入" description="最高优先级门禁，阻断所有 EDA 写命令。" /></div></Panel>
+      <Panel eyebrow="03 · SAFETY POLICIES" title="安全门禁" meta="策略优先于任务审批"><div className="toggle-stack"><Toggle checked={draft.readOnlyDefault} onChange={(readOnlyDefault) => setDraft({ ...draft, readOnlyDefault })} label="新任务默认只读" description="每个新任务先从分析开始，避免默认获取写权限。" /><Toggle checked={draft.autoSnapshot} onChange={(autoSnapshot) => setDraft({ ...draft, autoSnapshot })} label="写入前自动快照" description="执行受控写入前创建可回滚的版本节点。" /><Toggle checked={draft.autoSave} onChange={(autoSave) => setDraft({ ...draft, autoSave })} label="验证通过后自动保存" description="保存动作由受控写入链在批准后显式执行（pcb.save 已用于 PCB 执行/布线收尾/叠层）；该开关不是授权按钮，写入仍需计划哈希 + 一次性人工批准。" /><Toggle checked={draft.confirmExport} onChange={(confirmExport) => setDraft({ ...draft, confirmExport })} label="导出前二次确认" description="BOM、诊断包和评审包下载前显示用途边界。" /><Toggle checked={draft.writePaused} onChange={(writePaused) => setDraft({ ...draft, writePaused })} label="全局暂停所有 EDA 写入" description="最高优先级门禁，阻断 Runtime 登记的 18 条 EDA 写路由（证据/导出/签核等非 EDA 写入不在其中）。" /></div></Panel>
       <AgentAccessPanel />
-      <Panel eyebrow="LOCAL DATA" title="本地状态管理" meta="只有非敏感状态保存在当前浏览器"><div className="data-card"><div className="data-card__icon"><Database size={22} /></div><div><strong>本地工作区状态</strong><p>项目、任务和审计保存在浏览器；不包含API Key与登录Token。</p><code>circuitpilot-state-v2</code></div><Button variant="danger" icon={<RefreshCw size={15} />} onClick={() => setResetOpen(true)}>重置本地数据</Button></div><div className="demo-boundaries"><div><Shield size={18} /><span><strong>密钥隔离</strong><small>API Key只存macOS钥匙串，Runtime响应与错误统一脱敏。</small></span></div><div><TriangleAlert size={18} /><span><strong>写入仍未开放</strong><small>真实能力仅限诊断、窗口选择、工程与文档只读回读。</small></span></div></div></Panel>
+      <Panel eyebrow="LOCAL DATA" title="本地状态管理" meta="只有非敏感状态保存在当前浏览器"><div className="data-card"><div className="data-card__icon"><Database size={22} /></div><div><strong>本地工作区状态</strong><p>项目、任务和审计保存在浏览器；不包含API Key与登录Token。</p><code>circuitpilot-state-v2</code></div><Button variant="danger" icon={<RefreshCw size={15} />} onClick={() => setResetOpen(true)}>重置本地数据</Button></div><div className="demo-boundaries"><div><Shield size={18} /><span><strong>密钥隔离</strong><small>API Key只存macOS钥匙串，Runtime响应与错误统一脱敏。</small></span></div><div><TriangleAlert size={18} /><span><strong>写入默认关闭，按需批准</strong><small>受控写入需计划哈希 + 一次性人工批准 + 快照/回读：已支持原理图/PCB 受控执行与布局/布线/叠层写回；失败回滚，恢复失败会留下安全写锁。</small></span></div></div></Panel>
     </div>
     <div className={`sticky-save ${dirty ? "is-dirty" : "is-synced"}`}><div>{dirty ? <><span className="status-light status-light--warn" /><strong>有未保存的设置</strong></> : <><span className="status-light status-light--on" /><strong>设置已同步</strong></>}<small>{dirty ? '保存后更新Provider选择和全局写入门禁。' : '当前非敏感配置已写入本地持久化。'}</small></div><Button onClick={() => setDraft(state.settings)} disabled={!dirty} title={!dirty ? '没有需要放弃的更改' : undefined}>放弃更改</Button><Button variant="primary" icon={<Save size={15} />} onClick={save} disabled={!dirty} title={!dirty ? '没有需要保存的更改' : undefined}>保存设置</Button></div>
     <ConfirmDialog open={resetOpen} onClose={() => setResetOpen(false)} onConfirm={() => { resetDemo(); notify('本地数据已重置', '钥匙串凭据未被删除。', 'success'); }} title="重置本地工作区数据？" description="清除浏览器中的项目、任务和审计状态，但不会删除macOS钥匙串凭据或操作嘉立创EDA工程。" confirmLabel="确认重置" danger />

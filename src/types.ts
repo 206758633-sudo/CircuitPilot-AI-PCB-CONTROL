@@ -905,6 +905,25 @@ export interface ResearchConfig {
   loadError?: string;
 }
 
+/**
+ * 平台 P1-4：`GET /api/research/status` 的运行时真实状态。
+ *
+ * 与 `ResearchConfig` 的区别：config 是持久化配置（用户意图），status 额外报告
+ * 调度器是否真的在跑、以及配置文件损坏时的 loadError——UI 必须能区分
+ * "已确认关闭" 与 "状态未知/配置损坏（fail-closed 为关闭但不可信）"。
+ * `loadError` 服务端当前可能不返回；字段保持可选，前端按"没有 = 未知而非正常"处理。
+ */
+export interface ResearchStatus {
+  enabled: boolean;
+  schedulerRunning?: boolean;
+  sources?: Array<{ id: string; label: string }>;
+  note?: string;
+  /** 配置来源（如 runtime/default），服务端后续可能补充。 */
+  source?: string;
+  /** 配置文件损坏/不可读时的原因；有值即表示"状态未知"，不能当成"已关闭"。 */
+  loadError?: string | null;
+}
+
 /** C1：跨设备恢复的最小业务状态（Runtime `/api/project-state` 的权威副本形状）。 */
 export interface BusinessState {
   projects: Project[];
@@ -1889,9 +1908,30 @@ export interface SupervisorSummary {
   bySource: Record<SupervisorSource, number>;
 }
 
+/**
+ * 平台 P1-6：每个待办来源是否可读。
+ *
+ * 为什么需要：`summary`/`tickets` 只描述"读到的内容"，读不到的来源会被算成 0，
+ * 用户看到"暂无待处理"却不知道某个源其实整个不可读（不是没有待办）。
+ * 服务端在新版本带 `sources`；老版本不带时前端按"未知"处理，不冒充可用。
+ */
+export interface SupervisorSourceAvailability {
+  available: boolean;
+  /** 不可用原因（损坏/不可读/上游不可达），直接展示给用户，不臆造。 */
+  reason?: string | null;
+}
+
+export interface SupervisorAttentionSources {
+  validations: SupervisorSourceAvailability;
+  issues: SupervisorSourceAvailability;
+  planRequests: SupervisorSourceAvailability;
+}
+
 /** `GET /api/supervisor/attention` 的视图（不含 ok）。 */
 export interface SupervisorAttentionView {
   generatedAt: string;
   summary: SupervisorSummary;
   tickets: SupervisorTicket[];
+  /** 平台 P1-6：来源可用性；老 Runtime 不返回时为 undefined（UI 按"未知"处理）。 */
+  sources?: SupervisorAttentionSources;
 }

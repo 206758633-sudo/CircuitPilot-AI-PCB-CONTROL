@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, Copy, Download, GitCompare, Plus, RefreshCw, RotateCcw, Search, ShieldAlert, Sparkles } from 'lucide-react';
 import { useApp } from '../state/AppContext';
+import { validationKpis } from '../services/validationEvidence';
 import { downloadDemoFile } from '../services/demoAdapter';
 import { buildFixTaskDraft } from '../services/fixTask';
 import { RuntimeApiError, runtimeClient, type TimelineResult } from '../services/runtimeClient';
@@ -179,7 +180,7 @@ export function VersionsPage() {
   const toggleVersion = (id: string) => setSelectedVersions((current) => current.includes(id) ? current.filter((item) => item !== id) : current.length >= 2 ? [current[1], id] : [...current, id]);
   const snapshot = () => {
     if (!snapshotName.trim()) return;
-    const version: VersionItem = { id: `ver-${Date.now()}`, label: snapshotName.trim(), kind: 'snapshot', date: new Date().toLocaleString('zh-CN', { hour12: false }), summary: state.runtime.mode === 'demo' ? '用户创建的手动工作区快照（Demo）' : '用户创建的手动工作区快照', validationStatus: state.validations.some((item) => item.status === 'fail') ? 'fail' : state.validations.some((item) => item.status === 'warn') ? 'warn' : 'pass', requirements: state.requirements.length, components: state.components.reduce((sum, item) => sum + item.qty, 0), designObjects: 148 };
+    const version: VersionItem = { id: `ver-${Date.now()}`, label: snapshotName.trim(), kind: 'snapshot', date: new Date().toLocaleString('zh-CN', { hour12: false }), summary: state.runtime.mode === 'demo' ? '用户创建的手动工作区快照（Demo）' : '用户创建的手动工作区快照', validationStatus: (() => { const kpi = validationKpis(state.validations, state.activeProjectId); return kpi.failedOrWarn > 0 ? (kpi.official.some((item) => item.status === 'fail') ? 'fail' : 'warn') : kpi.passed > 0 ? 'pass' : 'warn'; })(), requirements: state.requirements.length, components: state.components.reduce((sum, item) => sum + item.qty, 0), designObjects: 148 };
     dispatch({ type: 'ADD_VERSION', version }); addAudit('version', '创建手动快照', version.label, 'success'); recordChange({ source: 'user', actor: '本机用户', action: 'snapshot', objectType: 'version', objectId: version.id, summary: `创建快照：${version.label}`, after: version, reason: '用户手动建立回滚点', relations: { versionId: version.id } }); notify('快照已创建', `${version.label} 已加入版本时间线。`, 'success'); setSnapshotOpen(false); setSnapshotName('手动工程快照');
   };
   const rollback = () => {

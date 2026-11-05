@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowRight, Inbox, RefreshCw, ShieldCheck } from 'lucide-react';
 import { RuntimeApiError, runtimeClient } from '../services/runtimeClient';
 import type {
+  SupervisorAttentionSources,
   SupervisorAttentionView,
   SupervisorSeverity,
   SupervisorSource,
@@ -13,6 +14,23 @@ import { Badge, Button, Panel, Stat } from './ui';
 
 /** 值守队列轮询间隔：只刷新展示，不触发任何写操作。 */
 const ATTENTION_POLL_MS = 30_000;
+
+/**
+ * 平台 P1-6：来源可用性 → 展示名。
+ *
+ * 服务端 `sources` 的 key（validations/issues/planRequests）与票据 source（validation/issue/plan）
+ * 是两套命名，这里显式映射，避免 UI 自己猜 key 而漏掉某个源。
+ */
+const SOURCE_AVAILABILITY_META: Array<{ key: keyof SupervisorAttentionSources; label: string }> = [
+  { key: 'validations', label: '验证源' },
+  { key: 'issues', label: '问题源' },
+  { key: 'planRequests', label: '计划源' },
+];
+
+const unavailableSources = (sources?: SupervisorAttentionSources) => SOURCE_AVAILABILITY_META
+  .map((item) => ({ ...item, state: sources?.[item.key] }))
+  .filter((item) => item.state?.available === false)
+  .map((item) => ({ key: item.key, label: item.label, reason: item.state?.reason || null }));
 
 const formatTime = (value?: string | null) => {
   if (!value) return '—';
@@ -115,12 +133,14 @@ export function SupervisorPanel() {
 
   const isBusy = busy !== null || loading;
   const attention = view?.summary.attention ?? 0;
+  // 平台 P1-6：任一来源不可用时，summary/tickets 里该源为 0 是"读不到"而不是"没有"。
+  const degraded = unavailableSources(view?.sources);
 
   return (
     <Panel
       eyebrow="SUPERVISOR · READ-ONLY"
       title="值守队列（只读巡检）"
-      meta={view ? <Badge tone={attention > 0 ? 'warning' : 'success'}>{attention > 0 ? `${attention} 项待处理` : '暂无待处理'}</Badge> : null}
+      meta={view ? <Badge tone={degraded.length ? 'warning' : attention > 0 ? 'warning' : 'success'}>{degraded.length ? `${degraded.length} 个来源不可用` : attention > 0 ? `${attention} 项待处理` : '暂无待处理'}</Badge> : null}
       actions={<Button size="sm" icon={<RefreshCw size={14} />} loading={loading} onClick={() => void load()}>刷新队列</Button>}
     >
       <div className="supervisor">
@@ -131,6 +151,19 @@ export function SupervisorPanel() {
             点「去处理」只跳转到对应页面，任何写入仍需你在那里人工批准。
           </span>
         </p>
+
+        {degraded.length ? (
+          <div className="inline-alert inline-alert--danger" role="alert" data-testid="supervisor-degraded">
+            <AlertTriangle size={16} />
+            <span>
+              <strong>{degraded.map((item) => item.label).join(' / ')} 不可用：该来源的待办无法列出（不是没有待办）</strong>
+              {degraded.map((item) => (
+                <small key={item.key}>{item.label}：{item.reason || '服务端未给出原因'}</small>
+              ))}
+              <small>队列里该来源的计数为 0 只代表"没读到"；修复后点「刷新队列」重新巡检。</small>
+            </span>
+          </div>
+        ) : null}
 
         {error ? (
           <div className="inline-alert inline-alert--danger" role="alert">
@@ -173,8 +206,17 @@ export function SupervisorPanel() {
             {view.tickets.length === 0 ? (
               <div className="empty-inline supervisor__empty">
                 <Inbox size={22} />
-                <strong>当前没有需要你处理的事项；后台只读巡检仍在运行。</strong>
-                <span>队列每 30 秒刷新一次；有问题时会在这里出现，并附证据引用与建议动作。</span>
+                {degraded.length ? (
+                  <>
+                    <strong>当前没有读到需要你处理的事项，但有来源不可用（见上方横幅）。</strong>
+                    <span>不可用来源的待办未列出，不代表没有待办；修复后点「刷新队列」重新巡检。</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>当前没有需要你处理的事项；后台只读巡检仍在运行。</strong>
+                    <span>队列每 30 秒刷新一次；有问题时会在这里出现，并附证据引用与建议动作。</span>
+                  </>
+                )}
               </div>
             ) : (
               <ul className="supervisor__list">

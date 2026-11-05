@@ -1,4 +1,5 @@
 import type { AiTask, EdaState, SettingsState } from '../types';
+import { isWriteGateClosed, writeGateClosedReason } from '../services/writeGate';
 
 /**
  * 受控写入的统一执行门禁。
@@ -34,7 +35,12 @@ export function getExecutionGate(subject: ExecutionGateSubject, eda: EdaState, s
   if (!subject.planApproved) return { allowed: false, reason: '必须先批准当前计划哈希' };
   if (subject.executableStepCount < 1) return { allowed: false, reason: '没有已选择的计划步骤' };
   if (!eda.connected) return { allowed: false, reason: 'EDA桥接未连接' };
-  if (eda.writePaused || settings.writePaused) return { allowed: false, reason: '全局写入已暂停' };
+  // UI P2-1（2026-11-05 审计）：Runtime 的写门禁有两个权威作用域——全局 paused 与本会话 sessionPaused。
+  // 修复前这里只查 settings.writePaused（外加 eda 镜像），会话级暂停在执行门禁层形同虚设：
+  // 用户点了 EDA 页「暂停本会话写入」，按钮/门禁仍显示可执行，点下去才被服务端 409。
+  // 现在两种暂停都在门禁里拦住，并明确告诉用户是全局还是本会话（恢复入口不同）。
+  if (isWriteGateClosed(settings)) return { allowed: false, reason: writeGateClosedReason(settings) };
+  if (eda.writePaused) return { allowed: false, reason: 'EDA 会话写入已暂停：请先恢复 EDA 页的写入开关' };
   if (!eda.activeWindowId) return { allowed: false, reason: '尚未选定目标EDA窗口' };
   return { allowed: true, reason: '' };
 }

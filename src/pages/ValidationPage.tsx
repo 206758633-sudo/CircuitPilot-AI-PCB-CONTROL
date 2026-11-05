@@ -10,7 +10,7 @@ import { LongTaskPanel } from '../components/LongTaskPanel';
 import type { EdaWindow, ErcConvergenceSummary, ErcDetailMeta, ErcEvidenceEntry, ErcFinding, ErcReport, ApprovalLedgerSnapshot, DfmEvidenceEntry, DrcEvidenceEntry, DrcReport, EngineeringAnalysis, FabricationOrderCard, Finding, ProductionExportResult, ReleaseGateReport, PcbSyncVerification, SchematicRepairReport, SignoffEvidenceEntry, SupplyPricingEvidence, OrderConfirmationPayload, ValidationCheck } from '../types';
 import { gateStatusLabel, gateStatusTone, groupBlockers, summarizeGate, summarizeOutputDecision } from '../services/placementViewModel';
 import { autoResolvableOfficialIssueIds, buildOfficialValidationRecord, drcItemsToValidationFindings, edaProjectUuidFromCommandResult, edaWorkspaceIdentity, ercFindingsToValidationFindings, mergeDemoValidationRun, mergeValidationRecord, officialValidationsForProject, validationKpis } from '../services/validationEvidence';
-import { releaseBindingRequestFields } from '../services/releaseBindingStore';
+import { readReleaseHandoff, releaseBindingRequestFields } from '../services/releaseBindingStore';
 import { tryAdvanceProjectStage } from '../services/stageEvidence';
 import { Badge, Button, CopyValue, Field, Panel, Progress, Stat, TableFrame } from '../components/ui';
 import { Drawer, Modal } from '../components/overlays';
@@ -60,18 +60,10 @@ const EMPTY_BRIDGE_STATUS: BridgeStatusState = { busy: false, checkedAt: null, p
  * P1-1/P1-14（复审 2026-10-29）：官方 ERC/DRC 证据要能回答"哪次执行、哪份计划"。
  * binding 候选来自 AssetsPage readiness 交接（sessionStorage）；Runtime 仍会用自己的账本/文件复核，
  * 前端只做"把已知的真实标识带过去"，拿不到就是 null（不猜哈希）。
+ *
+ * UI P2-5（2026-11-05 审计）：读取与项目/时效校验已移入 `releaseBindingStore.readReleaseHandoff`，
+ * 页面不再直接 JSON.parse sessionStorage（否则切项目/隔天仍会拿旧交接当本次证据）。
  */
-function readReleaseHandoffBinding(): { manifestHash: string | null; binding: Record<string, string> | null } {
-  try {
-    const raw = sessionStorage.getItem('circuitpilot:release-binding');
-    if (!raw) return { manifestHash: null, binding: null };
-    const parsed = JSON.parse(raw) as { manifestHash?: string | null; binding?: Record<string, string> };
-    return {
-      manifestHash: typeof parsed.manifestHash === 'string' && parsed.manifestHash ? parsed.manifestHash : null,
-      binding: parsed.binding && typeof parsed.binding === 'object' ? parsed.binding : null,
-    };
-  } catch { return { manifestHash: null, binding: null }; }
-}
 
 const ercFindingTone = (severity: ErcFinding['severity']) => severity === 'fatal' || severity === 'error' ? 'danger' : severity === 'warning' ? 'warning' : 'neutral';
 
@@ -224,6 +216,13 @@ export function ValidationPage() {
   const [signoffManifest, setSignoffManifest] = useState('');
   const [signoffPlanHash, setSignoffPlanHash] = useState('');
   const [signoffNames, setSignoffNames] = useState<[string, string, string]>(['', '', '']);
+  /**
+   * 2026-11-05 全系统闭环审计（交付 P1-5）：签核/DFM/闸门/导出/下单必须绑同一块板。
+   * 修复前这些请求各自只认手填的 `gatePcb`，留空时签核指纹不带 pcbUuid，而闸门/导出按
+   * "当前板"解析 → 签核与产物归属对不上（releaseDecision 报不通或误放行）。
+   * 统一 derivation：显式填写优先，其次项目已绑定的 EDA PCB。
+   */
+  const unifiedPcbUuid = (): string | undefined => gatePcb.trim() || activeProject?.edaWorkspace?.pcbUuid || undefined;
   const [model3d, setModel3d] = useState<{ path: string; bytes: number; sha256: string; format: string; chunks: number; elements: number | null } | null>(null);
   const [modelBusy, setModelBusy] = useState(false);
   // D8：ERC 取证（120s）、3D 导出（320s）、发布归档（120s）也用统一单调用控制器。
@@ -439,7 +438,8 @@ export function ValidationPage() {
    * 都取不到就留 null —— 宁可让审计看到"未绑定"，也不编一个哈希。
    */
   const readOfficialEvidenceBinding = async (): Promise<{ executionId: string | null; planHash: string | null; compiledPlanHash: string | null }> => {
-    const handoff = readReleaseHandoffBinding().binding;
+    const handoffResult = readReleaseHandoff({ activeProjectId: activeProject?.id ?? null, edaProjectUuid: activeProject?.edaWorkspace?.projectUuid ?? null });
+    const handoff = handoffResult && !handoffResult.staleReason ? handoffResult.binding : null;
     let executionId = typeof handoff?.executionId === 'string' && handoff.executionId ? handoff.executionId : null;
     const planHash = typeof handoff?.semanticPlanHash === 'string' && handoff.semanticPlanHash ? handoff.semanticPlanHash : null;
     const compiledPlanHash = typeof handoff?.compiledPlanHash === 'string' && handoff.compiledPlanHash ? handoff.compiledPlanHash : null;
@@ -606,7 +606,7 @@ export function ValidationPage() {
       timeoutMs: 340_000,
       onUpdate: setModel3dTask,
       call: async (signal) => {
-        const result = await runtimeClient.pcb3dExport({ pcbUuid: gatePcb.trim() || undefined, format: modelFormat }, { signal });
+        const result = await runtimeClient.pcb3dExport({ pcbUuid: unifiedPcbUuid(), format: modelFormat }, { signal });
         setModel3d(result.model);
         addAudit('version', '导出3D模型', `${result.model.format.toUpperCase()} · ${result.model.bytes} bytes · ${result.model.sha256.slice(0, 12)}`, 'success');
         notify('3D 模型已导出', `${result.model.path}`, 'success');
@@ -910,7 +910,7 @@ export function ValidationPage() {
         conclusion: dfmConclusion.trim() || (dfmPassed === 'pass' ? '在线 DFM 无阻断' : '在线 DFM 存在阻断问题'),
         source: '嘉立创在线DFM',
         planHash: dfmPlanHash.trim() || undefined,
-        pcbUuid: gatePcb.trim() || undefined,
+        pcbUuid: unifiedPcbUuid(),
       });
       setDfmEvidence(entry);
       addAudit('validation', '登记在线DFM证据', `${dfmPassed === 'pass' ? '通过' : '不通过'} · ${entry.digest.slice(0, 12)}`, dfmPassed === 'pass' ? 'success' : 'warning');
@@ -951,7 +951,7 @@ export function ValidationPage() {
         roles: names.map((name, index) => ({ role: ['硬件设计', '制造工艺', '项目负责人'][index], name, conclusion: '通过' })),
         manifestHash: signoffManifest.trim(),
         planHash: signoffPlanHash.trim() || undefined,
-        pcbUuid: gatePcb.trim() || undefined,
+        pcbUuid: unifiedPcbUuid(),
         operator: names[0],
         conclusion: '人工终审通过',
       });
@@ -1066,8 +1066,15 @@ export function ValidationPage() {
   };
   useEffect(() => { void loadLedger(); }, [state.runtime.mode]);
 
-  /** B1/B4：读取 AssetsPage readiness 交接的「当前物料清单哈希 + binding」（仅提示；Runtime 会重算校验）。 */
-  const readReleaseBindingHandoff = (): { manifestHash: string | null; binding: Record<string, string> | null } => readReleaseHandoffBinding();
+  /**
+   * B1/B4：读取 AssetsPage readiness 交接的「当前物料清单哈希 + binding」（仅提示；Runtime 会重算校验）。
+   * UI P2-5：失效交接（跨项目/过期）在这里视为"没有交接"，由下方挂载 effect 明确提示原因。
+   */
+  const readReleaseBindingHandoff = (): { manifestHash: string | null; binding: Record<string, string> | null } => {
+    const handoff = readReleaseHandoff({ activeProjectId: activeProject?.id ?? null, edaProjectUuid: activeProject?.edaWorkspace?.projectUuid ?? null });
+    if (!handoff || handoff.staleReason) return { manifestHash: null, binding: null };
+    return { manifestHash: handoff.manifestHash, binding: handoff.binding };
+  };
   /**
    * P1-7/P1-8（复审 2026-10-29）：放行闸门/导出/归档必须带同一 binding。
    * 修复前这三条请求都没带 planHash/manifestHash：服务端只能看"目录里有没有文件"，
@@ -1077,9 +1084,22 @@ export function ValidationPage() {
   const releaseBindingFields = () => releaseBindingRequestFields(readReleaseBindingHandoff());
 
   useEffect(() => {
-    const handoff = readReleaseBindingHandoff();
+    // UI P2-5：交接失效（跨项目/超 24h/时间戳不可信）时明确提示并要求重跑 readiness。
+    // 修复前这里无条件信任 sessionStorage：切项目或隔天再来，旧哈希会被当作本次签核/导出的证据。
+    const handoff = readReleaseHandoff({ activeProjectId: activeProject?.id ?? null, edaProjectUuid: activeProject?.edaWorkspace?.projectUuid ?? null });
+    if (!handoff) return;
+    if (handoff.staleReason) {
+      notify('readiness 交接不可用', handoff.staleReason, 'warning');
+      addAudit('validation', 'readiness 交接不可用', handoff.staleReason, 'warning');
+      return;
+    }
     if (handoff.manifestHash) setSignoffManifest((current) => current || handoff.manifestHash!);
     if (handoff.binding?.semanticPlanHash) setSignoffPlanHash((current) => current || handoff.binding!.semanticPlanHash);
+    // 交付-P2-4：DFM 取证也绑定同一份语义计划。修复前这里只预填签核，DFM 的计划哈希要人工抄，
+    // 抄漏/抄错会让服务端重算 binding 时对不上；同样只补空值，不覆盖用户已填内容。
+    if (handoff.binding?.semanticPlanHash) setDfmPlanHash((current) => current || handoff.binding!.semanticPlanHash);
+  // 只在挂载时读一次交接：切项目由页面重建/重跑 readiness 处理，不在渲染中反复覆盖用户输入。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const archiveReleaseVersion = async () => {
@@ -1088,7 +1108,7 @@ export function ValidationPage() {
       onUpdate: setArchiveTask,
       call: async (signal) => {
         const result = await runtimeClient.archiveRelease({
-          pcbUuid: gatePcb.trim() || activeProject?.edaWorkspace?.pcbUuid || undefined,
+          pcbUuid: unifiedPcbUuid(),
           artifactsDir: gateDir.trim() || undefined,
           drcReportPath: gateDrcPath.trim() || undefined,
           userConfirmed: gateConfirmed,
@@ -1131,7 +1151,7 @@ export function ValidationPage() {
         const handoff = readReleaseBindingHandoff();
         return runtimeClient.productionExport({
           requested,
-          pcbUuid: gatePcb.trim() || undefined,
+          pcbUuid: unifiedPcbUuid(),
           pageUuid: gatePage.trim() || undefined,
           artifactsDir: gateDir.trim() || undefined,
           drcReportPath: gateDrcPath.trim() || undefined,
@@ -1236,7 +1256,7 @@ export function ValidationPage() {
           impedanceControl: orderImpedance,
           surfaceFinish: orderFinish,
         },
-        pcbUuid: gatePcb.trim() || undefined,
+        pcbUuid: unifiedPcbUuid(),
         artifactsDir: gateDir.trim() || undefined,
         drcReportPath: gateDrcPath.trim() || undefined,
         // B3：把"查询时刻"的价格/库存证据随卡带过去，卡上才能显示已知单价合计/缺货项。
@@ -1263,7 +1283,8 @@ export function ValidationPage() {
     setSyncRunning(true);
     setSyncError(null);
     try {
-      const result = await runtimeClient.pcbSyncVerify();
+      // PCB-P1-8：多板工程必须明确核对哪块板，避免按"当前/首板"误判甚至切走用户当前文档。
+      const result = await runtimeClient.pcbSyncVerify(unifiedPcbUuid());
       setSyncVerify(result.verification);
     } catch (error) {
       setSyncVerify(null);
@@ -1281,7 +1302,12 @@ export function ValidationPage() {
     setRepairRunning(dryRun ? 'dry' : 'apply');
     setRepairSnapshot(null);
     const task = createSingleCallTask({
-      call: (signal) => runtimeClient.repairSchematic({ pageUuid: gatePage.trim() || undefined, dryRun }, { signal }),
+      call: async (signal) => {
+        // PCB-P1-2：真实写盘必须消费服务端签发的一次性 write 批准（按钮点击本身不是权限）。
+        // 预演（dryRun:true）只读，不签发批准；执行前先取批准，让服务端把本次写绑定到窗口/工程/文档指纹。
+        const approvalIds = dryRun ? undefined : [(await runtimeClient.issueAutomationApproval({ scope: 'write', note: '原理图自动修复' })).approvalId];
+        return runtimeClient.repairSchematic({ pageUuid: gatePage.trim() || undefined, dryRun, ...(approvalIds ? { approvalIds } : {}) }, { signal });
+      },
       timeoutMs: 240_000,
       onUpdate: setRepairSnapshot,
     });
@@ -1321,7 +1347,7 @@ export function ValidationPage() {
     setGateSnapshot(null);
     const task = createSingleCallTask({
       call: (signal) => runtimeClient.releaseGate({
-        pcbUuid: gatePcb.trim() || activeProject?.edaWorkspace?.pcbUuid || undefined,
+        pcbUuid: unifiedPcbUuid(),
         pageUuid: gatePage.trim() || undefined,
         // 显式声明本次是为正式产出评估：服务端据此把"本次将覆盖的自产草稿"算进裁决（P0-6）。
         requested: 'final',

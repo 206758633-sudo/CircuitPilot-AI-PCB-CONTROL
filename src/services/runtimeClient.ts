@@ -250,7 +250,8 @@ export const runtimeClient = {
 
   /** G4：数据外发清单（现有 provider 调用点/触发条件/发送字段/明确不发送的内容）。 */
   async providerEgress() {
-    return request<{ ok: true; egress: { schemaVersion: number; policyVersion: string; consentMode: string; consentNote: string; orderEnabled: boolean; redaction: string; endpoints: Array<{ id: string; route: string; trigger: string; data: Array<{ field: string; source: string }>; excluded: string[] }>; notSent: string[]; boundaries: string[] } }>('/api/provider/egress', {}, false);
+    // `warnings`：服务端对"清单可能漏项/存在未列出的网络行为"的显式告警；缺字段时 UI 仍显示固定提示。
+    return request<{ ok: true; egress: { schemaVersion: number; policyVersion: string; consentMode: string; consentNote: string; orderEnabled: boolean; redaction: string; endpoints: Array<{ id: string; route: string; trigger: string; data: Array<{ field: string; source: string }>; excluded: string[] }>; notSent: string[]; boundaries: string[]; warnings?: string[] } }>('/api/provider/egress', {}, false);
   },
 
   /** G4：脱敏预览（与日志/诊断包同一套 redactSecrets；不改发送行为）。 */
@@ -286,6 +287,16 @@ export const runtimeClient = {
   },
   async setResearchConfig(input: { enabled: boolean; actor?: string }) {
     return request<{ ok: true; config: ResearchConfig }>('/api/research/config', { method: 'POST', body: JSON.stringify(input) });
+  },
+  /**
+   * 平台 P1-4：联网检索的**运行时真实状态**（GET /api/research/status）。
+   *
+   * 为什么不能只看 settings 里的本地开关：配置写入成功 ≠ 调度器真的在跑；
+   * 配置文件损坏时 Runtime fail-closed 为关闭，但这是"状态不可信"而不是"用户关闭"。
+   * 设置页用本方法展示 enabled/schedulerRunning/loadError，读失败时明确显示"状态未知"。
+   */
+  async researchStatus() {
+    return request<{ ok: true; research: import('../types').ResearchStatus }>('/api/research/status');
   },
   /** W5-03/W6-01：门禁状态（只读，不写证据）。 */
   async gatesStatus(pcbUuid: string) {
@@ -417,10 +428,12 @@ export const runtimeClient = {
   /**
    * C 方案：只读 Agent 值守队列（Runtime 汇总 validation/issue/plan 未收口事项）。
    * 纯读：不触发任何 EDA 写入；旧 Runtime 无该路由时由调用方按 RuntimeApiError.status 降级。
+   * 平台 P1-6：响应里的 `sources`（各来源是否可读）原样带给 UI——缺了就无法区分
+   * "该来源没有待办"与"该来源整个读不到"。
    */
   async getSupervisorAttention() {
     const result = await request<{ ok: true } & import('../types').SupervisorAttentionView>('/api/supervisor/attention');
-    return { generatedAt: result.generatedAt, summary: result.summary, tickets: result.tickets };
+    return { generatedAt: result.generatedAt, summary: result.summary, tickets: result.tickets, sources: result.sources };
   },
   /** 接单（ack）：只改票据状态，不代表修复；body 可带备注。 */
   async ackSupervisorTicket(ticketId: string, body: { note?: string } = {}) {
@@ -755,8 +768,9 @@ export const runtimeClient = {
   /**
    * 写回布局。**默认预演**（dryRun 未显式给 false 时只算不写）；
    * 运行时会在写入后逐项回读、独立复核，不通过自动回滚，且**永不自动保存**。
+   * `userConfirmed`：真实写回时由用户在确认框里显式确认后置 true；服务端据此落 G5 人工确认证据。
    */
-  async applyPlacement(body: { pcbUuid?: string; plan: unknown; dryRun?: boolean; edgeClearanceMm?: number; spacingMm?: number; overhangAllowances?: Record<string, unknown>; approvalIds?: string[]; designIntent?: unknown; drcReport?: unknown; drcScope?: string; autoDrc?: boolean }, options: { signal?: AbortSignal } = {}) {
+  async applyPlacement(body: { pcbUuid?: string; plan: unknown; dryRun?: boolean; edgeClearanceMm?: number; spacingMm?: number; overhangAllowances?: Record<string, unknown>; approvalIds?: string[]; designIntent?: unknown; drcReport?: unknown; drcScope?: string; autoDrc?: boolean; userConfirmed?: boolean }, options: { signal?: AbortSignal } = {}) {
     return request<PlacementWritebackResult>('/api/eda/pcb/placement/apply', { method: 'POST', body: JSON.stringify(body) }, true, 180_000, options.signal);
   },
   /**
@@ -789,7 +803,7 @@ export const runtimeClient = {
    * 按验收结论自动修复原理图（受控写入）：缺 Rd / 缺 I2C 上拉这类缺陷直接落到原理图上，
    * 写完立刻用网表复核并重跑验收。不传 dryRun:false 就只预演，绝不写盘。
    */
-  async repairSchematic(body: { pageUuid?: string; dryRun?: boolean; repairs?: Array<{ id?: string; net: string; otherNet: string; valueOhm?: number; mpnKeyword?: string; device?: { libraryUuid: string; uuid: string } }>; spacingMm?: number; startX?: number; skipSimulation?: boolean } = {}, options: { signal?: AbortSignal } = {}) {
+  async repairSchematic(body: { pageUuid?: string; dryRun?: boolean; repairs?: Array<{ id?: string; net: string; otherNet: string; valueOhm?: number; mpnKeyword?: string; device?: { libraryUuid: string; uuid: string } }>; spacingMm?: number; startX?: number; skipSimulation?: boolean; approvalIds?: string[] } = {}, options: { signal?: AbortSignal } = {}) {
     return request<SchematicRepairReport>('/api/eda/schematic/repair', { method: 'POST', body: JSON.stringify(body) }, true, 240_000, options.signal);
   },
   /** B8：不可变发布版本列表（只读；每条带证据文件重校验结果）。 */

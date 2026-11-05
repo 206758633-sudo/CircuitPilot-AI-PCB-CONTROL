@@ -224,7 +224,8 @@ export function AiTasksPage() {
    */
   const handoffPlanToEda = () => {
     if (!productionCandidate?.plan || !productionCandidate.planHash) return notify('计划尚未就绪', '请先生成可验证的语义计划，再进入 EDA 编译与审批。', 'warning');
-    saveSemanticPlanDraft({ plan: productionCandidate.plan, planHash: productionCandidate.planHash, explanation: productionCandidate.explanation, source: 'ai-page' });
+    // UI P2-5：草稿带上项目归属；EDA 页读取时若项目不一致会忽略并清理（避免跨项目复用旧计划）。
+    saveSemanticPlanDraft({ plan: productionCandidate.plan, planHash: productionCandidate.planHash, explanation: productionCandidate.explanation, source: 'ai-page', projectId: activeProject?.id ?? null });
     addAudit('ai', '计划草稿交接至EDA页（PCB写入链）', productionCandidate.planHash, 'info');
     // P0-8：说清这条链只写 PCB；原理图写入是另一条 AI 网表草案链，血缘互不代用（避免“批准了AI计划却写原理图”的错觉）。
     notify('计划已带入 EDA 页（PCB 写入链）', '该语义计划只用于 PCB 高级编译与受控执行；原理图写入请在 EDA 页单独生成 AI 网表草案并人工批准，两条链血缘独立、不能互相顶替。', 'success');

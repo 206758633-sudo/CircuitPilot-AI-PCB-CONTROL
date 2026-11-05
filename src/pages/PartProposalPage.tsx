@@ -21,7 +21,7 @@ const priceText = (price: PartProposal['candidates'][number]['price']) => {
  * 本页只做只读提案与计划的生成：真正落板仍必须走审批（planHash 绑定）与执行，页面不会替你写工程。
  */
 export function PartProposalPage() {
-  const { state, navigate, notify, addAudit } = useApp();
+  const { state, navigate, notify, addAudit, activeProject } = useApp();
   // P1-1（复审 2026-10-29）：批量落件是真实写板（服务端逐件 create + 保存），必须跟随 Runtime 写门禁。
   // 修复前按钮只看任务状态，暂停时点了才被服务端 409 EDA_WRITE_PAUSED 拒绝。
   const writeGateClosed = state.settings.writePaused || state.settings.sessionPaused === true;
@@ -118,6 +118,8 @@ export function PartProposalPage() {
       planHash: planned.planHash,
       sourceLabel: `选型提案 ${planned.proposalId?.slice(0, 12) || planned.planHash.slice(0, 12)}`,
       source: 'part-proposal',
+      // UI P2-5：草稿绑定当前项目；EDA 页读取时若项目不一致会忽略并清理，避免跨项目复用旧计划。
+      projectId: activeProject?.id ?? null,
     });
     addAudit('ai', '选型计划交接至EDA页', `${draft.planHash?.slice(0, 12)} · ${planned.selection.totalParts} 条`, 'info');
     notify('计划已送入 EDA 设计批准', 'EDA 页已载入计划编辑器：请依次点“3. 校验计划”→"4. 人工批准"，批准绑定同一 planHash。', 'success');

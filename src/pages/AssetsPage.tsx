@@ -7,10 +7,10 @@ import { Badge, Button, Field, Panel, SegmentedTabs, Stat, TableFrame, Toggle } 
 import { ConfirmDialog, Drawer, Modal } from '../components/overlays';
 import { runtimeClient, RuntimeApiError } from '../services/runtimeClient';
 import { readSemanticPlanDraft } from '../services/draftStore';
-import { pickReadinessPcbExecution, saveReadinessInputs } from '../services/releaseBindingStore';
+import { pickReadinessPcbExecution } from '../services/releaseBindingStore';
 
 export function AssetsPage() {
-  const { state, dispatch, notify, addAudit } = useApp();
+  const { state, activeProject, dispatch, notify, addAudit } = useApp();
   const [tab, setTab] = useState<'assets' | 'bom'>('assets');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
@@ -67,7 +67,9 @@ export function AssetsPage() {
    */
   const runReadiness = async () => {
     if (!productionInspection) return notify('请先检查生产资料', 'readiness 需要先绑定项目/文档/清单，先点“检查生产资料”。', 'warning');
-    const draft = readSemanticPlanDraft();
+    // UI P2-5：readiness 也只接受当前项目的草稿；跨项目/超 24h 的草稿由 store 忽略并清理，
+    // 避免拿别的项目的旧计划去编译/复核放行。
+    const draft = readSemanticPlanDraft({ activeProjectId: activeProject?.id ?? null });
     if (!draft?.plan) {
       notify('缺少已生成的语义计划', '[PRODUCTION_PLAN_MISSING] 先在 AI 任务页生成可验证 PCBA 语义计划并“进入 EDA 编译与审批”；readiness 不接受 AI 任务 id 当计划哈希。', 'danger');
       addAudit('validation', 'readiness 输入缺失', 'PRODUCTION_PLAN_MISSING：没有可编译的语义计划草稿', 'error');
@@ -109,6 +111,8 @@ export function AssetsPage() {
         semanticPlanHash: planning.planHash,
         compiledPlanHash: planning.compiledPlanHash,
         executionId: picked.execution.id,
+        // 2026-11-05 审计（交付 P1-5）：readiness 交接也要带 PCB 归属，签核/闸门/导出共用同一块板。
+        ...(activeProject?.edaWorkspace?.pcbUuid ? { pcbUuid: activeProject.edaWorkspace.pcbUuid } : {}),
       };
       const result = await runtimeClient.productionReadiness({
         semanticPlanHash: planning.planHash,
@@ -117,7 +121,6 @@ export function AssetsPage() {
         binding,
       });
       setReadiness(result);
-      saveReadinessInputs({ semanticPlanHash: planning.planHash, compiledPlanHash: planning.compiledPlanHash, pcbExecutionId: picked.execution.id, executionState: picked.execution.state, drcPassed: true });
       // 交接：签核与正式导出必须用同一 binding 重算 manifestHash（P0-6）。
       try {
         sessionStorage.setItem('circuitpilot:release-binding', JSON.stringify({ manifestHash: result.referenced?.manifestHash ?? null, binding, savedAt: new Date().toISOString() }));

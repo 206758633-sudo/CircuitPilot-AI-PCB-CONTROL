@@ -69,7 +69,7 @@ export function OverviewPage() {
     if (requirementCompleteness < 100 || conflicts > 0) return { hash: 'design/chat', label: '继续补全设计输入', hint: `${requirementCompleteness}% 需求已确认` };
     if (stageIndex < 2) return { hash: 'eda', label: '进入受控 EDA 执行', hint: '快照 → 批准 → 写入 → 回读' };
     if (idle > 0 || openFindings > 0) return { hash: 'validation', label: '运行验证并收口问题', hint: `${idle} 项未运行 · ${openFindings} 个问题` };
-    return { hash: 'validation', label: '生成交付包', hint: '检查已通过，可导出' };
+    return { hash: 'validation', label: '进入交付核对放行证据', hint: '官方检查已运行；正式导出还需门禁 + 在线 DFM + 三方签核' };
   })();
 
   return (
@@ -120,7 +120,7 @@ export function OverviewPage() {
           </div>
           <div className="ov-card__body">
             {decisions.length === 0 ? (
-              <div className="ov-empty">目前没有阻塞决策：需求已确认、检查已通过。可以直接进入交付。</div>
+              <div className="ov-empty">目前没有阻塞决策：需求已确认、官方检查已运行。进入交付页核对放行证据（本地门禁 + 在线 DFM + 三方签核）后才能正式导出。</div>
             ) : (
               <div className="ov-decisions">
                 {decisions.map((item) => (

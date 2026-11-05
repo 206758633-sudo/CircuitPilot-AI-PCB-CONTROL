@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, KeyRound, ListChecks, Play, RefreshCw, ShieldCheck, Square, XCircle } from 'lucide-react';
 import { useApp } from '../state/AppContext';
 import { runtimeClient, RuntimeApiError } from '../services/runtimeClient';
+import { isWriteGateClosed, writeGateClosedReason } from '../services/writeGate';
 import { parseRecipeParams } from '../services/automationParams';
 import type { AutomationApproval, AutomationAuditBundle, AutomationJournalEntry, AutomationRecipeSummary, AutomationRecoveryRun, AutomationRunResult, OrchestrationPlan, OrchestrationRecovery } from '../services/runtimeClient';
 import { Badge, Button, Panel, Stat, TableFrame } from '../components/ui';
@@ -167,8 +168,14 @@ export function AutomationPage() {
   useEffect(() => { void refresh(true); }, [realRuntime]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (realRuntime) void loadRecovery(); }, [realRuntime]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 2026-11-05 全链审计（UI-P1-2）：签发写批准/运行写配方都必须认 Runtime 的真实写门禁
+  // （全局暂停 + 本会话暂停）；只认全局会让会话级暂停在 UI 侧形同虚设。
+  const writeGateClosed = isWriteGateClosed(state.settings);
+  const writeGateReason = writeGateClosedReason(state.settings);
+
   const approve = async () => {
     if (!selected) return;
+    if (writeGateClosed) return notify('写入已暂停', `${writeGateReason}，再签发写批准。`, 'warning');
     setBusy('approve');
     setError(null);
     try {
@@ -199,6 +206,7 @@ export function AutomationPage() {
 
   const run = async () => {
     if (!selected) return;
+    if (writeGateClosed) return notify('写入已暂停', `${writeGateReason}，再运行写配方。`, 'warning');
     // runId 由前端先生成：这样“运行中”按钮可以立刻拿到 id 去请求中止。
     const runId = `ui-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     setBusy('run');
@@ -316,8 +324,8 @@ export function AutomationPage() {
           meta={selected ? selected.summary : '从左侧选择一条配方'}
           actions={selected && (
             <div className="row-actions">
-              {requiredApprovals.length > 0 && <Button icon={<KeyRound size={15} />} loading={busy === 'approve'} disabled={Boolean(busy) || !realRuntime || state.settings.writePaused} title={state.settings.writePaused ? 'Runtime 全局写入已暂停：恢复后才能签发写批准' : undefined} onClick={() => void approve()}>{requiredApprovals.includes('release') ? '签发放行批准' : '签发写板批准'}</Button>}
-              <Button variant="primary" icon={<Play size={15} />} loading={busy === 'run'} disabled={Boolean(busy) || !realRuntime || !selected || state.settings.writePaused} title={state.settings.writePaused ? 'Runtime 全局写入已暂停：写配方不能运行' : undefined} onClick={() => void run()}>运行配方</Button>
+              {requiredApprovals.length > 0 && <Button icon={<KeyRound size={15} />} loading={busy === 'approve'} disabled={Boolean(busy) || !realRuntime || writeGateClosed} title={writeGateClosed ? `${writeGateReason}，恢复后才能签发写批准` : undefined} onClick={() => void approve()}>{requiredApprovals.includes('release') ? '签发放行批准' : '签发写板批准'}</Button>}
+              <Button variant="primary" icon={<Play size={15} />} loading={busy === 'run'} disabled={Boolean(busy) || !realRuntime || !selected || writeGateClosed} title={writeGateClosed ? `${writeGateReason}，写配方不能运行` : undefined} onClick={() => void run()}>运行配方</Button>
               {busy === 'run' && activeRunId && <Button icon={<Square size={15} />} loading={aborting} onClick={() => void abortRun()}>中止运行</Button>}
             </div>
           )}

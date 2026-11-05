@@ -77,12 +77,14 @@ export function Drawer({ open, onClose, title, eyebrow, children, footer }: { op
   );
 }
 
-export function ConfirmDialog({ open, onClose, onConfirm, title, description, confirmLabel = '确认', danger }: { open: boolean; onClose: () => void; onConfirm: () => void; title: string; description: ReactNode; confirmLabel?: string; danger?: boolean }) {
-  return <Modal open={open} onClose={onClose} title={title} eyebrow="需要人工确认" footer={<><Button onClick={onClose}>取消</Button><Button variant={danger ? 'danger' : 'primary'} onClick={() => { onConfirm(); onClose(); }}>{confirmLabel}</Button></>}><div className="dialog-copy">{description}</div></Modal>;
+export function ConfirmDialog({ open, onClose, onConfirm, title, description, confirmLabel = '确认', danger, confirmDisabled, confirmDisabledReason }: { open: boolean; onClose: () => void; onConfirm: () => void; title: string; description: ReactNode; confirmLabel?: string; danger?: boolean; confirmDisabled?: boolean; confirmDisabledReason?: string }) {
+  // UI P2-2（2026-11-05 审计）：确认框打开后写门禁可能被暂停（例如在 EDA 页暂停本会话写入，弹窗不会自动关）。
+  // 确认按钮必须能跟着禁用并说明原因，否则用户仍能把暂停状态"确认"过去。
+  return <Modal open={open} onClose={onClose} title={title} eyebrow="需要人工确认" footer={<><Button onClick={onClose}>取消</Button><Button variant={danger ? 'danger' : 'primary'} disabled={confirmDisabled} title={confirmDisabled ? confirmDisabledReason : undefined} onClick={() => { onConfirm(); onClose(); }}>{confirmLabel}</Button></>}><div className="dialog-copy">{description}</div></Modal>;
 }
 
 export function ToastViewport({ toasts }: { toasts: ToastMessage[] }) {
-  return createPortal(<div className="toast-viewport" aria-live="polite">{toasts.map((toast) => <div className={`toast toast--${toast.tone}`} key={toast.id}><CheckCircle2 size={17} aria-hidden /><span>{toast.message}</span></div>)}</div>, document.body);
+  return createPortal(<div className="toast-viewport" aria-live="polite">{toasts.map((toast) => <div className={`toast toast--${toast.tone}`} key={toast.id}><CheckCircle2 size={17} aria-hidden /><span>{toast.title ? <><strong className="toast__title">{toast.title}</strong>{toast.message ? <span className="toast__message">{toast.message}</span> : null}</> : toast.message}</span></div>)}</div>, document.body);
 }
 
 export interface PaletteCommand { id: string; label: string; hint: string; action: () => void }

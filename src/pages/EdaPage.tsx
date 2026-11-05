@@ -4,7 +4,8 @@ import { useApp } from '../state/AppContext';
 import { countPlanOperations, getExecutionGate } from '../state/taskMachine';
 import { demoAdapter } from '../services/demoAdapter';
 import { RuntimeApiError, runtimeClient } from '../services/runtimeClient';
-import { clearSchematicPlanDraft, clearSemanticPlanDraft, readSchematicPlanDraft, readSemanticPlanDraft } from '../services/draftStore';
+import { clearSchematicPlanDraft, readSchematicPlanDraft, readSemanticPlanDraft } from '../services/draftStore';
+import { saveReviewedNetlistHandoff } from '../services/gateEvidenceInputs';
 import { resolvePcbDocumentUuid, saveEdaDocumentBinding } from '../services/edaWorkspaceStore';
 import { applyEvidencePatch, tryAdvanceProjectStage } from '../services/stageEvidence';
 import type { CommandLog, DesignApproval, DesignExecution, EdaDesignContext, ExecutionHistoryItem, PcbCapabilities, PcbContext, PcbExecution, PcbWriteLockState, SemanticPlanResult, SimpleBoardPlanResult } from '../types';
@@ -51,6 +52,15 @@ function missingFieldsTitle(missing: string[]): string | undefined {
   return missing.length ? `缺少字段：${missing.join('、')}` : undefined;
 }
 
+/**
+ * UI P2-2：计划编辑器文本是否已偏离"最近一次校验通过的计划"。
+ * 用与编辑器回填相同的 JSON.stringify(plan, null, 2) 比较，避免仅格式差异被误判成"计划被改了"。
+ */
+export function isPlanTextDirty(planText: string, validatedPlan: Record<string, unknown> | null | undefined): boolean {
+  if (!validatedPlan) return false;
+  try { return planText !== JSON.stringify(validatedPlan, null, 2); } catch { return true; }
+}
+
 export function EdaPage() {
   const { state, activeProject, dispatch, notify, addAudit, recordChange, reportIssue, reportFailure } = useApp();
   const aiProviderId = state.settings.provider === 'demo' ? 'codex_account' : state.settings.provider;
@@ -66,6 +76,9 @@ export function EdaPage() {
   const [createdWorkspace, setCreatedWorkspace] = useState<{ projectUuid: string; boardName: string; schematicUuid: string; schematicPageUuid: string; pcbUuid: string; schematicStatus?: 'empty' | 'generated' } | null>(null);
   const [designContext, setDesignContext] = useState<EdaDesignContext | null>(null);
   const [planText, setPlanText] = useState(planTemplate);
+  // UI P2-2（2026-11-05 审计）：计划编辑器被手动修改后，批准/执行仍会用"上一次校验通过的计划"，
+  // 等于绕过校验（令牌绑定的还是旧哈希）。用 planDirty 显式阻断，直到重新校验成功。
+  const [planDirty, setPlanDirty] = useState(false);
   const [planning, setPlanning] = useState<SimpleBoardPlanResult | null>(null);
   const [approval, setApproval] = useState<DesignApproval | null>(null);
   const [execution, setExecution] = useState<DesignExecution | null>(null);
@@ -192,12 +205,13 @@ export function EdaPage() {
   const projectComponents = state.components.filter((item) => item.projectId === state.activeProjectId);
   const projectAssets = state.assets;
 
-  useEffect(() => { setReviewedNetlist(null); setPlanning(null); setApproval(null); setExecution(null); setDesignContext(null); setPlanText(planTemplate); setCreatedWorkspace(activeProject?.edaWorkspace || null); setPcbDocumentUuid(resolvePcbDocumentUuid(activeProject)); }, [state.activeProjectId]);
+  useEffect(() => { setReviewedNetlist(null); setPlanning(null); setApproval(null); setExecution(null); setDesignContext(null); setPlanText(planTemplate); setPlanDirty(false); setCreatedWorkspace(activeProject?.edaWorkspace || null); setPcbDocumentUuid(resolvePcbDocumentUuid(activeProject)); }, [state.activeProjectId]);
 
   // 接收 AI 任务页交接过来的语义计划（sessionStorage 草稿）：挂载即载入候选，
   // 用户点“确认方案并准备执行”就会走编译→受控执行，不需要重新生成一遍。
   useEffect(() => {
-    const draft = readSemanticPlanDraft();
+    // UI P2-5：跨项目/超时草稿由 store 校验并清理，避免把别的项目的旧计划当成本项目交接。
+    const draft = readSemanticPlanDraft({ activeProjectId: activeProject?.id ?? null });
     if (!draft) return;
     setConversationCandidate({ status: 'ready', explanation: `来自 AI 任务页的计划候选 · ${draft.planHash.slice(0, 12)} · ${draft.explanation}`, blockingInformation: [], plan: draft.plan });
     setCompiledCandidate(null);
@@ -214,9 +228,10 @@ export function EdaPage() {
   // 选型提案 → 设计批准：把计划 JSON 填进计划编辑器并打开高级控制，
   // 用户点“3. 校验计划”时会重新算哈希，与提案哈希不一致会明确提示，而不是悄悄换一份。
   useEffect(() => {
-    const draft = readSchematicPlanDraft();
+    const draft = readSchematicPlanDraft({ activeProjectId: activeProject?.id ?? null });
     if (!draft) return;
     setPlanText(JSON.stringify(draft.plan, null, 2));
+    setPlanDirty(false);
     setImportedSchematic({ sourceLabel: draft.sourceLabel, planHash: draft.planHash });
     setAdvancedOpen(true);
     addAudit('eda', '接收选型计划草稿', `${draft.sourceLabel} · ${draft.planHash?.slice(0, 12) || '无哈希'}`, 'info');
@@ -277,7 +292,10 @@ export function EdaPage() {
       const compiled = await runtimeClient.compileProductionPlan(conversationCandidate.plan);
       setCompiledCandidate(compiled);
       if (!compiled.ready || !compiled.compiled) return notify('方案未通过确定性校验', compiled.blocking.map((item) => item.message).join('、') || '请补全工程证据。', 'danger');
-      clearSemanticPlanDraft();
+      // 设计-P0-2：这里刻意**不清** clearSemanticPlanDraft()。
+      // 修复前准备执行就把语义计划草稿删了，而 AssetsPage readiness 的唯一输入正是这份草稿，
+      // 于是"走完设计链 → 生产放行"必然 PRODUCTION_PLAN_MISSING。保留草稿供交付链接续；
+      // 草稿是会话级的，跨页交接时 UI 会显示来源与哈希，不会静默复用旧计划。
       // P0-1：把来源页的两份哈希一起带进 PCB 计划——批准令牌与账本因此能证明“写的就是批准的”。
       const executable = await runtimeClient.normalizePcbPlan({
         ...compiled.compiled,
@@ -305,7 +323,7 @@ export function EdaPage() {
        *   2) 有缺件 → 把"同步后应有的位号"写进计划，执行器回读缺一个就失败回滚；
        *   3) 有未标注位号 → 先让人标注，不能把 `R?` 当作期望值。
        */
-      const syncState = await runtimeClient.pcbSyncVerify();
+      const syncState = await runtimeClient.pcbSyncVerify(pcbDocumentUuid.trim() || activeProject?.edaWorkspace?.pcbUuid || undefined);
       const syncVerification = syncState.verification;
       const expectedDesignators = syncState.schematic.designators.filter((item) => !String(item).includes('?'));
       if (syncVerification.unannotated.length) {
@@ -359,7 +377,7 @@ export function EdaPage() {
       let postSync: Awaited<ReturnType<typeof runtimeClient.pcbSyncVerify>> | null = null;
       let postError: string | null = null;
       if (didComplete) {
-        try { postSync = await runtimeClient.pcbSyncVerify(); } catch (error) { postError = explain(error); }
+        try { postSync = await runtimeClient.pcbSyncVerify(pcbDocumentUuid.trim() || activeProject?.edaWorkspace?.pcbUuid || undefined); } catch (error) { postError = explain(error); }
       }
       const syncMissing = postSync?.verification.missing ?? [];
       const syncExtra = postSync?.verification.extra ?? [];
@@ -456,9 +474,25 @@ export function EdaPage() {
     finally { setDesignBusy(null); }
   };
 
+  /** UI P2-2：每次编辑都重新判定脏状态；改回与校验结果完全一致时自动解除。 */
+  const updatePlanText = (next: string) => {
+    setPlanText(next);
+    setPlanDirty(isPlanTextDirty(next, planning?.plan));
+  };
+
   const validatePlan = async () => {
     setDesignBusy('plan');
-    try { const parsed = JSON.parse(planText); const withLineage = parsed && typeof parsed === 'object' && !Array.isArray(parsed) && importedSchematic?.planHash && !(parsed as { semanticPlanHash?: string }).semanticPlanHash ? { ...parsed, semanticPlanHash: importedSchematic.planHash } : parsed; const value = await runtimeClient.normalizeDesignPlan(withLineage); setPlanning(value); setApproval(null); setExecution(null); recordChange({ source: 'ai', actor: 'CircuitPilot Runtime', action: 'plan', objectType: 'schematic-plan', objectId: value.planHash, summary: value.ready ? '简单控制板计划可审批' : `计划仍缺少${value.missing.length}项`, after: { planHash: value.planHash, missing: value.missing }, reason: '固定Schema校验与稳定哈希' }); const hashMismatch = importedSchematic?.planHash && value.planHash !== importedSchematic.planHash; notify(value.ready ? '计划校验通过' : '计划尚不能批准', hashMismatch ? `注意：本次哈希 ${value.planHash.slice(0, 12)} 与提案交接的 ${importedSchematic?.planHash?.slice(0, 12)} 不一致（计划被编辑过或校验规则变化），批准将绑定本次哈希。` : (value.ready ? `哈希 ${value.planHash.slice(0, 12)}` : value.missing.join('、')), hashMismatch ? 'warning' : value.ready ? 'success' : 'warning'); }
+    try {
+      // 2026-11-05 审计（设计 P1-1）：不要把提案哈希注入计划再校验。
+      // 旧实现把 `semanticPlanHash` 塞进计划 → 哈希参与计算 → 校验后 planHash 必然与提案不同，
+      // 于是每次载入提案都必然弹"计划被编辑过"的误导警告，且这个字段语义是"语义计划哈希"（PCB 链的）。
+      // 现在保持计划原文不变，直接比较"提案哈希 vs 校验后哈希"：一致就是同一份计划。
+      const parsed = JSON.parse(planText);
+      const value = await runtimeClient.normalizeDesignPlan(parsed); setPlanning(value); setPlanDirty(false); setApproval(null); setExecution(null); recordChange({ source: 'ai', actor: 'CircuitPilot Runtime', action: 'plan', objectType: 'schematic-plan', objectId: value.planHash, summary: value.ready ? '简单控制板计划可审批' : `计划仍缺少${value.missing.length}项`, after: { planHash: value.planHash, missing: value.missing }, reason: '固定Schema校验与稳定哈希' });
+      // P0-1：校验成功后把"网表 + 校验后的计划"再交一次给 G3（计划随校验更新）；
+      // 没有已审核网表时 helper 不写，避免用空对象覆盖上一份真实交接。
+      saveReviewedNetlistHandoff({ netlist: reviewedNetlist, plan: value.plan });
+      const hashMismatch = importedSchematic?.planHash && value.planHash !== importedSchematic.planHash; notify(value.ready ? '计划校验通过' : '计划尚不能批准', hashMismatch ? `注意：本次哈希 ${value.planHash.slice(0, 12)} 与提案交接的 ${importedSchematic?.planHash?.slice(0, 12)} 不一致（计划被编辑过或校验规则变化），批准将绑定本次哈希。` : (value.ready ? `哈希 ${value.planHash.slice(0, 12)}` : value.missing.join('、')), hashMismatch ? 'warning' : value.ready ? 'success' : 'warning'); }
     catch (error) { notify('计划格式错误', explain(error), 'danger'); }
     finally { setDesignBusy(null); }
   };
@@ -489,7 +523,11 @@ export function EdaPage() {
         }
       }
       const result = await runtimeClient.generateReviewedNetlist({ project: activeProject, requirements: projectRequirements, components: projectComponents, assets: projectAssets }, state.settings.model === 'auto' ? null : state.settings.model, aiProviderId, aiProviderBaseUrl, { pinEvidence, requirePinEvidence: Boolean(pinEvidence), signal });
-      setReviewedNetlist(result.netlist); setPlanning(result.compilation); if (result.compilation?.plan) setPlanText(JSON.stringify(result.compilation.plan, null, 2)); setApproval(null); setExecution(null); setAdvancedOpen(true); addAudit('ai', 'AI生成项目网络表草案', `${activeProject?.code || state.activeProjectId} · ${result.status}${pinNote ? ` · ${pinNote}` : ''}`, result.status === 'ready' ? 'success' : 'warning'); notify(result.status === 'ready' ? '网络表草案已生成' : '网络表仍缺少关键信息', result.status === 'ready' ? `请检查网络与引脚，随后打开原理图并批准。${pinNote ? `（${pinNote}）` : ''}` : result.blockers.join('、'), result.status === 'ready' ? 'success' : 'warning');
+      setReviewedNetlist(result.netlist); setPlanning(result.compilation); if (result.compilation?.plan) setPlanText(JSON.stringify(result.compilation.plan, null, 2)); setPlanDirty(false); setApproval(null); setExecution(null); setAdvancedOpen(true);
+      // P0-1（2026-11-05 全链审计）：把已审核网表写进 sessionStorage 交接给验证中心 G3。
+      // 修复前 G3 只能靠人手动贴 JSON，产品内根本拿不到意图网表 → 该门永不 pass。
+      if (result.netlist) saveReviewedNetlistHandoff({ netlist: result.netlist, plan: result.compilation?.plan ?? null });
+      addAudit('ai', 'AI生成项目网络表草案', `${activeProject?.code || state.activeProjectId} · ${result.status}${pinNote ? ` · ${pinNote}` : ''}`, result.status === 'ready' ? 'success' : 'warning'); notify(result.status === 'ready' ? '网络表草案已生成' : '网络表仍缺少关键信息', result.status === 'ready' ? `请检查网络与引脚，随后打开原理图并批准。${pinNote ? `（${pinNote}）` : ''}` : result.blockers.join('、'), result.status === 'ready' ? 'success' : 'warning');
         return result;
       },
     });
@@ -500,6 +538,7 @@ export function EdaPage() {
   };
 
   const approvePlan = async () => {
+    if (planDirty) return notify('计划已修改', '计划文本在上次校验后被修改：请重新点“3. 校验计划”，否则批准令牌绑定的仍是旧哈希。', 'warning');
     if (!planning?.ready || !designContext) return notify('无法批准', '请先读取真实上下文并补全计划。', 'warning');
     setDesignBusy('approve');
     try { const value = await runtimeClient.approveDesign({ plan: planning.plan, targetFingerprint: designContext.targetFingerprint, windowId: designContext.windowId, ...designTargetBinding }); setApproval(value); addAudit('eda', '人工批准受控原理图计划', `${value.planHash.slice(0, 12)} · 令牌5分钟内一次有效`, 'success'); recordChange({ source: 'user', actor: '本机用户', action: 'approve', objectType: 'schematic-plan', objectId: value.planHash, summary: '批准绑定目标和步骤的不可变计划', after: { windowId: value.windowId, expiresAt: value.expiresAt }, reason: '真实写入前人工确认' }); clearSchematicPlanDraft(); setImportedSchematic(null); notify('计划已批准', '一次性令牌已绑定当前窗口、文档指纹和计划哈希。', 'success'); }
@@ -578,6 +617,7 @@ export function EdaPage() {
   };
 
   const executePlan = async () => {
+    if (planDirty) return notify('计划已修改', '计划文本在上次校验后被修改：请重新点“3. 校验计划”并重新批准后再执行。', 'warning');
     if (!approval || !planning || !designContext) return notify('无法执行', '缺少有效批准或目标上下文。', 'warning');
     if (!schematicExecutionGate.allowed) return notify('写入门禁未通过', schematicExecutionGate.reason, 'warning');
     const task = createSingleCallTask<DesignExecution>({
@@ -757,7 +797,7 @@ export function EdaPage() {
       ) : null}
       <div className="detail-stack"><div className="toolbar toolbar--wrap"><label className="search-box"><input aria-label="PCB文档UUID" value={pcbDocumentUuid} onChange={(event) => changePcbDocumentUuid(event.target.value)} placeholder="PCB文档UUID" /></label><Button icon={<MonitorCog size={14} />} loading={pcbBusy === 'open'} disabled={!/^[a-f0-9]{16,64}$/i.test(pcbDocumentUuid.trim())} onClick={openPcbDocument}>打开PCB编辑器</Button><Button icon={<RefreshCw size={14} />} loading={pcbBusy === 'context'} onClick={readPcbContext}>1. 读取真实PCB</Button><Button icon={<Bot size={14} />} loading={pcbBusy === 'compile'} onClick={compilePcbPlan}>2. 编译CH32V003计划</Button><Button icon={<Code2 size={14} />} loading={pcbBusy === 'validate'} onClick={validatePcbPlan}>3. 校验PCB计划</Button><Button icon={<ShieldCheck size={14} />} loading={pcbBusy === 'approve'} disabled={!pcbPlanning?.ready || !pcbContext?.complete || writeGateClosed || pcbWriteLocked} title={pcbWriteLocked ? 'PCB 安全写锁未解除（上次回滚失败）：先在上方横幅确认现场并解除' : writeGateClosed ? '写入已暂停（全局或本会话）：恢复后才能签发写批准' : !pcbPlanning?.ready ? 'PCB 计划未就绪' : !pcbContext?.complete ? '请先读取完整 PCB 证据' : undefined} onClick={approvePcbPlan}>4. 人工批准PCB</Button><Button variant="primary" icon={<Play size={14} />} loading={pcbExecTask?.status === 'running'} disabled={!pcbApproval || !pcbExecutionGate.allowed || writeGateClosed || pcbWriteLocked} title={pcbWriteLocked ? 'PCB 安全写锁未解除（上次回滚失败）：先在上方横幅确认现场并解除' : writeGateClosed ? '写入已暂停（全局或本会话）：恢复后才能执行 PCB 写入' : !pcbApproval ? '请先人工批准PCB计划' : !pcbExecutionGate.allowed ? pcbExecutionGate.reason : undefined} onClick={executePcbPlan}>5. 执行PCB写入</Button></div><textarea className="design-plan-editor" aria-label="结构化PCB生产计划" value={pcbPlanText} onChange={(event) => setPcbPlanText(event.target.value)} rows={14} spellCheck={false} /><div className="inline-alert inline-alert--info" role="status"><CheckCircle2 size={16} /><span><strong>单位契约：</strong>计划中的坐标、线宽、孔径统一填 <code>mm</code>；执行时由 Runtime 转成 EDA PCB 原生 <code>mil</code>。不要把 mil 直接填进计划，否则会缩板 25.4 倍。</span></div><div className="permission-matrix"><div><span>PCB目标证据</span><strong className={pcbContext && !pcbContext.complete ? 'text-danger' : ''}>{pcbContext ? `${pcbContext.windowId} · ${pcbContext.complete ? '完整' : '读取不完整'} · ${pcbContext.targetFingerprint.slice(0, 12)}` : '未读取'}</strong></div><div><span>PCB计划门禁</span><strong className={pcbPlanning?.ready ? 'text-warning' : ''} title={pcbPlanning && !pcbPlanning.ready ? missingFieldsTitle(pcbPlanning.missing) : undefined}>{pcbPlanning ? pcbPlanning.ready ? `结构有效 · ${pcbPlanning.planHash.slice(0, 12)}` : formatMissingFields(pcbPlanning.missing) : '待校验'}</strong></div><div><span>批准血缘（语义/编译）</span><strong title="批准令牌与批准账本同时绑定这两份来源哈希；任一不一致会 409">{pcbApproval ? `${pcbApproval.semanticPlanHash?.slice(0, 12) ?? '—'} / ${pcbApproval.compiledPlanHash?.slice(0, 12) ?? '—'}` : '批准后显示'}</strong></div><div><span>PCB回读</span><strong>{pcbExecution?.readback ? `器件 ${pcbExecution.readback.componentCount} · 走线 ${pcbExecution.readback.lineCount} · 过孔 ${pcbExecution.readback.viaCount}` : '执行后强制回读'}</strong></div><div><span>官方PCB DRC</span><strong className={pcbExecution?.drc?.passed ? 'text-success' : 'text-warning'}>{pcbExecution?.drc ? pcbExecution.drc.passed ? '通过' : `${pcbExecution.drc.findings.length}项问题` : '尚未执行'}</strong></div><div><span>恢复/锁定状态</span><strong className={pcbExecution?.state === 'rollback_failed' ? 'text-danger' : pcbExecution?.state === 'rolled_back' ? 'text-success' : ''}>{pcbExecution?.state || '无执行记录'}</strong></div></div>{pcbPlanning && !pcbPlanning.ready && <div className="empty-inline"><strong>PCB计划阻断：</strong><span>{pcbPlanning.missing.join('、')}</span></div>}{<LongTaskPanel title="PCB受控执行长任务（D8：取消只停止本页等待，写入可能已部分生效）" snapshot={pcbExecTask} onCancel={pcbExecTask?.status === 'running' ? () => pcbExecTaskRef.current?.cancelTask() : undefined} onRetry={() => void executePcbPlan()} cancelLabel="停止等待写入" retryLabel="重新执行" />}{pcbExecution && <div className="console"><header><div><DatabaseBackup size={14} /> PCB EXECUTION AUDIT</div></header><div className="console__body">{pcbExecution.events.map((item, index) => <div className={`console-line console-line--${item.status === 'passed' ? 'success' : 'error'}`} key={`${item.at}-${index}`}><span>{new Date(item.at).toLocaleTimeString('zh-CN', { hour12: false })}</span><Badge tone={item.status === 'passed' ? 'success' : 'danger'}>{item.status}</Badge><code>{item.stage}</code><pre>{JSON.stringify(item.detail)}</pre></div>)}</div></div>}</div></Panel>
     <LayerStackPanel />
-    <Panel eyebrow="REVIEWED NETLIST PIPELINE" title="项目网络表 → 原理图受控执行" meta="AI只使用当前项目数据；真实写入前必须人工批准"><div className="detail-stack"><div className="toolbar toolbar--wrap"><Button icon={<Bot size={14} />} loading={designAiTask?.status === 'running'} onClick={generateAiPlan}>1. AI生成网络表草案</Button><Button icon={<ExternalLink size={14} />} loading={designBusy === 'open-schematic'} onClick={openProjectSchematic}>2. 打开关联原理图</Button><Button icon={<RefreshCw size={14} />} loading={designBusy === 'context'} onClick={readDesignContext}>读取当前原理图</Button><Button icon={<Code2 size={14} />} loading={designBusy === 'plan'} onClick={validatePlan}>3. 校验计划</Button><Button icon={<ShieldCheck size={14} />} loading={designBusy === 'approve'} disabled={!planning?.ready || !designContext || writeGateClosed} title={writeGateClosed ? '写入已暂停（全局或本会话）：恢复后才能签发写批准' : !planning?.ready ? '计划未就绪' : !designContext ? '请先读取当前原理图证据' : undefined} onClick={approvePlan}>4. 人工批准</Button><Button variant="primary" icon={<Play size={14} />} loading={designExecTask?.status === 'running'} disabled={!approval || !schematicExecutionGate.allowed || writeGateClosed} title={writeGateClosed ? '写入已暂停（全局或本会话）：恢复后才能执行原理图写入' : !approval ? '请先人工批准计划' : !schematicExecutionGate.allowed ? schematicExecutionGate.reason : undefined} onClick={executePlan}>5. 生成原理图</Button></div>{reviewedNetlist && <div className="empty-inline"><strong>待审核网络表：</strong><span>{JSON.stringify(reviewedNetlist)}</span></div>}<textarea className="design-plan-editor" aria-label="结构化设计计划" value={planText} onChange={(event) => setPlanText(event.target.value)} rows={16} spellCheck={false} />{importedSchematic ? <div className="inline-alert inline-alert--info" role="status"><CheckCircle2 size={16} /><span>计划草稿来自 <strong>{importedSchematic.sourceLabel}</strong>（交接哈希 <code>{importedSchematic.planHash?.slice(0, 12) || '—'}</code>）：先点“3. 校验计划”重新校验，再人工批准；批准令牌绑定校验后的哈希。</span></div> : null}<div className="permission-matrix"><div><span>目标证据</span><strong>{designContext ? `${designContext.windowId} · ${designContext.targetFingerprint.slice(0, 12)}` : '未读取'}</strong></div><div><span>计划门禁</span><strong className={planning?.ready ? 'text-success' : 'text-warning'} title={planning && !planning.ready ? missingFieldsTitle(planning.missing) : undefined}>{planning ? planning.ready ? `可批准 · ${planning.planHash.slice(0, 12)}` : formatMissingFields(planning.missing) : '待校验'}</strong></div><div><span>批准血缘（语义/编译）</span><strong title="批准令牌与批准账本同时绑定这两份来源哈希">{approval ? `${approval.semanticPlanHash?.slice(0, 12) ?? '—'} / ${approval.compiledPlanHash?.slice(0, 12) ?? '—'}` : '批准后显示'}</strong></div><div><span>真实快照</span><strong>{execution?.snapshot ? `${execution.snapshot.digest.slice(0, 12)} · ${execution.snapshot.size} bytes` : '执行前硬门禁'}</strong></div><div><span>原理图 DRC（ERC等效）</span><strong className={execution?.drc?.passed ? 'text-success' : 'text-warning'}>{execution?.drc ? execution.drc.passed ? '官方检查通过' : `${execution.drc.findings.length}项问题` : '尚未执行'}</strong></div><div><span>恢复状态</span><strong className={execution?.state === 'rollback_failed' ? 'text-danger' : execution?.state === 'rolled_back' ? 'text-success' : ''}>{execution?.state || '无执行记录'}</strong></div></div>{planning && !planning.ready && <div className="empty-inline"><strong>仍需补全：</strong><span>{planning.missing.join('、')}</span></div>}{<LongTaskPanel title="AI 网络表生成长任务（D8：取消只停止本页等待）" snapshot={designAiTask} onCancel={designAiTask?.status === 'running' ? () => designAiTaskRef.current?.cancelTask() : undefined} onRetry={() => void generateAiPlan()} cancelLabel="停止等待生成" retryLabel="重新生成" />}{<LongTaskPanel title="原理图受控执行长任务（D8：取消只停止本页等待）" snapshot={designExecTask} onCancel={designExecTask?.status === 'running' ? () => designExecTaskRef.current?.cancelTask() : undefined} onRetry={() => void executePlan()} cancelLabel="停止等待执行" retryLabel="重新执行" />}{execution && <div className="console"><header><div><DatabaseBackup size={14} /> EXECUTION AUDIT</div></header><div className="console__body">{execution.events.map((item, index) => <div className={`console-line console-line--${item.status === 'passed' ? 'success' : 'error'}`} key={`${item.at}-${index}`}><span>{new Date(item.at).toLocaleTimeString('zh-CN', { hour12: false })}</span><Badge tone={item.status === 'passed' ? 'success' : 'danger'}>{item.status}</Badge><code>{item.stage}</code><pre>{JSON.stringify(item.detail)}</pre></div>)}</div></div>}</div></Panel>
+    <Panel eyebrow="REVIEWED NETLIST PIPELINE" title="项目网络表 → 原理图受控执行" meta="AI只使用当前项目数据；真实写入前必须人工批准"><div className="detail-stack"><div className="toolbar toolbar--wrap"><Button icon={<Bot size={14} />} loading={designAiTask?.status === 'running'} onClick={generateAiPlan}>1. AI生成网络表草案</Button><Button icon={<ExternalLink size={14} />} loading={designBusy === 'open-schematic'} onClick={openProjectSchematic}>2. 打开关联原理图</Button><Button icon={<RefreshCw size={14} />} loading={designBusy === 'context'} onClick={readDesignContext}>读取当前原理图</Button><Button icon={<Code2 size={14} />} loading={designBusy === 'plan'} onClick={validatePlan}>3. 校验计划</Button><Button icon={<ShieldCheck size={14} />} loading={designBusy === 'approve'} disabled={!planning?.ready || !designContext || writeGateClosed || planDirty} title={planDirty ? '计划已修改，请重新校验后再批准' : writeGateClosed ? '写入已暂停（全局或本会话）：恢复后才能签发写批准' : !planning?.ready ? '计划未就绪' : !designContext ? '请先读取当前原理图证据' : undefined} onClick={approvePlan}>4. 人工批准</Button><Button variant="primary" icon={<Play size={14} />} loading={designExecTask?.status === 'running'} disabled={!approval || !schematicExecutionGate.allowed || writeGateClosed || planDirty} title={planDirty ? '计划已修改，请重新校验并重新批准后再执行' : writeGateClosed ? '写入已暂停（全局或本会话）：恢复后才能执行原理图写入' : !approval ? '请先人工批准计划' : !schematicExecutionGate.allowed ? schematicExecutionGate.reason : undefined} onClick={executePlan}>5. 生成原理图</Button></div>{reviewedNetlist && <div className="empty-inline"><strong>待审核网络表：</strong><span>{JSON.stringify(reviewedNetlist)}</span></div>}<textarea className="design-plan-editor" aria-label="结构化设计计划" value={planText} onChange={(event) => updatePlanText(event.target.value)} rows={16} spellCheck={false} />{importedSchematic ? <div className="inline-alert inline-alert--info" role="status"><CheckCircle2 size={16} /><span>计划草稿来自 <strong>{importedSchematic.sourceLabel}</strong>（交接哈希 <code>{importedSchematic.planHash?.slice(0, 12) || '—'}</code>）：先点“3. 校验计划”重新校验，再人工批准；批准令牌绑定校验后的哈希。</span></div> : null}<div className="permission-matrix"><div><span>目标证据</span><strong>{designContext ? `${designContext.windowId} · ${designContext.targetFingerprint.slice(0, 12)}` : '未读取'}</strong></div><div><span>计划门禁</span><strong className={planDirty ? 'text-danger' : planning?.ready ? 'text-success' : 'text-warning'} title={planDirty ? '计划文本已修改：批准/执行会绑定校验后的哈希，请先重新校验' : planning && !planning.ready ? missingFieldsTitle(planning.missing) : undefined}>{planDirty ? '计划已修改 · 需重新校验' : planning ? planning.ready ? `可批准 · ${planning.planHash.slice(0, 12)}` : formatMissingFields(planning.missing) : '待校验'}</strong></div><div><span>批准血缘（语义/编译）</span><strong title="批准令牌与批准账本同时绑定这两份来源哈希">{approval ? `${approval.semanticPlanHash?.slice(0, 12) ?? '—'} / ${approval.compiledPlanHash?.slice(0, 12) ?? '—'}` : '批准后显示'}</strong></div><div><span>真实快照</span><strong>{execution?.snapshot ? `${execution.snapshot.digest.slice(0, 12)} · ${execution.snapshot.size} bytes` : '执行前硬门禁'}</strong></div><div><span>原理图 DRC（ERC等效·基线模式）</span><strong className={execution?.drc?.passed ? 'text-success' : 'text-warning'} title="基线模式：本次执行只判『有没有新增违规』，不代表全板 DRC/ERC 清零">{execution?.drc ? execution.drc.passed ? '无新增违规（基线模式）' : `${execution.drc.findings.length}项问题` : '尚未执行'}</strong></div><div><span>恢复状态</span><strong className={execution?.state === 'rollback_failed' ? 'text-danger' : execution?.state === 'rolled_back' ? 'text-success' : ''}>{execution?.state || '无执行记录'}</strong></div></div>{planning && !planning.ready && <div className="empty-inline"><strong>仍需补全：</strong><span>{planning.missing.join('、')}</span></div>}{<LongTaskPanel title="AI 网络表生成长任务（D8：取消只停止本页等待）" snapshot={designAiTask} onCancel={designAiTask?.status === 'running' ? () => designAiTaskRef.current?.cancelTask() : undefined} onRetry={() => void generateAiPlan()} cancelLabel="停止等待生成" retryLabel="重新生成" />}{<LongTaskPanel title="原理图受控执行长任务（D8：取消只停止本页等待）" snapshot={designExecTask} onCancel={designExecTask?.status === 'running' ? () => designExecTaskRef.current?.cancelTask() : undefined} onRetry={() => void executePlan()} cancelLabel="停止等待执行" retryLabel="重新执行" />}{execution && <div className="console"><header><div><DatabaseBackup size={14} /> EXECUTION AUDIT</div></header><div className="console__body">{execution.events.map((item, index) => <div className={`console-line console-line--${item.status === 'passed' ? 'success' : 'error'}`} key={`${item.at}-${index}`}><span>{new Date(item.at).toLocaleTimeString('zh-CN', { hour12: false })}</span><Badge tone={item.status === 'passed' ? 'success' : 'danger'}>{item.status}</Badge><code>{item.stage}</code><pre>{JSON.stringify(item.detail)}</pre></div>)}</div></div>}</div></Panel>
     <Panel eyebrow="EXECUTION HISTORY" title="执行历史（落盘，重启后仍在）" meta={state.runtime.mode === 'demo' ? 'DEMO 模式不读取真实执行历史' : '原理图/PCB 写入记录；点击行可展开完整事件'} actions={<Button icon={<RefreshCw size={15} />} loading={executionHistory.busy} disabled={executionHistory.busy || state.runtime.mode === 'demo'} onClick={() => void loadExecutionHistory()}>刷新历史</Button>}>
       {executionHistory.error ? <div className="inline-alert inline-alert--danger"><XCircle size={16} /><span>读取执行历史失败：{executionHistory.error}</span></div> : null}
       {executionHistory.persistenceError ? <div className="inline-alert inline-alert--warning"><XCircle size={16} /><span>执行历史未完全落盘：{executionHistory.persistenceError}（本次执行记录仍返回，但重启后可能丢失；请检查 state 目录权限）</span></div> : null}

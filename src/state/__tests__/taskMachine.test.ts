@@ -23,9 +23,25 @@ describe('getExecutionGate', () => {
     expect(getExecutionGate(approved, { ...eda, connected: false }, settings)).toEqual({ allowed: false, reason: 'EDA桥接未连接' });
   });
 
-  it('blocks when either the session or the global write pause is active', () => {
-    expect(getExecutionGate(approved, { ...eda, writePaused: true }, settings)).toEqual({ allowed: false, reason: '全局写入已暂停' });
-    expect(getExecutionGate(approved, eda, { ...settings, writePaused: true })).toEqual({ allowed: false, reason: '全局写入已暂停' });
+  it('blocks when the global write pause is active (原因写明是全局，而不是笼统的“写入已暂停”)', () => {
+    expect(getExecutionGate(approved, eda, { ...settings, writePaused: true })).toEqual({
+      allowed: false,
+      reason: 'Runtime 全局写入已暂停：请先在设置页恢复写入',
+    });
+  });
+
+  it('blocks when only the session write pause is active（UI P2-1：会话暂停也必须进执行门禁）', () => {
+    expect(getExecutionGate(approved, eda, { ...settings, writePaused: false, sessionPaused: true })).toEqual({
+      allowed: false,
+      reason: '本会话写入已暂停：请关闭 EDA 页「暂停本会话写入」',
+    });
+  });
+
+  it('blocks on the local EDA pause mirror even if settings only carry it on eda state', () => {
+    expect(getExecutionGate(approved, { ...eda, writePaused: true }, { ...settings, writePaused: false, sessionPaused: false })).toEqual({
+      allowed: false,
+      reason: 'EDA 会话写入已暂停：请先恢复 EDA 页的写入开关',
+    });
   });
 
   it('blocks when no target EDA window has been selected', () => {

@@ -14,6 +14,7 @@ import { LongTaskPanel } from '../components/LongTaskPanel';
 import { createSingleCallTask, type LongTaskSnapshot, type SingleCallController } from '../services/longTask';
 import { applyEvidencePatch, tryAdvanceProjectStage } from '../services/stageEvidence';
 import { LAYOUT_INTENT_TEMPLATE_TEXT } from '../services/layoutIntentTemplate';
+import { isWriteGateClosed, writeGateClosedReason } from '../services/writeGate';
 
 /**
  * 布局微调页：按板框自动布局 + 数值微调 + 预演/写回/还原。
@@ -43,6 +44,10 @@ export function PlacementPage() {
   const [intentText, setIntentText] = useState('');
   const [intentError, setIntentError] = useState<string | null>(null);
   const [autoDrc, setAutoDrc] = useState(true);
+  // 2026-11-05 全链审计（PCB-P2-2 / UI-P1-1）：写回与还原都是真实写操作，
+  // 必须同时认 Runtime 的真实写门禁（全局暂停 + 本会话暂停），不能只看全局开关。
+  const writeGateClosed = isWriteGateClosed(state.settings);
+  const writeGateReason = writeGateClosedReason(state.settings);
 
   const fail = (error: unknown, action: string) => {
     const detail = error instanceof RuntimeApiError ? `[${error.code}] ${error.message}` : error instanceof Error ? error.message : '未知错误';
@@ -101,15 +106,17 @@ export function PlacementPage() {
   const apply = async () => {
     setConfirmOpen(false);
     if (!editedPlan) return;
-    // P0-8：Runtime 全局写暂停时不在 UI 侧发起（服务端仍会 409 兜底，脚本无法绕过）。
-    if (state.settings.writePaused) return notify('写入已暂停', 'Runtime 全局写入已暂停：请先在设置页恢复写入，再执行布局写回。', 'warning');
+    // P0-8：Runtime 写暂停（全局/本会话）时不在 UI 侧发起（服务端仍会 409 兜底，脚本无法绕过）。
+    if (writeGateClosed) return notify('写入已暂停', `${writeGateReason}，再执行布局写回。`, 'warning');
     setBusy('apply');
     setApplySnapshot(null);
     let approvalIdUsed = '';
     const task = createSingleCallTask({
       call: async (signal) => {
         approvalIdUsed = await requestWriteApproval('R4 布局微调写回');
-        return runtimeClient.applyPlacement({ pcbUuid: pcbUuid.trim() || undefined, plan: editedPlan, dryRun: false, overhangAllowances: allowances, approvalIds: [approvalIdUsed], designIntent: readDesignIntent(), autoDrc }, { signal });
+        // P0-1（2026-11-05 全审计）：用户在确认框点"确认写回"本身就是人工确认；
+        // 只有真实写回（dryRun:false）带 userConfirmed:true，服务端据此落 G5 证据；预演不带。
+        return runtimeClient.applyPlacement({ pcbUuid: pcbUuid.trim() || undefined, plan: editedPlan, dryRun: false, overhangAllowances: allowances, approvalIds: [approvalIdUsed], designIntent: readDesignIntent(), autoDrc, userConfirmed: true }, { signal });
       },
       timeoutMs: 180_000,
       onUpdate: setApplySnapshot,
@@ -139,12 +146,15 @@ export function PlacementPage() {
 
   const restore = async () => {
     if (!plan) return;
+    // 还原也是真实写回（applyPlacement dryRun:false）：与写回同一套写门禁。
+    if (writeGateClosed) return notify('写入已暂停', `${writeGateReason}，再执行布局还原。`, 'warning');
     setBusy('restore');
     setRestoreSnapshot(null);
     const task = createSingleCallTask({
       call: async (signal) => {
         const approvalId = await requestWriteApproval('R4 布局还原到原位置');
-        return runtimeClient.applyPlacement({ pcbUuid: pcbUuid.trim() || undefined, plan: buildRestorePlan(plan.plan.placements), dryRun: false, approvalIds: [approvalId], designIntent: readDesignIntent(), autoDrc }, { signal });
+        // 还原同属真实写回（dryRun:false），也是一次人工确认过的写操作，同样带 userConfirmed。
+        return runtimeClient.applyPlacement({ pcbUuid: pcbUuid.trim() || undefined, plan: buildRestorePlan(plan.plan.placements), dryRun: false, approvalIds: [approvalId], designIntent: readDesignIntent(), autoDrc, userConfirmed: true }, { signal });
       },
       timeoutMs: 180_000,
       onUpdate: setRestoreSnapshot,
@@ -221,8 +231,8 @@ export function PlacementPage() {
             actions={(
               <div className="row-actions">
                 <Button icon={<Move size={15} />} loading={busy === 'dry'} disabled={!editedPlan} title={editedPlan ? '预演：只算不写，不改动嘉立创EDA' : '先点"读取板框并自动布局"生成方案'} onClick={preview}>预演写回</Button>
-                <Button variant="primary" icon={<ShieldCheck size={15} />} disabled={!editedPlan || busy !== null || state.settings.writePaused} title={state.settings.writePaused ? 'Runtime 全局写入已暂停：恢复后才能写回' : !editedPlan ? '先读取板框并生成方案' : busy !== null ? '正在执行上一个动作，请稍候' : '把微调后的坐标写回PCB（不会自动保存）'} onClick={() => setConfirmOpen(true)}>执行写回</Button>
-                <Button variant="ghost" icon={<Undo2 size={15} />} loading={busy === 'restore'} disabled={!plan} title={plan ? '把器件坐标写回读取方案时的原始位置' : '先读取板框并生成方案'} onClick={restore}>还原到原位置</Button>
+                <Button variant="primary" icon={<ShieldCheck size={15} />} disabled={!editedPlan || busy !== null || writeGateClosed} title={writeGateClosed ? `${writeGateReason}，恢复后才能写回` : !editedPlan ? '先读取板框并生成方案' : busy !== null ? '正在执行上一个动作，请稍候' : '把微调后的坐标写回PCB（不会自动保存）'} onClick={() => setConfirmOpen(true)}>执行写回</Button>
+                <Button variant="ghost" icon={<Undo2 size={15} />} loading={busy === 'restore'} disabled={!plan || writeGateClosed} title={writeGateClosed ? `${writeGateReason}，恢复后才能还原` : plan ? '把器件坐标写回读取方案时的原始位置' : '先读取板框并生成方案'} onClick={restore}>还原到原位置</Button>
               </div>
             )}
           >
