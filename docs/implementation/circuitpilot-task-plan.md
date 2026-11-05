@@ -698,3 +698,21 @@ journal/notes 如实记录"由 AI 代用户签发"。
 **本轮诚实边界**：A5/A6 的写通道只做了离线假桥/HTTP 验证，真机标注清零与整板批量落件尚未执行（需本机 EDA 会话 + 逐件写状态）；A9 只把"量到违规"作为写回阻断，缺 courtyard/3D 证据的规则保持 REVIEW+证据缺口，不宣布 releaseReady；E6 只是机制（alternatives/诊断/版本记录），EDA 3.2.186 实际可用菜单文案仍需真机截图确认后回填；A1 的 UI 自动带上 requirements 与设计事实录入仍未接。
 
 | T146 | D8 收口：布线回滚迁移 + 白名单 3 项登记 | D8 | `RoutingWritePanel` 回滚（120s）迁 `createSingleCallTask`+`LongTaskPanel`；`routingRollback` 加 `AbortSignal`；棘轮白名单 4→3（legacy 无 UI ×2 + 服务端 abort ×1） | vitest **157/157**；runtime **759/759**；typecheck/build 0 | ✅ D8 收口（无未迁移的 UI 长调用） |
+
+| T147 | 第 66 轮全系统闭环审计（5 链并行） | 设计/PCB/交付/平台/UI | 5 份只读审计报告落 `docs/implementation/full-audit-2026-11-05/`（01-design/02-pcb/03-delivery/04-platform/05-ui-wiring + README 汇总）；合计 P0 6 / P1 35 / P2 44；真机边界逐条列明 | 只读定向测试：设计 97 / PCB 95+22 / 交付 38+37 / 平台 0 fail；route-contract 3/3 | ✅ 审计交付（未连真机） |
+| T148 | 第 66 轮修复：交付哈希域 + 旧签核遮蔽 + 伪造官方验证 | 交付 P0-2 / P1-1 / P1-3 | `server.mjs`：export/archive binding 补 `projectName`；`isReleaseSignoffPayload` 要求 passed+roles；`PUT /api/validation-state` 校验 official 证据 engine/digest 真实存在且不跨项目 | `full-audit-2026-11-05-http.test.mjs` 5/5 + `validation-state.test.mjs` 3/3 | ✅ 代码闭环 |
+| T149 | 第 66 轮修复：PCB 批准目标绑定 + 覆铜目标板 | PCB P0-2 / P1-3 / P1-5 | `placement/apply` 消费批准前校验 `pcbUuid`（被拒不烧批准）；`schematic/repair` 同页校验 + `ensureSchematicActive`；`ensurePcbDocument` 显式切换请求板，pour 响应回实际 `pcbUuid` | 同 T148 测试（离线假桥，含 D2 拒绝/切板断言） | ✅ 代码闭环 |
+| T150 | 第 66 轮修复：前端写门禁/文案/交接 | UI P1-1/2/3/4、PCB P1-2/P2-2、交付 P2-1/P2-4/P2-7、设计 P0-2/P2-1 | 新增 `src/services/writeGate.ts`；Placement/Automation 双作用域守卫；设置页/概览文案诚实化；Toast title；修复写批准；DFM 预填；删 readiness 死存储；同步复核带 pcbUuid；保留语义草稿；DRC 基线措辞；版本快照 official 口径 | vitest 231/231（+5 新测试）；typecheck/build 通过 | ✅ 代码闭环 |
+| T151 | 第 66 轮路由契约清理 | UI P1-5 | `KNOWN_UNWIRED_ROUTES` 删 4 条误报、改写 2 条插件消费原因 | `route-contract.test.mjs` 3/3（200 路由 / 9 允许 / 0 孤儿） | ✅ |
+
+| V121 | 第 66 轮最终验证 | `npm run typecheck` 0；`npx vitest run` 231/231；`npm run test:runtime`（见下）；`npm run build` 通过；`node --test runtime/__tests__/route-contract.test.mjs` 3/3 | ✅（真机项按审计 README §2 明确未验证） |
+
+| T152 | 第 66 轮·第二轮：六门可签输入通道 | 交付 P0-1 | 服务端 G1 自动读 EDA 板框/层数生成 design-spec；验证中心 G2 三源映射（easyEdaBinding + supplyPricing）、G3 意图网表交接；布局写回 `userConfirmed`；六门签字 `drivesRelease:false` 边界显式化 | `p0-fixes-http` 9/9、`six-gates-inputs.test.tsx` 7/7 | ✅ 输入通道闭环（真实 pass 需真机数据） |
+| T153 | 第 66 轮·第二轮：写保护横向铺开 | PCB P0-2/P1-4/P1-6/P1-7/P1-11 | 跨进程 EDA 写锁覆盖 13 条直接写路由；GUI 写动作需写批准+safety；DRC 截断进裁决；直接写路由在途文档漂移守卫；placement/repair/pour 目标绑定 | 写路径相关 105/105、automation-run-lock 9/9、g3 3/3 | ✅ |
+| T154 | 第 66 轮·第二轮：配方网表读回 + DRC 截断 | PCB P0-1/P1-7 | recipe v3 `expectedNetNames` + `pcb.nets.read` compose 断言 + `containsAll`；未传时标 `readbackScope:componentCountOnly` | automation 26/26、pcb 23/23 | ✅ 代码闭环（调用方传参 + 真机形状待验） |
+| T155 | 第 66 轮·第二轮：交付裁决一致性/新鲜度/死门 | 交付 P1-2/P1-4/P1-5、设计 P1-6 | gate 与 export 同域 binding；门禁证据 TTL 新鲜度；release 裁决消费 netlist-diff/rules；pcbUuid 统一 derivation | release/p06/multilayer 48/48、gates-service 8/8 | ✅ |
+| T156 | 第 66 轮·第二轮：设计证据链 | 设计 P1-1/P1-7/P1-8 | 提案校验不再注入 lineage；pin evidence 落盘+digest 引用；project-state 阶段证据服务端核验/剔除 | pin-evidence 10/10、p0-fixes 9/9 | ✅ |
+| T157 | 第 66 轮·第二轮：平台守卫 | 平台 P1-1..P1-6 | 知识建议错误传播、RAG 语料摘要失效重建、AppContext 读失败停写回、research 权威开关门控、外发清单补 6 类+warnings、Supervisor sources 降级 | knowledge/rag 23+、provider-egress 4/4、supervisor-sources 2/2、hydrate-guard 2/2 | ✅ |
+| T158 | 第 66 轮·第二轮：UI/运维 P2 批量 | UI P2、平台 P2 | taskMachine/叠层双口径；草稿与 release-binding 项目+24h 校验；计划脏状态；幽灵入口；journal 轮转；备份覆盖 `~/.circuitpilot`；账本降级标记 | vitest 全量、runtime 全量、eda-jobs/approval-ledger 32/32 | ✅ |
+
+| V122 | 第 66 轮·第二轮最终验证 | `npm run typecheck` 0 error；`npx vitest run` **273/273**；`npm run test:runtime` **1488/1488**；`npm run build` 通过；route-contract 3/3（200/9/0） | ✅（真机/产品决策项见 checklist 第二轮"仍未闭环"，未冒充） |

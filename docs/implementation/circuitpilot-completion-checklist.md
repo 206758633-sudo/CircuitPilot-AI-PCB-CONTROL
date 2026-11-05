@@ -806,3 +806,81 @@
 - 实际执行：`npm test`（typecheck 0、vitest 157/157、runtime 759/759）+ `npm run acceptance` 全量通过（报告 `artifacts/acceptance/acceptance-2026-10-20T06-44-54-645Z.md`）；无冲突标记、无 FIXME/XXX 遗留；最终 5 项真机/环境受限步骤仍 SKIPPED 且写明原因。
 - **发现并修复一个真实测试 flake**：第 65 轮首次全量验收 runtime 758/759 失败（`POST /api/eda/library/devices/search` 返回 401 `RUNTIME_TOKEN_INVALID`）；用 6 次循环复现 1 次（同一条），根因是该用例依赖 `/api/health` 发放的 `sessionProof`，在并发/端口复用等场景下偶发拿到非本实例令牌（日志 `hadAuthHeader:true, issuanceEnabled:true`）。修复：`startServer` 支持注入 `runtimeToken` 并返回，该用例改用**本实例注入令牌**、health 仅断言可用；证据：单文件 10/10、全量 runtime 连续 3×759/759、随后 acceptance PASS。**残余风险如实说明**：其余 HTTP 用例仍多数使用 `sessionProof` 模式，本次只加固了已复现的这一条，未做全量改造。
 - 另确认：4179 上真实 Runtime 健康（`/api/health` ok），新路由 `GET /api/eda/pcb/layers` 正常返回（此前 06:21 的 `ROUTE_NOT_FOUND` 是"进程启动早于路由新增"的过期进程，非代码缺陷）。
+
+---
+
+## 第 66 轮（2026-11-05）：全系统闭环审计 + 集中修复
+
+> 用户要求"检查一遍整个 CircuitPilot 操作系统，完善所有的闭环"。5 条链并行只读审计，报告与修复清单见 **`docs/implementation/full-audit-2026-11-05/`**（README + 01-design / 02-pcb / 03-delivery / 04-platform / 05-ui-wiring）。
+> 汇总：P0 = 6（本轮修复 3：设计 P0-2 / PCB P0-2 / 交付 P0-2；未闭环 3：设计 P0-1 需真机、PCB P0-1 配方读回、交付 P0-1 六门可签）、P1 = 35、P2 = 44。本轮**只修代码层可闭环、可自动化回归**的项；其余按优先级列在审计 README §2，未做的不冒充。
+
+### 本轮修复（全部有回归）
+
+| 编号 | 来源 | 修复 | 回归 |
+|---|---|---|---|
+| R1 | 交付 P0-2 | 导出/归档 binding 补 `projectName`（与签核/readiness 同哈希域）→ 合法签核不再必然 MISMATCH/DRIFT | `runtime/__tests__/full-audit-2026-11-05-http.test.mjs` |
+| R2 | 交付 P1-1 | 旧 W5 `signoff-record`（reject、无 passed/roles）不再遮蔽有效交付签核 | 同上 |
+| R3 | 交付 P1-3 | `PUT /api/validation-state` 校验 official 记录的 engine/digest 必须在证据库真实存在、不得跨项目借证据 | 同上 + 更新 `validation-state.test.mjs` |
+| R4 | PCB P0-2 | `placement/apply` 在消费批准前校验请求 `pcbUuid` 与批准目标一致（批准 A 不能写 B），被拒请求不烧批准 | 同上 |
+| R5 | PCB P1-3 | `schematic/repair` 消费批准前校验"当前原理图页必须与请求页一致"，打开/激活统一 `ensureSchematicActive` | 同上（离线假桥） |
+| R6 | PCB P1-5 | `ensurePcbDocument` 显式请求别的板时真正切换；`pour/create` 响应带实际 `pcbUuid` | 同上 |
+| R7 | UI P1-5 | 路由契约允许清单清理：删 4 条误报；插件消费的 `design/plan/ai`、`design/executions/:id/evidence` 写明"由 DSH 插件消费，勿删" | `route-contract.test.mjs`（200 路由 / 9 允许 / 0 孤儿） |
+| F1 | PCB P2-2 / UI P1-1/2 | 新增 `src/services/writeGate.ts`：布局写回/还原、自动化签发/运行统一认全局+会话双作用域暂停 | `writeGate.test.ts` |
+| F2 | UI P1-3 | 设置页能力声明改为与现状一致（写入默认关闭、按需批准）；全局暂停文案收窄为"所有 EDA 写入" | `write-gate-ui.test.tsx` |
+| F3 | UI P1-4 | 概览 CTA/空态不再宣称"检查已通过可导出" | 同上 |
+| F4 | UI P2-7 | Toast 渲染 title + message | 同上 |
+| F5 | PCB P1-2 | 「执行修复并验收」先签发一次性写批准再带 `approvalIds`（消除点下必 409） | `npx vitest run src/pages` |
+| F6 | 交付 P2-4 | DFM 计划哈希从 readiness 交接预填 | `npx vitest run src/pages` |
+| F7 | 交付 P2-1 | 删除 readiness inputs 死存储（唯一交接来源 = `circuitpilot:release-binding`） | `releaseBindingStore.test.ts` |
+| F8 | PCB P1-8 | 同步复核/回读验收带 `pcbUuid`（多板工程不判错板） | typecheck + 页面测试 |
+| F9 | 设计 P0-2 | 设计链不再清掉语义计划草稿（保留给交付 readiness 续接） | `npx vitest run src/pages` |
+| F10 | 设计 P2-1 | 原理图 DRC 显示改为「无新增违规（基线模式）」 | typecheck |
+| F11 | 交付 P2-7 | 版本快照 validationStatus 只按当前项目 official 口径 | typecheck |
+
+### 状态回填（相对旧结论的口径修正）
+
+- `flow-gap-audit-2026-10-29.md` 的"设计链 ✅"→ 实际 🟨（主写入通道无真机证据、两链未合流；见 01-design）；
+- "六门结构闭环"→ 🟥（G1/G2/G3/G5 无产品输入通道，签字永久禁用；见 03-delivery P0-1）；
+- "交付链结构 ✅"→ R1 修复前签核→正式导出→归档结构性不可达，R1 已修、仍需真机 happy path；
+- "P1-11 写锁覆盖"→ 🟥（`withEdaWriteLock` 全仓 0 产品调用，0/18 写路由）；
+- A3"提案→批准同一 planHash"→ 🟥（注入 lineage 使哈希必变，01-design P1-1）；A4"计划层闭环"→ 🟨（输入自报且不持久化）。
+
+### 未做（明确不冒充，按审计 README §2 排期）
+
+P0：六门可签口径（标未实现或补 G5 `userConfirmed`，可离线做）；真机项：原理图连线通道、正式导出/归档 happy path、`pcb-sync` 配方网表/DRC 等价读回。
+P1：EDA 跨进程写锁接线、gate/export/archive 裁决输入统一、门禁证据新鲜度、知识库损坏传播、RAG 失效、状态读失败覆盖、联网外发门禁、G4 清单、Supervisor plan 源降级、提案哈希语义、阶段证据服务端化、Agent 自批收紧、GUI 写批准、DRC 截断裁决、在途漂移校验。
+
+---
+
+## 第 66 轮·第二轮（2026-11-05 下午）：把未闭环的打通
+
+> 用户要求"把未闭环的打通"。基于同日上午 5 链审计（`docs/implementation/full-audit-2026-11-05/`），本轮把**代码层可闭环的 P0/P1 全部落地**，并把必须真机/产品决策的项明确标注。详细对照见审计 README §6。
+
+### 本轮闭环（B1–B24，全部有回归）
+
+| 组 | 闭环内容 |
+|---|---|
+| 六门可签（B1/B2） | G1 由服务端从 EDA 只读板框/层数自动生成 design-spec；G2 前端映射 `easyEdaBinding→eda` + `supplyPricing→supply`；G3 由 EDA 页交接 `circuitpilot:reviewed-netlist` 供验证中心载入；G5 布局写回带 `userConfirmed:true`；六门签字显式标注 `drivesRelease:false`（只做看板留痕，不驱动正式放行） |
+| 写保护（B3–B6） | 跨进程 EDA 写锁真正覆盖 13 条直接写路由（`acquireEdaWriteLock` + 分发前抢锁/响应前释放）；GUI 写动作必须一次性写批准 + safety 矩阵；DRC 截断一律 passed=false；直接写路由每个 allowWrite 前确认活动文档未漂移（漂移自动切回目标） |
+| 配方读回（B7） | `pcb-sync-from-schematic` v3：`expectedNetNames` + `pcb.nets.read` compose 断言（未传时结果明确标 `readbackScope:componentCountOnly`，不再静默） |
+| 交付（B8–B11） | gate 路由与正式导出使用同一完整 binding（消除"按钮亮、点下 409"）；门禁证据按类型 TTL 判新鲜度（过期降 unknown 并标 stale）；netlist-diff/rules 证据接入放行裁决（不再是死门）；签核/DFM/导出/下单统一 `unifiedPcbUuid`（手填→项目 EDA 绑定），readiness 交接 binding 带 pcbUuid |
+| 设计（B12–B14） | 提案→批准不再注入 lineage（planHash 可真正比对一致）；引脚证据摘要落盘 + 网表生成支持 `pinEvidenceDigest` 服务端回查；PUT project-state 剔除无法核验的阶段证据（防客户端自报"原理图已生成"） |
+| 平台（B15–B20） | 知识库损坏不再伪装"没有知识"（queryErrors/degraded）；RAG 按 `knowledgeCorpusDigest` 自动失效重建；AppContext 读失败停自动写回 + 报 issue；联网检索必须服从 Runtime 权威开关（allowResearch 不再能绕过）；G4 外发清单补 6 类真实外发点 + warnings；Supervisor 响应下发 sources 可用性（plan 源损坏不再静默省略） |
+| UI/P2（B21–B24） | 会话暂停覆盖到 taskMachine 执行门禁与叠层确认；草稿/交接带项目+24h 校验；计划编辑脏状态禁用批准/执行；幽灵入口改可点；EDA job journal 轮转；备份覆盖 `~/.circuitpilot`；批准账本降级含 `degraded` 标记 |
+
+### 第二轮验证
+
+| 命令 | 结果 |
+|---|---|
+| `npm run typecheck` | 通过（0 error） |
+| `npx vitest run` | **273/273**（40 文件；含本轮新增 six-gates-inputs/hydrate-guard/supervisor-degraded/research-status/draft-handoff/releaseHandoff/settings-eda-nav/eda-plan-dirty/confirm-dialog-disabled 等） |
+| `npm run test:runtime` | **1488/1488**（含新增 full-audit/p0-fixes 扩展/supervisor-sources/rag-invalidation/eda-jobs 轮转/approval-ledger 降级等） |
+| `npm run build` | 通过（Vite） |
+| `node --test runtime/__tests__/route-contract.test.mjs` | 3/3（200 路由 / 9 允许清单 / 0 孤儿） |
+
+### 仍未闭环（真机/产品决策，不冒充）
+
+- **设计 P0-1**：原理图受控写入主通道仍是历史 `schematic.wire.create`（A7 真机跑通的是 `netPort`），需真机复验/替换并加"目标引脚网名==计划网名"读回。
+- **六门真实 pass / 正式导出→归档 happy path / pcb.nets.read 形状**：输入通道与代码路径已补齐，但需要真机 + 联网 + 真实板数据跑一次。
+- **pcb-sync 默认路径**：`expectedNetNames` 为可选，现有 UI/编排调用尚未传（结果已标注仅器件数，不静默）。
+- **产品决策项**：AI 语义计划与原理图链的关联口径（当前诚实拆线）、Agent 自批确认令牌协议、需求约束进入计划层级、批准目标绑定是否强制、网表身份读回契约。
