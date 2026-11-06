@@ -200,3 +200,46 @@ node scripts/design-framework.mjs --status                   → kicad-cli 不�
 下一阶段提高覆盖率的路径：补 IR 字段（3D 高度/courtyard/连接器朝向/silk/铜层几何）、
 接 KiCad CLI 真机 DRC、把 `rule` 知识条目补上判定器与测试（见 §8 与风险规避矩阵）。
 
+
+---
+
+## 10. Runtime API 与 DSH Agent 接入（2026-11-06）
+
+### 10.1 HTTP 路由（只读，Agent 可用）
+
+| 路由 | 方法 | 作用 | 说明 |
+|---|---|---|---|
+| `/api/design/framework/status` | GET | 分层元数据 + KiCad CLI / OR-Tools / Z3 / Shapely 探测 | 缺失一律 `available:false`，不假装可用 |
+| `/api/design/framework/golden` | GET | 金板评估指标（5 个离线用例） | 返回 `evaluation.metrics`（通过率/状态分布/迭代/修复/规则覆盖率） |
+| `/api/design/framework/run` | POST | 离线设计闭环 | body `{ model, options?{maxIterations,fabProfile} }`；模型 JSON ≤200KB、迭代 ≤8；**不写 EDA、不签核** |
+
+实现：`runtime/design-framework-service.mjs`（路由的纯函数包装，含模型大小/结构校验与稳定摘要）。
+Agent 授权：`runtime/agent-auth.mjs` 是 denylist，三条只读路由默认放行；写/签核路由仍被拒绝。
+
+真机冒烟（隔离 Runtime `127.0.0.1:4192`，agent token）：
+```text
+GET  /api/design/framework/status → 200 { framework.kicad.available=false, externalSolvers.*.available=false }
+GET  /api/design/framework/golden → 200 { evaluation.ok=true, metrics: 5/5, needs-review=3, blocked=2 }
+POST /api/design/framework/run    → 200 { framework.status="needs-review", repairCount=1, blocking=0, plan.operations=1 }
+```
+
+### 10.2 UI / 客户端
+
+`src/services/runtimeClient.ts` 增加只读方法：`designFrameworkStatus()` / `designFrameworkGolden()` /
+`designFrameworkRun({model, options})`；对应类型在 `src/types.ts`（`DesignFrameworkStatus` /
+`DesignFrameworkGoldenReport` / `DesignFrameworkLoopSummary`）。UI 尚未接入页面，API/类型已就绪。
+
+### 10.3 DSH 插件工具 `cp_design_loop`（第 13 个工具）
+
+`dsh-circuitpilot` v0.2.x 新增只读工具 `cp_design_loop`（`type: read`）：
+- 输入 `{ model, options? }`（与 Runtime 路由一致，模型 JSON ≤200KB、maxIterations 1–8）；
+- 调用 `POST /api/design/framework/run`，返回 `status/iterations/repairs/summary/evidence/plan 摘要`；
+- `blocked` → 工具返回 `DESIGN_LOOP_BLOCKED` + blocking 列表；`needs-review` → 提示补证据/人工审阅；
+  `passed` → 仍提示必须官方 DRC + 审批才能写 EDA；
+- **不写 EDA、不签核、不走 cp_approve/cp_execute**；结果仍受 16KB 裁剪与 token 不泄漏约束。
+
+### 10.4 仍未做（如实保留）
+
+1. UI 页面接入（当前只有 client 方法与类型）；
+2. `cp_design_loop` 的模型来源仍是"调用方传入 IR"（尚未从项目状态/EDA 读回自动构建 IR）；
+3. 真实 KiCad DRC 与外部求解器接入（本机未安装，适配器已留缝）。

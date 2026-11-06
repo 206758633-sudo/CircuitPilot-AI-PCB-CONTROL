@@ -83,9 +83,9 @@ test('stdio：DSH 式协商（server/discover → initialize）→ tools/list �
     assert.ok(init.result.serverInfo.name.length > 0);
     assert.ok(Buffer.byteLength(init.result.instructions, 'utf8') <= 32_768);
 
-    // 3) tools/list 必须恰好是 12 个 CircuitPilot 工具。
+    // 3) tools/list 必须恰好是 13 个 CircuitPilot 工具。
     const listed = await session.request('tools/list');
-    assert.equal(listed.result.tools.length, 12);
+    assert.equal(listed.result.tools.length, 13);
     assert.deepEqual(listed.result.tools.map((tool) => tool.name), [...TOOL_NAMES]);
 
     // 4) 只读工具真实走 Runtime HTTP；token 必须带上，且只能出现在 Runtime 侧。

@@ -86,7 +86,7 @@ async function startServer(context, overrides = {}) {
   return { instance, base, logs, request, postRaw, rpc };
 }
 
-test('Streamable HTTP：initialize 200 + application/json + Mcp-Session-Id(UUID)，后续 tools/list=12、ping', async (context) => {
+test('Streamable HTTP：initialize 200 + application/json + Mcp-Session-Id(UUID)，后续 tools/list=13、ping', async (context) => {
   const { rpc, instance } = await startServer(context);
 
   const init = await rpc(initializeMessage());
@@ -102,15 +102,15 @@ test('Streamable HTTP：initialize 200 + application/json + Mcp-Session-Id(UUID)
 
   const tools = await rpc({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { [MCP_HTTP_SESSION_HEADER]: sessionId });
   assert.equal(tools.status, 200);
-  assert.equal(tools.json.result.tools.length, 12);
+  assert.equal(tools.json.result.tools.length, 13);
 
   // session header 仅作会话标识、不作认证：不带、带错误值都必须接受。
   const toolsNoSession = await rpc({ jsonrpc: '2.0', id: 3, method: 'tools/list' });
   assert.equal(toolsNoSession.status, 200);
-  assert.equal(toolsNoSession.json.result.tools.length, 12);
+  assert.equal(toolsNoSession.json.result.tools.length, 13);
   const toolsWrongSession = await rpc({ jsonrpc: '2.0', id: 4, method: 'tools/list' }, { [MCP_HTTP_SESSION_HEADER]: 'not-a-real-session' });
   assert.equal(toolsWrongSession.status, 200);
-  assert.equal(toolsWrongSession.json.result.tools.length, 12);
+  assert.equal(toolsWrongSession.json.result.tools.length, 13);
 
   const ping = await rpc({ jsonrpc: '2.0', id: 5, method: 'ping' });
   assert.equal(ping.status, 200);
@@ -300,15 +300,15 @@ test('HTTP 认证：无/错 token → 401 且不执行 JSON-RPC；Bearer 与 x h
     { authorization: `Bearer ${AUTH_TOKEN}`, [MCP_HTTP_SESSION_HEADER]: bearerInit.headers.get(MCP_HTTP_SESSION_HEADER) },
   );
   assert.equal(bearerTools.status, 200);
-  assert.equal(bearerTools.json.result.tools.length, 12);
+  assert.equal(bearerTools.json.result.tools.length, 13);
 
   // x-circuitpilot-mcp-token 同样有效（大小写不敏感 Bearer scheme 也接受）。
   const headerTools = await rpc({ jsonrpc: '2.0', id: 7, method: 'tools/list' }, { [MCP_HTTP_TOKEN_HEADER]: AUTH_TOKEN });
   assert.equal(headerTools.status, 200);
-  assert.equal(headerTools.json.result.tools.length, 12);
+  assert.equal(headerTools.json.result.tools.length, 13);
   const lowercaseBearer = await rpc({ jsonrpc: '2.0', id: 8, method: 'tools/list' }, { authorization: `bearer ${AUTH_TOKEN}` });
   assert.equal(lowercaseBearer.status, 200);
-  assert.equal(lowercaseBearer.json.result.tools.length, 12);
+  assert.equal(lowercaseBearer.json.result.tools.length, 13);
 
   // GET/DELETE /mcp 也要认证；认证后 GET=405、DELETE=204（支持范围与旧行为一致）。
   const getUnauth = await request('/mcp', { method: 'GET' });

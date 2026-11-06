@@ -1,4 +1,4 @@
-import type { BomDraft, ChatTranscript, CustomModelConfig, CustomProviderConfig, CustomProviderProtocol, FailureDiagnosis, DfmEvidenceEntry, DrcEvidenceEntry, DrcReport, ErcConvergenceSummary, ErcDetailMeta, ErcEvidenceEntry, ErcReport, LayoutRuleAudit, LayoutRulePackSummary, DesignApproval, DesignExecution, EasyEdaDeviceSearchItem, EdaDesignContext, EdaWindow, EdaWorkspaceBinding, EngineeringAnalysis, FabricationOrderCard, PcbCapabilities, PcbContext, PcbExecution, PcbSyncVerification, PlacementPlanResult, PlacementWritebackResult, ProductionExportResult, ProductionFinalReviewRequest, ProductionInspection, ProductionOutputDecision, ProductionReadiness, ExecutionHistoryItem, ExecutionHistoryList, SupplyPricingEvidence, ApprovalLedgerSnapshot, ProviderId, ProviderSummary, ReleaseArchiveRecord, ReleaseArchiveSummary, ReleaseGateReport, RequirementSuggestion, RuntimeDiagnostic, SchematicRepairReport, SemanticPlanResult, SignoffEvidenceEntry, SimpleBoardPlanResult, OrderConfirmationPayload, PcbLayerStack, PcbLayerStackChange, PcbPourInfo, WriteGateState, PcbWriteLockState, PcbWriteLockReleaseResult, WriteGatePatch, GatesCollectResult, ResearchConfig } from '../types';
+import type { BomDraft, ChatTranscript, CustomModelConfig, CustomProviderConfig, CustomProviderProtocol, FailureDiagnosis, DfmEvidenceEntry, DrcEvidenceEntry, DrcReport, ErcConvergenceSummary, ErcDetailMeta, ErcEvidenceEntry, ErcReport, LayoutRuleAudit, LayoutRulePackSummary, DesignApproval, DesignExecution, EasyEdaDeviceSearchItem, EdaDesignContext, EdaWindow, EdaWorkspaceBinding, EngineeringAnalysis, FabricationOrderCard, PcbCapabilities, PcbContext, PcbExecution, PcbSyncVerification, PlacementPlanResult, PlacementWritebackResult, ProductionExportResult, ProductionFinalReviewRequest, ProductionInspection, ProductionOutputDecision, ProductionReadiness, ExecutionHistoryItem, ExecutionHistoryList, SupplyPricingEvidence, ApprovalLedgerSnapshot, ProviderId, ProviderSummary, ReleaseArchiveRecord, ReleaseArchiveSummary, ReleaseGateReport, RequirementSuggestion, RuntimeDiagnostic, SchematicRepairReport, SemanticPlanResult, SignoffEvidenceEntry, SimpleBoardPlanResult, OrderConfirmationPayload, PcbLayerStack, PcbLayerStackChange, PcbPourInfo, WriteGateState, PcbWriteLockState, PcbWriteLockReleaseResult, WriteGatePatch, GatesCollectResult, ResearchConfig, DesignFrameworkStatus, DesignFrameworkGoldenReport, DesignFrameworkLoopSummary} from '../types';
 
 const BASE_URL = import.meta.env.VITE_RUNTIME_URL || 'http://127.0.0.1:4178';
 const REQUEST_TIMEOUT = 12_000;
@@ -556,6 +556,24 @@ export const runtimeClient = {
   async designContext() {
     const result = await request<{ context: EdaDesignContext }>('/api/design/context');
     return result.context;
+  },
+
+  /** 复合设计框架：分层状态 + 外部工具（KiCad CLI / OR-Tools / Z3 / Shapely）探测。只读。 */
+  async designFrameworkStatus() {
+    const result = await request<{ ok: true; framework: DesignFrameworkStatus }>('/api/design/framework/status');
+    return result.framework;
+  },
+
+  /** 复合设计框架：金板评估指标（5 个离线用例）。只读。 */
+  async designFrameworkGolden() {
+    const result = await request<{ ok: true; evaluation: DesignFrameworkGoldenReport }>('/api/design/framework/golden');
+    return result.evaluation;
+  },
+
+  /** 复合设计框架：离线设计闭环（IR → 规则 + 求解器 + Plan-Verify-Repair）。只读、不写 EDA。 */
+  async designFrameworkRun(input: { model: Record<string, unknown>; options?: { maxIterations?: number; fabProfile?: string } }) {
+    const result = await request<{ ok: true; framework: DesignFrameworkLoopSummary }>('/api/design/framework/run', { method: 'POST', body: JSON.stringify(input) });
+    return result.framework;
   },
   /**
    * 打开原理图页。必须传 documentUuid，否则 Runtime 会回退到“工程里第一张合法页面”，

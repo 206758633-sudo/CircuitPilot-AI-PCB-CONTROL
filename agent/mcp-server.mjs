@@ -2,12 +2,12 @@
 /**
  * CircuitPilot Agent MCP Server（stdio 默认；可选 Streamable HTTP 传输）。
  *
- * 目标：把 plugin/dsh-circuitpilot 的 12 个 CircuitPilot 工具以标准 MCP（Model
+ * 目标：把 plugin/dsh-circuitpilot 的 13 个 CircuitPilot 工具以标准 MCP（Model
  * Context Protocol）server 的形式暴露给任意 MCP 宿主（首选 DSH 的
  * @deepseek-ai/dsh-mcp-client）。工具实现、审批语义、JobManager、结果投影全部
  * 直接复用 `plugin/dsh-circuitpilot/lib/*`，本文件只做三件事：
  *
- *   1. 把 plugin 的 12 个工具投影成 MCP `tools/list`（name/description/inputSchema）；
+ *   1. 把 plugin 的 13 个工具投影成 MCP `tools/list`（name/description/inputSchema）；
  *   2. 处理 MCP 的 JSON-RPC 生命周期（initialize / tools/list / tools/call /
  *      ping / notifications/initialized / notifications/cancelled），传输层默认 stdio，
  *      `--http` 时改用 Streamable HTTP（POST /mcp）；
@@ -160,7 +160,7 @@ export const MCP_INSTRUCTIONS = [
 export const MCP_USAGE = `用法: node agent/mcp-server.mjs [options]
 
 MCP stdio server（默认；--http 时改用 Streamable HTTP）（legacy 2025-era 协议子集），
-暴露 CircuitPilot 的 12 个工具。
+暴露 CircuitPilot 的 13 个工具。
 stdio 模式 stdout 只输出 JSON-RPC 行，日志与帮助都写 stderr；
 --http 模式监听 POST /mcp（GET /health 健康检查），日志仍只写 stderr。
 

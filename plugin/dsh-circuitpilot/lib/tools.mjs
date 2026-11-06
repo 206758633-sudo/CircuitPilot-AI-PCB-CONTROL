@@ -48,6 +48,26 @@ export const DEFAULT_TOOL_CONFIG = Object.freeze({
   clock: () => Date.now(),
 });
 
+/**
+ * cp_design_loop（离线设计闭环）契约常量。
+ * 与 `runtime/design-framework-service.mjs` 对齐：model JSON ≤200KB、迭代 ≤8。
+ */
+export const DESIGN_LOOP_MODEL_MAX_BYTES = 200_000;
+export const DESIGN_LOOP_MAX_ITERATIONS = 8;
+
+/** 闭环状态（与 runtime/design-framework/loop.mjs 的 DESIGN_LOOP_STATUS 对齐）。 */
+export const DESIGN_LOOP_STATUS = Object.freeze({
+  PASSED: 'passed',
+  NEEDS_REVIEW: 'needs-review',
+  BLOCKED: 'blocked',
+});
+
+/** 离线闭环的安全边界提示（所有路径至少带这些）。 */
+const DESIGN_LOOP_SAFETY_ACTIONS = Object.freeze([
+  '离线闭环只读：不写 EDA、不签核；任何写入仍必须走 cp_approve → cp_execute 审批链',
+  'blocked/needs-review 时必须把 blocking/review 项与 nextActions 报告给用户，不要自行重试写操作或绕过审批',
+]);
+
 /** 工具名（顺序即 catalog 顺序）。 */
 export const TOOL_NAMES = Object.freeze([
   'cp_status',
@@ -62,6 +82,7 @@ export const TOOL_NAMES = Object.freeze([
   'cp_validation',
   'cp_export',
   'cp_job',
+  'cp_design_loop',
 ]);
 
 /** 工具 → Runtime 路由映射（README / 验收时对照用）。 */
@@ -78,6 +99,7 @@ export const TOOL_ROUTES = Object.freeze({
   cp_validation: ['POST /api/eda/schematic/erc/run', 'POST /api/eda/pcb/drc/start', 'POST /api/eda/pcb/drc/report', 'POST /api/eda/gates/evaluate'],
   cp_export: ['POST /api/production/export'],
   cp_job: ['(plugin-local JobManager; no Runtime route)'],
+  cp_design_loop: ['POST /api/design/framework/run', 'GET /api/design/framework/status'],
 });
 
 const RUNTIME_DOWN_ACTIONS = [
@@ -671,6 +693,26 @@ function collectPlanRequestRisks(plan) {
   if (Array.isArray(plan?.risks)) values.push(...plan.risks);
   if (Array.isArray(plan?.assumptions)) values.push(...plan.assumptions);
   return requestTextList(values, 20);
+}
+
+/**
+ * cp_design_loop：maxIterations 夹在 1–8（与 Runtime 服务层一致）。
+ * 缺省/非法输入返回 undefined（交给 Runtime 用默认值），不抛异常。
+ */
+export function clampDesignLoopIterations(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.min(DESIGN_LOOP_MAX_ITERATIONS, Math.max(1, Math.floor(parsed)));
+}
+
+/** cp_design_loop：把 blocking 项压成 "code (ref)" 文本，最多 limit 条。 */
+function describeDesignLoopFindings(list, limit = 8) {
+  return (Array.isArray(list) ? list : []).slice(0, limit).map((item) => {
+    const code = typeof item?.code === 'string' && item.code ? item.code : 'UNKNOWN';
+    const ref = typeof item?.ref === 'string' && item.ref ? ` (${item.ref})` : '';
+    return `${code}${ref}`;
+  });
 }
 
 export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
@@ -2184,6 +2226,179 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
             : jobNextActions(snapshot),
         },
       );
+    },
+  }));
+
+  /* ---------------- read：离线设计闭环（复合框架，第 13 个工具） ---------------- */
+
+  tools.push(makeTool({
+    name: 'cp_design_loop',
+    description: '离线设计闭环（只读）：输入板级 IR（schemaVersion/board/components/nets/rules，结构见 runtime/design-framework/board-model.mjs），Runtime 在本地执行 Rule-as-Code 规则判定 + 布局/叠层/网表求解 + Plan-Verify-Repair 有界闭环，返回 status（passed/needs-review/blocked）、每轮迭代、确定性修复动作、规则覆盖与证据。不写 EDA、不签核；blocked/needs-review 时必须把 blocking/review 项与 nextActions 报告给用户，不要自行重试写操作，也不得绕过 cp_approve/cp_execute 审批链。',
+    type: 'read',
+    inputSchema: objectSchema({
+      model: {
+        type: 'object',
+        description: '板级 IR 对象：schemaVersion?/board/components/nets/rules（结构见 runtime/design-framework/board-model.mjs 文件头）。JSON 序列化后不得超过 200000 字节，超限直接拒绝、不会发给 Runtime。',
+        additionalProperties: true,
+      },
+      options: {
+        type: 'object',
+        description: '闭环选项（可选）：maxIterations 会被夹在 1–8；fabProfile 用于规则判定。',
+        properties: {
+          maxIterations: {
+            type: 'integer',
+            description: `闭环最大迭代轮数：会被夹在 1–${DESIGN_LOOP_MAX_ITERATIONS}；缺省由 Runtime 决定（默认 4）。`,
+          },
+          fabProfile: stringField('制造/工艺档位（例如 JLC04161H-3313），用于规则判定。', { maxLength: 64 }),
+        },
+        additionalProperties: false,
+      },
+    }, ['model']),
+    async handler(args, { signal }) {
+      // 1) 输入上限校验：巨大 model 不能进 Runtime，也不能撑爆插件内存/上下文。
+      let serialized;
+      try {
+        serialized = JSON.stringify(args.model);
+      } catch {
+        serialized = undefined;
+      }
+      if (typeof serialized !== 'string') {
+        return failResult('INVALID_ARGUMENTS', 'model 必须是可 JSON 序列化的板级 IR 对象', {
+          nextActions: ['按 inputSchema 传入 model（board/components/nets/rules 结构）', ...DESIGN_LOOP_SAFETY_ACTIONS],
+        });
+      }
+      const modelBytes = Buffer.byteLength(serialized, 'utf8');
+      if (modelBytes > DESIGN_LOOP_MODEL_MAX_BYTES) {
+        return failResult(
+          'DESIGN_MODEL_TOO_LARGE',
+          `model JSON ${modelBytes} 字节，超过上限 ${DESIGN_LOOP_MODEL_MAX_BYTES} 字节：请只保留闭环需要的 board/components/nets/rules 后重试`,
+          {
+            data: { bytes: modelBytes, maxBytes: DESIGN_LOOP_MODEL_MAX_BYTES },
+            nextActions: [
+              '精简 model：去掉 EDA 原始几何/历史记录等闭环不需要的字段',
+              '不要为了绕过上限拆成多次调用（闭合结果会不一致）；也不要尝试改为写 EDA',
+            ],
+          },
+        );
+      }
+      // 2) maxIterations 夹取：schema 不硬限 1–8，这里统一夹，避免模型传 0/999。
+      const clampedMaxIterations = clampDesignLoopIterations(args.options?.maxIterations);
+      const options = {
+        ...(isPlainObject(args.options) ? args.options : {}),
+        ...(clampedMaxIterations === undefined ? {} : { maxIterations: clampedMaxIterations }),
+      };
+      // 3) Runtime 调用：只读离线路由（不做任何 EDA 写/批准）。
+      const result = await call('POST', '/api/design/framework/run', { body: { model: args.model, options }, signal });
+      if (!result.ok) {
+        return failResult(result.code, result.message, {
+          data: { runtimeStatus: result.status ?? 0 },
+          nextActions: Array.isArray(result.nextActions) && result.nextActions.length
+            ? result.nextActions
+            : [...DESIGN_LOOP_SAFETY_ACTIONS],
+        });
+      }
+      const framework = isPlainObject(result.data?.framework) ? result.data.framework : null;
+      if (!framework) {
+        return failResult('DESIGN_LOOP_INVALID_RESPONSE', 'Runtime 响应缺少 framework 闭环结果（契约：{ok:true,framework:{status,iterations,repairs,summary,evidence,plan}}）', {
+          nextActions: [
+            '确认 Runtime 是 0.2.x 且已实现 POST /api/design/framework/run',
+            ...DESIGN_LOOP_SAFETY_ACTIONS,
+          ],
+        });
+      }
+
+      // 4) 裁剪成模型可读摘要：只保留状态/计数/证据/计划候选，不回传完整 IR。
+      const status = typeof framework.status === 'string' ? framework.status : '';
+      const iterations = Array.isArray(framework.iterations) ? framework.iterations : [];
+      const repairs = Array.isArray(framework.repairs) ? framework.repairs : [];
+      const summary = isPlainObject(framework.summary) ? framework.summary : {};
+      const planSource = isPlainObject(framework.plan) ? framework.plan : {};
+      const planOperations = Number.isFinite(planSource.operations) ? Math.max(0, Math.trunc(planSource.operations)) : 0;
+      const planSkipped = Array.isArray(planSource.skipped)
+        ? planSource.skipped.length
+        : (Number.isFinite(planSource.skipped) ? Math.max(0, Math.trunc(planSource.skipped)) : 0);
+      const blockingList = Array.isArray(framework.evidence?.finalBlocking) ? framework.evidence.finalBlocking : [];
+      const blockingCount = Number.isFinite(summary.blocking) ? Math.max(0, Math.trunc(summary.blocking)) : blockingList.length;
+      const reviewCount = Number.isFinite(summary.review) ? Math.max(0, Math.trunc(summary.review)) : 0;
+      const iterationCount = Number.isFinite(summary.iterations) ? Math.max(0, Math.trunc(summary.iterations)) : iterations.length;
+      const repairCount = Number.isFinite(summary.repairs) ? Math.max(0, Math.trunc(summary.repairs)) : repairs.length;
+      const ruleSummary = isPlainObject(framework.rules) ? framework.rules : null;
+      const digest = typeof framework.digest === 'string' && framework.digest
+        ? framework.digest
+        : (typeof summary.finalDigest === 'string' && summary.finalDigest ? summary.finalDigest : null);
+      const blockingText = describeDesignLoopFindings(blockingList);
+      const coverage = Number.isFinite(summary.ruleCoverage)
+        ? ` · 规则覆盖 ${(summary.ruleCoverage * 100).toFixed(1)}%`
+        : '';
+      const head = `设计闭环（离线）：status=${status || 'unknown'} · 迭代 ${iterationCount} · 修复 ${repairCount} · blocking ${blockingCount} · review ${reviewCount}${coverage}`;
+      const evidence = [evidenceRef('design-loop-evidence', 'POST /api/design/framework/run', digest)];
+      const data = {
+        status,
+        iterations: iterationCount,
+        repairs: repairCount,
+        summary,
+        ruleSummary,
+        evidence: framework.evidence ?? null,
+        plan: { operations: planOperations, skipped: planSkipped },
+        options,
+        blocking: blockingText,
+        iterationLog: iterations,
+        repairLog: repairs,
+        digest,
+      };
+
+      // 5) 状态语义：只有 Runtime 明确 passed 且真的没有 blocking/review 才算通过；
+      //    未知状态/自相矛盾一律 fail-closed（绝不把"看起来通过"当通过）。
+      if (!Object.values(DESIGN_LOOP_STATUS).includes(status)) {
+        return failResult('DESIGN_LOOP_INVALID_RESPONSE', `${head}；status 不在 passed/needs-review/blocked 之内，按 fail-closed 处理`, {
+          data,
+          evidence,
+          nextActions: ['核对 Runtime 版本/路由实现；不要把未知状态当通过', ...DESIGN_LOOP_SAFETY_ACTIONS],
+        });
+      }
+      if (status === DESIGN_LOOP_STATUS.PASSED && (blockingCount > 0 || reviewCount > 0)) {
+        return failResult('DESIGN_LOOP_INCONSISTENT', `${head}；Runtime 声称 passed 但仍有 blocking/review，拒绝当作通过`, {
+          data,
+          evidence,
+          nextActions: [
+            '把不一致如实报告给用户；不要把它当放行依据',
+            ...DESIGN_LOOP_SAFETY_ACTIONS,
+          ],
+        });
+      }
+      if (status === DESIGN_LOOP_STATUS.BLOCKED) {
+        return failResult('DESIGN_LOOP_BLOCKED', `${head}${blockingText.length ? `；需人工处理：${blockingText.join(' / ')}` : ''}`, {
+          data,
+          evidence,
+          nextActions: [
+            ...(blockingText.length
+              ? [`把 blocking 项报告给用户：${blockingText.join(' / ')}`]
+              : ['把 blocking 项与证据报告给用户']),
+            '机器不能确定性修复的问题（网表短路、尺寸未知、缺叠层等）必须人工确认；修正板级 IR 后重新调用 cp_design_loop，不要自行重试写操作',
+            '本工具不写 EDA、不签核；修好后仍需官方 DRC/ERC 并走 cp_approve → cp_execute 审批链',
+          ],
+        });
+      }
+      if (status === DESIGN_LOOP_STATUS.NEEDS_REVIEW) {
+        return okResult(`${head}；需人工审阅（review 项无法机器判定，不是 passed）`, {
+          data,
+          evidence,
+          nextActions: [
+            `把 ${reviewCount} 项 review 及其规则/证据报告给用户，由人工补证据或确认`,
+            'needs-review 不是放行依据：不要据此写 EDA、不要绕过 cp_approve/cp_execute',
+            '补齐证据/确认后重新调用 cp_design_loop；最终仍需官方 DRC/ERC',
+          ],
+        });
+      }
+      return okResult(`${head}（离线规则层已无阻断）`, {
+        data,
+        evidence,
+        nextActions: [
+          'passed 只表示离线 Rule-as-Code/求解器闭环通过，不等于 EDA 官方 DRC/ERC 通过',
+          '写 EDA 前仍需在 CircuitPilot 运行官方 DRC/ERC 并走 cp_approve → cp_execute 审批链；本工具不写 EDA、不签核',
+          '把 plan.operations 作为执行候选报告给用户，不要自动批准或执行',
+        ],
+      });
     },
   }));
 

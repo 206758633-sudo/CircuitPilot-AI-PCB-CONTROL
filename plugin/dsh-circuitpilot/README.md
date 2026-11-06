@@ -5,7 +5,7 @@ DSH 原生插件（MVP）：在 DSH 对话里安全驱动本机 **CircuitPilot R
 
 - 插件包目录：`plugin/dsh-circuitpilot`
 - Runtime：本机 CircuitPilot（默认 `http://127.0.0.1:4178`）
-- 工具前缀：`cp_*`（12 个）
+- 工具前缀：`cp_*`（13 个）
 - 内置 skill：`circuitpilot`（`skills/circuitpilot/SKILL.md`）
 - 单元测试不依赖 DSH 实例、不依赖真实 token、不连真实 EDA。
 
@@ -30,6 +30,9 @@ DSH 原生插件（MVP）：在 DSH 对话里安全驱动本机 **CircuitPilot R
    不重复执行。超时/取消/结果未知时**禁止自动重试**，先用 `cp_job`/`cp_status`/`cp_evidence` 核对。
 6. **agent denylist**：签核、订单确认、最终评审、设置/Provider/研究配置、写暂停恢复等
    仍由 Runtime 拒绝；插件不提供也不尝试绕过这些动作。
+7. **离线设计闭环只读**：`cp_design_loop` 只在 Runtime 本地跑「规则判定 + 求解器 + Plan-Verify-Repair」，
+   **不写 EDA、不签核、不签发 approvalToken**；它的 `passed` 只代表离线规则层无阻断，
+   写 EDA 仍必须走 `cp_approve` → `cp_execute`。`blocked`/`needs-review` 必须如实报告用户，不能当放行依据。
 
 ## 2. 安装到独立 profile
 
@@ -125,7 +128,7 @@ DSH 通过包里的 `dsh.bundle.patch`（`cordis.patch.yml`）声明插件条目
 | `RUNTIME_UNREACHABLE` | Runtime 未启动/端口不对 | 启动 CircuitPilot，检查 `runtimeUrl` |
 | `RUNTIME_TIMEOUT` | 请求超时 | 先核对在途任务；写操作不要自动重试 |
 
-## 4. 工具面（12 个）
+## 4. 工具面（13 个）
 
 | 工具 | 类型 | Runtime 路由 | 用途 |
 |---|---|---|---|
@@ -141,10 +144,11 @@ DSH 通过包里的 `dsh.bundle.patch`（`cordis.patch.yml`）声明插件条目
 | `cp_validation` | execute | `POST /api/eda/schematic/erc/run`、`POST /api/eda/pcb/drc/start` + `/drc/report`、`POST /api/eda/gates/evaluate` | ERC/DRC/门禁（job）；`boards` 可对最多 3 块板顺序批量校验 |
 | `cp_export` | execute | `POST /api/production/export` | 导出/归档（confirm + requestId，job） |
 | `cp_job` | read | 插件本地 JobManager | 长任务 status/wait/cancel |
+| `cp_design_loop` | read | `POST /api/design/framework/run`、`GET /api/design/framework/status` | 离线设计闭环：板级 IR → 规则/求解/Plan-Verify-Repair（不写 EDA、不签核） |
 
 ### 4.1 多项目/多板只读总览（`cp_project_context` 可选参数）
 
-批量/多板任务前需要先建立全局视图，又不想额外增加第 13 个工具，因此扩展 `cp_project_context`：
+批量/多板任务前需要先建立全局视图，又不想为总览再新增工具，因此扩展 `cp_project_context`：
 
 - `includeAllProjects`（boolean，默认 `false`）：为 `true` 时先 `GET /api/projects`，再对每个项目
   `GET /api/projects/:id/state`（id 经 `encodeURIComponent`）。默认关闭时不会多发任何请求。
@@ -200,9 +204,35 @@ DSH 通过包里的 `dsh.bundle.patch`（`cordis.patch.yml`）声明插件条目
 
 错误统一为 `{ "ok": false, "code": "...", "message": "...", "nextActions": [...] }`。
 
+### 4.5 离线设计闭环（`cp_design_loop`）
+
+`cp_design_loop` 把复合设计框架（`runtime/design-framework/**`）暴露成**只读**工具：
+输入板级 IR，Runtime 在本地执行 Rule-as-Code 规则判定 + 布局/叠层/网表求解 + 有界
+Plan-Verify-Repair 闭环，返回离线结论与证据。**不写 EDA、不签核、不走 `cp_approve`/`cp_execute`。**
+
+- 入参：`model`（必填，板级 IR：`schemaVersion`/`board`/`components`/`nets`/`rules`，结构见
+  `runtime/design-framework/board-model.mjs` 文件头）；`options.maxIterations`（会被夹在 1–8）、
+  `options.fabProfile`（制造/工艺档位）。
+- 输入上限：`model` JSON 序列化后 ≤ **200000 字节**，超限直接返回 `DESIGN_MODEL_TOO_LARGE`，
+  不会发给 Runtime；整个结果仍受 16KB 裁剪（超限 `truncated=true`）。
+- 输出 `data`：`status`（`passed`/`needs-review`/`blocked`）、`iterations`（轮数）、`repairs`（修复数）、
+  `summary`（digest/blocking/review/ruleCoverage/releaseReady）、`ruleSummary`（规则覆盖）、
+  `plan: {operations, skipped}`（执行候选，**不是已执行**）、`evidence`（`finalBlocking` 等）、
+  `iterationLog`/`repairLog`（每轮动作）。
+- 状态语义（fail-closed）：
+  - `blocked` → 工具 `ok:false` + `DESIGN_LOOP_BLOCKED`，`data.blocking` 列出 `code (ref)`，必须报告用户并人工修复 IR；
+  - `needs-review` → `ok:true` 但**不是 passed**：review 项无法机器判定，需人工补证据/确认；
+  - `passed` → 只代表离线规则层无阻断，仍需官方 DRC/ERC 与 `cp_approve` → `cp_execute` 才能写 EDA；
+  - Runtime 声称 `passed` 但仍有 blocking/review → `DESIGN_LOOP_INCONSISTENT`（拒绝当作通过）。
+- 错误透传：Runtime 的 `code`/`message`/`nextActions` 原样返回；缺路由升级为 `RUNTIME_ROUTE_MISSING`。
+- 典型用法：`cp_status` 确认在线 → `cp_design_loop({model})` 拿离线结论 →
+  `blocked`/`needs-review` 报告用户，`passed` 时把 `plan.operations` 作为执行候选，
+  再按正常「计划 → 用户批准 → 执行」流程处理。
+
 ## 5. 典型对话流程
 
 1. 用户：“现在这块板什么状态？” → `cp_status`（+ `cp_issues`）。
+   （可选）用户想看“离线怎么改才合规” → `cp_design_loop({model})`，只读拿 `status`/`blocking`/`plan` 候选，不写 EDA。
 2. 用户：“出 4 层 0.2mm 间距重排计划，不要执行。” → `cp_pcb_plan`，把 planHash/missing/风险给用户看。
 3. 用户明确说“批准这个计划” → `cp_approve({planHash, confirm:true})`。
 4. 用户说“执行” → `cp_execute({planHash, requestId:"req-..."})` → `cp_job({action:"wait"})`。
@@ -219,8 +249,8 @@ node --test "plugin/dsh-circuitpilot/test/*.test.mjs"
 （`mkdtemp`），不依赖 DSH 实例、不碰真实 `~/Library/...` token、不连真实 EDA。
 覆盖：token 读取/缺失/损坏/不泄露、HTTP 401/403/404/409/超时/不可达映射、
 结果裁剪、approvalMode、confirm、planHash/目标绑定、approvalToken 不暴露、requestId 幂等、
-job 超时/取消、DRC 轮询、导出确认，以及包元数据/skill frontmatter 校验；
-并用 fake DSH ctx 跑 `index.mjs` 的 apply（12 工具 + skill provider + systemPrompt + effect）。
+job 超时/取消、DRC 轮询、导出确认、`cp_design_loop` 闭环（passed/blocked/needs-review/超限/裁剪/路由升级），以及包元数据/skill frontmatter 校验；
+并用 fake DSH ctx 跑 `index.mjs` 的 apply（13 工具 + skill provider + systemPrompt + effect）。
 
 另有兼容性门禁 `test/compat.test.mjs`：清单一致性（`engines.dsh` / `dsh-*` peerDependencies /
 `files`）、semver 矩阵、**本机 DSH 版本漂移告警**（DSH 升级后这里会红，提醒执行 `compat:sync`）、
@@ -253,7 +283,7 @@ plugin/dsh-circuitpilot/
 │   ├── runtime.mjs       # Runtime HTTP 客户端（token/超时/错误映射，永不泄露 token）
 │   ├── jobs.mjs          # 内存 JobManager（requestId 幂等、超时 mayHaveTakenEffect、cancel）
 │   ├── projection.mjs    # 结果 envelope + 16KB 裁剪（truncated 标记）
-│   └── tools.mjs         # 12 个 cp_* 工具（路由映射/审批/结果摘要）
+│   └── tools.mjs         # 13 个 cp_* 工具（路由映射/审批/结果摘要/离线设计闭环）
 ├── scripts/
 │   ├── sync-compat.mjs   # 兼容清单自动同步器（升级 DSH 后一条命令；--check/--dry-run/--json）
 │   └── probe-cp-compat.mjs # CircuitPilot Runtime 只读探针（版本 + 能力矩阵）
@@ -276,7 +306,7 @@ plugin/dsh-circuitpilot/
 | CircuitPilot Runtime | `>=0.2.0 <0.3.0` | `0.2.0` | 运行期 `GET /api/health.version` + `lib/cp-compat.mjs` 版本门禁 |
 | CircuitPilot 能力 | `agent-api` / `project-state` / `issue-state` / `evidence-index` / `write-gate` / `eda-workspace` | Runtime 0.2.0 | 运行期 `lib/cp-compat.mjs` 能力探测 |
 
-> 已验证版本 = 真机跑过「插件加载 + 12 工具注册 + 只读端到端（宿主内真实调用 cp_status）」的版本；
+> 已验证版本 = 真机跑过「插件加载 + 13 工具注册 + 只读端到端（宿主内真实调用 cp_status）」的版本；
 > 写链路（计划→批准→执行）尚未在真机 DSH 会话里执行，证据与边界见 `docs/agent/plugin-compat.md` §5.2。
 
 ### 9.2 升级 DSH 后：一条命令

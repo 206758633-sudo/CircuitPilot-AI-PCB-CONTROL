@@ -1,7 +1,7 @@
 # CircuitPilot Agent MCP Server
 
 `agent/mcp-server.mjs` 是 CircuitPilot 的 **MCP（Model Context Protocol）server**，默认通过
-**stdio**、可选通过 **Streamable HTTP**（`--http`）把 `plugin/dsh-circuitpilot` 的 12 个
+**stdio**、可选通过 **Streamable HTTP**（`--http`）把 `plugin/dsh-circuitpilot` 的 13 个
 CircuitPilot 工具暴露给 MCP 宿主（首选 DSH 的 `@deepseek-ai/dsh-mcp-client`）。工具实现、审批语义、JobManager、结果投影全部
 复用 `plugin/dsh-circuitpilot/lib/*`，本目录只负责协议与进程边界。
 
@@ -184,7 +184,7 @@ node agent/mcp-server.mjs --http --http-port 4180 --http-host 127.0.0.1 \
 | `initialize` | 协商版本、声明 `tools` 能力、返回 `serverInfo` 与 `instructions`（1329 字节，远低于 DSH 默认 32KB 上限） |
 | `notifications/initialized` | 静默接受 |
 | `ping` | 任意时刻返回 `{}` |
-| `tools/list` | 返回 12 个工具（单页，无 cursor） |
+| `tools/list` | 返回 13 个工具（单页，无 cursor） |
 | `tools/call` | 执行工具；参数/未知工具错误用 `-32602`，工具业务失败用 `ok:false` envelope |
 | `notifications/cancelled` | 中止对应执行中的 `tools/call`，且**不为被取消的请求发送响应** |
 | `server/discover` | `-32601`（legacy 信号，见上） |
@@ -209,7 +209,7 @@ node agent/mcp-server.mjs --http --http-port 4180 --http-host 127.0.0.1 \
 
 ### 工具列表
 
-12 个工具（名称、输入 schema、执行逻辑全部来自 `plugin/dsh-circuitpilot/lib/tools.mjs`）：
+13 个工具（名称、输入 schema、执行逻辑全部来自 `plugin/dsh-circuitpilot/lib/tools.mjs`）：
 
 | 工具 | 类型 | 用途 / Runtime 路由 |
 |---|---|---|
@@ -225,6 +225,7 @@ node agent/mcp-server.mjs --http --http-port 4180 --http-host 127.0.0.1 \
 | `cp_validation` | execute | ERC / DRC / 六门门禁评估 + 证据引用 |
 | `cp_export` | export | 生产导出（受写入门禁与审批约束） |
 | `cp_job` | read | 进程内长任务 `status/wait/list/cancel` |
+| `cp_design_loop` | read | 离线设计闭环（IR → Rule-as-Code + 求解器 + Plan-Verify-Repair）；`POST /api/design/framework/run`；只读、不写 EDA |
 
 `tools/list` 额外带 `annotations`（`readOnlyHint`/`destructiveHint`/`openWorldHint:false`）
 帮助宿主做安全提示；DSH 桥接不依赖它。
@@ -286,7 +287,7 @@ node --test agent/__tests__/mcp-http.test.mjs
 （`@deepseek-ai/dsh-mcp-client` 的依赖）。开发时已从 DSH 的 asar 中提取该客户端做过一次
 直连验证（不写入仓库、不作为 CI 依赖）：用官方 `Client` + `StdioClientTransport` 以
 `versionNegotiation: { mode: 'auto' }` 启动本 server，成功完成
-`server/discover(-32601) → initialize(2025-11-25) → tools/list(12) → cp_status → ping`，
+`server/discover(-32601) → initialize(2025-11-25) → tools/list(13) → cp_status → ping`，
 并用官方 `InitializeResultSchema`、`ListToolsResultSchema`、`CallToolResultSchema`、
 `JSONRPCErrorResponseSchema`/`JSONRPCResultResponseSchema` 校验所有响应均通过。
 这说明 DSH 的 stdio auto 协商会正确回退到 legacy，且 MCP 载荷与官方 schema 兼容。
@@ -295,12 +296,12 @@ node --test agent/__tests__/mcp-http.test.mjs
 
 - **协议单测**（进程内注入 fake RuntimeClient）：legacy 版本回显/回落、`server/discover`
   返回 `-32601`、`ping`、非法 JSON `-32700`、JSON-RPC 基础校验 `-32600`、未知方法
-  `-32601`、`tools/list` 恰好 12 个工具且 schema 为 object 根、未知工具/参数类型
+  `-32601`、`tools/list` 恰好 13 个工具且 schema 为 object 根、未知工具/参数类型
   `-32602`、工具业务失败仍是 `ok:false` envelope（无 `isError`）、
   `notifications/cancelled` 中止且不响应、配置解析与环境变量/flag 优先级/非法输入。
 - **Streamable HTTP 传输**（真实 node:http server + fake RuntimeClient，port 0）：
   initialize 200 + `application/json` + `Mcp-Session-Id` UUID、session 带/不带/错误值都接受、
-  `tools/list` 12、`ping`、通知 202 空 body、畸形 JSON 400/`-32700`、8MB body 上限 413、
+  `tools/list` 13、`ping`、通知 202 空 body、畸形 JSON 400/`-32700`、8MB body 上限 413、
   `GET /mcp` 405、`DELETE /mcp` 204、`GET /health`、未知路径 404、`tools/call cp_status`
   返回 CallToolResult 且响应无 token、`close()` 幂等且端口可立即复用、CLI 配置解析。
 - **stdio 集成**（真实 `node agent/mcp-server.mjs` 子进程 + fake HTTP Runtime）：

@@ -54,6 +54,7 @@ import { createRagStore } from './rag/store.mjs';
 import { createGateService, GATE_SERVICE_CODES } from './gates-service.mjs';
 import { collectGateEvidence } from './gates-evidence.mjs';
 import { buildDesignSpec } from './design-spec.mjs';
+import { frameworkStatusView, goldenReport, runFrameworkLoop } from './design-framework-service.mjs';
 import { createResearchConfig } from './research-config.mjs';
 import { buildKnowledgeChatContext } from './knowledge-chat.mjs';
 import { AGENT_TOKEN_HEADER, agentTokenFile, ensureAgentTokenFile, readAgentToken, verifyAgentToken } from './agent-token.mjs';
@@ -4436,6 +4437,16 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         result = { ok: true, cancellation: designManager.cancel(body) };
       } else if (method === 'POST' && url.pathname === '/api/design/capabilities/probe') {
         result = { ok: true, capabilities: await designManager.probe() };
+      } else if (method === 'GET' && url.pathname === '/api/design/framework/status') {
+        // 复合设计框架状态（只读）：分层元数据 + KiCad CLI / 外部求解器探测；缺失即如实报告不可用。
+        result = { ok: true, framework: frameworkStatusView() };
+      } else if (method === 'GET' && url.pathname === '/api/design/framework/golden') {
+        // 金板评估（只读、离线）：输出通过率/状态分布/迭代/修复/规则覆盖率，用于自主性改动回归。
+        result = { ok: true, evaluation: goldenReport() };
+      } else if (method === 'POST' && url.pathname === '/api/design/framework/run') {
+        // 离线设计闭环（只读）：IR → Rule-as-Code + 求解器 + Plan-Verify-Repair，不写 EDA、不签核。
+        const body = await readBody(request);
+        result = { ok: true, framework: runFrameworkLoop({ model: body?.model, options: body?.options }) };
       } else if (method === 'POST' && url.pathname === '/api/design/execute') {
         const body = await readBody(request);
         result = { ok: true, execution: await designManager.execute(body) };

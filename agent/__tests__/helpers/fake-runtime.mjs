@@ -40,7 +40,7 @@ export async function removeDir(dir) {
 
 const DEFAULT_ROUTES = Object.freeze({
   'GET /api/health': () => ({
-    body: { ok: true, service: 'circuitpilot-runtime', version: '0.9.0-test', host: '127.0.0.1' },
+    body: { ok: true, service: 'circuitpilot-runtime', version: '0.2.0', host: '127.0.0.1' },
   }),
   'GET /api/project-state': () => ({
     body: {

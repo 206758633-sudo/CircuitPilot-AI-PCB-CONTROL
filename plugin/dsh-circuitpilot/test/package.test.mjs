@@ -45,7 +45,7 @@ test('SKILL.md：frontmatter name/description/whenToUse + 对话规程关键约�
   const description = /^description: (.+)$/m.exec(front[1])?.[1];
   assert.ok(description && description.length > 30);
   assert.match(front[1], /^whenToUse: (.+)$/m);
-  for (const phrase of ['cp_status', 'cp_design_plan', 'cp_pcb_plan', 'cp_approve', 'cp_execute', 'cp_job', 'cp_validation', 'includeAllProjects', 'boards', '禁止', 'truncated', 'approvalToken', '写暂停', '签核']) {
+  for (const phrase of ['cp_status', 'cp_design_loop', 'cp_design_plan', 'cp_pcb_plan', 'cp_approve', 'cp_execute', 'cp_job', 'cp_validation', 'includeAllProjects', 'boards', '禁止', 'truncated', 'approvalToken', '写暂停', '签核']) {
     assert.ok(raw.includes(phrase), `skill 正文缺少：${phrase}`);
   }
 });
@@ -116,9 +116,9 @@ test('lib/** 保持 host-independent：不允许静态 import @deepseek-ai（只
   }
 });
 
-test('工具常量与路由映射：12 个工具、写工具都有明确路由或本地 job 说明', () => {
-  assert.equal(TOOL_NAMES.length, 12);
-  assert.equal(new Set(TOOL_NAMES).size, 12);
+test('工具常量与路由映射：13 个工具、写工具都有明确路由或本地 job 说明', () => {
+  assert.equal(TOOL_NAMES.length, 13);
+  assert.equal(new Set(TOOL_NAMES).size, 13);
   assert.equal(TOOL_NAMES[0], 'cp_status');
   assert.ok(TOOL_NAMES.includes('cp_approve'));
   assert.ok(TOOL_NAMES.includes('cp_execute'));
@@ -130,6 +130,8 @@ test('工具常量与路由映射：12 个工具、写工具都有明确路由�
   assert.equal(TOOL_ROUTES.cp_approve.some((route) => route.includes('/api/pcb/approve')), true);
   assert.equal(TOOL_ROUTES.cp_execute.some((route) => route.includes('/api/design/execute')), true);
   assert.equal(TOOL_ROUTES.cp_export.some((route) => route.includes('/api/production/export')), true);
+  assert.deepEqual(TOOL_ROUTES.cp_design_loop, ['POST /api/design/framework/run', 'GET /api/design/framework/status']);
+  assert.equal(TOOL_ROUTES.cp_design_loop.some((route) => route.includes('POST /api/design/framework/run')), true);
   assert.equal(DEFAULT_TOOL_CONFIG.approvalMode, 'chat');
   assert.equal(DEFAULT_TOOL_CONFIG.maxResultBytes, 16384);
 });
@@ -166,7 +168,7 @@ test('index.mjs 可被独立 import（无 DSH peer 也能加载）并导出入�
   assert.equal(off.maxResultBytes, 262144);
 });
 
-test('index.mjs apply：fake DSH ctx 上注册 12 工具 / bundled skill / systemPrompt / effect', async () => {
+test('index.mjs apply：fake DSH ctx 上注册 13 工具 / bundled skill / systemPrompt / effect', async () => {
   const mod = await import('../index.mjs');
   const { TOOL_NAMES } = await import('../lib/tools.mjs');
   const registered = [];

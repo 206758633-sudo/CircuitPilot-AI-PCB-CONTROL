@@ -129,7 +129,7 @@ test('toCallToolResult 保留 envelope，非对象结果也包装成合法 struc
   assert.equal(wrapped.structuredContent.data, 'plain-text');
 });
 
-test('buildMcpToolList 恰好投影 12 个工具且去掉内部字段', () => {
+test('buildMcpToolList 恰好投影 13 个工具且去掉内部字段', () => {
   const tools = TOOL_NAMES.map((name) => ({
     name,
     description: `desc ${name}`,
@@ -138,7 +138,7 @@ test('buildMcpToolList 恰好投影 12 个工具且去掉内部字段', () => {
     execute: () => {},
   }));
   const list = buildMcpToolList(tools);
-  assert.equal(list.length, 12);
+  assert.equal(list.length, 13);
   assert.equal(list[0].execute, undefined);
   assert.equal(list[0].type, undefined);
   assert.deepEqual(list.map((item) => item.name), [...TOOL_NAMES]);
@@ -273,12 +273,12 @@ test('notifications/initialized 与未知通知不产生响应', async () => {
 /* tools/list                                                          */
 /* ------------------------------------------------------------------ */
 
-test('tools/list 返回恰好 12 个 CircuitPilot 工具，schema 都是 object 根', async () => {
+test('tools/list 返回恰好 13 个 CircuitPilot 工具，schema 都是 object 根', async () => {
   const { server } = makeServer();
   await initialize(server);
   const response = await server.handleMessage(requestMessage(2, 'tools/list'));
   const { tools } = response.result;
-  assert.equal(tools.length, 12);
+  assert.equal(tools.length, 13);
   assert.deepEqual(tools.map((tool) => tool.name), [...TOOL_NAMES]);
   for (const tool of tools) {
     assert.equal(typeof tool.description, 'string');
@@ -297,7 +297,7 @@ test('tools/list 返回恰好 12 个 CircuitPilot 工具，schema 都是 object 
 test('tools/call cp_status：正常返回 content 文本 + structuredContent，不带 isError', async () => {
   const client = createFakeClient((method, requestPath) => {
     if (requestPath === '/api/health') {
-      return okEnvelope({ version: '0.9.0-test', service: 'circuitpilot-runtime', host: '127.0.0.1' });
+      return okEnvelope({ version: '0.2.0', service: 'circuitpilot-runtime', host: '127.0.0.1' });
     }
     if (requestPath === '/api/project-state') {
       return okEnvelope({ state: { activeProjectId: 'p1', projects: [{ id: 'p1', name: 'Demo', stage: 'schematic' }] } });

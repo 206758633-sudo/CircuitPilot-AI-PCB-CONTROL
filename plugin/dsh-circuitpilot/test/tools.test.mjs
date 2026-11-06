@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createCircuitPilotTools,
+  DESIGN_LOOP_MAX_ITERATIONS,
+  DESIGN_LOOP_MODEL_MAX_BYTES,
   DEFAULT_TOOL_CONFIG,
   TOOL_NAMES,
   normalizeToolConfig,
@@ -33,11 +35,14 @@ async function withHarness(options, fn) {
   }
 }
 
-test('工具目录：12 个 cp_* 工具，schema/description/execute 完整且名字稳定', async () => {
+test('工具目录：13 个 cp_* 工具，schema/description/execute 完整且名字稳定', async () => {
   const harness = await makeHarness({ handler: createDefaultRouter().handler });
   try {
     assert.deepEqual(harness.tools.map((tool) => tool.name), [...TOOL_NAMES]);
-    assert.equal(harness.tools.length, 12);
+    assert.equal(TOOL_NAMES.length, 13);
+    assert.equal(harness.tools.length, 13);
+    assert.equal(TOOL_NAMES.at(-1), 'cp_design_loop');
+    assert.equal(harness.byName.cp_design_loop.type, 'read');
     for (const tool of harness.tools) {
       assert.match(tool.name, /^cp_[a-z_]+$/);
       assert.equal(typeof tool.description, 'string');
@@ -977,6 +982,312 @@ test('cp_job：未知 job、wait 超时、cancel、status/list', async () => {
   });
 });
 
+/* ------------------------------------------------------------------ */
+/* cp_design_loop（离线设计闭环 / 复合框架）                            */
+/* ------------------------------------------------------------------ */
+
+const LOOP_MODEL = {
+  schemaVersion: 1,
+  board: { widthMm: 40, heightMm: 30, layers: 4 },
+  components: [
+    { ref: 'U1', xMm: 10, yMm: 10, widthMm: 5, heightMm: 5 },
+    { ref: 'R1', xMm: 20, yMm: 10, widthMm: 2, heightMm: 1 },
+  ],
+  nets: [
+    { name: 'VCC', nodes: ['U1.1', 'R1.1'] },
+    { name: 'GND', nodes: ['U1.2', 'R1.2'] },
+  ],
+  rules: { fabProfile: 'JLC04161H-3313' },
+};
+
+/** Runtime POST /api/design/framework/run 摘要夹具（与服务层 summarizeLoopResult 同形）。 */
+function loopFramework(overrides = {}) {
+  return {
+    ok: true,
+    status: 'passed',
+    iterations: [
+      { iteration: 1, modelDigest: 'digest-1', blocking: [{ source: 'stackup', code: 'STACKUP_MISSING', ref: null, group: null }], reviewCount: 0 },
+      { iteration: 2, modelDigest: 'digest-2', blocking: [], reviewCount: 0 },
+    ],
+    repairCount: 1,
+    repairs: [{ iteration: 1, strategy: 'solve_stackup', riskLevel: 'low', fromDigest: 'digest-1', toDigest: 'digest-2', detail: 'layers=4' }],
+    summary: { initialDigest: 'digest-1', finalDigest: 'digest-2', iterations: 2, repairs: 1, blocking: 0, review: 0, ruleCoverage: 0.913, releaseReady: true, model: { board: { layers: 4 }, components: 2, nets: 2 } },
+    rules: { total: 151, pass: 138, review: 13, coverageRatio: 0.913 },
+    netlist: { nets: 2, findings: 0 },
+    plan: { operations: 2, skipped: [] },
+    evidence: { kind: 'design-loop-evidence', status: 'passed', finalBlocking: [], planOperationCount: 2 },
+    digest: 'loop-digest-1',
+    ...overrides,
+  };
+}
+
+/**
+ * fake Runtime：在默认路由上补复合框架路由（task-6；helpers.mjs 不在本任务写作用域）。
+ * `routeMissing` 时模拟旧 Runtime 的 404，用于验证 ROUTE 升级。
+ */
+async function makeLoopHarness({ framework, frameworkResponse, routeMissing = false, options = {} } = {}) {
+  const base = createDefaultRouter(routeMissing ? { missingRoutes: ['POST /api/design/framework/run'] } : {});
+  const handler = async (call, context) => {
+    if (!routeMissing && call.method === 'POST' && call.path === '/api/design/framework/run') {
+      if (typeof frameworkResponse === 'function') return frameworkResponse(call);
+      return [200, { ok: true, framework: loopFramework(framework) }];
+    }
+    if (!routeMissing && call.method === 'GET' && call.path === '/api/design/framework/status') {
+      return [200, { ok: true, framework: { schemaVersion: 1, kicad: { available: false }, externalSolvers: { available: false }, layers: ['design-as-code'] } }];
+    }
+    return base.handler(call, context);
+  };
+  return makeHarness({ ...options, handler });
+}
+
+test('cp_design_loop：passed 闭环返回状态/计数/规则覆盖/证据，只读调用 POST /api/design/framework/run', async () => {
+  const harness = await makeLoopHarness();
+  try {
+    const result = await harness.callTool('cp_design_loop', {
+      model: LOOP_MODEL,
+      options: { maxIterations: 2, fabProfile: 'JLC04161H-3313' },
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.truncated, false);
+    assert.equal(result.data.status, 'passed');
+    assert.equal(result.data.iterations, 2);
+    assert.equal(result.data.repairs, 1);
+    assert.equal(result.data.plan.operations, 2);
+    assert.equal(result.data.plan.skipped, 0);
+    assert.equal(result.data.ruleSummary.coverageRatio, 0.913);
+    assert.equal(result.data.options.maxIterations, 2);
+    assert.match(result.summary, /status=passed/);
+    assert.match(result.summary, /迭代 2/);
+    assert.match(result.summary, /修复 1/);
+    assert.match(result.summary, /规则覆盖 91\.3%/);
+    assert.equal(result.evidence[0].kind, 'design-loop-evidence');
+    assert.equal(result.evidence[0].digest, 'loop-digest-1');
+    const actions = result.nextActions.join('\n');
+    assert.match(actions, /官方 DRC/);
+    assert.match(actions, /cp_approve/);
+    assert.match(actions, /不写 EDA/);
+
+    const runCalls = harness.runtime.calls.filter((call) => call.path === '/api/design/framework/run');
+    assert.equal(runCalls.length, 1);
+    assert.deepEqual(runCalls[0].body.model, LOOP_MODEL);
+    assert.equal(runCalls[0].body.options.maxIterations, 2);
+    assert.equal(runCalls[0].body.options.fabProfile, 'JLC04161H-3313');
+    // 只读：除兼容门禁的 GET 外，只允许 POST /api/design/framework/run，不碰写/批准/执行路由。
+    assert.equal(harness.runtime.calls.some((call) => call.method !== 'GET' && call.path !== '/api/design/framework/run'), false);
+    foreachNoToken(result);
+    assert.doesNotThrow(() => JSON.stringify(result));
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：blocked → DESIGN_LOOP_BLOCKED + blocking code/ref + 可执行 nextActions', async () => {
+  const blocked = loopFramework({
+    status: 'blocked',
+    iterations: [{ iteration: 1, modelDigest: 'digest-1', blocking: [{ source: 'netlist', code: 'NETLIST_SHORT', ref: 'VCC/GND', group: null }], reviewCount: 0 }],
+    repairs: [],
+    repairCount: 0,
+    summary: { initialDigest: 'digest-1', finalDigest: 'digest-1', iterations: 1, repairs: 0, blocking: 2, review: 0, ruleCoverage: 0.6, releaseReady: false },
+    plan: { operations: 0, skipped: [{ code: 'PLAN_SKIP' }] },
+    evidence: {
+      kind: 'design-loop-evidence',
+      status: 'blocked',
+      finalBlocking: [
+        { source: 'netlist', code: 'NETLIST_SHORT', ref: 'VCC/GND', group: null },
+        { source: 'placement', code: 'PLACEMENT_SIZE_UNKNOWN', ref: 'U1', group: null },
+      ],
+      finalReviewCount: 0,
+    },
+  });
+  const harness = await makeLoopHarness({ framework: blocked });
+  try {
+    const result = await harness.callTool('cp_design_loop', { model: LOOP_MODEL });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'DESIGN_LOOP_BLOCKED');
+    assert.equal(result.data.status, 'blocked');
+    assert.equal(result.data.iterations, 1);
+    assert.equal(result.data.repairs, 0);
+    assert.equal(result.data.plan.skipped, 1);
+    assert.deepEqual(result.data.blocking, ['NETLIST_SHORT (VCC/GND)', 'PLACEMENT_SIZE_UNKNOWN (U1)']);
+    assert.match(result.message, /NETLIST_SHORT/);
+    assert.ok(result.nextActions.some((item) => /NETLIST_SHORT/.test(item)), 'nextActions 必须列出 blocking 项');
+    assert.ok(result.nextActions.some((item) => /不要自行重试写操作/.test(item)));
+    assert.ok(result.nextActions.some((item) => /不写 EDA|不签核/.test(item)));
+    foreachNoToken(result);
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：needs-review → ok:true 但明确不是 passed，要求人工审阅', async () => {
+  const review = loopFramework({
+    status: 'needs-review',
+    repairs: [],
+    repairCount: 0,
+    summary: { initialDigest: 'digest-1', finalDigest: 'digest-1', iterations: 1, repairs: 0, blocking: 0, review: 13, ruleCoverage: 0.87, releaseReady: false },
+    evidence: { kind: 'design-loop-evidence', status: 'needs-review', finalBlocking: [], finalReviewCount: 13 },
+  });
+  const harness = await makeLoopHarness({ framework: review });
+  try {
+    const result = await harness.callTool('cp_design_loop', { model: LOOP_MODEL });
+    assert.equal(result.ok, true);
+    assert.equal(result.data.status, 'needs-review');
+    assert.match(result.summary, /需人工审阅/);
+    assert.match(result.summary, /不是 passed/);
+    assert.ok(result.nextActions.some((item) => /不是放行依据/.test(item)));
+    assert.ok(result.nextActions.some((item) => /人工/.test(item)));
+    foreachNoToken(result);
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：model 超过 200KB → DESIGN_MODEL_TOO_LARGE，且不发 Runtime 请求', async () => {
+  const harness = await makeLoopHarness();
+  try {
+    const bigModel = {
+      board: { widthMm: 40, heightMm: 30 },
+      components: Array.from({ length: 4000 }, (_unused, index) => ({ ref: `C${index}`, xMm: index, yMm: index, note: 'x'.repeat(40) })),
+    };
+    assert.ok(Buffer.byteLength(JSON.stringify(bigModel), 'utf8') > DESIGN_LOOP_MODEL_MAX_BYTES);
+    const result = await harness.callTool('cp_design_loop', { model: bigModel });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'DESIGN_MODEL_TOO_LARGE');
+    assert.equal(result.data.maxBytes, DESIGN_LOOP_MODEL_MAX_BYTES);
+    assert.equal(harness.runtime.calls.filter((call) => call.path === '/api/design/framework/run').length, 0);
+    foreachNoToken(result);
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：maxIterations 夹在 1–8（99→8、0→1、缺省不传）', async () => {
+  const harness = await makeLoopHarness();
+  try {
+    const runBodies = () => harness.runtime.calls
+      .filter((call) => call.path === '/api/design/framework/run')
+      .map((call) => call.body.options);
+    await harness.callTool('cp_design_loop', { model: LOOP_MODEL, options: { maxIterations: 99 } });
+    await harness.callTool('cp_design_loop', { model: LOOP_MODEL, options: { maxIterations: 0 } });
+    await harness.callTool('cp_design_loop', { model: LOOP_MODEL });
+    const [high, low, absent] = runBodies();
+    assert.equal(high.maxIterations, DESIGN_LOOP_MAX_ITERATIONS);
+    assert.equal(low.maxIterations, 1);
+    assert.equal('maxIterations' in absent, false, '缺省时不应伪造 maxIterations，交给 Runtime 默认值');
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：Runtime 错误码/nextActions 原样透传，不伪造通过、不漏 token', async () => {
+  const harness = await makeLoopHarness({
+    frameworkResponse: () => [500, { ok: false, error: { code: 'DESIGN_FRAMEWORK_RUN_FAILED', message: '板级 IR 非法：board.widthMm 缺失' } }],
+  });
+  try {
+    const result = await harness.callTool('cp_design_loop', { model: LOOP_MODEL });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'DESIGN_FRAMEWORK_RUN_FAILED');
+    assert.match(result.message, /board\.widthMm/);
+    assert.ok(result.nextActions.length > 0);
+    assert.equal(result.data.runtimeStatus, 500);
+    foreachNoToken(result);
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：Runtime 缺路由时升级 RUNTIME_ROUTE_MISSING（列出 run/status）', async () => {
+  const harness = await makeLoopHarness({ routeMissing: true });
+  try {
+    const result = await harness.callTool('cp_design_loop', { model: LOOP_MODEL });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'RUNTIME_ROUTE_MISSING');
+    assert.equal(result.data.originalCode, 'ROUTE_NOT_FOUND');
+    assert.equal(result.data.tool, 'cp_design_loop');
+    assert.deepEqual(result.data.routes, ['POST /api/design/framework/run', 'GET /api/design/framework/status']);
+    foreachNoToken(result);
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：超大闭环结果仍走结果裁剪（truncated 且保持上限、无 token）', async () => {
+  const huge = loopFramework({
+    summary: {
+      initialDigest: 'digest-1',
+      finalDigest: 'digest-2',
+      iterations: 8,
+      repairs: 8,
+      blocking: 0,
+      review: 0,
+      ruleCoverage: 0.5,
+      releaseReady: false,
+      model: { components: Array.from({ length: 80 }, (_unused, index) => ({ ref: `C${index}`, note: 'n'.repeat(200) })) },
+    },
+    iterations: Array.from({ length: 8 }, (_unused, index) => ({
+      iteration: index + 1,
+      modelDigest: 'd'.repeat(64),
+      blocking: Array.from({ length: 30 }, (_item, inner) => ({ source: 'rule', code: `RULE_${inner}`, ref: `R${inner}`, group: null })),
+      reviewCount: index,
+    })),
+  });
+  const harness = await makeLoopHarness({ framework: huge, options: { config: { maxResultBytes: 2048 } } });
+  try {
+    const result = await harness.callTool('cp_design_loop', { model: LOOP_MODEL });
+    assert.equal(result.ok, true);
+    assert.equal(result.truncated, true);
+    assert.ok(Buffer.byteLength(JSON.stringify(result), 'utf8') <= 2048);
+    assert.ok(result.summary.length > 0);
+    foreachNoToken(result);
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：schema 明确只读/必填 model/options 结构；非法参数统一 INVALID_ARGUMENTS', async () => {
+  const harness = await makeLoopHarness();
+  try {
+    const tool = harness.byName.cp_design_loop;
+    assert.equal(tool.type, 'read');
+    assert.equal(tool.inputSchema.type, 'object');
+    assert.deepEqual(tool.inputSchema.required, ['model']);
+    assert.equal(tool.inputSchema.properties.model.type, 'object');
+    assert.equal(tool.inputSchema.properties.options.type, 'object');
+    assert.equal(tool.inputSchema.properties.options.additionalProperties, false);
+    assert.equal(tool.inputSchema.properties.options.properties.maxIterations.type, 'integer');
+    assert.equal(tool.inputSchema.properties.options.properties.fabProfile.type, 'string');
+    assert.match(tool.description, /不写 EDA/);
+    assert.match(tool.description, /不签核/);
+
+    for (const args of [{}, { model: 'not-an-object' }, { model: {}, options: { maxIterations: 'many' } }]) {
+      const result = await harness.callTool('cp_design_loop', args);
+      assert.equal(result.ok, false);
+      assert.equal(result.code, 'INVALID_ARGUMENTS');
+    }
+    assert.equal(harness.runtime.calls.filter((call) => call.path === '/api/design/framework/run').length, 0);
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：status=passed 但仍有 blocking/review → fail-closed DESIGN_LOOP_INCONSISTENT', async () => {
+  const inconsistent = loopFramework({
+    status: 'passed',
+    summary: { initialDigest: 'digest-1', finalDigest: 'digest-2', iterations: 2, repairs: 1, blocking: 1, review: 0, ruleCoverage: 0.9, releaseReady: false },
+    evidence: { kind: 'design-loop-evidence', status: 'passed', finalBlocking: [{ source: 'rule', code: 'RULE_FAIL', ref: 'R1', group: null }], finalReviewCount: 0 },
+  });
+  const harness = await makeLoopHarness({ framework: inconsistent });
+  try {
+    const result = await harness.callTool('cp_design_loop', { model: LOOP_MODEL });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'DESIGN_LOOP_INCONSISTENT');
+    assert.match(result.message, /拒绝当作通过/);
+    foreachNoToken(result);
+  } finally {
+    await harness.close();
+  }
+});
+
 test('normalizeToolConfig：uiUrl 默认、去尾斜杠、仅 http/https', () => {
   assert.equal(DEFAULT_TOOL_CONFIG.uiUrl, 'http://127.0.0.1:4177');
   assert.equal(normalizeToolConfig({}).uiUrl, 'http://127.0.0.1:4177');
@@ -1284,7 +1595,8 @@ test('工具定义可独立构造（不依赖 DSH）：显式 client/config 注�
       client: harness.client,
       jobs: harness.jobs,
     });
-    assert.equal(tools.length, 12);
+    assert.equal(tools.length, 13);
+    assert.equal(tools.at(-1).name, 'cp_design_loop');
   } finally {
     await harness.close();
   }

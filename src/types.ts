@@ -1935,3 +1935,41 @@ export interface SupervisorAttentionView {
   /** 平台 P1-6：来源可用性；老 Runtime 不返回时为 undefined（UI 按"未知"处理）。 */
   sources?: SupervisorAttentionSources;
 }
+
+/** 复合设计框架状态（只读；外部工具缺失时 available=false，绝不假装可用）。 */
+export interface DesignFrameworkStatus {
+  schemaVersion: number;
+  kicad: { available: boolean; command: string | null; reason?: string | null; searched?: string[] };
+  externalSolvers: Record<string, { name?: string; module?: string; available: boolean; status?: string; reason?: string | null }>;
+  layers: string[];
+}
+
+/** 复合设计框架闭环摘要（cp_design_loop / POST /api/design/framework/run）。 */
+export interface DesignFrameworkLoopSummary {
+  ok: boolean;
+  status: 'passed' | 'needs-review' | 'blocked' | string;
+  iterations: Array<{ iteration: number; modelDigest: string; blocking: Array<{ source: string; code: string; ref?: string | null; group?: string | null }>; reviewCount: number }>;
+  repairCount: number;
+  repairs: Array<{ iteration: number; strategy: string; riskLevel?: string; fromDigest?: string; toDigest?: string; detail?: string | null }>;
+  summary: {
+    initialDigest: string | null; finalDigest: string | null; iterations: number; repairs: number;
+    blocking: number | null; review: number | null; ruleCoverage: number | null; releaseReady: boolean;
+    model: Record<string, unknown> | null;
+  };
+  rules: Record<string, unknown> | null;
+  netlist: Record<string, unknown> | null;
+  plan: { operations: number; skipped: Array<{ ref: string; reason: string }> };
+  evidence: Record<string, unknown> | null;
+  digest: string | null;
+}
+
+/** 复合设计框架金板评估报告。 */
+export interface DesignFrameworkGoldenReport {
+  ok: boolean;
+  metrics: {
+    schemaVersion: number; total: number; passed: number; failed: number; passRate: number;
+    statusCounts: Record<string, number>; avgIterations: number; totalRepairs: number;
+    ruleCoverageAvg: number | null; failures: Array<{ id: string; violations: Array<Record<string, unknown>> }>;
+  };
+  results: Array<{ id: string; ok: boolean; status: string | null; iterations: number | null; repairCount: number; blockingAfter: number | null; reviewAfter: number | null; ruleCoverage: number | null; violations: Array<Record<string, unknown>> }>;
+}
