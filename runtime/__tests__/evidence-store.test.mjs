@@ -76,6 +76,8 @@ test('参数校验：未知证据类型/空 payload 一律拒绝', () => {
     'pin-evidence',
     // W5-01：项目复盘证据独立成类。
     'retrospective',
+    // 2026-11-06：离线设计闭环证据独立成类（cp_evidence 可按 kind/digest 检索）。
+    'design-loop-evidence',
   ]);
 });
 

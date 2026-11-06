@@ -30,6 +30,7 @@ export function DesignFrameworkPanel() {
   const [golden, setGolden] = useState<DesignFrameworkGoldenReport | null>(null);
   const [result, setResult] = useState<DesignFrameworkLoopSummary | null>(null);
   const [modelText, setModelText] = useState(() => JSON.stringify(DEMO_MODEL, null, 2));
+  const [sourceMode, setSourceMode] = useState<'model' | 'project'>('model');
   const [busy, setBusy] = useState<'status' | 'golden' | 'run' | null>(null);
   const [error, setError] = useState('');
 
@@ -66,6 +67,11 @@ export function DesignFrameworkPanel() {
     setError('');
     setResult(null);
     try {
+      if (sourceMode === 'project') {
+        // 真实 EDA 模式：Runtime 只读读回当前项目 + EDA（板框/层数/器件几何/网表）。
+        setResult(await runtimeClient.designFrameworkRun({ source: 'project', options: { maxIterations: 4 } }));
+        return;
+      }
       const model = JSON.parse(modelText);
       if (!model || typeof model !== 'object' || Array.isArray(model)) throw new Error('model 必须是 JSON 对象');
       setResult(await runtimeClient.designFrameworkRun({ model, options: { maxIterations: 4 } }));
@@ -107,7 +113,17 @@ export function DesignFrameworkPanel() {
         />
       </div>
 
-      <div className="row-actions" style={{ marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
+      <div className="row-actions" style={{ marginTop: 10, flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <label className="muted" htmlFor="design-loop-source">输入来源</label>
+        <select
+          id="design-loop-source"
+          aria-label="板级 IR 输入来源"
+          value={sourceMode}
+          onChange={(event) => { setSourceMode(event.target.value === 'project' ? 'project' : 'model'); setResult(null); setError(''); }}
+        >
+          <option value="model">手填板级 IR（model）</option>
+          <option value="project">当前项目 + EDA 只读读回（source=project）</option>
+        </select>
         <Button loading={busy === 'golden'} icon={<FlaskConical size={14} />} onClick={() => void runGolden()}>运行金板评估</Button>
         <Button loading={busy === 'run'} variant="primary" icon={<Play size={14} />} onClick={() => void runLoop()}>运行设计闭环</Button>
       </div>
@@ -125,15 +141,25 @@ export function DesignFrameworkPanel() {
         </div>
       )}
 
-      <FieldLabel text="板级 IR（JSON，可编辑）" />
-      <textarea
+      {sourceMode === 'project' ? (
+        <p className="muted" style={{ marginTop: 10 }}>
+          source=project：Runtime 用当前项目 + EDA 只读读回（pcb.outline.read / pcb.layers.copperCount /
+          pcb.placement.read / schematic.netlist.export）构建 IR；EDA 离线或未选中 PCB 时返回
+          DESIGN_FRAMEWORK_EDA_OFFLINE（不编造尺寸）。本面板只发起只读请求。
+        </p>
+      ) : (
+        <>
+          <FieldLabel text="板级 IR（JSON，可编辑）" />
+          <textarea
         value={modelText}
         onChange={(event) => setModelText(event.target.value)}
         rows={10}
         spellCheck={false}
         aria-label="板级 IR JSON"
-        style={{ width: '100%', fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}
-      />
+            style={{ width: '100%', fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}
+          />
+        </>
+      )}
       <p className="muted" style={{ marginTop: 6 }}>
         边界：闭环结果只是「执行候选 + 证据」；写 EDA 仍需官方 ERC/DRC、人工审批与 cp_approve → cp_execute。
       </p>

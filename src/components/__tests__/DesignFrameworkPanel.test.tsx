@@ -119,6 +119,22 @@ describe('离线设计闭环面板', () => {
     expect(container.textContent).toContain('写 EDA 仍需官方 ERC/DRC、人工审批');
   });
 
+  it('输入来源切到 source=project：调用 Runtime 只读读回模式（不解析 model 文本）', async () => {
+    await act(async () => { root.render(<DesignFrameworkPanel />); });
+    await flush();
+    const select = container.querySelector('select[aria-label="板级 IR 输入来源"]') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+      setter?.call(select, 'project');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await clickButton('运行设计闭环');
+    expect(runtimeClient.designFrameworkRun).toHaveBeenCalledTimes(1);
+    expect(runtimeClient.designFrameworkRun).toHaveBeenCalledWith({ source: 'project', options: { maxIterations: 4 } });
+    expect(container.textContent).toContain('需人工审阅（不是 passed）');
+  });
+
   it('非法 JSON 模型：给出明确错误，不调用 Runtime', async () => {
     await act(async () => { root.render(<DesignFrameworkPanel />); });
     await flush();

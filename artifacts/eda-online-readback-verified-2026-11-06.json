@@ -1,5 +1,5 @@
 {
-  "at": "2026-11-06T17:59:00+08:00",
+  "at": "2026-11-06T18:20:00+08:00",
   "goal": "真实 EDA 在线读回 + 离线设计闭环 + 官方 ERC/DRC 只读验证",
   "environment": {
     "circuitpilot": "/Applications/CircuitPilot.app 0.2.0 (installed, running)",
@@ -9,7 +9,7 @@
     "daemon": "easyeda-agent daemon v1.3.0 @ 60832",
     "adapter": "scripts/easyeda-agent-bridge.mjs (experimental) @ 49620; edaConnected=true",
     "versionGate": "CLI v1.3.0 vs connector 1.14.0 错位；只读动作以 --skip-version-check 执行（审计）",
-    "installedBuild": "2026-11-06 17:58 重打包（含 placementId 修复）；旧构建备份 /Applications/CircuitPilot.app.bak-20261106-1650 / .bak-20261106-1758"
+    "installedBuild": "2026-11-06 18:25 重打包（含 EDA bridge 自动托管、placementId、evidence archive）；安装版 /Applications/CircuitPilot.app"
   },
   "workspace": {
     "bound": true,
@@ -163,7 +163,7 @@
     "writeRoutesCalled": 0,
     "note": "只读：pcb.outline.read / pcb.layers.copperCount / pcb.placement.read / schematic.netlist.export（permission=read）+ 官方 ERC/DRC 校验（read-only 检查）；doc switch 仅切前台文档。"
   },
-  "verdict": "PASS (read-back + loop + ERC/DRC read-only; placementId 回写映射已修复并真机复验)",
+  "verdict": "PASS (auto bridge + real read-back + loop + ERC/DRC + binding warning + evidence archive)",
   "placementIdFix": {
     "problem": "source=project 构建 IR 时丢弃了 pcb.placement.read 的 primitiveId → toPcbOperations 跳过所有器件（真实板 95 个）",
     "fix": "把 EDA primitiveId 保留为 IR placementId（无 primitiveId 不猜测）；测试断言 plan.skipped=[]",
@@ -182,5 +182,25 @@
       "workspace runtime 4199（真实 EDA 读回）",
       "安装版 /Applications/CircuitPilot.app 0.2.0 重打包并重启后（真实 EDA 读回）"
     ]
+  },
+  "autoBridge": {
+    "mechanism": "Runtime 启动时 ensureManagedEdaBridge（env CIRCUITPILOT_EDA_AUTO_BRIDGE=on，由 Tauri 壳注入）：探活 49620 → 无则启动 easyeda daemon(60832) → 启动实验 adapter(49620)；失败 fail-open。",
+    "verified": "先杀掉手动 daemon(60832)/adapter(49620)，重启安装版 App；18s 内自动出现 60832 与 49620，adapter edaConnected=true，Runtime /api/health 0.2.0。",
+    "logs": "runtime.log: EDA bridge: online { port: 49620, daemonStarted: true, adapterPid: 24130 }"
+  },
+  "bindingMismatchWarning": {
+    "detected": {
+      "projectPcbUuid": "5595e77cead09682",
+      "activePcbUuid": "084751e2c073fcf2",
+      "projectProjectUuid": "ba4924190e3a4388a097f3dee090da20",
+      "activeProjectUuid": "8e652031ec18479898e77d5a9b5ef7a9"
+    },
+    "surfaced": "cp_status.data.eda.bindingMismatch + warnings + nextActions（只告警，不自动改绑定）"
+  },
+  "evidenceArchive": {
+    "kind": "design-loop-evidence",
+    "digest": "0fa559fcdf2ee4dfdf0baf54958a646047039aeadb27d706be6987523e700a06",
+    "retrievableBy": "cp_evidence(kind=design-loop-evidence)",
+    "indexCount": 116
   }
 }

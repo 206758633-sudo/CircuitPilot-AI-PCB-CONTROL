@@ -206,6 +206,21 @@ Tauri resources；随后**直接用打包产物的 runtime** 起隔离实例（4
 
 安装版已重打包并替换（旧构建备份 `.bak-20261106-1650` / `.bak-20261106-1758`）。
 
+### 2.13 EDA bridge 自动托管 + 绑定告警 + 证据归档（2026-11-06 18:19）
+
+- **自动托管**：安装版 App 启动时（Tauri 注入 `CIRCUITPILOT_EDA_AUTO_BRIDGE=on`）Runtime 调
+  `ensureManagedEdaBridge`：探活 49620 → 缺失则启动 `easyeda daemon`(60832) → 启动 experimental
+  adapter(49620)，失败 fail-open。实测：先杀掉手动 daemon/adapter，重启 App 后 18s 内
+  60832/49620 自动恢复、`edaConnected=true`、日志 `EDA bridge: online {daemonStarted:true}`。
+- **绑定漂移告警**：`cp_status`/`cp_project_context` 现在对比项目绑定 PCB 与活动板：
+  实测项目 `5595e77c…` ≠ 活动板 `084751e2…`，返回 `data.eda.bindingMismatch` + warning +
+  “重新绑定/切板后再出写计划”的 nextActions（只告警，不自动改绑定）。
+- **证据归档**：`POST /api/design/framework/run` 把闭环结果写入 `design-loop-evidence` 证据文件，
+  `cp_design_loop` 返回归档 ref/digest；`cp_evidence(kind="design-loop-evidence")` 可检索
+  （实测 digest `0fa559fc…`，索引 116 份）。
+- **真实 EDA 复验**：auto bridge 下 `source=project` 仍为 130.505×88.519mm / 4 层 / 95 器件，
+  plan.operations=96、skipped=0；needs-review、blocking=0、review=147。
+
 ## 3. 本轮据此完成的代码改进
 
 1. **新增 `source:"project"`**（Runtime 服务层 + HTTP 路由 + 插件工具）：

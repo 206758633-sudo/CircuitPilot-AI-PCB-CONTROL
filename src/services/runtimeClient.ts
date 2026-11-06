@@ -571,7 +571,7 @@ export const runtimeClient = {
   },
 
   /** 复合设计框架：离线设计闭环（IR → 规则 + 求解器 + Plan-Verify-Repair）。只读、不写 EDA。 */
-  async designFrameworkRun(input: { model: Record<string, unknown>; options?: { maxIterations?: number; fabProfile?: string } }) {
+  async designFrameworkRun(input: { model?: Record<string, unknown>; source?: 'model' | 'project'; options?: { maxIterations?: number; fabProfile?: string } }) {
     const result = await request<{ ok: true; framework: DesignFrameworkLoopSummary }>('/api/design/framework/run', { method: 'POST', body: JSON.stringify(input) });
     return result.framework;
   },

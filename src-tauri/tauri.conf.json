@@ -23,6 +23,7 @@
     ],
     "resources": {
       "../runtime": "runtime",
+      "../scripts/easyeda-agent-bridge.mjs": "scripts/easyeda-agent-bridge.mjs",
       "../eval/golden": "eval/golden",
       "../manufacturing": "manufacturing",
       "../docs/implementation": "docs/implementation",

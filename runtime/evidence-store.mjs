@@ -29,6 +29,8 @@ export const EVIDENCE_KINDS = Object.freeze([
   'pin-evidence',
   // W5-01 复盘学习 Agent（RLA）：项目收尾复盘的事实 → 知识候选，单独成类，不混进 signoff/gate-report。
   'retrospective',
+  // 离线设计闭环（复合框架）产物：只读闭环的 state/摘要/计划/digest，供 cp_evidence 按 kind/digest 下钻。
+  'design-loop-evidence',
 ]);
 
 const canonical = (value) => {

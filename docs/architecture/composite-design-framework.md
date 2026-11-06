@@ -253,6 +253,8 @@ UI 已接入：`src/components/DesignFrameworkPanel.tsx`（渲染在「验证与
 - 打包 App：`npm run desktop:app`（Tauri resources 已包含 `eval/golden`）；bundle 内 runtime 可直接验证框架路由。
 - 安装版：`/Applications/CircuitPilot.app` 已替换为含复合框架的新构建（2026-11-06），旧版备份
   `/Applications/CircuitPilot.app.bak-20261106-1650`；DSH 需重启以加载新版插件。
+- EDA bridge 自动托管：`runtime/eda-bridge-supervisor.mjs`（env `CIRCUITPILOT_EDA_AUTO_BRIDGE=on`）
+  启动 easyeda daemon + experimental adapter；失败 fail-open。闭环证据写入 `design-loop-evidence`。
 - 一键 HTTP 模拟：`node scripts/design-framework-sim.mjs --out artifacts/design-framework-sim-<date>.json`
   （自动起隔离 Runtime → 5 金板闭环 + 确定性 + 非法/超大模型 + 未认证 + token 泄漏扫描；
   当前 **13/13 通过**）。

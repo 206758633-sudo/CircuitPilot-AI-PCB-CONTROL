@@ -151,6 +151,9 @@ pub fn run() {
                 }
                 let mut spawned = command
                     .env("CIRCUITPILOT_TOKEN_STDIN", "1")
+                    // 安装版启动时自动恢复 EDA bridge（daemon 60832 + experimental adapter 49620）；
+                    // 失败只降级，不阻塞 Runtime。
+                    .env("CIRCUITPILOT_EDA_AUTO_BRIDGE", "on")
                     .stdin(Stdio::piped())
                     .stdout(log_out)
                     .stderr(log_err)

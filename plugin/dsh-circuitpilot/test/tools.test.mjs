@@ -6,6 +6,7 @@ import {
   DESIGN_LOOP_MODEL_MAX_BYTES,
   DEFAULT_TOOL_CONFIG,
   TOOL_NAMES,
+  detectBindingMismatch,
   normalizeToolConfig,
   summarizeIssues,
 } from '../lib/tools.mjs';
@@ -1273,6 +1274,26 @@ test('cp_design_loop：超大闭环结果仍走结果裁剪（truncated 且保�
   } finally {
     await harness.close();
   }
+});
+
+test('detectBindingMismatch：项目绑定 PCB ≠ EDA 活动板时返回明确差异（只告警，不自动改绑定）', () => {
+  const state = { activeProjectId: 'p1', projects: [{ id: 'p1', name: '衣橱助手V2.0 测试板', edaWorkspace: { projectUuid: 'old-proj', pcbUuid: '5595e77cead09682', boardName: 'Board1_1' } }] };
+  const workspace = { projectUuid: 'new-proj', pcbUuid: '084751e2c073fcf2', boardName: 'Board1_1' };
+  const mismatch = detectBindingMismatch(state, workspace);
+  assert.deepEqual(mismatch, {
+    projectId: 'p1',
+    projectName: '衣橱助手V2.0 测试板',
+    projectPcbUuid: '5595e77cead09682',
+    activePcbUuid: '084751e2c073fcf2',
+    projectProjectUuid: 'old-proj',
+    activeProjectUuid: 'new-proj',
+  });
+  // 一致 → null
+  assert.equal(detectBindingMismatch(state, { ...workspace, pcbUuid: '5595e77cead09682' }), null);
+  // 缺字段 / 非法输入 → null（不误报）
+  assert.equal(detectBindingMismatch(null, workspace), null);
+  assert.equal(detectBindingMismatch(state, null), null);
+  assert.equal(detectBindingMismatch({ projects: [{ id: 'p1' }] }, workspace), null);
 });
 
 test('cp_design_loop：schema 明确只读/model|source 二选一/options 结构；非法参数统一 INVALID_ARGUMENTS', async () => {

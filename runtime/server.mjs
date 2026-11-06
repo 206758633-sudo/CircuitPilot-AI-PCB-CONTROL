@@ -6,6 +6,7 @@ import { basename, delimiter, extname, join, relative, resolve as resolvePath, s
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ALLOWED_ORIGINS, BODY_LIMIT, RUNTIME_HOST, RUNTIME_PORT } from './config.mjs';
 import { appDataDir, edaAppCandidates, openApplication } from './platform.mjs';
+import { ensureManagedEdaBridge } from './eda-bridge-supervisor.mjs';
 import { BridgeClient } from './bridge.mjs';
 import { EdaGuiClient, assertGuiAction } from './eda-gui.mjs';
 import { assertSafeText, assertShortcutAllowed, assertNotCheckoutTarget } from './automation/safety.mjs';
@@ -4485,6 +4486,31 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         } else {
           result = { ok: true, framework: runFrameworkLoop({ model: body?.model, options: body?.options }) };
         }
+        // 把闭环结果归档进证据索引（只读产物；失败不阻塞返回，但必须记日志）。
+        try {
+          const framework = result.framework;
+          const archived = evidenceStore.save({
+            kind: 'design-loop-evidence',
+            payload: {
+              status: framework?.status ?? null,
+              digest: framework?.digest ?? null,
+              summary: framework?.summary ?? null,
+              ruleSummary: framework?.rules?.summary ?? null,
+              plan: {
+                operations: Array.isArray(framework?.plan?.operations) ? framework.plan.operations.length : 0,
+                skipped: Array.isArray(framework?.plan?.skipped) ? framework.plan.skipped.length : 0,
+              },
+              iterations: Array.isArray(framework?.iterations) ? framework.iterations.length : 0,
+              repairs: Array.isArray(framework?.repairs) ? framework.repairs.length : 0,
+              source: body?.source === 'project' ? 'project' : 'model',
+            },
+            fingerprint: { digest: framework?.digest ?? 'unknown' },
+            note: 'offline design framework loop (read-only)',
+          });
+          result.framework = { ...framework, evidence: { ...(framework?.evidence ?? {}), archived: { kind: 'design-loop-evidence', digest: archived.digest, ref: archived.path } } };
+        } catch (error) {
+          logger.warn('Design', 'design-loop evidence archive failed', { message: String(error?.message || error).slice(0, 160) });
+        }
       } else if (method === 'POST' && url.pathname === '/api/design/execute') {
         const body = await readBody(request);
         result = { ok: true, execution: await designManager.execute(body) };
@@ -5257,6 +5283,10 @@ export function startRuntime({ port = RUNTIME_PORT, runtimeToken } = {}) {
   // 端口被占用时不要假装启动成功：细节已由上面的 error 监听器记录，这里只负责非零退出。
   server.once('error', () => process.exit(1));
   server.listen(port, RUNTIME_HOST, () => logger.info('Runtime', 'CircuitPilot Runtime started', { host: RUNTIME_HOST, port }));
+  // 安装版（Tauri 壳会注入 CIRCUITPILOT_EDA_AUTO_BRIDGE=on）启动时自动恢复 EDA bridge；
+  // 失败只记录日志，绝不阻塞 Runtime（EDA 离线仍 fail-closed）。
+  ensureManagedEdaBridge({ logger: (level, message, detail) => logger[level === 'warn' ? 'warn' : 'info']('EDA bridge', message, detail) })
+    .catch((error) => logger.warn('EDA bridge', 'supervisor failed', { message: String(error?.message ?? error).slice(0, 160) }));
   const shutdown = (signal) => {
     logger.warn('Runtime', 'CircuitPilot Runtime stopping', { signal });
     server.close(() => process.exit(0));

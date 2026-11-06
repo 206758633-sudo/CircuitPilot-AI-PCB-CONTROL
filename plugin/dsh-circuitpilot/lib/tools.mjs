@@ -243,6 +243,30 @@ export function summarizeProjectState(state) {
   };
 }
 
+/**
+ * 检测「项目状态里绑定的 EDA 工作区」与「当前 EDA 活动工作区」是否漂移。
+ * 真机案例（2026-11-06）：项目绑定 pcbUuid 5595e77c…，活动板 084751e2… ——
+ * 这类漂移会让项目作用域的写计划落到错误板上，必须显式告警（只告警，不自动改绑定）。
+ * @returns {{projectId:string|null, projectName:string|null, projectPcbUuid:string, activePcbUuid:string, projectProjectUuid:string|null, activeProjectUuid:string|null}|null}
+ */
+export function detectBindingMismatch(projectState, activeWorkspace) {
+  const projects = Array.isArray(projectState?.projects) ? projectState.projects : [];
+  const activeId = typeof projectState?.activeProjectId === 'string' ? projectState.activeProjectId : '';
+  const activeProject = projects.find((item) => item?.id === activeId) ?? projects[0] ?? null;
+  const bound = isPlainObject(activeProject?.edaWorkspace) ? activeProject.edaWorkspace : null;
+  const projectPcbUuid = typeof bound?.pcbUuid === 'string' && bound.pcbUuid ? bound.pcbUuid : null;
+  const activePcbUuid = typeof activeWorkspace?.pcbUuid === 'string' && activeWorkspace.pcbUuid ? activeWorkspace.pcbUuid : null;
+  if (!projectPcbUuid || !activePcbUuid || projectPcbUuid === activePcbUuid) return null;
+  return {
+    projectId: activeProject?.id ?? null,
+    projectName: typeof activeProject?.name === 'string' ? activeProject.name : null,
+    projectPcbUuid,
+    activePcbUuid,
+    projectProjectUuid: typeof bound?.projectUuid === 'string' ? bound.projectUuid : null,
+    activeProjectUuid: typeof activeWorkspace?.projectUuid === 'string' ? activeWorkspace.projectUuid : null,
+  };
+}
+
 /** 多项目总览：每个项目最多列出的 board 数（契约上限，防止单项目把结果撑爆）。 */
 const MAX_BOARDS_PER_PROJECT = 20;
 /** 多项目总览：一次性最多读取的项目数（projectLimit 上限）。 */
@@ -1192,7 +1216,8 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
       if (!projectEnv.ok && !projectRouteMissing) {
         return failResult(projectEnv.code, projectEnv.message, { nextActions: projectEnv.nextActions.length ? projectEnv.nextActions : RUNTIME_DOWN_ACTIONS });
       }
-      const project = projectRouteMissing ? null : summarizeProjectState(projectEnv.data?.state);
+      const rawProjectState = projectRouteMissing ? null : projectEnv.data?.state;
+      const project = projectRouteMissing ? null : summarizeProjectState(rawProjectState);
       const gate = gateEnv.ok
         ? {
           available: true,
@@ -1205,6 +1230,8 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
       const eda = workspaceEnv.ok
         ? { online: true, workspace: workspaceEnv.data?.workspace ?? null }
         : { online: false, error: { code: workspaceEnv.code, message: workspaceEnv.message }, ...(isRouteMissingEnvelope(workspaceEnv) ? { routeMissing: true } : {}) };
+      const bindingMismatch = eda.online ? detectBindingMismatch(rawProjectState, eda.workspace) : null;
+      if (bindingMismatch) eda.bindingMismatch = bindingMismatch;
       const issues = issueEnv.ok ? summarizeIssues(issueEnv.data?.state) : null;
       const issuesRouteMissing = !issueEnv.ok && isRouteMissingEnvelope(issueEnv);
       const evidence = evidenceEnv.ok
@@ -1229,6 +1256,7 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
       if (projectRouteMissing) warnings.push('项目状态路由缺失（/api/project-state）：当前 Runtime 很可能不是兼容的 CircuitPilot 0.2.x');
       if (!gate.available) warnings.push('写暂停状态读取失败：写操作前必须人工确认 Runtime 写门禁');
       if (!eda.online) warnings.push('EDA 工作区读取失败（常见：EDA 未启动/未选中 PCB 文档/多窗口未选择）');
+      if (bindingMismatch) warnings.push(`项目绑定 PCB ${bindingMismatch.projectPcbUuid} 与当前 EDA 活动板 ${bindingMismatch.activePcbUuid} 不一致：执行写计划前必须核对/重新绑定，避免落到错误板`);
       if (!issues) warnings.push('问题状态读取失败');
       const nextActions = [];
       const compatBroken = (!versionCompat.supported && !versionCompat.unknown) || missingCapabilities.length > 0 || projectRouteMissing;
@@ -1237,6 +1265,7 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
         nextActions.push(`写入已暂停${gate.reason ? `（${gate.reason}）` : ''}：不要执行任何写操作；让用户在 CircuitPilot 解除写暂停`);
       }
       if (!eda.online) nextActions.push('打开嘉立创EDA并选中目标 PCB 文档/绑定工作区后重试');
+      if (bindingMismatch) nextActions.push('在 CircuitPilot「项目与资料」重新绑定当前 EDA 工程/PCB，或切到项目绑定的板后再出写计划；不要直接按当前活动板写');
       if (issues?.open > 0) nextActions.push('存在未收口问题：调用 cp_issues 查看详情，先处理 P0/P1 再计划写入');
       if (!nextActions.length) nextActions.push('需要设计方案时调用 cp_design_plan；需要 PCB 计划时调用 cp_pcb_plan');
       const version = health.data?.version ?? null;
@@ -1320,6 +1349,7 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
       const state = projectEnv.data?.state;
       const project = summarizeProjectState(state);
       const workspace = workspaceEnv.ok ? workspaceEnv.data?.workspace ?? null : null;
+      const bindingMismatch = detectBindingMismatch(state, workspace);
       const issues = issueEnv.ok ? summarizeIssues(issueEnv.data?.state) : null;
 
       // 可选：多项目/多板只读总览。只 GET；单项目失败只记 error，不影响其它项目与当前项目上下文。
@@ -1335,12 +1365,14 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
         project,
         edaWorkspace: workspace,
         edaError: workspaceEnv.ok ? null : { code: workspaceEnv.code, message: workspaceEnv.message },
+        ...(bindingMismatch ? { bindingMismatch } : {}),
         issues: issues ? { open: issues.open, bySeverity: issues.bySeverity } : null,
         counts: { requirements: project.requirements, components: project.components, assets: project.assets },
       };
       const nextActions = [];
       if (workspace) nextActions.push('计划改动前先调用 cp_design_plan / cp_pcb_plan 并让用户确认');
       else nextActions.push('先让用户在 CircuitPilot 绑定/选中 EDA 工程与 PCB 文档；未绑定无法读取真机上下文');
+      if (bindingMismatch) nextActions.push('项目绑定的 PCB 与当前 EDA 活动板不一致：先重新绑定或切板，再计划写操作（避免写错板）');
       let overviewText = '';
       if (allProjects) {
         data.projects = allProjects.projects;
@@ -2367,7 +2399,8 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
         ? ` · 规则覆盖 ${(summary.ruleCoverage * 100).toFixed(1)}%`
         : '';
       const head = `设计闭环（离线）：status=${status || 'unknown'} · 迭代 ${iterationCount} · 修复 ${repairCount} · blocking ${blockingCount} · review ${reviewCount}${coverage}`;
-      const evidence = [evidenceRef('design-loop-evidence', 'POST /api/design/framework/run', digest)];
+      const archivedEvidence = isPlainObject(framework.evidence?.archived) ? framework.evidence.archived : null;
+      const evidence = [evidenceRef('design-loop-evidence', archivedEvidence?.ref ?? 'POST /api/design/framework/run', archivedEvidence?.digest ?? digest)];
       const data = {
         status,
         iterations: iterationCount,

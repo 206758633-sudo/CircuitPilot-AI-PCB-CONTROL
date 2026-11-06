@@ -50,6 +50,8 @@ MCP 独立验证套件（`verification/agent/mcp/*.test.mjs`）依赖 `@modelcon
 | **真实会话内 cp_* 调用（独立 teammate）** | ✔ PASS：工具 13/13 注入；cp_status/项目上下文/设计闭环均按预期；source=project EDA 离线 fail-closed；0 写入/0 token 泄漏 |
 | **真实 EDA 在线读回 + ERC/DRC** | ✔ 板 130.505×88.519mm/4 层/95 器件；source=project needs-review；ERC 0 error/1 warning；DRC 39 clearance（ready=false，如实记录） |
 | **placementId 回写映射修复** | ✔ 修复后真实 plan.operations=96 / skipped=0（修复前 1/95 缺 id）；安装版重打包并真机复验 |
+| **EDA bridge 自动托管** | ✔ 安装版启动自动恢复 daemon(60832)+adapter(49620)，失败 fail-open；真机杀进程重启后自动恢复 |
+| **绑定漂移告警 / 证据归档 / UI source=project** | ✔ cp_status 报 bindingMismatch；design-loop 证据可 cp_evidence 检索；UI 面板支持 source=project（vitest 5/5） |
 
 据此补齐：`source:"project"`（项目状态 + EDA 只读读回构建 IR）、`cp_design_loop` 的
 "安装版构建早于框架"精确提示、以及对应测试（服务层 11 项、插件 210 项）。

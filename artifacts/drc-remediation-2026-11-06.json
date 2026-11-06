@@ -1,0 +1,1549 @@
+{
+  "at": "2026-11-06T10:18:54.669Z",
+  "source": {
+    "kind": "drc-report",
+    "digest": "743d2cc1b206fc0c11bfa9c279477652e29822675af9fc4fa1f028119e82a40b",
+    "pcbUuid": null,
+    "itemCount": 39,
+    "reportedCount": 1,
+    "truncated": false,
+    "countsConsistent": false
+  },
+  "byLayer": {
+    "Top Layer": 20,
+    "Inner2": 9,
+    "Inner1": 8,
+    "Multi-Layer": 2
+  },
+  "bySignature": {
+    "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-": 13,
+    "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-": 8,
+    "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-": 7,
+    "Clearance Error|copperThickness1oz|Top Layer|Board Outline->SMD Pad|-": 4,
+    "Clearance Error|copperThickness1oz|Inner1|Copper Region(Filled)->Board Outline|GND": 1,
+    "Clearance Error|copperThickness1oz|Inner2|Copper Region(Filled)->Board Outline|+3V3": 1,
+    "Clearance Error|copperThickness1oz|Top Layer|Copper Region(Filled)->Board Outline|EXT_48V": 1,
+    "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Via|-": 2,
+    "Clearance Error|copperThickness1oz|Multi-Layer|Board Outline->Hole|-": 2
+  },
+  "sample": [
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(GND): e10245"
+        }
+      ],
+      "position": {
+        "x": 165.29976,
+        "y": 118.11024
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(INT_MID): e11004"
+        }
+      ],
+      "position": {
+        "x": 124.67,
+        "y": 118.11024
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(VDC): e10062"
+        }
+      ],
+      "position": {
+        "x": 146.28,
+        "y": 118.11024
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 1.2mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(BST3): e11195"
+        }
+      ],
+      "position": {
+        "x": 177.477675,
+        "y": 48.239999999999995
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(GND): e10240"
+        }
+      ],
+      "position": {
+        "x": 177.16535,
+        "y": 79.51
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(GND): e10263"
+        }
+      ],
+      "position": {
+        "x": 177.16535,
+        "y": 18.22465000000002
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 2.1mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(INT_24V): e11193"
+        }
+      ],
+      "position": {
+        "x": 177.522675,
+        "y": 40.36
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(EN_INT_A): e10830"
+        }
+      ],
+      "position": {
+        "x": 177.16535,
+        "y": 52.3
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(TG4): e11078"
+        }
+      ],
+      "position": {
+        "x": 177.16535,
+        "y": 103.2
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(VDC): e10077"
+        }
+      ],
+      "position": {
+        "x": 177.16535,
+        "y": 84.92465000000001
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(Q4_GATE): e11028"
+        }
+      ],
+      "position": {
+        "x": 177.16535,
+        "y": 106.6
+      }
+    },
+    {
+      "layer": "Top Layer",
+      "group": "Clearance Error / Board Outline to Track",
+      "rule": "copperThickness1oz",
+      "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+      "objects": [
+        {
+          "type": "Board Outline",
+          "suffix": ": e5"
+        },
+        {
+          "type": "Track",
+          "suffix": "(GND): e10246"
+        }
+      ],
+      "position": {
+        "x": 177.16535,
+        "y": 112.96
+      }
+    }
+  ],
+  "classification": {
+    "ready": false,
+    "findings": [
+      {
+        "code": "DRC_UNEXPLAINED_ITEMS",
+        "severity": "blocking",
+        "field": "items",
+        "message": "39/39 条 DRC 违规没有任何处理结论（既未修复也未登记豁免）"
+      },
+      {
+        "code": "DRC_COUNT_MISMATCH",
+        "severity": "warning",
+        "field": "report",
+        "message": "DRC 报告的 count=1 与实际违规条数 39 不一致（真机上 count 是\"分组数\"）——本报告按实际条数 39 统计，避免把 156 个问题看成 3 个"
+      }
+    ],
+    "unexplained": [
+      {
+        "index": 0,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err0",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 165.29976,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(GND): e10245"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->81cbf930e9d53f15",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 1,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err1",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 124.67,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(INT_MID): e11004"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->b8d4973af4bd9a55",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 2,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err2",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 146.28,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(VDC): e10062"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->761a96c573503250",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 3,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err3",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.477675,
+          "y": 48.239999999999995
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(BST3): e11195"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->62b8265d31676043",
+        "explanation": "Object 1 to object 2 distance is 1.2mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 4,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err4",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 79.51
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(GND): e10240"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->9446f310f0c92164",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 5,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err5",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 18.22465000000002
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(GND): e10263"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->34b4481ca9575c82",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 6,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err6",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.522675,
+          "y": 40.36
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(INT_24V): e11193"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->216bed49a40eb506",
+        "explanation": "Object 1 to object 2 distance is 2.1mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 7,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err7",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 52.3
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(EN_INT_A): e10830"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->a593974d40dc40ca",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 8,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err8",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 103.2
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(TG4): e11078"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->f32f1f98e9ddad72",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 9,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err9",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 84.92465000000001
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(VDC): e10077"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->c9884332a0d3dc0b",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 10,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err10",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 106.6
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(Q4_GATE): e11028"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->5ef95daf4e93924f",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 11,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err11",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 112.96
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(GND): e10246"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->319d1ef9566370a4",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 12,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err12",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 178.002675,
+          "y": 16.55
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(GND): e10262"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Track|-@12af5fdf76170889->de9cef6f7eaecf09",
+        "explanation": "Object 1 to object 2 distance is 11.7mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 13,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err13",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner2",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 78
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(FLT4): e10934"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-@12af5fdf76170889->f1d1c978d9e9e6a3",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 14,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err14",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner2",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 74.82000000000001
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(TIM4): e10552"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-@12af5fdf76170889->f573cada306ba8ed",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 15,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err15",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner2",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 94.9233899828767
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(VDC): e10073"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-@12af5fdf76170889->adb4f1456199dd93",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 16,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err16",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner2",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 83.6309072356215
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(UV4): e11106"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-@12af5fdf76170889->4a2d3025b98a4753",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 17,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err17",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner2",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 69.19
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(Q3_GATE): e11010"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-@12af5fdf76170889->f14b08e028852d9f",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 18,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err18",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner2",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 65.97999999999999
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(TG3): e11068"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-@12af5fdf76170889->c055f15b2023be05",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 19,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err19",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner2",
+        "net": null,
+        "position": {
+          "x": 177.737675,
+          "y": 96.07000000000001
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(VDC): e10072"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-@12af5fdf76170889->9d2d9c18844d6230",
+        "explanation": "Object 1 to object 2 distance is 6.4mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 20,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err20",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner2",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 53.839999999999996
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(FLT3): e10890"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner2|Board Outline->Track|-@12af5fdf76170889->4d0761de56bd4c92",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 21,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err21",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner1",
+        "net": null,
+        "position": {
+          "x": 44.649759999999986,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(GND): e10178"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-@12af5fdf76170889->abc84ee59366c13d",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 22,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err22",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner1",
+        "net": null,
+        "position": {
+          "x": 124.67,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(INT_MID): e10998"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-@12af5fdf76170889->654b07d8714caedc",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 23,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err23",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner1",
+        "net": null,
+        "position": {
+          "x": 140.99,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(BST4): e10500"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-@12af5fdf76170889->1fc21172b765911f",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 24,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err24",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner1",
+        "net": null,
+        "position": {
+          "x": 140.99,
+          "y": 118.93012
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(BST4): e10501"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-@12af5fdf76170889->a2dd36d50438c13e",
+        "explanation": "Object 1 to object 2 distance is 11.4mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 25,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err25",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner1",
+        "net": null,
+        "position": {
+          "x": 173.48,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(Q4_GATE): e11025"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-@12af5fdf76170889->d7c7e5cd69689807",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 26,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err26",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner1",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 41.074650000000005
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(INT_24V): e10438"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-@12af5fdf76170889->97d455ea149db528",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 27,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err27",
+        "group": "Clearance Error / Board Outline to Track",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Track",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner1",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 48.864650000000026
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Track",
+            "suffix": "(BST3): e10487"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner1|Board Outline->Track|-@12af5fdf76170889->9ba8498f0d06d9ae",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 28,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err28",
+        "group": "Clearance Error / Board Outline to SMD Pad",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to SMD Pad",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 83.6677,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "SMD Pad",
+            "suffix": "(INT_MID): Q3_2"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->SMD Pad|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->SMD Pad|-@12af5fdf76170889->5dcfdeca023e2f0ae7",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 29,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err29",
+        "group": "Clearance Error / Board Outline to SMD Pad",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to SMD Pad",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 147.0575,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "SMD Pad",
+            "suffix": "(VDC): C6_2"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->SMD Pad|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->SMD Pad|-@12af5fdf76170889->467bbd473cc47996e15",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 30,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err30",
+        "group": "Clearance Error / Board Outline to SMD Pad",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to SMD Pad",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 102.08250000000002
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "SMD Pad",
+            "suffix": "(TG4): R4_1"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->SMD Pad|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->SMD Pad|-@12af5fdf76170889->aa518d71da17b92ce13",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 31,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err31",
+        "group": "Clearance Error / Board Outline to SMD Pad",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to SMD Pad",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 105.49050000000001
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "SMD Pad",
+            "suffix": "(Q4_GATE): R4_2"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->SMD Pad|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->SMD Pad|-@12af5fdf76170889->aa518d71da17b92ce12",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 32,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err32",
+        "group": "Clearance Error / Board Outline to Copper Region(Filled)",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Copper Region(Filled)",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner1",
+        "net": "GND",
+        "position": {
+          "x": 88.582675,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Copper Region(Filled)",
+            "suffix": "(GND): e49e49"
+          },
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner1|Copper Region(Filled)->Board Outline|GND",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner1|Copper Region(Filled)->Board Outline|GND@97ee7154a3c911c4->12af5fdf76170889",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 10mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 33,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err33",
+        "group": "Clearance Error / Board Outline to Copper Region(Filled)",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Copper Region(Filled)",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Inner2",
+        "net": "+3V3",
+        "position": {
+          "x": 88.582675,
+          "y": 118.11024
+        },
+        "objects": [
+          {
+            "type": "Copper Region(Filled)",
+            "suffix": "(+3V3): e50e50"
+          },
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Inner2|Copper Region(Filled)->Board Outline|+3V3",
+        "instanceKey": "Clearance Error|copperThickness1oz|Inner2|Copper Region(Filled)->Board Outline|+3V3@5d0794f382039135->12af5fdf76170889",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 10mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 34,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err34",
+        "group": "Clearance Error / Board Outline to Copper Region(Filled)",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Copper Region(Filled)",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": "EXT_48V",
+        "position": {
+          "x": 0.9100000000000069,
+          "y": 118.11023999999999
+        },
+        "objects": [
+          {
+            "type": "Copper Region(Filled)",
+            "suffix": "(EXT_48V): e51e51"
+          },
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Copper Region(Filled)->Board Outline|EXT_48V",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Copper Region(Filled)->Board Outline|EXT_48V@99cb0d96c82e9a87->12af5fdf76170889",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 10mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 35,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err35",
+        "group": "Clearance Error / Board Outline to Via",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Via",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 48.239999999999995
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Via",
+            "suffix": "(BST3): e1765"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Via|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Via|-@12af5fdf76170889->c0b471c4b25afb2b",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 36,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err37",
+        "group": "Clearance Error / Board Outline to Via",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Via",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Top Layer",
+        "net": null,
+        "position": {
+          "x": 177.16535,
+          "y": 40.36
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Via",
+            "suffix": "(INT_24V): e1764"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Via|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Top Layer|Board Outline->Via|-@12af5fdf76170889->f87e402e008c31f1",
+        "explanation": "Object 1 to object 2 distance is 0mil, should be >= 11.8mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 37,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err36",
+        "group": "Clearance Error / Board Outline to Hole",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Hole",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Multi-Layer",
+        "net": null,
+        "position": {
+          "x": 177.17767500000002,
+          "y": 48.239999999999995
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Hole",
+            "suffix": "(BST3): e1765"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Multi-Layer|Board Outline->Hole|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Multi-Layer|Board Outline->Hole|-@12af5fdf76170889->c0b471c4b25afb2b",
+        "explanation": "Object 1 to object 2 distance is 0.2mil, should be >= 6.9mil",
+        "visible": true,
+        "severity": "error"
+      },
+      {
+        "index": 38,
+        "disposition": "fix-or-exempt",
+        "dispositionReason": "间距问题：优先调整几何或规则；确认实物可接受后登记豁免（必须写理由与风险）",
+        "globalIndex": "err38",
+        "group": "Clearance Error / Board Outline to Hole",
+        "errorType": "Clearance Error",
+        "errorObjType": "Board Outline to Hole",
+        "ruleName": "copperThickness1oz",
+        "ruleTypeName": "Safe Spacing",
+        "layer": "Multi-Layer",
+        "net": null,
+        "position": {
+          "x": 177.22267499999998,
+          "y": 40.36
+        },
+        "objects": [
+          {
+            "type": "Board Outline",
+            "suffix": ": e5"
+          },
+          {
+            "type": "Hole",
+            "suffix": "(INT_24V): e1764"
+          }
+        ],
+        "signature": "Clearance Error|copperThickness1oz|Multi-Layer|Board Outline->Hole|-",
+        "instanceKey": "Clearance Error|copperThickness1oz|Multi-Layer|Board Outline->Hole|-@12af5fdf76170889->f87e402e008c31f1",
+        "explanation": "Object 1 to object 2 distance is 1.1mil, should be >= 6.9mil",
+        "visible": true,
+        "severity": "error"
+      }
+    ],
+    "exempted": [],
+    "invalidExemptions": [],
+    "unusedExemptions": [],
+    "forbiddenExemptions": [],
+    "summary": {
+      "total": 39,
+      "exempted": 0,
+      "unexplained": 39,
+      "reportedCount": 1,
+      "truncated": false
+    }
+  }
+}
