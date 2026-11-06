@@ -118,6 +118,32 @@ Tauri resources；随后**直接用打包产物的 runtime** 起隔离实例（4
 
 证据：`artifacts/dsh-live-tool-verification-2026-11-06.json`（**PASS**）。
 
+### 2.8 真实 EDA 在线读回尝试（2026-11-06 17:12）——阻塞在 connector
+
+用户打开 EasyEDA Pro（LCEDA-Pro 3.2.186，进程 99334）后尝试真实读回：
+
+| 检查 | 结果 |
+|---|---|
+| EasyEDA Pro 进程 | ✔ 运行中 |
+| `easyeda daemon start`（60832） | ✔ daemon health found（v1.3.0） |
+| daemon windows | ✖ `windows: []` —— **EDA Agent connector 未导入/未连接** |
+| 实验性 adapter `scripts/easyeda-agent-bridge.mjs`（49620） | ✔ 启动；`edaConnected=false`、`edaWindowCount=0` |
+| Runtime `/api/eda/discover` | ✔ 发现 49620 bridge（adapter） |
+| Runtime `/api/eda/windows` | ✖ `BRIDGE_HTTP_ERROR`（Bridge HTTP 503：没有已连接窗口） |
+| `cp_design_loop(source="project")` | ✖ 预期 `DESIGN_FRAMEWORK_EDA_OFFLINE` |
+
+**结论：阻塞在 EasyEDA 内的 EDA Agent connector 未连接**（不是 Runtime/插件问题）。
+
+**解除步骤（需用户在 EDA GUI 操作）**：
+1. 在嘉立创EDA专业版导入扩展 `~/Downloads/easyeda-agent-connector-1.3.0.eext`
+   （设置/扩展 或 高级 → EDA Agent），启用并重连（建议开 Auto-Connect）；
+2. 打开目标原理图/PCB 并保持前台；
+3. 确认 `easyeda daemon health` 的 `windows` 非空、`http://127.0.0.1:49620/health` 里
+   `edaConnected=true`；
+4. 之后重跑 `cp_design_loop({source:"project"})`（只读）。
+
+证据：`artifacts/eda-online-readback-attempt-2026-11-06.json`。
+
 ## 3. 本轮据此完成的代码改进
 
 1. **新增 `source:"project"`**（Runtime 服务层 + HTTP 路由 + 插件工具）：

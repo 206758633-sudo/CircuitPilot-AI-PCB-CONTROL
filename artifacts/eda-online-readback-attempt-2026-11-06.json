@@ -1,0 +1,35 @@
+{
+  "at": "2026-11-06T17:12:00+08:00",
+  "goal": "real EDA online read-back for cp_design_loop(source=project)",
+  "environment": {
+    "circuitpilot": "/Applications/CircuitPilot.app 0.2.0 (installed)",
+    "runtime": "127.0.0.1:4178 version 0.2.0",
+    "easyeda": "/Applications/嘉立创EDA(专业版).app LCEDA-Pro 3.2.186 (process 99334, running)",
+    "easyedaAgentCli": "easyeda-agent v1.3.0",
+    "daemon": "started via `easyeda daemon start`, listening 127.0.0.1:60832",
+    "adapter": "scripts/easyeda-agent-bridge.mjs (experimental) on 127.0.0.1:49620",
+    "connectorExtension": "~/Downloads/easyeda-agent-connector-1.3.0.eext (NOT imported/connected)"
+  },
+  "checks": [
+    { "check": "EasyEDA Pro process running", "ok": true },
+    { "check": "easyeda daemon health service=found port=60832", "ok": true },
+    { "check": "daemon windows list", "ok": false, "detail": "windows: [] — connector extension not connected" },
+    { "check": "experimental bridge /health", "ok": true, "detail": "service=easyeda-bridge, edaConnected=false, edaWindowCount=0" },
+    { "check": "Runtime GET /api/eda/discover", "ok": true, "detail": "bridge discovered at 49620 (adapter), edaConnected=false" },
+    { "check": "Runtime GET /api/eda/windows", "ok": false, "detail": "BRIDGE_HTTP_ERROR / Bridge HTTP 503 (no connected EasyEDA window)" },
+    { "check": "cp_design_loop(source=project)", "ok": false, "detail": "expected DESIGN_FRAMEWORK_EDA_OFFLINE while no EDA window" }
+  ],
+  "verdict": "BLOCKED (user GUI step required)",
+  "blocker": "EasyEDA Pro 的 EDA Agent connector 未导入/未连接：daemon windows=[]，因此 Runtime 无法读取真实板框/器件/网表。",
+  "nextSteps": [
+    "在嘉立创EDA专业版中导入扩展 ~/Downloads/easyeda-agent-connector-1.3.0.eext（设置/扩展 或 高级 → EDA Agent），并启用/重连 EDA Agent（建议开 Auto-Connect）",
+    "打开目标原理图/PCB 文档并保持在前台",
+    "确认 `easyeda daemon health` 的 windows 非空、`http://127.0.0.1:49620/health` 中 edaConnected=true",
+    "然后重跑 cp_design_loop({source:'project'})（只读）；本机已启动 daemon:60832 与 experimental adapter:49620，可复用或按需重启"
+  ],
+  "safety": {
+    "writes": 0,
+    "approvals": 0,
+    "note": "仅只读探测；未执行任何 EDA 写操作/审批/签核。adapter 为仓库既有 experimental shim，仅本机 loopback。"
+  }
+}
