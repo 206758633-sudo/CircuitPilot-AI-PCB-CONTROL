@@ -1,0 +1,24 @@
+{
+  "at": "2026-11-06T09:02:31.564Z",
+  "sessionId": "session-4bdb4014-d50a-4e62-a83d-83c2794e727c",
+  "source": "dsh desktop session request/header (after restart)",
+  "toolCount": 56,
+  "cpToolCount": 13,
+  "cpTools": [
+    "cp_approve",
+    "cp_design_loop",
+    "cp_design_plan",
+    "cp_evidence",
+    "cp_execute",
+    "cp_export",
+    "cp_issues",
+    "cp_job",
+    "cp_knowledge",
+    "cp_pcb_plan",
+    "cp_project_context",
+    "cp_status",
+    "cp_validation"
+  ],
+  "hasSkillCircuitpilot": true,
+  "note": "DSH 重启后 desktop profile 重新加载 dsh-circuitpilot@0.2.0；request/header 含 13 个 cp_* 工具，bundled skill circuitpilot 可加载。"
+}

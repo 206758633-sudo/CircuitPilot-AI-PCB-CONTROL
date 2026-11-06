@@ -1,0 +1,69 @@
+{
+  "at": "2026-11-06T17:05:00+08:00",
+  "verifier": "cp-live-verifier (independent DSH subagent, read-only)",
+  "environment": {
+    "dsh": "0.2.1-rc.5 desktop",
+    "profile": "desktop",
+    "plugin": "dsh-circuitpilot@0.2.0",
+    "runtime": "installed /Applications/CircuitPilot.app 0.2.0 @ 127.0.0.1:4178"
+  },
+  "toolInjection": {
+    "cpToolCount": 13,
+    "tools": ["cp_status", "cp_project_context", "cp_issues", "cp_evidence", "cp_knowledge", "cp_design_plan", "cp_pcb_plan", "cp_approve", "cp_execute", "cp_validation", "cp_export", "cp_job", "cp_design_loop"]
+  },
+  "calls": [
+    {
+      "tool": "cp_status",
+      "ok": true,
+      "runtime": { "version": "0.2.0", "versionCompat": { "supported": true, "range": ">=0.2.0 <0.3.0", "verified": ["0.2.0"], "unknown": false } },
+      "eda": { "online": false, "code": "BRIDGE_NOT_FOUND" },
+      "writeGate": { "available": true, "paused": false, "sessionPaused": false },
+      "plugin": { "version": "0.2.0", "host": { "dshVersion": "0.2.1-rc.5", "registration": "mcp", "supported": true } },
+      "issues": { "open": 9 },
+      "evidenceEntries": 113
+    },
+    {
+      "tool": "cp_project_context",
+      "ok": true,
+      "project": "衣橱助手V2.0 测试板 (project-1790610000001)",
+      "projectCount": 4,
+      "edaWorkspace": null,
+      "edaError": "BRIDGE_NOT_FOUND",
+      "issues": { "open": 9 }
+    },
+    {
+      "tool": "cp_design_loop",
+      "arguments": { "model": "minimal 2-component overlapping IR", "options": { "maxIterations": 3 } },
+      "ok": true,
+      "status": "needs-review",
+      "releaseReady": false,
+      "iterations": 2,
+      "repairs": 1,
+      "repairDetail": "iteration1 solve_placement placed=2/2 (cleared PLACEMENT_OVERLAP/SPACE-14/ZCLR-02) → iteration2 blocking=[]",
+      "summary": { "blocking": 0, "review": 145, "ruleCoverage": 0.2119 },
+      "ruleSummary": { "total": 151, "pass": 6, "machineCheckable": 32 },
+      "evidence": { "ref": "POST /api/design/framework/run", "digestPrefix": "1620bab6e66a5ac7", "finalDigestPrefix": "8db6848b", "initialDigestPrefix": "248498a5" },
+      "planOperations": 1
+    },
+    {
+      "tool": "cp_design_loop",
+      "arguments": { "source": "project" },
+      "ok": false,
+      "code": "DESIGN_FRAMEWORK_EDA_OFFLINE",
+      "message": "无法从项目构建板级 IR：EDA Bridge 不在线（拒绝编造尺寸…）",
+      "nextActionsCount": 4
+    }
+  ],
+  "safety": {
+    "writeOrApprovalCalls": 0,
+    "calledApproveExecuteExportValidation": false,
+    "tokenLeak": false,
+    "note": "仅 4 次只读 cp_* 调用 + 1 次 skill 加载；未出现 cpa_ token / approvalToken（nextActions 文本中的 cp_approve/cp_execute 仅为提示）。"
+  },
+  "verdict": "PASS",
+  "knownLimitations": [
+    "model 闭环为 needs-review（规则覆盖率 21.2%、review 145 项），不是 passed，不能当放行依据",
+    "EDA 离线导致 source=project 不可用；需打开 EasyEDA 并选中目标 PCB 后复测",
+    "真实 EDA 在线读回、写板、官方 DRC、KiCad/external solver 仍未执行"
+  ]
+}

@@ -94,6 +94,30 @@ Tauri resources；随后**直接用打包产物的 runtime** 起隔离实例（4
 > 剩余动作：**重启 DeepSeek Harness** 让 desktop profile 重新加载新版插件（当前会话是旧加载）；
 > 打开 EasyEDA 并选中目标 PCB 后，可再验证 `source:"project"` 的真实 EDA 读回链路。
 
+### 2.6 DSH 重启后真实会话验证（2026-11-06 17:01）
+
+- DSH 重启后 desktop profile 重新加载 `dsh-circuitpilot@0.2.0`（`link:` 本仓库）。
+- 从真实会话 `request/header` 取证：模型可见工具共 **56 个**，其中 **13 个 `cp_*`**
+  （`cp_status…cp_job + cp_design_loop`），`skill circuitpilot` 可正常加载（bundled skill 生效）。
+- 证据：`artifacts/dsh-session-tool-registration-2026-11-06.json`。
+- EDA 仍离线：`/api/eda/workspaces/current` = 503 `BRIDGE_NOT_FOUND`（`cp_design_loop(source="project")`
+  会如实返回 `DESIGN_FRAMEWORK_EDA_OFFLINE`）。
+
+### 2.7 真实 DSH 会话内工具调用验证（独立 teammate，只读）
+
+由独立 DSH teammate 在**真实 desktop 会话**里直接调用 cp_* 工具（不经过本机 HTTP 脚本）：
+
+| 调用 | 结果 |
+|---|---|
+| 工具注入 | ✔ 13/13 `cp_*` 全部可用 |
+| `cp_status` | ✔ ok:true；Runtime 0.2.0、versionCompat supported、EDA 离线 `BRIDGE_NOT_FOUND`、写门禁 available/paused=false、插件 host dsh 0.2.1-rc.5（registration=mcp）、未收口问题 9、证据 113 |
+| `cp_project_context` | ✔ ok:true；项目「衣橱助手V2.0 测试板」、项目数 4、EDA 未绑定、问题 9 |
+| `cp_design_loop(model)` | ✔ ok:true；needs-review、2 轮、1 次修复（solve_placement 2/2，清掉 OVERLAP/SPACE-14/ZCLR-02）、blocking=0、review=145、规则覆盖 21.2%、evidence digest 已记录 |
+| `cp_design_loop(source="project")` | ✔ fail-closed `DESIGN_FRAMEWORK_EDA_OFFLINE` + 4 条 nextActions（EDA 离线不编造尺寸） |
+| 写入/审批/签核 | ✔ 0 次（未调用 cp_approve/cp_execute/cp_export/cp_validation）；无 token/approvalToken 泄漏 |
+
+证据：`artifacts/dsh-live-tool-verification-2026-11-06.json`（**PASS**）。
+
 ## 3. 本轮据此完成的代码改进
 
 1. **新增 `source:"project"`**（Runtime 服务层 + HTTP 路由 + 插件工具）：

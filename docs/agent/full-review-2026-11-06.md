@@ -46,6 +46,8 @@ MCP 独立验证套件（`verification/agent/mcp/*.test.mjs`）依赖 `@modelcon
 | 真实 DSH 宿主 | ✔ 13 个 cp_* 工具；`cp_design_loop` 分别验证 model（needs-review）与 source=project（EDA_OFFLINE） |
 | 本仓库打包 App bundle（含 framework + 内嵌 eval/golden） | ✔ 7/7：runtime 内含 framework、golden 5/5、cp_design_loop(model/source=project) 均符合预期 |
 | **安装到 /Applications 的新 App** | ✔ 6/6：health 0.2.0、cp_status、cp_design_loop(model)、source=project EDA_OFFLINE、golden 5/5（真实安装版 Runtime） |
+| **DSH 重启后的真实会话** | ✔ request/header 含 13 个 cp_* 工具（56 工具总数），circuitpilot skill 可加载；EDA 仍离线 |
+| **真实会话内 cp_* 调用（独立 teammate）** | ✔ PASS：工具 13/13 注入；cp_status/项目上下文/设计闭环均按预期；source=project EDA 离线 fail-closed；0 写入/0 token 泄漏 |
 
 据此补齐：`source:"project"`（项目状态 + EDA 只读读回构建 IR）、`cp_design_loop` 的
 "安装版构建早于框架"精确提示、以及对应测试（服务层 11 项、插件 210 项）。
