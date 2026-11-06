@@ -4455,17 +4455,20 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
           try {
             if (!bridge.port) await bridge.discover();
             if (bridge.port) {
-              const [outlineRaw, copperRaw, placementRaw] = await Promise.all([
+              const [outlineRaw, copperRaw, placementRaw, netlistRaw] = await Promise.all([
                 bridge.execute('pcb.outline.read', {}).then((value) => value?.result ?? null).catch(() => null),
                 bridge.execute('pcb.layers.copperCount').then((value) => value?.result ?? null).catch(() => null),
                 bridge.execute('pcb.placement.read').then((value) => value?.result ?? null).catch(() => null),
+                // 网表是可选证据：原理图未打开/无网表时如实为空，不用空网表冒充"无网络"。
+                bridge.execute('schematic.netlist.export', { fileName: 'circuitpilot-design-loop', netlistType: 'EasyEDA', inlineLimit: 262144 })
+                  .then((value) => (typeof value?.result?.text === 'string' ? value.result.text : null)).catch(() => null),
               ]);
               const bounds = outlineRaw?.boundsMm;
               const widthMm = bounds ? Number((Number(bounds.maxXMm) - Number(bounds.minXMm)).toFixed(3)) : null;
               const heightMm = bounds ? Number((Number(bounds.maxYMm) - Number(bounds.minYMm)).toFixed(3)) : null;
               const layers = Number(copperRaw);
               if (Number.isFinite(widthMm) && widthMm > 0 && Number.isFinite(heightMm) && heightMm > 0 && Number.isInteger(layers) && layers >= 2) {
-                edaSnapshot = { widthMm, heightMm, layers, placementRead: placementRaw };
+                edaSnapshot = { widthMm, heightMm, layers, placementRead: placementRaw, netlistText: netlistRaw };
               } else {
                 edaError = 'EDA 未返回可用板框/铜层数（需要 pcb.outline.read 的 boundsMm 与 copperCount>=2）';
               }

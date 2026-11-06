@@ -8,6 +8,7 @@ import {
   DESIGN_FRAMEWORK_SERVICE_CODES,
   buildModelFromProject,
   frameworkStatusView,
+  netsFromEasyEdaNetlist,
   goldenReport,
   runFrameworkForProject,
   runFrameworkLoop,
@@ -121,6 +122,52 @@ test('buildModelFromProject：EDS 离线 / 无活动项目 → 409 fail-closed�
   assert.throws(() => buildModelFromProject({ projectState, edaSnapshot: { widthMm: 0, heightMm: 40, layers: 2 } }), (error) => error.code === DESIGN_FRAMEWORK_SERVICE_CODES.EDA_OFFLINE && error.status === 409);
   assert.throws(() => buildModelFromProject({ projectState: { projects: [] }, edaSnapshot: { widthMm: 60, heightMm: 40, layers: 2 } }), (error) => error.code === DESIGN_FRAMEWORK_SERVICE_CODES.NO_ACTIVE_PROJECT && error.status === 409);
   assert.throws(() => buildModelFromProject({ projectState: null }), (error) => error.code === DESIGN_FRAMEWORK_SERVICE_CODES.NO_ACTIVE_PROJECT);
+});
+
+test('netsFromEasyEdaNetlist：从 EasyEDA 网表 JSON 构建 nets（过滤未知器件、按 net 排序、pin 去重）', () => {
+  const netlistText = JSON.stringify({
+    components: {
+      u1: { props: { Designator: 'U1' }, pinInfoMap: { '1': { number: '1', net: '3V3' }, '2': { number: '2', net: 'GND' } } },
+      c1: { props: { Designator: 'C1' }, pinInfoMap: { '1': { number: '1', net: '3V3' }, '2': { number: '2', net: 'GND' } } },
+      ghost: { props: { Designator: 'X9' }, pinInfoMap: { '1': { number: '1', net: 'FLOATING' } } },
+    },
+  });
+  const components = [{ ref: 'U1' }, { ref: 'C1' }];
+  const { nets, netlist } = netsFromEasyEdaNetlist(netlistText, components);
+  assert.equal(netlist.ok, true);
+  assert.deepEqual(nets.map((net) => net.name), ['3V3', 'GND']);
+  assert.deepEqual(nets[0].pins, [{ ref: 'U1', pin: '1' }, { ref: 'C1', pin: '1' }]);
+  // 未知器件 X9 被过滤；FLOATING 不应出现
+  assert.equal(nets.some((net) => net.name === 'FLOATING'), false);
+  // 非法/空网表不编造网络
+  assert.deepEqual(netsFromEasyEdaNetlist(null, components).nets, []);
+  assert.equal(netsFromEasyEdaNetlist('{bad json', components).netlist.ok, false);
+});
+
+test('buildModelFromProject：带 EDA 网表时 nets 与 model.meta.netlist 一并写入；runFrameworkForProject 汇总 netCount', () => {
+  const projectState = { activeProjectId: 'p1', projects: [{ id: 'p1', name: 'Demo' }] };
+  const netlistText = JSON.stringify({
+    components: {
+      u1: { props: { Designator: 'U1' }, pinInfoMap: { '1': { number: '1', net: '3V3' } } },
+      c1: { props: { Designator: 'C1' }, pinInfoMap: { '1': { number: '1', net: '3V3' } } },
+    },
+  });
+  const edaSnapshot = {
+    widthMm: 60, heightMm: 40, layers: 2, netlistText,
+    placementRead: {
+      unit: 'mm',
+      components: [
+        { designator: 'U1', xMm: 20, yMm: 20, bboxMm: { xMm: 6, yMm: 6, centerXMm: 20, centerYMm: 20 } },
+        { designator: 'C1', xMm: 30, yMm: 20, bboxMm: { xMm: 2, yMm: 1, centerXMm: 30, centerYMm: 20 } },
+      ],
+    },
+  };
+  const model = buildModelFromProject({ projectState, edaSnapshot });
+  assert.equal(model.nets.length, 1);
+  assert.equal(model.meta.netlist.ok, true);
+  const summary = runFrameworkForProject({ projectState, edaSnapshot, options: { maxIterations: 2 } });
+  assert.equal(summary.modelSummary.netCount, 1);
+  assert.equal(summary.modelSummary.netlist.ok, true);
 });
 
 test('runFrameworkForProject：构建 IR 后跑闭环，返回 source=project 与模型摘要；尺寸未知器件 → blocked 不硬排', () => {

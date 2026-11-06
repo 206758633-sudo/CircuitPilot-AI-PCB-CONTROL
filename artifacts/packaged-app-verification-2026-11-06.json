@@ -1,0 +1,64 @@
+{
+  "at": "2026-11-06T08:39:08.506Z",
+  "ok": true,
+  "app": "src-tauri/target/release/bundle/macos/CircuitPilot.app",
+  "appVersion": "0.2.0",
+  "bundleRuntimeDigest": "5d93270b6de00552",
+  "results": [
+    {
+      "name": "打包 App：版本 0.2.0 且 runtime 内含 design-framework + design-framework-service",
+      "ok": true,
+      "detail": {
+        "appVersion": "0.2.0"
+      }
+    },
+    {
+      "name": "打包 App：内嵌 eval/golden 金板用例（5 个）",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "打包 App Runtime：/api/health 0.2.0",
+      "ok": true,
+      "detail": {
+        "version": "0.2.0"
+      }
+    },
+    {
+      "name": "打包 App：cp_status ok:true",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "打包 App：cp_design_loop(model) → needs-review / blocking=0",
+      "ok": true,
+      "detail": {
+        "status": "needs-review",
+        "blocking": 0,
+        "repairs": 1
+      }
+    },
+    {
+      "name": "打包 App：cp_design_loop(source=project) EDA 离线 → DESIGN_FRAMEWORK_EDA_OFFLINE",
+      "ok": true,
+      "detail": {
+        "code": "DESIGN_FRAMEWORK_EDA_OFFLINE"
+      }
+    },
+    {
+      "name": "打包 App：/api/design/framework/golden 5/5",
+      "ok": true,
+      "detail": {
+        "metrics": {
+          "total": 5,
+          "passed": 5
+        }
+      }
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0
+  }
+}

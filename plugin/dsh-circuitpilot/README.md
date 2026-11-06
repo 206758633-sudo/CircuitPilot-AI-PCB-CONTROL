@@ -213,7 +213,8 @@ Runtime 在本地执行 Rule-as-Code 规则判定 + 布局/叠层/网表求解 +
 两种输入：
 - `model`：直接传板级 IR（`schemaVersion`/`board`/`components`/`nets`/`rules`），JSON ≤200KB；
 - `source: "project"`：由 Runtime 用**当前项目状态 + EDA 只读读回**（`pcb.outline.read` 板框、
-  `pcb.layers.copperCount` 层数、`pcb.placement.read` 器件几何）构建 IR。EDA 离线/未选中目标 PCB 时
+  `pcb.layers.copperCount` 层数、`pcb.placement.read` 器件几何、`schematic.netlist.export` 网表）构建 IR；
+  网表读取失败/原理图未打开时如实为空（不编造网络）。EDA 离线/未选中目标 PCB 时
   返回 `DESIGN_FRAMEWORK_EDA_OFFLINE`（不编造尺寸）；无活动项目返回 `DESIGN_FRAMEWORK_NO_ACTIVE_PROJECT`。
 - 若 Runtime 构建早于复合框架（例如旧安装版 App），返回 `RUNTIME_ROUTE_MISSING` 并提示改用本仓库
   `node runtime/server.mjs` 或重新打包/安装 CircuitPilot App。

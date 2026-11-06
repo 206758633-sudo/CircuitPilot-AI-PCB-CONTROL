@@ -8,6 +8,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import { adaptPlacements } from './engineering/skill-input.mjs';
+import { parseEasyEdaNetlist } from './net-connectivity.mjs';
 import {
   createBoardModel,
   frameworkStatus,
@@ -116,6 +117,33 @@ export function runFrameworkLoop({ model, options } = {}) {
 }
 
 /**
+ * 从 EasyEDA 网表文本解析 IR nets（可失败；失败不编造网络）。
+ * 只保留 IR 里已存在的器件；同一 net 的 pin 去重、按 net 名排序（确定性）。
+ */
+export function netsFromEasyEdaNetlist(netlistText, components = []) {
+  const refs = new Set((Array.isArray(components) ? components : []).map((component) => String(component?.ref ?? '').toUpperCase()));
+  const parsed = parseEasyEdaNetlist(netlistText);
+  if (parsed.ok !== true) return { nets: [], netlist: { ok: false, reason: parsed.reason ?? 'NETLIST_INVALID' } };
+  const byNet = new Map();
+  for (const component of parsed.components ?? []) {
+    const ref = String(component?.designator ?? '').trim().toUpperCase();
+    if (!ref || !refs.has(ref)) continue;
+    for (const pin of component.pins ?? []) {
+      const netName = String(pin?.net ?? '').trim();
+      if (!netName) continue;
+      const pinNumber = String(pin?.number ?? '').trim();
+      if (!pinNumber) continue;
+      if (!byNet.has(netName)) byNet.set(netName, new Map());
+      byNet.get(netName).set(`${ref}.${pinNumber}`, { ref, pin: pinNumber });
+    }
+  }
+  const nets = [...byNet.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, 'en'))
+    .map(([name, pins]) => ({ name, pins: [...pins.values()] }));
+  return { nets, netlist: { ok: true, netCount: nets.length, parsedComponents: parsed.components?.length ?? 0 } };
+}
+
+/**
  * 从「当前项目 + EDA 读回快照」构建板级 IR（只读，不写 EDA）。
  *
  * `projectState` 是 `/api/project-state` 的状态；`edaSnapshot` 由 server 侧只读读取：
@@ -125,7 +153,7 @@ export function runFrameworkLoop({ model, options } = {}) {
  *   由闭环判 blocked，不猜尺寸；
  * - 网表暂不从 EDA 自动读取（未实现前 nets=[]，规则层会 REVIEW，不冒充通过）。
  */
-export function buildModelFromProject({ projectState, edaSnapshot, title } = {}) {
+export function buildModelFromProject({ projectState, edaSnapshot, netlistText = null, title } = {}) {
   if (!isPlainObject(projectState)) {
     throw coded(DESIGN_FRAMEWORK_SERVICE_CODES.NO_ACTIVE_PROJECT, '当前没有可读取的项目状态（projectState 非法）', 409);
   }
@@ -153,21 +181,25 @@ export function buildModelFromProject({ projectState, edaSnapshot, title } = {})
       ? { widthMm: placement.widthMm, heightMm: placement.heightMm }
       : { sizeUnknown: true }),
   }));
-  return createBoardModel({
+  const netlistSource = netlistText ?? snapshot.netlistText ?? null;
+  const parsedNets = netlistSource ? netsFromEasyEdaNetlist(netlistSource, components) : { nets: [], netlist: { ok: false, reason: 'NETLIST_NOT_READ' } };
+  const model = createBoardModel({
     meta: { title: typeof title === 'string' && title.trim() ? title.trim() : (project.name ?? project.id ?? 'project'), source: 'project+eda-readback' },
     board: { widthMm, heightMm, layers, thicknessMm: snapshot.thicknessMm ?? null, copperOz: snapshot.copperOz ?? null },
     components,
-    nets: [],
+    nets: parsedNets.nets,
     rules: {},
   });
+  model.meta.netlist = parsedNets.netlist;
+  return model;
 }
 
 /**
  * 运行「项目来源」的离线设计闭环（只读）。EDA 离线/项目缺失时抛结构化错误（409），
  * 绝不返回"看起来通过"的模型。
  */
-export function runFrameworkForProject({ projectState, edaSnapshot, options, title } = {}) {
-  const model = buildModelFromProject({ projectState, edaSnapshot, title });
+export function runFrameworkForProject({ projectState, edaSnapshot, netlistText = null, options, title } = {}) {
+  const model = buildModelFromProject({ projectState, edaSnapshot, netlistText, title });
   const normalizedOptions = isPlainObject(options) ? options : {};
   const maxIterations = clampIterations(normalizedOptions.maxIterations);
   const fabProfile = typeof normalizedOptions.fabProfile === 'string' && normalizedOptions.fabProfile.trim() ? normalizedOptions.fabProfile.trim() : undefined;
@@ -179,7 +211,7 @@ export function runFrameworkForProject({ projectState, edaSnapshot, options, tit
     return {
       ...summarizeLoopResult(result),
       source: 'project',
-      modelSummary: { board: { widthMm: model.board.widthMm, heightMm: model.board.heightMm, layers: model.board.layers }, componentCount: model.components.length, netCount: model.nets.length },
+      modelSummary: { board: { widthMm: model.board.widthMm, heightMm: model.board.heightMm, layers: model.board.layers }, componentCount: model.components.length, netCount: model.nets.length, netlist: model.meta.netlist ?? null },
     };
   } catch (error) {
     const status = Number.isInteger(error?.status) ? error.status : /BOARD_MODEL_/.test(String(error?.code ?? '')) ? 400 : 500;

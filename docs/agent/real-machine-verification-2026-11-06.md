@@ -54,6 +54,26 @@
 
 证据：`artifacts/real-dsh-host-verification-2026-11-06.json`。
 
+### 2.4 本仓库打包的桌面 App bundle（新增验证，2026-11-06 16:39）
+
+为了让"安装版缺路由"不再成为缺口，本轮用 `npm run desktop:app` 重新打包了 App bundle
+（`src-tauri/target/release/bundle/macos/CircuitPilot.app`，0.2.0），并把 `eval/golden` 纳入
+Tauri resources；随后**直接用打包产物的 runtime** 起隔离实例（4198）验证：
+
+| 断言 | 结果 |
+|---|---|
+| bundle runtime 含 design-framework / design-framework-service / net-connectivity | ✔ |
+| bundle 内嵌 eval/golden（5 个金板用例） | ✔ |
+| `/api/health` = 0.2.0 | ✔ |
+| `cp_status` | ✔ ok:true |
+| `cp_design_loop(model)` | ✔ needs-review / blocking=0 / repair=1 |
+| `cp_design_loop(source="project")`（EDA 离线） | ✔ `DESIGN_FRAMEWORK_EDA_OFFLINE` fail-closed |
+| `/api/design/framework/golden` | ✔ 5/5 |
+
+证据：`artifacts/packaged-app-verification-2026-11-06.json`（**7/7**）。
+> 说明：该 bundle 在**工作区**验证通过；`/Applications/CircuitPilot.app` 仍是旧构建，
+> 需要用户把新 bundle 复制/安装过去（或重新安装）后，桌面会话才带设计框架路由。
+
 ## 3. 本轮据此完成的代码改进
 
 1. **新增 `source:"project"`**（Runtime 服务层 + HTTP 路由 + 插件工具）：
@@ -69,11 +89,12 @@
 
 ## 4. 仍未完成（如实保留）
 
-1. **安装版 App 尚未重新打包/安装**：本轮只验证"旧构建明确报缺路由"；要让桌面 App 自带设计框架，
-   需重新构建并安装 CircuitPilot（`npm run desktop:app`），涉及 Rust/Tauri 构建，未在本轮执行。
+1. **安装版 App 尚未替换**：新 bundle 已构建并验证（§2.4），但 `/Applications/CircuitPilot.app` 仍是旧构建；
+   需用户把 `src-tauri/target/release/bundle/macos/CircuitPilot.app` 复制/安装到 `/Applications`（或重装）后生效。
 2. **真实 EDA 在线读回未验证**：本机 EDA 当前离线，`source:"project"` 只验证了离线 fail-closed 路径；
-   EDA 在线时的 `pcb.outline.read`/`placement.read` 真机链路未跑。
-3. **网表不从 EDA 自动读取**：`source:"project"` 的 `nets=[]`，网表相关规则会 REVIEW。
+   EDA 在线时的 `pcb.outline.read`/`placement.read`/`schematic.netlist.export` 真机链路未跑。
+3. **网表自动读取已实现但未真机验证**：`source:"project"` 现在会额外只读 `schematic.netlist.export`
+   并解析成 IR nets（失败/无网表时如实为空，不编造）；本机 EDA 离线，未跑真机链路。
 4. 真实 EDA 写板 / 官方 DRC / KiCad CLI 真机 / 外部求解器仍未执行（与前几轮一致）。
 
 ## 5. 复现

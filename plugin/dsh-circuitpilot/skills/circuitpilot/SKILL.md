@@ -45,7 +45,7 @@ whenToUse: The user asks about the current CircuitPilot project/board/EDA status
 ## 1.1 离线设计闭环：cp_design_loop（只读，不替代审批链）
 
 - 入参二选一：`model`（板级 IR：`schemaVersion`/`board`/`components`/`nets`/`rules`）或 `source:"project"`
-  （Runtime 用当前项目 + EDA 只读读回构建 IR）。`options.maxIterations` 会被夹在 1–8，`options.fabProfile`
+  （Runtime 用当前项目 + EDA 只读读回构建 IR：板框/层数/器件几何/网表；网表读不到时为空，不编造）。`options.maxIterations` 会被夹在 1–8，`options.fabProfile`
   指定工艺档位。`model` JSON >200KB 直接失败（`DESIGN_MODEL_TOO_LARGE`）。
 - `source:"project"` 在 EDA 离线/未选中 PCB 时返回 `DESIGN_FRAMEWORK_EDA_OFFLINE`（不编造尺寸），
   无活动项目返回 `DESIGN_FRAMEWORK_NO_ACTIVE_PROJECT`；都要求用户先打开 EDA/选项目，或改用 `model`。

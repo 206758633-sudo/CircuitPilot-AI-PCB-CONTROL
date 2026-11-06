@@ -23,6 +23,7 @@
     ],
     "resources": {
       "../runtime": "runtime",
+      "../eval/golden": "eval/golden",
       "../manufacturing": "manufacturing",
       "../docs/implementation": "docs/implementation",
       "../docs/wardrobe-case": "docs/wardrobe-case"
