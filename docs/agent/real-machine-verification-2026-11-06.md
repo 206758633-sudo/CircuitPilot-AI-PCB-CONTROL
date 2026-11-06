@@ -144,6 +144,49 @@ Tauri resources；随后**直接用打包产物的 runtime** 起隔离实例（4
 
 证据：`artifacts/eda-online-readback-attempt-2026-11-06.json`。
 
+### 2.9 真实 EDA 在线读回成功（2026-11-06 17:17）
+
+用户连接 EDA Agent connector 并打开 PCB 后，完成**真实 EDA 只读读回 + 离线设计闭环**：
+
+| 项 | 结果 |
+|---|---|
+| Runtime `/api/eda/workspaces/current` | ✔ 绑定成功：项目「DBTS-A01 双电池无缝切换测试板」、Board1_1、PCB1_1 `084751e2c073fcf2` |
+| `pcb.outline.read` | ✔ 板框 **130.505 × 88.519 mm**（permission=read） |
+| `pcb.layers.copperCount` | ✔ **4 层**（permission=read） |
+| `pcb.placement.read` | ✔ **95 个器件**（含 bbox/层/旋转/每器件 nets，permission=read） |
+| `schematic.netlist.export` | ⚠ 返回 null：CLI v1.3.0 与 connector 1.14.0 版本错位，`getNetlistFile` 未返回文本 → Runtime 如实置空（不编造网络） |
+| `cp_design_loop(source="project")` | ✔ ok:true、**needs-review**、2 轮、1 次修复（`solve_stackup` layers=4；离线、不写 EDA）、blocking=0、review=147、规则覆盖 21.2%、evidence digest `8aed9185…` |
+| cp_status | ✔ EDA online、Runtime 0.2.0、写门禁未暂停 |
+| 写入/审批/签核 | ✔ **0**（只读命令均为 permission=read；doc switch 仅切前台文档） |
+
+证据：`artifacts/eda-online-readback-verified-2026-11-06.json`
+
+> 这是首次在**真实 EDA 在线**状态下跑通 `source:"project"`（板框/层数/95 器件几何来自真实工程）。
+> 已知限制：connector 版本错位导致网表导出为空（netCount=0）；建议导入与 CLI 同版的
+> `easyeda-agent-connector-1.3.0.eext` 后复测网表。
+
+### 2.10 真实官方 ERC/DRC（只读，2026-11-06 17:19）
+
+在真实 EDA 在线状态下跑官方检查（`cp_validation`，只读，不写板、不签核）：
+
+| 检查 | 结果 | 证据 |
+|---|---|---|
+| ERC | ✔ 完成：fatal 0 / error 0 / **warning 1** / total 1（aggregateOnly） | `schematic-erc` digest `d8807cb9…` |
+| DRC | ✔ 完成但**不通过**：`reportedCount=1`（分组数）/**itemCount=39** 条，全部 Clearance Error（规则 `copperThickness1oz`；Top 20 / Inner2 9 / Inner1 8 / Multi 2），`classification.ready=false` + `DRC_UNEXPLAINED_ITEMS` | `drc-report` digest `743d2cc1…` |
+
+> 这是**真实 EDA 结果**，如实记录：ERC 1 warning、DRC 39 条未解释 clearance 违规 → 不能当放行依据。
+> 另注：connector 1.14.0 / CLI 1.3.0 版本错位，网表导出为空（netCount=0），待同版 connector 复测。
+
+### 2.11 真实 DSH 会话内真实读回复验（独立 teammate）
+
+`cp-eda-live-verifier` 在真实 desktop 会话内直接调用：
+- `cp_status`：EDA 在线、Board1_1/`084751e2…`、Runtime 0.2.0、写门禁未暂停；
+- `cp_design_loop({source:"project"})`：✔ ok、**未出现 `DESIGN_FRAMEWORK_EDA_OFFLINE`**——真实读回成功；
+  needs-review、2 轮、1 次 `solve_stackup`、blocking=0、review=147、板 130.505×88.519mm / 4 层 / 95 器件；
+- 写/审批/签核调用 **0**；无 token 泄漏。
+- 注意：项目状态 `edaWorkspace.pcbUuid=5595e77c…` 与当前活动板 `084751e2…` 不一致（source=project 用活动板读回，正确）；
+  design-loop 证据只以 digest 引用（未归档进证据索引）。
+
 ## 3. 本轮据此完成的代码改进
 
 1. **新增 `source:"project"`**（Runtime 服务层 + HTTP 路由 + 插件工具）：

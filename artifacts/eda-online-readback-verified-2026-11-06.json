@@ -1,0 +1,82 @@
+{
+  "at": "2026-11-06T17:20:00+08:00",
+  "goal": "真实 EDA 在线读回 + 离线设计闭环 + 官方 ERC/DRC 只读验证",
+  "environment": {
+    "circuitpilot": "/Applications/CircuitPilot.app 0.2.0 (installed, running)",
+    "runtime": "127.0.0.1:4178 version 0.2.0",
+    "easyeda": "LCEDA-Pro 3.2.186",
+    "connector": "easyeda-agent connector 1.14.0（已连接 1 窗口）",
+    "daemon": "easyeda-agent daemon v1.3.0 @ 60832",
+    "adapter": "scripts/easyeda-agent-bridge.mjs (experimental) @ 49620; edaConnected=true",
+    "versionGate": "CLI v1.3.0 vs connector 1.14.0 错位；只读动作以 --skip-version-check 执行（审计）"
+  },
+  "workspace": {
+    "bound": true,
+    "activeProject": "DBTS-A01 双电池无缝切换测试板 (8e652031ec18479898e77d5a9b5ef7a9)",
+    "activeBoard": "Board1_1",
+    "pcbUuid": "084751e2c073fcf2",
+    "schematicUuid": "f140b54d0d86e0b6",
+    "foregroundSwitch": "easyeda --skip-version-check doc switch 084751e2c073fcf2（仅切前台文档，不改设计）"
+  },
+  "rawReads": {
+    "pcb.outline.read": { "ok": true, "permission": "read", "widthMm": 130.505, "heightMm": 88.519 },
+    "pcb.layers.copperCount": { "ok": true, "permission": "read", "layers": 4 },
+    "pcb.placement.read": { "ok": true, "permission": "read", "componentCount": 95, "hasBboxAndNets": true },
+    "schematic.netlist.export": { "ok": true, "permission": "read", "result": null, "diagnosis": "connector(1.14.0)/CLI(1.3.0) 错位，getNetlistFile 未返回文本；Runtime 如实置空（netCount=0，不编造网络）" }
+  },
+  "offlineDesignLoop": {
+    "tool": "cp_design_loop({source:'project', maxIterations:3})",
+    "ok": true,
+    "status": "needs-review",
+    "iterations": 2,
+    "repairs": 1,
+    "repairStrategy": "solve_stackup(layers=4)：iter1 blocking=[STACKUP_MISSING] → iter2 blocking=[]",
+    "board": { "widthMm": 130.505, "heightMm": 88.519, "layers": 4, "componentCount": 95, "netCount": 0, "unknownSizeRefs": [], "keepouts": 0 },
+    "summary": { "blocking": 0, "review": 147, "ruleCoverage": 0.2119, "releaseReady": false, "initialDigest": "157afccc8127386d70c46a109ea2e92cf3f92b81b366d48fba7377f364e3bc88", "finalDigest": "bde9c014a7608c1ef05eac48aa1635b6eb16502dd32479f10d862851168ad6c3" },
+    "ruleSummary": { "total": 151, "pass": 3, "fail": 1, "review": 147, "blocking": 0, "machineCheckable": 32, "coverageRatio": 0.2119205298013245, "releaseReady": false },
+    "plan": { "operations": 1, "skipped": 50 },
+    "digest": "8aed91854e1c6a6941fb7b729863f3e9a304eedf144e2d76216b0b241cb34e48"
+  },
+  "realErc": {
+    "tool": "cp_validation({requestId, targets:['erc']})",
+    "ok": true,
+    "jobState": "done",
+    "counts": { "fatal": 0, "error": 0, "warning": 1, "info": 0, "total": 1 },
+    "aggregateOnly": true,
+    "evidence": { "kind": "schematic-erc", "digest": "d8807cb9144c8e8b455d52dc31ee58d9b4cfcfdde45a765730772303bc536536" }
+  },
+  "realDrc": {
+    "tool": "cp_validation({requestId, targets:['drc']})",
+    "ok": true,
+    "jobState": "done",
+    "reportedCount": 1,
+    "itemCount": 39,
+    "truncated": false,
+    "countsConsistent": false,
+    "byErrorType": { "Clearance Error": 39 },
+    "byRule": { "copperThickness1oz": 39 },
+    "byLayer": { "Top Layer": 20, "Inner2": 9, "Inner1": 8, "Multi-Layer": 2 },
+    "classification": { "ready": false, "blockingFindings": 1, "codes": ["DRC_UNEXPLAINED_ITEMS", "DRC_COUNT_MISMATCH"] },
+    "evidence": { "kind": "drc-report", "digest": "743d2cc1b206fc0c11bfa9c279477652e29822675af9fc4fa1f028119e82a40b", "payloadDigest": "c8770ff91dee4352ce9022becfea477d033419d7ab47b71cf2ce6be0b86bf428" }
+  },
+  "realDshSession": {
+    "verifier": "cp-eda-live-verifier (independent DSH subagent, read-only)",
+    "cpToolCount": 13,
+    "cp_design_loop_source_project": { "ok": true, "status": "needs-review", "iterations": 2, "repairs": 1, "blocking": 0, "review": 147, "componentCount": 95 },
+    "writeOrApprovalCalls": 0,
+    "note": "真实 DSH 会话内直接调用，未出现 DESIGN_FRAMEWORK_EDA_OFFLINE；EDA 全程在线、写门禁未暂停"
+  },
+  "observations": [
+    "项目状态里的 edaWorkspace.pcbUuid=5595e77cead09682 与当前 EDA 活动板 084751e2c073fcf2 不一致；source=project 使用的是当前活动 EDA 读回（正确目标），但建议核对项目绑定/多窗口切换",
+    "netCount=0：connector/CLI 版本错位导致网表导出为空；安装与 CLI 同版 connector 1.3.0 后可复测",
+    "DRC 39 条 clearance 违规全部未解释（ready=false），是真实发现；未经修复/豁免，不得当放行依据"
+  ],
+  "safety": {
+    "edaWrites": 0,
+    "approvals": 0,
+    "signoffs": 0,
+    "writeRoutesCalled": 0,
+    "note": "只读：pcb.outline.read / pcb.layers.copperCount / pcb.placement.read / schematic.netlist.export（permission=read）+ 官方 ERC/DRC 校验（read-only 检查）；doc switch 仅切前台文档。"
+  },
+  "verdict": "PASS (read-back + loop + ERC/DRC read-only) with honest findings"
+}
