@@ -2,7 +2,7 @@
  * task-22 独立复验（一）：用 DSH 内置官方 MCP client（@modelcontextprotocol/client@2.2.0）
  * 的 Client + StdioClientTransport 直连 agent/mcp-server.mjs，验证：
  *  - auto 版本协商：sibling probe 发 server/discover → -32601 → 回退 legacy initialize；
- *  - tools/list 恰好 12 个工具，且过官方 ListToolsResultSchema；
+ *  - tools/list 恰好 13 个工具，且过官方 ListToolsResultSchema；
  *  - cp_status 经 fake Runtime 返回结构化 CallToolResult，且过官方 CallToolResultSchema；
  *  - ping；
  *  - 未知工具/坏参数 -32602、重复 initialize -32600、不支持方法 -32601；
@@ -110,15 +110,15 @@ test('auto 协商：官方 Client 先用 server/discover 探测得到 -32601，�
   });
 });
 
-test('tools/list：恰好 12 个工具、名称/输入 schema 合法、过官方 ListToolsResultSchema', async () => {
+test('tools/list：恰好 13 个工具、名称/输入 schema 合法、过官方 ListToolsResultSchema', async () => {
   await withFixture(async ({ runtime, token }) => {
     const session = await openClient({ runtime, token });
     try {
       const result = await session.client.listTools();
       assertSchema(CORE.ListToolsResultSchema, result, 'ListToolsResult');
-      assert.equal(result.tools.length, 12, `工具数应为 12，实际 ${result.tools.length}`);
+      assert.equal(result.tools.length, 13, `工具数应为 13，实际 ${result.tools.length}`);
       assert.deepEqual(result.tools.map((tool) => tool.name), [...EXPECTED_TOOL_NAMES]);
-      assert.equal(new Set(result.tools.map((tool) => tool.name)).size, 12, '工具名重复');
+      assert.equal(new Set(result.tools.map((tool) => tool.name)).size, 13, '工具名重复');
 
       for (const tool of result.tools) {
         assert.match(tool.name, /^cp_[a-z_]+$/, `工具名不合法：${tool.name}`);
@@ -237,7 +237,7 @@ test('重复 initialize：-32600，且会话仍可继续使用', async () => {
       );
       assert.deepEqual(await session.client.ping(), {});
       const tools = await session.client.listTools();
-      assert.equal(tools.tools.length, 12);
+      assert.equal(tools.tools.length, 13);
     } finally {
       await session.close();
     }

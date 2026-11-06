@@ -53,7 +53,7 @@ node --test "verification/agent/mcp/*.test.mjs"
 | 要求 | 验证方式 | 结果 |
 | --- | --- | --- |
 | `server/discover` → `-32601` → `initialize` 回退（官方 Client auto 协商） | server 请求/响应与 initialize 落在不同 pid；wire 日志时序可证；官方 Client 协商结果 `2025-11-25` | PASS |
-| `tools/list` 恰好 12 个 | 官方 Client `listTools()` 名称集合与硬编码 12 名单一致，`ListToolsResultSchema` 通过 | PASS |
+| `tools/list` 恰好 13 个 | 官方 Client `listTools()` 名称集合与硬编码 13 名单一致，`ListToolsResultSchema` 通过 | PASS |
 | `cp_status` 经 fake Runtime | 结构化 `CallToolResult`，项目/EDA/门禁字段正确，token 头正确，`CallToolResultSchema` 通过 | PASS |
 | `ping` | 官方 Client `ping()` 返回 `{}`；裸会话中未初始化时也允许 `ping` | PASS |
 | 官方 schema 校验 | `InitializeResultSchema` / `ListToolsResultSchema` / `CallToolResultSchema` / `JSONRPCErrorResponseSchema` 全部 safeParse 通过（官方 core zod） | PASS |
@@ -71,7 +71,7 @@ node --test "verification/agent/mcp/*.test.mjs"
    - probe 进程 pid A：`in server/discover` → `out error -32601`（“本 server 实现 legacy（2025-era）协议”）；
    - 正式会话 pid B：`in initialize(protocolVersion=2025-11-25)` → `out result` → `notifications/initialized`；
    - 官方 Client 最终 `getNegotiatedProtocolVersion() === '2025-11-25'`，`serverInfo = {name:'circuitpilot-agent', version:'0.1.0'}`。
-2. **12 个工具**：`cp_status, cp_project_context, cp_issues, cp_evidence, cp_knowledge, cp_design_plan, cp_pcb_plan, cp_approve, cp_execute, cp_validation, cp_export, cp_job`；每个 `inputSchema.type==='object'` 且 `properties` 为对象。
+2. **13 个工具**：`cp_status, cp_project_context, cp_issues, cp_evidence, cp_knowledge, cp_design_plan, cp_pcb_plan, cp_approve, cp_execute, cp_validation, cp_export, cp_job, cp_design_loop`；每个 `inputSchema.type==='object'` 且 `properties` 为对象。
 3. **协议错误码**：未初始化 `tools/list` → `-32600`；未知方法 → `-32601`；未知工具/坏参数 → `-32602`；二次 initialize → `-32600`；非法 JSON → `-32700`（无伪造 id）；JSON-RPC batch → `-32600`；缺 `jsonrpc` → `-32600`。
 4. **取消**：`notifications/cancelled.params.requestId` 与在途 `tools/call` 的 id 一致；server 只 abort、不写响应；fake Runtime 通过 response close 观测到 `/api/health` 请求提前断开，证明取消穿透到 HTTP 层，而非仅丢弃响应。
 5. **裁剪**：`capResult` 在 16384 字节上限下将 data 降级为 `{_truncated, bytes, preview}`，`content[0].text` 与 `structuredContent` 严格同源。

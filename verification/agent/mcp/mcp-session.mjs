@@ -18,7 +18,7 @@ export const AGENT_DIR = fileURLToPath(new URL('../../../agent/', import.meta.ur
 export const SERVER_PATH = join(AGENT_DIR, 'mcp-server.mjs');
 export const WIRE_PROXY_PATH = join(HERE, 'wire-proxy.mjs');
 
-/** 期望的 12 个工具（独立硬编码，避免直接复用作者测试/生产常量）。 */
+/** 期望的 13 个工具（独立硬编码，避免直接复用作者测试/生产常量）。 */
 export const EXPECTED_TOOL_NAMES = Object.freeze([
   'cp_status',
   'cp_project_context',
@@ -32,9 +32,10 @@ export const EXPECTED_TOOL_NAMES = Object.freeze([
   'cp_validation',
   'cp_export',
   'cp_job',
+  'cp_design_loop',
 ]);
 
-/** 会出现在 12 个工具 inputSchema 里的基础字段（协议层要求 object schema）。 */
+/** 会出现在 13 个工具 inputSchema 里的基础字段（协议层要求 object schema）。 */
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function waitFor(predicate, { timeoutMs = 4000, intervalMs = 15, label = 'condition' } = {}) {

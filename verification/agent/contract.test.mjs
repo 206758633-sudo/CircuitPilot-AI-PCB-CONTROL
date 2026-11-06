@@ -3,7 +3,7 @@
  *
  * 用 fake-runtime.mjs 提供的本地随机端口 HTTP 服务 + 真实插件 lib，验证
  * docs/agent/agent-contract.md 的可执行契约：
- *  - 12 个 cp_* 工具目录、参数校验、只读 happy path、统一结果 envelope；
+ *  - 13 个 cp_* 工具目录、参数校验、只读 happy path、统一结果 envelope；
  *  - plan → approve → execute → job 闭环与 approvalToken 不暴露；
  *  - maxResultBytes（默认 16KB）裁剪、requestId 幂等、超时 mayHaveTakenEffect 不自动重试；
  *  - 401/409/500 错误映射与 token 脱敏。
@@ -42,7 +42,7 @@ function assertEnvelope(result, label) {
   assert.doesNotThrow(() => JSON.stringify(result), `${label}: 结果必须 JSON 可序列化`);
 }
 
-test('工具目录：12 个 cp_* 工具，名称/类型/inputSchema/execute 稳定', async () => {
+test('工具目录：13 个 cp_* 工具，名称/类型/inputSchema/execute 稳定', async () => {
   const expectedTypes = {
     cp_status: 'read',
     cp_project_context: 'read',
@@ -56,9 +56,10 @@ test('工具目录：12 个 cp_* 工具，名称/类型/inputSchema/execute 稳�
     cp_validation: 'execute',
     cp_export: 'execute',
     cp_job: 'read',
+    cp_design_loop: 'read',
   };
   await withHarness({}, async (harness) => {
-    assert.equal(TOOL_NAMES.length, 12);
+    assert.equal(TOOL_NAMES.length, 13);
     assert.deepEqual(harness.tools.map((tool) => tool.name), [...TOOL_NAMES]);
     assert.deepEqual(Object.keys(TOOL_ROUTES).sort(), [...TOOL_NAMES].sort());
     for (const tool of harness.tools) {
@@ -113,7 +114,7 @@ test('read happy path：cp_status / cp_project_context 汇总真实 HTTP 数据�
     assert.equal(status.ok, true);
     assert.match(status.summary, /在线/);
     assert.equal(status.data.runtime.reachable, true);
-    assert.equal(status.data.runtime.version, '0.1.0-verify');
+    assert.equal(status.data.runtime.version, '0.2.0');
     assert.equal(status.data.project.name, '独立验证板');
     assert.equal(status.data.project.stage, 'PCB');
     assert.equal(status.data.eda.online, true);
@@ -198,7 +199,7 @@ test('cp_issues / cp_evidence / cp_knowledge：过滤、排序、citation、RAG 
   });
 });
 
-test('结果 envelope：12 个工具在成功/拒绝路径都返回统一 6 字段结构', async () => {
+test('结果 envelope：13 个工具在成功/拒绝路径都返回统一 6 字段结构', async () => {
   await withHarness({}, async (harness) => {
     const unknownPlanHash = 'd'.repeat(64);
     const invocations = [

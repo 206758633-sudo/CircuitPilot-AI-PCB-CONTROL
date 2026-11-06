@@ -238,7 +238,7 @@ export async function startFakeRuntime({ token = TEST_TOKEN, name = 'dsh-plugin'
     switch (key) {
       case 'GET /api/health':
         counters.health += 1;
-        return [200, { ok: true, service: 'circuitpilot-runtime', version: '0.1.0-verify', host: '127.0.0.1' }];
+        return [200, { ok: true, service: 'circuitpilot-runtime', version: '0.2.0', host: '127.0.0.1' }];
       case 'GET /api/project-state':
         return [200, {
           ok: true,
@@ -520,7 +520,7 @@ export async function startFakeRuntime({ token = TEST_TOKEN, name = 'dsh-plugin'
       if (behavior) return applyBehavior(record, res, behavior);
       record.handled = true;
       record.status = 200;
-      return jsonResponse(res, 200, { ok: true, service: 'circuitpilot-runtime', version: '0.1.0-verify', host: '127.0.0.1' });
+      return jsonResponse(res, 200, { ok: true, service: 'circuitpilot-runtime', version: '0.2.0', host: '127.0.0.1' });
     }
 
     // 2) 认证：真实 runtime/agent-token.mjs 的常量时间比较。

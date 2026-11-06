@@ -111,7 +111,7 @@ Agent 直接调用现有 HTTP 路由，不复制业务逻辑：
 
 Agent 工具只做参数校验、审批、结果裁剪、错误映射，不绕过 planHash/lineage/写锁/DRC 基线。
 
-## 3. 插件工具面（MVP 12 个）
+## 3. 插件工具面（MVP 13 个）
 
 | 工具 | 类型 | 说明 |
 |---|---|---|
@@ -127,8 +127,9 @@ Agent 工具只做参数校验、审批、结果裁剪、错误映射，不绕�
 | `cp_validation` | execute | 运行 ERC/DRC/门禁并返回摘要；`boards` 最多 3 块板顺序批量只读校验（与单板参数互斥；ERC 必须带该板 schematicUuid） |
 | `cp_export` | execute | 导出/归档（需显式确认） |
 | `cp_job` | read | 长任务的 status/wait/cancel（插件内 job manager） |
+| `cp_design_loop` | read | 离线设计闭环：IR → Rule-as-Code + 求解器 + Plan-Verify-Repair；`POST /api/design/framework/run`；只读、不写 EDA、不签核 |
 
-> 实现按 12 个收敛；插件默认 `approvalMode: 'chat'`，可配置为 `off` 关闭审批类工具。
+> 实现按 13 个收敛；插件默认 `approvalMode: 'chat'`，可配置为 `off` 关闭审批类工具。
 
 ## 4. 长任务
 
@@ -181,5 +182,5 @@ Agent 工具只做参数校验、审批、结果裁剪、错误映射，不绕�
 - MCP 传输：默认 `stdio`；`agent/mcp-server.mjs --http --http-port 4180 --http-host 127.0.0.1` 提供 Streamable HTTP（`POST /mcp` 单响应 JSON、`GET /health`；`Mcp-Session-Id` 为随机 UUID 仅作会话标识、不作认证；协议仍是 legacy 2025-era，`GET /mcp` 405、`DELETE /mcp` 204）
 - MCP HTTP 认证（可选，推荐）：`--http-token-file <path>`（env `CIRCUITPILOT_MCP_HTTP_TOKEN_FILE`；文件必须 0600 且 trim 后非空，缺失/空/权限过宽 → 配置错误 exit 2）或仅测试用的 `--http-token <token>`（进程列表可见，不推荐）。`--print-config` 显示 `httpAuth`/`httpTokenFile` 但绝不打印 token。DSH streamable-http profile 在 `headers` 里加 `Authorization: 'Bearer <token>'`（或 `x-circuitpilot-mcp-token`）；无/错 token → 401 `MCP_HTTP_UNAUTHORIZED`，不执行 JSON-RPC
 - Live Runtime 验收：`npm run verify:agent-live`（`scripts/agent-live-acceptance.mjs`；默认临时端口/临时目录拉起真实 Runtime 子进程跑 9 项矩阵；`-- --base-url http://127.0.0.1:4178` 对现有 Runtime，旧 Runtime 404 时 exit 2）
-- MCP HTTP Live 验收：`npm run verify:agent-mcp-live`（`scripts/agent-mcp-live-acceptance.mjs`；自包含拉起真实 Runtime 子进程 + 真实 `agent/mcp-server.mjs --http`，通过真实 HTTP 跑 initialize/session/通知/tools-list 12/cp_status/无 token·key 泄漏/stdout 0B/端点边界 9 项矩阵；结束 SIGTERM 两个子进程并清理临时目录，PASS x/y exit 0/1）
+- MCP HTTP Live 验收：`npm run verify:agent-mcp-live`（`scripts/agent-mcp-live-acceptance.mjs`；自包含拉起真实 Runtime 子进程 + 真实 `agent/mcp-server.mjs --http`，通过真实 HTTP 跑 initialize/session/通知/tools-list 13/cp_status/无 token·key 泄漏/stdout 0B/端点边界 9 项矩阵；结束 SIGTERM 两个子进程并清理临时目录，PASS x/y exit 0/1）
 - `runtime/server.mjs` 仅 Lead 修改（接入认证/denylist）

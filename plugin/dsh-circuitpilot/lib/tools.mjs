@@ -1,8 +1,8 @@
 /**
  * CircuitPilot 工具集（host-independent，不依赖 DSH 包）。
  *
- * 12 个工具按 docs/agent/agent-contract.md §3 收敛：
- *   read     cp_status / cp_project_context / cp_issues / cp_evidence / cp_knowledge / cp_job
+ * 13 个工具按 docs/agent/agent-contract.md §3 收敛（2026-11-06 新增 cp_design_loop 离线设计闭环）：
+ *   read     cp_status / cp_project_context / cp_issues / cp_evidence / cp_knowledge / cp_job / cp_design_loop
  *   plan     cp_design_plan / cp_pcb_plan
  *   approve  cp_approve（仅 approvalMode='chat'，必须 planHash + confirm=true）
  *   execute  cp_execute / cp_validation / cp_export（长任务走 JobManager，写操作必须 requestId）

@@ -4,7 +4,7 @@
  * 解决的真实问题（2026-10-29 诊断）：
  *  - 本机 4178 端口可能跑着一个**不兼容**的旧 CircuitPilot 构建（/api/health 报 0.8.15，
  *    而插件需要的 /api/project-state、/api/evidence/index、/api/agent/* 全部 404）。
- *    旧实现让 12 个 cp_* 工具直接返回一串无上下文的 ROUTE_NOT_FOUND，用户只看到“插件坏了”。
+ *    旧实现让每个 cp_* 工具直接返回一串无上下文的 ROUTE_NOT_FOUND，用户只看到“插件坏了”。
  *  - 所以运行期必须有两层判定：
  *      1) 版本门禁：/api/health.version 必须落在 compat.json 的 supportedRuntime 区间内
  *         （唯一真实验证过的 Runtime 是 0.2.0，本仓库/已安装 App）；

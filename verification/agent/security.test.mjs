@@ -239,10 +239,14 @@ test('approvalToken 不返回给模型：cp_approve/cp_execute/cp_job/错误结�
 
 test('agent token 不泄露到模型：错误 message 脱敏、请求 query/body 不含 token、成功结果不回显', async () => {
   await withHarness({}, async (harness) => {
-    harness.runtime.enqueue('GET /api/project-state', {
+    // 兼容门禁会先做一次能力探测（GET /api/project-state），随后 cp_status 自己再读一次；
+    // 两次都必须失败，才能验证"工具失败 + 错误脱敏"，否则第二次会拿到正常数据从而 ok:true。
+    const backendFailure = {
       status: 500,
       body: { ok: false, error: { code: 'BACKEND_FAIL', message: `后端异常，请求头令牌=${TEST_TOKEN}` } },
-    });
+    };
+    harness.runtime.enqueue('GET /api/project-state', backendFailure);
+    harness.runtime.enqueue('GET /api/project-state', backendFailure);
     const status = await harness.callTool('cp_status');
     assert.equal(status.ok, false);
     assert.equal(status.code, 'BACKEND_FAIL');

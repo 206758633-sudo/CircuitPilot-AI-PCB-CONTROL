@@ -23,7 +23,7 @@
 | 文件 | 作用 |
 |---|---|
 | `fake-runtime.mjs` | 本地 `node:http` fake Runtime：`127.0.0.1:0` 随机端口；模拟契约 §2 路由；认证/授权直接复用**真实** `runtime/agent-token.mjs` 与 `runtime/agent-auth.mjs`；approve 返回真实形态 `{approvalId, token, bindings:{planHash,targetFingerprint,windowId}}`；execute 校验 approvalToken 一次性；支持 401/409/500/延迟超时/超大 JSON/断连注入；记录所有请求；含工具 harness 与临时 token 文件工具函数 |
-| `contract.test.mjs` | 10 个 `node:test` 用例：12 工具目录、参数校验、read happy path、统一结果 envelope、设计/PCB 闭环、16KB 裁剪、requestId 幂等、超时不自动重试、错误映射与脱敏 |
+| `contract.test.mjs` | 11 个 `node:test` 用例：13 工具目录、参数校验、read happy path、统一结果 envelope、设计/PCB 闭环、16KB 裁剪、requestId 幂等、超时不自动重试、错误映射与脱敏 |
 | `security.test.mjs` | 8 个 `node:test` 用例：无/坏 token、真实 token 签发与文件权限、agent-auth 纯函数 denylist（含编码/路径绕过）、HTTP 层越权 403、approvalToken 不暴露、agent token 不泄露、写暂停 409、超时写不重试、server.mjs 接线静态校验 |
 | `acceptance.mjs` | 可执行验收脚本：10 条端到端场景，逐条打印 PASS/FAIL + 证据（fake Runtime 请求记录与关键结果字段），退出码 0/1 |
 | `README.md` | 本文档 |
@@ -57,11 +57,11 @@ node verification/agent/acceptance.mjs
 
 | # | 用例 | 断言要点 |
 |---|---|---|
-| 1 | 工具目录 | `TOOL_NAMES` 12 个、顺序稳定；type=read/plan/approve/execute 正确；schema 为 object；写/长任务 required 含 requestId；approve required 含 planHash+confirm；构造不产生请求 |
+| 1 | 工具目录 | `TOOL_NAMES` 13 个、顺序稳定；type=read/plan/approve/execute 正确；schema 为 object；写/长任务 required 含 requestId；approve required 含 planHash+confirm；构造不产生请求 |
 | 2 | 参数校验 | 11 组必填/类型/枚举/范围错误 → `INVALID_ARGUMENTS`，且 0 网络请求 |
 | 3 | read happy path | `cp_status`/`cp_project_context` 聚合 health/project/write-gate/eda/issues/evidence；每个请求都带 `x-circuitpilot-agent-token` |
 | 4 | issues/evidence/knowledge | 只统计 open/investigating 并按严重度排序；severity 过滤；索引/kind+digest/executionId 三种取证；只信 approved（candidate 不返回）；RAG 500 时标注 `ragError` 而不冒充 citation |
-| 5 | 统一 envelope | 12 个工具成功/拒绝路径都有 `{ok,summary/data,evidence,nextActions,truncated}`（失败遵循契约 §5 的 `{ok:false,code,message}` 形态）且 JSON 可序列化 |
+| 5 | 统一 envelope | 13 个工具成功/拒绝路径都有 `{ok,summary/data,evidence,nextActions,truncated}`（失败遵循契约 §5 的 `{ok:false,code,message}` 形态）且 JSON 可序列化 |
 | 6 | 设计/PCB 闭环 | plan→approve（读 context、校验 bindings、请求体带 confirm/planHash/targetFingerprint/windowId）→execute（用内存 approvalToken + 缓存 plan，模型不可替换）→cp_job done→证据；PCB 审批无顶层 planHash 时按 `bindings.planHash` 绑定 |
 | 7 | 16KB 裁剪 | 50 条大证据 → `truncated=true` 且 JSON ≤ 16384；自定义 `maxResultBytes=2048` 同样裁剪且保留下钻 evidence |
 | 8 | requestId 幂等 | 同 requestId 返回同一 job 且 `deduped=true`；execute/ERC 实际只调用 1 次 |

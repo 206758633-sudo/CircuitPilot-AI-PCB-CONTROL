@@ -50,7 +50,7 @@ DSH_HOME="$PWD/.tmp/dsh-verify-home" \
 
 ### 3.3 CircuitPilot Runtime 兼容层（新增 `lib/cp-compat.mjs` + `lib/tools.mjs` 集成）
 
-- 12 个工具统一门禁（`cp_job` 纯本地除外）：`/api/health.version` 可解析且越界 →
+- 12 个工具统一门禁（2026-11-05 当时为 12 个；2026-11-06 起新增 `cp_design_loop` 共 13 个；`cp_job` 纯本地除外）：`/api/health.version` 可解析且越界 →
   `RUNTIME_VERSION_UNSUPPORTED` fail-closed；不可达 → `RUNTIME_UNREACHABLE`；版本缺失/非法 → 放行 + warning。
 - 能力探测（6 项核心路由，30s 缓存）：缺失能力进 `cp_status` 诊断；`ROUTE_NOT_FOUND` 统一升级为
   可操作的 `RUNTIME_ROUTE_MISSING`（附 `data.originalCode` / `data.routes` / nextActions）。

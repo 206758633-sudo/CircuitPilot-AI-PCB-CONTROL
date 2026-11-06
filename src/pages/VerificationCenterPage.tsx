@@ -4,6 +4,7 @@ import { useApp } from '../state/AppContext';
 import { runtimeClient, RuntimeApiError } from '../services/runtimeClient';
 import type { ApprovalLedgerView, GateEvidenceRef, GatesCollectResult, KnowledgeGateAdviceResult, PcbGateReport, PcbGateResult, GateSignoffRecord, SupplyPricingEvidence } from '../types';
 import { Badge, Button, Field, Panel, Stat } from '../components/ui';
+import { DesignFrameworkPanel } from '../components/DesignFrameworkPanel';
 import { buildBoardSpec, buildGateComponents, formatIntentNetlistText, parseIntentNetlistText, readReviewedNetlistHandoff, summarizeGateComponentSources } from '../services/gateEvidenceInputs';
 
 /** 多板工作流（W6-02）：绑定过的板子存在本机，切换板即切换整页证据/门禁上下文。 */
@@ -211,6 +212,7 @@ export function VerificationCenterPage() {
 
   return (
     <div className="page-grid">
+      <DesignFrameworkPanel />
       <Panel title="多板工作流" eyebrow="BOARD SWITCH" meta="绑定过的板子会记住；切换后门禁/证据上下文随之切换">
         <div className="row-actions" style={{ flexWrap: 'wrap', gap: 8 }}>
           {boards.map((board) => (

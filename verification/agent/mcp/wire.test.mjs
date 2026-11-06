@@ -63,7 +63,7 @@ async function sendAndWaitForReply(session, rawText, predicate, timeoutMs = 3000
   return entry.message;
 }
 
-test('全链路：server/discover(-32601) → initialize → notifications/initialized → tools/list(12) → ping；官方 schema 全过', async () => {
+test('全链路：server/discover(-32601) → initialize → notifications/initialized → tools/list(13) → ping；官方 schema 全过', async () => {
   await withFixture(async ({ runtime, token }) => {
     const session = await openRaw({ runtime, token });
     try {

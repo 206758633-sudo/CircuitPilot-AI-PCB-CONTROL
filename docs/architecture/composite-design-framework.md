@@ -227,7 +227,11 @@ POST /api/design/framework/run    → 200 { framework.status="needs-review", rep
 
 `src/services/runtimeClient.ts` 增加只读方法：`designFrameworkStatus()` / `designFrameworkGolden()` /
 `designFrameworkRun({model, options})`；对应类型在 `src/types.ts`（`DesignFrameworkStatus` /
-`DesignFrameworkGoldenReport` / `DesignFrameworkLoopSummary`）。UI 尚未接入页面，API/类型已就绪。
+`DesignFrameworkGoldenReport` / `DesignFrameworkLoopSummary`）。
+
+UI 已接入：`src/components/DesignFrameworkPanel.tsx`（渲染在「验证与交付 → 验证中心」顶部），
+展示框架状态/金板指标，并提供可编辑 IR 的「运行设计闭环」；`needs-review` 明确显示为
+「需人工审阅（不是 passed）」，并常驻「写 EDA 仍需官方 ERC/DRC + 人工审批」边界提示。
 
 ### 10.3 DSH 插件工具 `cp_design_loop`（第 13 个工具）
 
@@ -240,7 +244,7 @@ POST /api/design/framework/run    → 200 { framework.status="needs-review", rep
 
 ### 10.4 仍未做（如实保留）
 
-1. UI 页面接入（当前只有 client 方法与类型）；
+1. ~~UI 页面接入~~（已由 `DesignFrameworkPanel` 接入验证中心；尚无独立页面/导航项）；
 2. `cp_design_loop` 的模型来源仍是"调用方传入 IR"（尚未从项目状态/EDA 读回自动构建 IR）；
 3. 真实 KiCad DRC 与外部求解器接入（本机未安装，适配器已留缝）。
 
