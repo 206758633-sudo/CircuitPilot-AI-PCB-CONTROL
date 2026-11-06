@@ -74,6 +74,26 @@ Tauri resources；随后**直接用打包产物的 runtime** 起隔离实例（4
 > 说明：该 bundle 在**工作区**验证通过；`/Applications/CircuitPilot.app` 仍是旧构建，
 > 需要用户把新 bundle 复制/安装过去（或重新安装）后，桌面会话才带设计框架路由。
 
+### 2.5 安装到 /Applications 并验证（2026-11-06 16:43）
+
+- 备份旧安装版：`/Applications/CircuitPilot.app.bak-20261106-1650`（0.2.0 旧构建）
+- 安装新构建：`/Applications/CircuitPilot.app`（0.2.0，含 design-framework + 内嵌 eval/golden，
+  已 `codesign --verify --deep --strict` 通过；本地 ad-hoc 重签）
+- 退出占用 4178 的旧 0.2.20 备份构建，启动新 App（进程 90720 / Runtime 90746）
+
+| 断言 | 结果 |
+|---|---|
+| `/api/health` | ✔ 0.2.0 |
+| `cp_status`（真实 agent token） | ✔ ok:true；版本兼容 supported |
+| `cp_design_loop(model)` | ✔ needs-review / blocking=0 / repair=1（真实安装版 Runtime） |
+| `cp_design_loop(source="project")` | ✔ `DESIGN_FRAMEWORK_EDA_OFFLINE`（EDA Bridge 不在线，拒绝编造尺寸） |
+| EDA 状态探测 | ✔ `/api/eda/workspaces/current` 503 `BRIDGE_NOT_FOUND`（如实） |
+| framework status / golden | ✔ 200；金板 5/5 |
+
+证据：`artifacts/installed-app-verification-2026-11-06.json`（**6/6**）。
+> 剩余动作：**重启 DeepSeek Harness** 让 desktop profile 重新加载新版插件（当前会话是旧加载）；
+> 打开 EasyEDA 并选中目标 PCB 后，可再验证 `source:"project"` 的真实 EDA 读回链路。
+
 ## 3. 本轮据此完成的代码改进
 
 1. **新增 `source:"project"`**（Runtime 服务层 + HTTP 路由 + 插件工具）：
@@ -89,8 +109,8 @@ Tauri resources；随后**直接用打包产物的 runtime** 起隔离实例（4
 
 ## 4. 仍未完成（如实保留）
 
-1. **安装版 App 尚未替换**：新 bundle 已构建并验证（§2.4），但 `/Applications/CircuitPilot.app` 仍是旧构建；
-   需用户把 `src-tauri/target/release/bundle/macos/CircuitPilot.app` 复制/安装到 `/Applications`（或重装）后生效。
+1. **安装版 App 已替换并验证**（§2.5）：`/Applications/CircuitPilot.app` 现为含复合框架的新构建，
+   旧版备份在 `/Applications/CircuitPilot.app.bak-20261106-1650`；仍需**重启 DSH** 让插件重新加载。
 2. **真实 EDA 在线读回未验证**：本机 EDA 当前离线，`source:"project"` 只验证了离线 fail-closed 路径；
    EDA 在线时的 `pcb.outline.read`/`placement.read`/`schematic.netlist.export` 真机链路未跑。
 3. **网表自动读取已实现但未真机验证**：`source:"project"` 现在会额外只读 `schematic.netlist.export`

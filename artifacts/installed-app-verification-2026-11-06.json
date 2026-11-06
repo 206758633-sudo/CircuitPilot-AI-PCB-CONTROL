@@ -1,0 +1,61 @@
+{
+  "at": "2026-11-06T08:43:47.653Z",
+  "ok": true,
+  "baseUrl": "http://127.0.0.1:4178",
+  "tokenFile": "/Users/jescochen/Library/Application Support/CircuitPilot/agent-token.json",
+  "results": [
+    {
+      "name": "安装版 App（/Applications）Runtime 0.2.0 在线",
+      "ok": true,
+      "detail": {
+        "version": "0.2.0"
+      }
+    },
+    {
+      "name": "安装版 App：cp_status ok:true",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "安装版 App：cp_status 报告 Runtime 版本 0.2.0 且版本兼容",
+      "ok": true,
+      "detail": {
+        "version": "0.2.0"
+      }
+    },
+    {
+      "name": "安装版 App：cp_design_loop(model) 走真实 Runtime → needs-review / blocking=0",
+      "ok": true,
+      "detail": {
+        "status": "needs-review",
+        "blocking": 0,
+        "repairs": 1,
+        "digest": "9004db8d9e0d"
+      }
+    },
+    {
+      "name": "安装版 App：cp_design_loop(source=project) 按 EDA 状态 fail-closed 或返回闭环",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "DESIGN_FRAMEWORK_EDA_OFFLINE",
+        "status": null,
+        "message": "无法从项目构建板级 IR：EDA Bridge 不在线（拒绝编造尺寸；请打开 EDA 并选中目标 PCB 后重试）"
+      }
+    },
+    {
+      "name": "EDA 连接状态已探测（在线/离线如实）",
+      "ok": true,
+      "detail": {
+        "http": 503,
+        "code": "BRIDGE_NOT_FOUND",
+        "message": "未发现EasyEDA Bridge"
+      }
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0
+  }
+}
