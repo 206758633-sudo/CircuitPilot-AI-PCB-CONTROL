@@ -171,12 +171,21 @@ export function buildModelFromProject({ projectState, edaSnapshot, netlistText =
     throw coded(DESIGN_FRAMEWORK_SERVICE_CODES.EDA_OFFLINE, 'EDA 不在线或未返回可用板框/铜层数：无法从项目构建板级 IR（拒绝编造尺寸）', 409);
   }
   const placements = adaptPlacements(snapshot.placementRead ?? null);
+  // 保留 EDA 的 primitiveId 作为 IR placementId：否则 toPcbOperations 会因缺 id 跳过所有器件，
+  // 闭环产出的操作无法映射回可执行 PCB 写计划（真实板 95 器件 → skipped=95）。
+  const placementIds = new Map();
+  for (const raw of Array.isArray(snapshot.placementRead?.components) ? snapshot.placementRead.components : []) {
+    const ref = String(raw?.designator ?? '').trim().toUpperCase();
+    const primitiveId = typeof raw?.primitiveId === 'string' && raw.primitiveId.trim() ? raw.primitiveId.trim() : null;
+    if (ref && primitiveId) placementIds.set(ref, primitiveId);
+  }
   const components = placements.map((placement) => ({
     ref: placement.ref,
     ...(placement.layerSide === 'bottom' ? { side: 'bottom' } : {}),
     xMm: Number.isFinite(placement.centerXMm) ? placement.centerXMm : 0,
     yMm: Number.isFinite(placement.centerYMm) ? placement.centerYMm : 0,
     rotationDeg: Number.isFinite(placement.rotationDeg) ? placement.rotationDeg : 0,
+    ...(placementIds.has(String(placement.ref).toUpperCase()) ? { placementId: placementIds.get(String(placement.ref).toUpperCase()) } : {}),
     ...(placement.widthMm > 0 && placement.heightMm > 0
       ? { widthMm: placement.widthMm, heightMm: placement.heightMm }
       : { sizeUnknown: true }),

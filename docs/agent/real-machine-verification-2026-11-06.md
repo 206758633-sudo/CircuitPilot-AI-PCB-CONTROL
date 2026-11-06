@@ -155,7 +155,7 @@ Tauri resources；随后**直接用打包产物的 runtime** 起隔离实例（4
 | `pcb.layers.copperCount` | ✔ **4 层**（permission=read） |
 | `pcb.placement.read` | ✔ **95 个器件**（含 bbox/层/旋转/每器件 nets，permission=read） |
 | `schematic.netlist.export` | ⚠ 返回 null：CLI v1.3.0 与 connector 1.14.0 版本错位，`getNetlistFile` 未返回文本 → Runtime 如实置空（不编造网络） |
-| `cp_design_loop(source="project")` | ✔ ok:true、**needs-review**、2 轮、1 次修复（`solve_stackup` layers=4；离线、不写 EDA）、blocking=0、review=147、规则覆盖 21.2%、evidence digest `8aed9185…` |
+| `cp_design_loop(source="project")` | ✔ ok:true、**needs-review**、2 轮、1 次修复（`solve_stackup` layers=4；离线、不写 EDA）、blocking=0、review=147、规则覆盖 21.2%、evidence digest `d0a08cbd…` |
 | cp_status | ✔ EDA online、Runtime 0.2.0、写门禁未暂停 |
 | 写入/审批/签核 | ✔ **0**（只读命令均为 permission=read；doc switch 仅切前台文档） |
 
@@ -186,6 +186,25 @@ Tauri resources；随后**直接用打包产物的 runtime** 起隔离实例（4
 - 写/审批/签核调用 **0**；无 token 泄漏。
 - 注意：项目状态 `edaWorkspace.pcbUuid=5595e77c…` 与当前活动板 `084751e2…` 不一致（source=project 用活动板读回，正确）；
   design-loop 证据只以 digest 引用（未归档进证据索引）。
+
+### 2.12 placementId 回写映射修复（2026-11-06 17:58）
+
+**真实问题**：`source:"project"` 构建 IR 时丢弃了 `pcb.placement.read` 的 `primitiveId`，
+导致 `toPcbOperations` 认为所有器件都缺 `placementId` → 真实板 95 个器件全部 skipped
+（旧摘要显示 skipped=50 是截断上限，实际 95 个），闭环计划只有 1 个板框操作，无法映射回 EDA 写计划。
+
+**修复**：`buildModelFromProject` 保留 EDA `primitiveId` 作为 IR `placementId`（没有 id 时不猜）；
+服务层测试断言有 id → `plan.skipped=[]`、operations ≥ 2。
+
+**真机复验（真实 EDA 在线，只读）**：
+
+| 版本 | plan.operations | plan.skipped | model digest |
+|---|---|---|---|
+| 修复前（旧安装版） | 1 | 50（截断；实际 95 缺 id） | `bde9c014…` |
+| 修复后（本仓库 runtime 4199） | **96** | **0** | `281881d4…` |
+| 修复后（重新打包安装的 App 0.2.0） | **96** | **0** | `519435c1…`（闭环 digest `d0a08cbd…`） |
+
+安装版已重打包并替换（旧构建备份 `.bak-20261106-1650` / `.bak-20261106-1758`）。
 
 ## 3. 本轮据此完成的代码改进
 

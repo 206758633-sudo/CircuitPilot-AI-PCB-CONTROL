@@ -99,8 +99,8 @@ test('buildModelFromProject：项目 + EDA 读回构建 IR（板框/层数/器�
     placementRead: {
       unit: 'mm',
       components: [
-        { designator: 'U1', xMm: 20, yMm: 20, rotationDeg: 0, layer: 1, bboxMm: { xMm: 6, yMm: 6, centerXMm: 20, centerYMm: 20 } },
-        { designator: 'C1', xMm: 30, yMm: 20, rotationDeg: 0, layer: 1, bboxMm: { xMm: 2, yMm: 1, centerXMm: 30, centerYMm: 20 } },
+        { designator: 'U1', primitiveId: 'prim-u1', xMm: 20, yMm: 20, rotationDeg: 0, layer: 1, bboxMm: { xMm: 6, yMm: 6, centerXMm: 20, centerYMm: 20 } },
+        { designator: 'C1', primitiveId: 'prim-c1', xMm: 30, yMm: 20, rotationDeg: 0, layer: 1, bboxMm: { xMm: 2, yMm: 1, centerXMm: 30, centerYMm: 20 } },
         { designator: 'R1', xMm: 40, yMm: 20, rotationDeg: 0, layer: 1 },
       ],
     },
@@ -112,7 +112,10 @@ test('buildModelFromProject：项目 + EDA 读回构建 IR（板框/层数/器�
   const byRef = new Map(model.components.map((component) => [component.ref, component]));
   assert.equal(byRef.get('U1').widthMm, 6);
   assert.equal(byRef.get('U1').sizeUnknown, false);
+  assert.equal(byRef.get('U1').placementId, 'prim-u1', '真实 EDA primitiveId 必须保留为 placementId');
+  assert.equal(byRef.get('C1').placementId, 'prim-c1');
   assert.equal(byRef.get('R1').sizeUnknown, true);
+  assert.equal(byRef.get('R1').placementId, undefined, '没有 primitiveId 时不猜测 placementId');
   assert.equal(model.meta.source, 'project+eda-readback');
 });
 
@@ -174,12 +177,14 @@ test('runFrameworkForProject：构建 IR 后跑闭环，返回 source=project �
   const projectState = { activeProjectId: 'p1', projects: [{ id: 'p1', name: 'Demo' }] };
   const edaSnapshot = {
     widthMm: 60, heightMm: 40, layers: 2,
-    placementRead: { unit: 'mm', components: [{ designator: 'U1', xMm: 20, yMm: 20, rotationDeg: 0, bboxMm: { xMm: 6, yMm: 6, centerXMm: 20, centerYMm: 20 } }] },
+    placementRead: { unit: 'mm', components: [{ designator: 'U1', primitiveId: 'prim-u1', xMm: 20, yMm: 20, rotationDeg: 0, bboxMm: { xMm: 6, yMm: 6, centerXMm: 20, centerYMm: 20 } }] },
   };
   const summary = runFrameworkForProject({ projectState, edaSnapshot, options: { maxIterations: 2 } });
   assert.equal(summary.source, 'project');
   assert.equal(summary.status, 'needs-review');
   assert.ok(summary.modelSummary.componentCount >= 1);
+  assert.deepEqual(summary.plan.skipped, [], '有 placementId 时不应跳过器件');
+  assert.ok(summary.plan.operations >= 2, '板框 + 器件 modify 至少 2 个操作');
 
   const noSize = runFrameworkForProject({
     projectState,
