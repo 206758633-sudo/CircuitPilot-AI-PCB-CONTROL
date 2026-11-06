@@ -69,7 +69,8 @@ test('healthMetrics：覆盖率/过期率/冲突率/命中率/待审数', () => 
     assert.equal(metrics.total, 2);
     assert.equal(metrics.byKind.part, 1);
     assert.equal(metrics.byKind.rule, 1);
-    assert.equal(metrics.coverage, 0.5);
+    // 分母是类型谱全量 8 类（核心 4 + 扩展 4），本用例只覆盖 part/rule 两类 → 2/8。
+    assert.equal(metrics.coverage, 0.25);
     assert.equal(metrics.approved, 1);
     assert.equal(metrics.candidates, 1);
     assert.equal(metrics.hitRate, 0.5);

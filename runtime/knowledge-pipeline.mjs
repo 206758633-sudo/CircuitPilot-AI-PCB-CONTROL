@@ -1,5 +1,6 @@
 import { collectAll, ingestCollectorItems } from './collectors/collect.mjs';
 import { annotateProvenance } from './collectors/compliance.mjs';
+import { KNOWLEDGE_KINDS } from './knowledge.mjs';
 
 /**
  * 知识加工管道（W3-10~W3-14 + W3-18）：采集结果 → 合规标注 → 入库去重 → 冲突/审核队列 → 健康度。
@@ -68,7 +69,8 @@ export function buildReviewQueue({ store, now = () => new Date() } = {}) {
 export function healthMetrics({ store, now = () => new Date() } = {}) {
   if (!store || typeof store.list !== 'function') throw invalid('健康度需要知识库 store');
   const all = store.list({ includeExpired: true });
-  const kinds = ['part', 'module', 'rule', 'failure'];
+  // 分母是类型谱全量（核心 4 + 扩展 4）：新增 kind 后覆盖率会立刻如实下降，而不是被隐藏。
+  const kinds = [...KNOWLEDGE_KINDS];
   const byKind = Object.fromEntries(kinds.map((kind) => [kind, all.filter((entry) => entry.kind === kind).length]));
   const approved = all.filter((entry) => entry.review?.state === 'approved');
   const expired = all.filter((entry) => entry.expired === true);

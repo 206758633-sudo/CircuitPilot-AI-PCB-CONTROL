@@ -19,7 +19,8 @@ const KB = join(ROOT, 'docs/knowledge');
 const DATASET = join(ROOT, 'knowledge/pcb/dataset');
 const GRAPH = join(DATASET, 'graph.json');
 const GRAPH_MD = join(KB, 'KNOWLEDGE-GRAPH.md');
-const IGNORE = new Set(['README.md', 'conflict-register.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md']);
+// 与 scripts/build-knowledge-graph.mjs 的 IGNORE 口径保持一致：治理/索引/类型谱/风险矩阵是元文档。
+const IGNORE = new Set(['README.md', 'conflict-register.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md', 'KNOWLEDGE-KINDS-V2.md', 'RISK-MITIGATION-MATRIX.md']);
 
 const walk = (dir, out = []) => {
   for (const name of readdirSync(dir)) {

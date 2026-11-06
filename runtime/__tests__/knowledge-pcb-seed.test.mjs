@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
-import { createKnowledgeStore, KNOWLEDGE_KINDS } from '../knowledge.mjs';
+import { createKnowledgeStore, KNOWLEDGE_CORE_KINDS } from '../knowledge.mjs';
 import { createRagIndex } from '../rag/index.mjs';
 import { knowledgeDocumentsFromStore } from '../rag/corpus.mjs';
 import { DATASET_FILES, loadDataset, seedLocal, validateDataset } from '../../scripts/seed-knowledge-pcb.mjs';
@@ -24,9 +24,10 @@ const makeRoot = () => {
 };
 after(() => { for (const root of tempRoots) rmSync(root, { recursive: true, force: true }); });
 
-test('数据集：四类知识齐全、entityKey 唯一、每条 doc 指针存在', () => {
+test('数据集：四类核心知识齐全、entityKey 唯一、每条 doc 指针存在', () => {
   assert.ok(dataset.entries.length >= 180, `条目数 ${dataset.entries.length} < 180`);
-  for (const kind of KNOWLEDGE_KINDS) assert.ok(dataset.entries.some((entry) => entry.kind === kind), `缺少 ${kind} 条目`);
+  // 扩展四类（repair/assumption/decision/eval-case）由运行期与复盘生成，不要求数据集灌库。
+  for (const kind of KNOWLEDGE_CORE_KINDS) assert.ok(dataset.entries.some((entry) => entry.kind === kind), `缺少 ${kind} 条目`);
   for (const [kind, names] of Object.entries(DATASET_FILES)) {
     for (const name of names) assert.ok(dataset.files.some((item) => item.kind === kind && item.file.endsWith(name)), `缺少数据集 ${name}`);
   }

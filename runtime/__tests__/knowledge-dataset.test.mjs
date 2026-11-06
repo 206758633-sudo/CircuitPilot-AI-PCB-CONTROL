@@ -35,7 +35,8 @@ const contentDocs = () => {
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
       if (statSync(full).isDirectory()) walk(full);
-      else if (name.endsWith('.md') && !['README.md', 'conflict-register.md', 'requirements.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md'].includes(name)) {
+      // 治理/索引/类型谱/风险矩阵是"元文档"，不承载知识点，因此不要求结构化条目对偶。
+      else if (name.endsWith('.md') && !['README.md', 'conflict-register.md', 'requirements.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md', 'KNOWLEDGE-KINDS-V2.md', 'RISK-MITIGATION-MATRIX.md'].includes(name)) {
         found.push(relative(ROOT, full));
       }
     }

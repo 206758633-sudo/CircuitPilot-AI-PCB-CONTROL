@@ -6,6 +6,14 @@ import type { ExperienceBundle, ExperienceBundlePreview, KnowledgeAgentCycle, Kn
 import { Badge, Button, Field, Panel, SegmentedTabs, Stat } from '../components/ui';
 
 const stateTone = (state: string) => state === 'approved' ? 'success' : state === 'rejected' ? 'danger' : 'warning';
+const KNOWLEDGE_KIND_OPTIONS = ['part', 'module', 'rule', 'failure', 'repair', 'assumption', 'decision', 'eval-case'] as const;
+type KnowledgeKindOption = (typeof KNOWLEDGE_KIND_OPTIONS)[number];
+const KNOWLEDGE_KIND_LABELS: Record<KnowledgeKindOption, string> = {
+  part: 'part（器件）', module: 'module（模块）', rule: 'rule（规则）', failure: 'failure（失败/回归）',
+  repair: 'repair（修复策略）', assumption: 'assumption（受控假设/先验）', decision: 'decision（决策记录）', 'eval-case': 'eval-case（评估用例）',
+};
+const byKindHint = (health: KnowledgeHealth) => KNOWLEDGE_KIND_OPTIONS.map((kind) => `${kind} ${health.byKind[kind] ?? 0}`).join(' · ');
+
 const trustLabel: Record<string, string> = { authoritative: '权威', reference: '参考', unverified: '未核验' };
 
 /** 知识库（W3-17）：查询/审核/冲突/过期/健康度；AI/采集器只能产候选，人工审核后才可用于门禁。 */
@@ -24,7 +32,7 @@ export function KnowledgePage({ initialTab = 'overview' }: { initialTab?: Knowle
   const [total, setTotal] = useState(0);
   const [conflictKey, setConflictKey] = useState('');
   const [conflicts, setConflicts] = useState<Array<{ field: string; values: Array<{ id: string; value: unknown }> }>>([]);
-  const [newKind, setNewKind] = useState<'part' | 'module' | 'rule' | 'failure'>('part');
+  const [newKind, setNewKind] = useState<KnowledgeKindOption>('part');
   const [newTitle, setNewTitle] = useState('');
   const [newPayload, setNewPayload] = useState('{}');
   const [newSource, setNewSource] = useState('manual');
@@ -218,7 +226,7 @@ export function KnowledgePage({ initialTab = 'overview' }: { initialTab?: Knowle
         actions={<Button loading={busy === 'refresh'} icon={<RefreshCw size={14} />} onClick={refresh}>刷新</Button>}
       >
         <div className="stat-grid">
-          <Stat label="条目总数" value={health?.total ?? '—'} hint={health ? `part ${health.byKind.part ?? 0} · module ${health.byKind.module ?? 0} · rule ${health.byKind.rule ?? 0} · failure ${health.byKind.failure ?? 0}` : '读取中'} />
+          <Stat label="条目总数" value={health?.total ?? '—'} hint={health ? byKindHint(health) : '读取中'} />
           <Stat label="待审候选" value={queue?.candidateCount ?? '—'} tone={queue?.candidateCount ? 'warning' : 'neutral'} hint="审核通过前不可用于门禁" />
           <Stat label="门禁可用" value={health?.approved ?? '—'} tone={health?.approved ? 'success' : 'warning'} hint="approved 且未过期" />
           <Stat label="过期属性" value={health?.expired ?? '—'} tone={health?.expired ? 'warning' : 'neutral'} hint={health ? `过期率 ${(health.expiredRate * 100).toFixed(1)}%` : ''} />
@@ -237,12 +245,12 @@ export function KnowledgePage({ initialTab = 'overview' }: { initialTab?: Knowle
           <Panel title="知识库健康度" eyebrow="KNOWLEDGE HEALTH" meta="覆盖率/过期率/冲突率/命中率；候选不等于可用">
             {health && (
               <div className="stat-grid">
-                <Stat label="条目总数" value={health.total} hint={`part ${health.byKind.part ?? 0} · module ${health.byKind.module ?? 0} · rule ${health.byKind.rule ?? 0} · failure ${health.byKind.failure ?? 0}`} />
+                <Stat label="条目总数" value={health.total} hint={byKindHint(health)} />
                 <Stat label="门禁可用（approved）" value={health.approved} tone={health.approved ? 'success' : 'warning'} hint={`待审 ${health.candidates}`} />
                 <Stat label="过期条目" value={health.expired} tone={health.expired ? 'warning' : 'neutral'} hint={`过期率 ${(health.expiredRate * 100).toFixed(1)}%`} />
                 <Stat label="冲突 entityKey" value={health.conflictKeys} tone={health.conflictKeys ? 'danger' : 'neutral'} hint={`冲突率 ${(health.conflictRate * 100).toFixed(1)}%`} />
                 <Stat label="命中率" value={`${(health.hitRate * 100).toFixed(1)}%`} hint="被 agent 引用过的条目占比" />
-                <Stat label="类型覆盖" value={`${(health.coverage * 100).toFixed(0)}%`} hint="四类知识的覆盖程度" />
+                <Stat label="类型覆盖" value={`${(health.coverage * 100).toFixed(0)}%`} hint="8 类知识类型的覆盖程度（分母含扩展类型）" />
               </div>
             )}
             <p className="muted" style={{ marginTop: 8 }}>健康度是“知识是否可用”的体检；具体条目请在「知识条目 / 审核队列」处理。</p>
@@ -386,7 +394,7 @@ export function KnowledgePage({ initialTab = 'overview' }: { initialTab?: Knowle
       {tab === 'entries' && (
         <Panel title="检索与冲突" eyebrow="ENTRIES & CONFLICT" meta="结构化/全文检索；同 entityKey 多源矛盾需人工裁决">
           <div className="form-grid">
-            <Field label="类型"><select value={kind} onChange={(event) => setKind(event.target.value)}><option value="">全部</option><option value="part">part</option><option value="module">module</option><option value="rule">rule</option><option value="failure">failure</option></select></Field>
+            <Field label="类型"><select value={kind} onChange={(event) => setKind(event.target.value)}><option value="">全部</option>{KNOWLEDGE_KIND_OPTIONS.map((value) => <option key={value} value={value}>{KNOWLEDGE_KIND_LABELS[value]}</option>)}</select></Field>
             <Field label="审核状态"><select value={reviewFilter} onChange={(event) => setReviewFilter(event.target.value as typeof reviewFilter)}><option value="">全部</option><option value="candidate">candidate（待审）</option><option value="approved">approved（可用）</option><option value="rejected">rejected（驳回）</option></select></Field>
             <Field label="可信等级"><select value={trustFilter} onChange={(event) => setTrustFilter(event.target.value)}><option value="">全部</option><option value="authoritative">authoritative</option><option value="reference">reference</option><option value="unverified">unverified</option></select></Field>
             <Field label="全文关键词"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="料号/封装/网络/规则名" /></Field>
@@ -484,14 +492,14 @@ export function KnowledgePage({ initialTab = 'overview' }: { initialTab?: Knowle
         <Panel title="新增候选条目" eyebrow="CONTRIBUTE" meta="任何写入都是 candidate；审核通过前不可用于门禁">
           <div className="form-grid">
             <Field label="类型">
-              <select value={newKind} onChange={(event) => setNewKind(event.target.value as typeof newKind)}>
-                <option value="part">part</option><option value="module">module</option><option value="rule">rule</option><option value="failure">failure</option>
+              <select value={newKind} onChange={(event) => setNewKind(event.target.value as KnowledgeKindOption)}>
+                {KNOWLEDGE_KIND_OPTIONS.map((value) => <option key={value} value={value}>{KNOWLEDGE_KIND_LABELS[value]}</option>)}
               </select>
             </Field>
             <Field label="标题"><input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="例如 WS2812B-2020" /></Field>
             <Field label="来源"><input value={newSource} onChange={(event) => setNewSource(event.target.value)} placeholder="manual / lcsc / web" /></Field>
           </div>
-          <Field label="payload（JSON）" hint="part 需 lcscId/mpn/url 或 value+footprint；module/rule/failure 需 moduleId/ruleId/failureId">
+          <Field label="payload（JSON）" hint="身份字段：part=lcscId/mpn/url 或 value+footprint；module=moduleId；rule=ruleId；failure=failureId；repair=strategyId；assumption=assumptionId；decision=decisionId；eval-case=caseId（主题放 payload.topic）">
             <textarea value={newPayload} onChange={(event) => setNewPayload(event.target.value)} rows={5} spellCheck={false} />
           </Field>
           <div className="row-actions" style={{ marginTop: 8 }}>

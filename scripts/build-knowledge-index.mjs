@@ -22,7 +22,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const KB_DIR = join(ROOT, 'docs/knowledge');
 const DATASET_DIR = join(ROOT, 'knowledge/pcb/dataset');
 const OUT = join(KB_DIR, 'KNOWLEDGE-INDEX.md');
-const IGNORE = new Set(['README.md', 'conflict-register.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md']);
+// 元文档（治理/索引/类型谱/风险矩阵）不承载知识点，不参与索引/关联图；与 knowledge-dataset 测试的排除口径一致。
+const IGNORE = new Set(['README.md', 'conflict-register.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md', 'KNOWLEDGE-KINDS-V2.md', 'RISK-MITIGATION-MATRIX.md']);
 const DIR_ORDER = ['pcb', 'schematic', 'components', 'cases', 'checklists', 'requirements'];
 
 const THEMES = [

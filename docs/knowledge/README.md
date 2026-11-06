@@ -3,12 +3,12 @@
 本目录是 CircuitPilot 的**人工可读工程知识源**，与 `artifacts/knowledge`（或运行时 `state/knowledge`）里的**结构化知识条目**一一对应：
 
 - 文档负责把“为什么、怎么判断、怎么落地”讲清楚，供人阅读、评审、培训；
-- 结构化条目负责让 Agent / RAG / 门禁能检索和引用（`part` / `module` / `rule` / `failure` 四类）；
+- 结构化条目负责让 Agent / RAG / 门禁能检索和引用（核心四类 `part` / `module` / `rule` / `failure` + 扩展四类 `repair` / `assumption` / `decision` / `eval-case`，共 8 类，见 [知识类型谱 v2](./KNOWLEDGE-KINDS-V2.md)）；
 - 两者通过 `knowledge/pcb/dataset/*.json` 里的 `provenance.url` 与 `refs` 互相链接，`scripts/seed-knowledge-pcb.mjs` 负责灌库，`scripts/verify-rag.mjs` 负责验证检索质量。
 
 > 知识分层原则：候选（candidate）≠ 可用（approved）。本目录内容与脚本灌入条目一律按 `reference` 可信等级、`candidate` 审核状态入库；只有人工审核通过后，才允许被编排层作为门禁引用。**AI 不得自证知识正确。**
 >
-> **快速导航：** [知识点总索引（KNOWLEDGE-INDEX）](./KNOWLEDGE-INDEX.md) · [知识库关联图](./KNOWLEDGE-GRAPH.md) · [案例库](./cases/README.md) · [冲突登记](./conflict-register.md) · [本次全面整理审计](../implementation/knowledge-consolidation-2026-10-30.md)
+> **快速导航：** [知识点总索引（KNOWLEDGE-INDEX）](./KNOWLEDGE-INDEX.md) · [知识库关联图](./KNOWLEDGE-GRAPH.md) · [知识类型谱 v2](./KNOWLEDGE-KINDS-V2.md) · [风险规避矩阵](./RISK-MITIGATION-MATRIX.md) · [案例库](./cases/README.md) · [冲突登记](./conflict-register.md) · [本次全面整理审计](../implementation/knowledge-consolidation-2026-10-30.md)
 
 > 总索引把 **1,037 个 `KP-*` 知识点**按“领域 → 文档 → 文档内顺序”展开；每个文档同时标注结构化条目数。它是知识库的入口，不是替代原文。关联图是派生视图，用来发现枢纽、孤岛、互链缺口和来源覆盖，不改变正文或审核状态。
 
@@ -105,3 +105,18 @@ node scripts/verify-rag.mjs
 - 器件身份类知识（LCSC 料号、封装、引脚）必须经 Librarian 三源核验（EDA 库 / 供应商 / datasheet）后才可信；灌库时 `identityVerification` 字段明确写“待核验”。
 - 注意：数据集里的 `lcscIdVerified` 只表示“料号线索与项目 BOM/公开记录一致”，**不等于**三源核验通过；凡带 `identityVerification`、`lcscIdVerificationNote` 或文档标注“待核验”的，使用前都必须走 Librarian 核验。
 - 任何结论如果来自参考工程，只能作为验收基准，不得作为设计输入照抄。
+
+## 知识类型谱 v2 与风险规避（2026-11-06）
+
+知识条目从 4 类扩展为 8 类：核心四类（`part` / `module` / `rule` / `failure`）保持不变，新增扩展四类
+`repair`（修复策略）/ `assumption`（受控假设·先验默认值）/ `decision`（决策记录，含 EDA 兼容决策）/
+`eval-case`（评估·回归用例）。主题（`anti-pattern` / `precedent` / `eda-compat` 等）放 `payload.topic`，
+不膨胀 kind 枚举。
+
+- 类型谱与 payload 约定：[KNOWLEDGE-KINDS-V2.md](./KNOWLEDGE-KINDS-V2.md)
+- 风险 → 知识类型 → 检索钩子 → 验收指标：[RISK-MITIGATION-MATRIX.md](./RISK-MITIGATION-MATRIX.md)
+- 代码真源：`runtime/knowledge.mjs`（`KNOWLEDGE_KINDS` / `KNOWLEDGE_KIND_SPECS`）
+- 测试：`runtime/__tests__/knowledge-kinds-v2.test.mjs`
+
+铁律不变：**知识只能让门禁更严或转 REVIEW，不能自动 PASS、不能替代证据**；新类型条目与核心类型一样，
+AI/采集器只能写 `candidate`，`authoritative` 必须人工审核。

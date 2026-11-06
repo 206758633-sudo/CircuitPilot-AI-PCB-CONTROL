@@ -26,7 +26,8 @@ const KB_DIR = join(ROOT, 'docs/knowledge');
 const DATASET_DIR = join(ROOT, 'knowledge/pcb/dataset');
 const GRAPH_JSON = join(DATASET_DIR, 'graph.json');
 const GRAPH_MD = join(KB_DIR, 'KNOWLEDGE-GRAPH.md');
-const IGNORE = new Set(['README.md', 'conflict-register.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md']);
+// 元文档（治理/索引/类型谱/风险矩阵）不承载知识点，不参与索引/关联图；与 knowledge-dataset 测试的排除口径一致。
+const IGNORE = new Set(['README.md', 'conflict-register.md', 'KNOWLEDGE-INDEX.md', 'KNOWLEDGE-GRAPH.md', 'KNOWLEDGE-KINDS-V2.md', 'RISK-MITIGATION-MATRIX.md']);
 const ENTRY_FILES = [
   ['rule', 'rules.json'],
   ['module', 'modules.json'],

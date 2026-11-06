@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import {
   KNOWLEDGE_CODES,
+  KNOWLEDGE_CORE_KINDS,
   KNOWLEDGE_KINDS,
   KNOWLEDGE_REVIEW_STATES,
   KNOWLEDGE_TRUST_LEVELS,
@@ -323,7 +324,9 @@ test('save 校验：kind/trust/provenance.source/payload/title/ttlDays/entityKey
 });
 
 test('导出常量：kind/trust/review 集合与错误码齐全且冻结', () => {
-  assert.deepEqual(KNOWLEDGE_KINDS, ['part', 'module', 'rule', 'failure']);
+  assert.deepEqual(KNOWLEDGE_CORE_KINDS, ['part', 'module', 'rule', 'failure']);
+  // 类型谱 v2：核心 4 + 扩展 4（扩展类由运行期/复盘生成，见 knowledge-kinds-v2.test.mjs）
+  assert.deepEqual(KNOWLEDGE_KINDS, ['part', 'module', 'rule', 'failure', 'repair', 'assumption', 'decision', 'eval-case']);
   assert.deepEqual(KNOWLEDGE_TRUST_LEVELS, ['authoritative', 'reference', 'unverified']);
   assert.deepEqual(KNOWLEDGE_REVIEW_STATES, ['candidate', 'approved', 'rejected']);
   assert.equal(KNOWLEDGE_CODES.KEY_MISSING, 'KNOWLEDGE_KEY_MISSING');

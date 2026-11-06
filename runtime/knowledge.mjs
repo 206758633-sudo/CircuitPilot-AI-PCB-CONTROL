@@ -6,7 +6,10 @@ import { join } from 'node:path';
  * 通用知识库存储层（W3-01 存储 + W3-02 条目 schema/版本）。
  *
  * 定位：给 CircuitPilot 的"通用 PCB 设计能力"打底，不针对任何具体板子。
- * 四类条目：part（器件）/ module（模块）/ rule（规则）/ failure（失败/回归）。
+ * 知识类型谱 v2（8 类）：核心四类 part（器件）/ module（模块）/ rule（规则）/ failure（失败/回归）
+ * + 扩展四类 repair（修复策略）/ assumption（受控假设·先验）/ decision（决策记录）/ eval-case（评估用例）。
+ * kind 只表达"身份 + 生命周期"维度；主题标签（anti-pattern / eda-compat / precedent 等）放 payload.topic，
+ * 避免 kind 枚举随业务膨胀。扩展四类由 P0「风险知识化」引入，见 docs/knowledge/KNOWLEDGE-KINDS-V2.md。
  *
  * 为什么是"文件 + 哈希"而不是内存/数据库：
  *   - 知识条目必须能被第三人复核、被 gate 引用，重启后仍可追溯；
@@ -24,7 +27,28 @@ import { join } from 'node:path';
  * （title/provenance/trust/ttlDays/updatedAt），不新增条目、也不把已 approved 的审核打回 candidate。
  */
 
-export const KNOWLEDGE_KINDS = Object.freeze(['part', 'module', 'rule', 'failure']);
+/**
+ * 核心四类：数据集可灌库、AI 采集/复盘可产 candidate。
+ * 扩展四类：运行期/复盘生成（修复策略、受控假设、决策记录、评估用例）。
+ */
+export const KNOWLEDGE_CORE_KINDS = Object.freeze(['part', 'module', 'rule', 'failure']);
+export const KNOWLEDGE_EXTENDED_KINDS = Object.freeze(['repair', 'assumption', 'decision', 'eval-case']);
+export const KNOWLEDGE_KINDS = Object.freeze([...KNOWLEDGE_CORE_KINDS, ...KNOWLEDGE_EXTENDED_KINDS]);
+
+/**
+ * 类型谱：身份字段 + 允许的 payload.topic 标签（主题标签不是 kind）。
+ * identity 字段缺失时 store 抛 KNOWLEDGE_KEY_MISSING（fail-closed），不会落一条无法去重的知识。
+ */
+export const KNOWLEDGE_KIND_SPECS = Object.freeze({
+  part: Object.freeze({ core: true, identityFields: Object.freeze(['lcscId', 'mpn', 'url']), identity: 'lcscId | mpn | url | value+footprint', topics: Object.freeze([]) }),
+  module: Object.freeze({ core: true, identityFields: Object.freeze(['moduleId']), identity: 'moduleId', topics: Object.freeze([]) }),
+  rule: Object.freeze({ core: true, identityFields: Object.freeze(['ruleId']), identity: 'ruleId', topics: Object.freeze([]) }),
+  failure: Object.freeze({ core: true, identityFields: Object.freeze(['failureId']), identity: 'failureId', topics: Object.freeze(['badcase', 'anti-pattern']) }),
+  repair: Object.freeze({ core: false, identityFields: Object.freeze(['strategyId']), identity: 'strategyId', topics: Object.freeze(['fix', 'workaround']) }),
+  assumption: Object.freeze({ core: false, identityFields: Object.freeze(['assumptionId']), identity: 'assumptionId', topics: Object.freeze(['precedent', 'default']) }),
+  decision: Object.freeze({ core: false, identityFields: Object.freeze(['decisionId']), identity: 'decisionId', topics: Object.freeze(['design', 'select', 'eda-compat', 'policy']) }),
+  'eval-case': Object.freeze({ core: false, identityFields: Object.freeze(['caseId']), identity: 'caseId', topics: Object.freeze(['golden-board', 'regression']) }),
+});
 export const KNOWLEDGE_TRUST_LEVELS = Object.freeze(['authoritative', 'reference', 'unverified']);
 export const KNOWLEDGE_REVIEW_STATES = Object.freeze(['candidate', 'approved', 'rejected']);
 export const KNOWLEDGE_USAGE_OUTCOMES = Object.freeze(['used', 'overturned']);
@@ -49,7 +73,8 @@ export const KNOWLEDGE_CODES = Object.freeze({
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const ID_PATTERN = /^kn-(?:part|module|rule|failure)-[a-f0-9]{16}$/;
+// id = kn-<kind>-<fingerprint 前 16 位>；由类型谱派生，新增 kind 不需要再改两份正则。
+const ID_PATTERN = new RegExp(`^kn-(?:${KNOWLEDGE_KINDS.join('|')})-[a-f0-9]{16}$`);
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 const REVIEW_DECISIONS = Object.freeze(['approved', 'rejected']);
 const PROVENANCE_TEXT_FIELDS = Object.freeze(['url', 'version', 'fetchedAt', 'collector']);
@@ -118,12 +143,16 @@ const textKey = (value) => {
 };
 
 /**
- * entityKey 规则（W3-02）：
- *   part    → payload.lcscId || payload.mpn || payload.url || `${value}|${footprint}`
- *             （url 兜底用于“网页资料/参考页”这类还没有料号的候选知识）
- *   module  → payload.moduleId
- *   rule    → payload.ruleId
- *   failure → payload.failureId
+ * entityKey 规则（W3-02 + v2 扩展）：
+ *   part       → payload.lcscId || payload.mpn || payload.url || `${value}|${footprint}`
+ *                （url 兜底用于“网页资料/参考页”这类还没有料号的候选知识）
+ *   module     → payload.moduleId
+ *   rule       → payload.ruleId
+ *   failure    → payload.failureId
+ *   repair     → payload.strategyId
+ *   assumption → payload.assumptionId
+ *   decision   → payload.decisionId
+ *   eval-case  → payload.caseId
  * 取不到稳定实体标识时抛 KNOWLEDGE_KEY_MISSING，而不是落一条无法再去重的知识。
  */
 const entityKeyOf = (kind, payload) => {
@@ -139,8 +168,9 @@ const entityKeyOf = (kind, payload) => {
       tried: ['lcscId', 'mpn', 'url', 'value+footprint'],
     });
   }
-  const field = { module: 'moduleId', rule: 'ruleId', failure: 'failureId' }[kind];
-  if (!field) throw code(`未知知识条目类型：${String(kind)}`, KNOWLEDGE_CODES.KIND_INVALID, { allowed: KNOWLEDGE_KINDS });
+  const spec = KNOWLEDGE_KIND_SPECS[kind];
+  if (!spec) throw code(`未知知识条目类型：${String(kind)}`, KNOWLEDGE_CODES.KIND_INVALID, { allowed: KNOWLEDGE_KINDS });
+  const field = spec.identityFields[0];
   const key = textKey(payload[field]);
   if (!key) throw code(`${kind} 条目缺少实体标识 ${field}`, KNOWLEDGE_CODES.KEY_MISSING, { kind, field });
   return key;
