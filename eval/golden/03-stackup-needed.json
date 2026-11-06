@@ -1,0 +1,22 @@
+{
+  "id": "stackup-needed",
+  "description": "4 层板缺叠层且有 50Ω 阻抗目标：闭环应求解叠层并写回 IR",
+  "tags": ["repair", "stackup"],
+  "model": {
+    "meta": { "title": "stackup-needed" },
+    "board": { "widthMm": 70, "heightMm": 48, "layers": 4, "thicknessMm": 1.6, "copperOz": 1 },
+    "components": [
+      { "ref": "U1", "mpn": "MCU-A", "xMm": 20, "yMm": 24, "widthMm": 8, "heightMm": 8 },
+      { "ref": "U2", "mpn": "PHY", "xMm": 45, "yMm": 24, "widthMm": 6, "heightMm": 6 }
+    ],
+    "nets": [{ "name": "USB_D+", "pins": ["U1.10", "U2.1"], "impedanceOhm": 50 }],
+    "rules": { "minClearanceMm": 0.2, "minEdgeClearanceMm": 0.5, "targetImpedanceOhm": 50 }
+  },
+  "options": { "maxIterations": 3 },
+  "expect": {
+    "statusIn": ["passed", "needs-review"],
+    "blockingAfter": 0,
+    "repairedIncludes": ["solve_stackup"],
+    "repairCountAtLeast": 1
+  }
+}

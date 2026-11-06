@@ -1,0 +1,25 @@
+{
+  "id": "blocked-netlist-short",
+  "description": "同一引脚被两个网络引用（短路）：闭环不得自动改电气意图，必须 blocked",
+  "tags": ["fail-closed", "netlist"],
+  "model": {
+    "meta": { "title": "blocked-netlist-short" },
+    "board": { "widthMm": 80, "heightMm": 50, "layers": 2, "thicknessMm": 1.6, "copperOz": 1 },
+    "components": [
+      { "ref": "U1", "mpn": "MCU-A", "xMm": 20, "yMm": 25, "widthMm": 8, "heightMm": 8 },
+      { "ref": "C1", "mpn": "100nF", "xMm": 32, "yMm": 25, "widthMm": 1.6, "heightMm": 0.8 },
+      { "ref": "C2", "mpn": "1uF", "xMm": 40, "yMm": 25, "widthMm": 2, "heightMm": 1 }
+    ],
+    "nets": [
+      { "name": "3V3", "pins": ["U1.1", "C1.1"], "kind": "power" },
+      { "name": "V_BAT", "pins": ["U1.1", "C2.1"], "kind": "power" }
+    ],
+    "rules": { "minClearanceMm": 0.3, "minEdgeClearanceMm": 0.5 }
+  },
+  "options": { "maxIterations": 2 },
+  "expect": {
+    "statusIn": ["blocked"],
+    "blockingAfterAtLeast": 1,
+    "maxRepairs": 0
+  }
+}

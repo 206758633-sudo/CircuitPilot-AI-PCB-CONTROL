@@ -3,6 +3,13 @@
 CircuitPilot is a local-first desktop application. It does not run a cloud
 backend and does not send board files anywhere by default.
 
+> **Composite design framework (offline design loop)**:
+> `runtime/design-framework/**` implements Board IR → Rule-as-Code (151 rules + IPC formulas)
+> → deterministic solvers → Plan-Verify-Repair loop → golden-board evaluation, with external
+> adapters (KiCad CLI DRC, OR-Tools/Z3/Shapely) that fail closed when unavailable.
+> See [composite-design-framework.md](./composite-design-framework.md) and
+> [eval/golden](../../eval/golden).
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Tauri desktop shell (Rust)                                   │

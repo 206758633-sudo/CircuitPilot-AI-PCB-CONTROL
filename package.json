@@ -4,6 +4,9 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
+    "design:framework": "node scripts/design-framework.mjs",
+    "design:eval": "node scripts/design-framework.mjs --eval",
+    "test:design-framework": "node --test \"runtime/__tests__/design-framework*.test.mjs\"",
     "acceptance": "node scripts/acceptance.mjs",
     "archive:live-evidence": "node scripts/archive-live-evidence.mjs",
     "automation:run": "node scripts/automation-run.mjs",

@@ -1,0 +1,25 @@
+{
+  "id": "fixable-overlap",
+  "description": "两个器件重叠：闭环应先重排布局，再验证无阻断项",
+  "tags": ["repair", "placement"],
+  "model": {
+    "meta": { "title": "fixable-overlap" },
+    "board": { "widthMm": 60, "heightMm": 40, "layers": 2, "thicknessMm": 1.6, "copperOz": 1 },
+    "components": [
+      { "ref": "U1", "mpn": "MCU-A", "xMm": 20, "yMm": 20, "widthMm": 10, "heightMm": 10 },
+      { "ref": "C1", "mpn": "100nF", "xMm": 22, "yMm": 22, "widthMm": 5, "heightMm": 3 },
+      { "ref": "R1", "mpn": "10k", "xMm": 40, "yMm": 20, "widthMm": 2, "heightMm": 1 }
+    ],
+    "nets": [{ "name": "3V3", "pins": ["U1.1", "C1.1"], "kind": "power", "currentA": 0.2 }],
+    "rules": { "minClearanceMm": 0.3, "minEdgeClearanceMm": 0.5 }
+  },
+  "options": { "maxIterations": 3 },
+  "expect": {
+    "statusIn": ["passed", "needs-review"],
+    "blockingAfter": 0,
+    "minIterations": 2,
+    "repairedIncludes": ["solve_placement"],
+    "repairCountAtLeast": 1,
+    "planOperationsAtLeast": 1
+  }
+}

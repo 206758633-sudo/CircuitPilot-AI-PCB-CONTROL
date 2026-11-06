@@ -1,0 +1,21 @@
+{
+  "id": "blocked-size-unknown",
+  "description": "器件尺寸未知且没有真机读回：闭环必须 blocked，不能猜尺寸硬排",
+  "tags": ["fail-closed", "placement"],
+  "model": {
+    "meta": { "title": "blocked-size-unknown" },
+    "board": { "widthMm": 60, "heightMm": 40, "layers": 2, "thicknessMm": 1.6, "copperOz": 1 },
+    "components": [
+      { "ref": "U1", "mpn": "MCU-A", "xMm": 0, "yMm": 0, "sizeUnknown": true },
+      { "ref": "C1", "mpn": "100nF", "xMm": 30, "yMm": 20, "widthMm": 1.6, "heightMm": 0.8 }
+    ],
+    "nets": [{ "name": "3V3", "pins": ["U1.1", "C1.1"], "kind": "power" }],
+    "rules": { "minClearanceMm": 0.3, "minEdgeClearanceMm": 0.5 }
+  },
+  "options": { "maxIterations": 2 },
+  "expect": {
+    "statusIn": ["blocked"],
+    "blockingAfterAtLeast": 1,
+    "maxRepairs": 0
+  }
+}
