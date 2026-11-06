@@ -243,3 +243,13 @@ POST /api/design/framework/run    → 200 { framework.status="needs-review", rep
 1. UI 页面接入（当前只有 client 方法与类型）；
 2. `cp_design_loop` 的模型来源仍是"调用方传入 IR"（尚未从项目状态/EDA 读回自动构建 IR）；
 3. 真实 KiCad DRC 与外部求解器接入（本机未安装，适配器已留缝）。
+
+### 10.5 模拟验收（可重复）
+
+- 一键 HTTP 模拟：`node scripts/design-framework-sim.mjs --out artifacts/design-framework-sim-<date>.json`
+  （自动起隔离 Runtime → 5 金板闭环 + 确定性 + 非法/超大模型 + 未认证 + token 泄漏扫描；
+  当前 **13/13 通过**）。
+- 报告与证据：`docs/agent/design-framework-simulation-2026-11-06.md`、
+  `artifacts/design-framework-{sim,mcp-sim,dsh-host-sim}-2026-11-06.json`。
+- 覆盖范围：单测 208（插件）+77（框架）+49（agent）+17（路由/授权）、真实 DSH 宿主 13 个
+  cp_* 工具与 `cp_design_loop` 调用、MCP stdio 端到端、以及不兼容 Runtime/超大模型的 fail-closed。

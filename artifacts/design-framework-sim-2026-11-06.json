@@ -1,0 +1,148 @@
+{
+  "ok": true,
+  "baseUrl": "http://127.0.0.1:63623",
+  "runtime": "isolated",
+  "assertions": [
+    {
+      "name": "GET /api/design/framework/status",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "kicad": false,
+        "layers": 6
+      }
+    },
+    {
+      "name": "GET /api/design/framework/golden：5/5 金板通过",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "metrics": {
+          "schemaVersion": 1,
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "passRate": 1,
+          "statusCounts": {
+            "needs-review": 3,
+            "blocked": 2
+          },
+          "avgIterations": 1.4,
+          "totalRepairs": 2,
+          "ruleCoverageAvg": 0.2119,
+          "failures": []
+        }
+      }
+    },
+    {
+      "name": "POST run · fixable-overlap",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "loopStatus": "needs-review",
+        "blocking": 0,
+        "review": 144,
+        "repairs": 1,
+        "planOperations": 1
+      }
+    },
+    {
+      "name": "POST run · already-good",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "loopStatus": "needs-review",
+        "blocking": 0,
+        "review": 144,
+        "repairs": 0,
+        "planOperations": 1
+      }
+    },
+    {
+      "name": "POST run · stackup-needed",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "loopStatus": "needs-review",
+        "blocking": 0,
+        "review": 143,
+        "repairs": 1,
+        "planOperations": 1
+      }
+    },
+    {
+      "name": "POST run · blocked-size-unknown",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "loopStatus": "blocked",
+        "blocking": 1,
+        "review": 147,
+        "repairs": 0,
+        "planOperations": 1
+      }
+    },
+    {
+      "name": "POST run · blocked-netlist-short",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "loopStatus": "blocked",
+        "blocking": 1,
+        "review": 144,
+        "repairs": 0,
+        "planOperations": 1
+      }
+    },
+    {
+      "name": "确定性：同输入两次 run 的 digest 一致",
+      "ok": true,
+      "detail": {
+        "first": "76f439ce8f2803471265f9bf30a36df4208b416293311f1441719933a2552294",
+        "second": "76f439ce8f2803471265f9bf30a36df4208b416293311f1441719933a2552294"
+      }
+    },
+    {
+      "name": "非法模型 → 400 且 code=DESIGN_FRAMEWORK_RUN_FAILED",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "code": "DESIGN_FRAMEWORK_RUN_FAILED"
+      }
+    },
+    {
+      "name": "超大模型 → 413 且 code=DESIGN_FRAMEWORK_MODEL_TOO_LARGE",
+      "ok": true,
+      "detail": {
+        "status": 413,
+        "code": "DESIGN_FRAMEWORK_MODEL_TOO_LARGE"
+      }
+    },
+    {
+      "name": "未认证请求被拒绝（401/403）",
+      "ok": true,
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "name": "非法 JSON body → 400 且服务仍可用",
+      "ok": true,
+      "detail": {
+        "status": 400
+      }
+    },
+    {
+      "name": "响应不包含 agent token / cpa_ 前缀",
+      "ok": true,
+      "detail": {
+        "responses": 3
+      }
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "passed": 13,
+    "failed": 0
+  }
+}

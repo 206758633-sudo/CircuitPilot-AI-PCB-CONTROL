@@ -1,0 +1,48 @@
+{
+  "phase": "invoked",
+  "toolCount": 38,
+  "cpTools": [
+    "cp_status",
+    "cp_project_context",
+    "cp_issues",
+    "cp_evidence",
+    "cp_knowledge",
+    "cp_design_plan",
+    "cp_pcb_plan",
+    "cp_approve",
+    "cp_execute",
+    "cp_validation",
+    "cp_export",
+    "cp_job",
+    "cp_design_loop"
+  ],
+  "cpStatusShape": {
+    "hasParameters": true,
+    "hasOutputSchema": true,
+    "hasRender": true
+  },
+  "cpDesignLoopShape": {
+    "hasParameters": true,
+    "hasOutputSchema": true,
+    "hasRender": true
+  },
+  "cpStatusInvocation": {
+    "invoked": true,
+    "isError": false,
+    "summary": "CircuitPilot Runtime 0.2.0 在线；项目「未知」阶段 未知；EDA 离线；写暂停 否；未收口问题 0；证据 0 份",
+    "ok": true,
+    "code": null,
+    "status": null,
+    "text": "{\"ok\":true,\"summary\":\"CircuitPilot Runtime 0.2.0 在线；项目「未知」阶段 未知；EDA 离线；写暂停 否；未收口问题 0；证据 0 份\",\"data\":{\"plugin\":{\"version\":\"0.2.0\",\"host\":{\"dshVersion\":\"0.2.1-rc.5\",\"supported\":true,\"supportedRange\":\">=0.2.1-rc.2 <0.3.0\",\"verified\":[\"0.2.1-rc.5\"],\"registration\":\"mcp\"}},\"runtime\":{\"reachable\":true,\"version\":\"0.2.0\",\"service\":\"circuitpilot-runtime\",\"host\":\"127.0.0.1\",\"versionCompat\":{\"supported\":true,\"unknown\":false,\"version\":\"0.2.0\",\"range\":\">=0.2.0 <0.3.0\",\"verified\":[\"0.2.0\"],\"reason\":null},\"capabilities\":{\"complete\":true,\"checked\":[\"agent-api\",\"project-state\",\"issue-state\",\"evidence-index\",\"write-gate\",\"eda-workspace\"],\"missing\":[],\"unknown\":[],\"checkedAt\":\"2026-11-06T08:09:31.767Z\",\"cached\":false}},\"compat\":{\"runtimeVersion\":\"0.2.0\",\"supported\":true,\"supportedRange\":\">=0.2.0 <0.3.0\",\"verified\":[\"0.2.0\"],\"capabilities\":{\"missing\":[],\"unknown\":[],\"complete\":true},\"plugin\":{\"name\":\"dsh-circuitpilot\",\"version\":\"0.2.0\",\"host\":{\"dshVersion\":\"0.2.1-rc.5\",\"supported\":true,\"supportedRange\":\">=0.2.1-rc.2 <0.3.0\",\"verified\":[\"0.2.1-rc.5\"],\"registration\":\"mcp\"}},\"warning\":null},\"project\":{\"id\":null,\"name\":null,\"stage\":null,\"progress\":null,\"archived\":false,\"projectCount\":0,\"edaWorkspace\":null,"
+  },
+  "cpDesignLoopInvocation": {
+    "invoked": true,
+    "isError": false,
+    "summary": "设计闭环（离线）：status=needs-review · 迭代 2 · 修复 1 · blocking 0 · review 144 · 规则覆盖 21.2%；需人工审阅（review 项无法机器判定，不是 passed）",
+    "ok": true,
+    "code": null,
+    "status": "needs-review",
+    "text": "{\"ok\":true,\"summary\":\"设计闭环（离线）：status=needs-review · 迭代 2 · 修复 1 · blocking 0 · review 144 · 规则覆盖 21.2%；需人工审阅（review 项无法机器判定，不是 passed）\",\"data\":{\"status\":\"needs-review\",\"iterations\":2,\"repairs\":1,\"summary\":{\"initialDigest\":\"cd4867cdf73a8cbc980ec12a7ae1e8937649e67bc92cc153153f124a52adc5e3\",\"finalDigest\":\"83bd96797a3ae91a839e39f7a17808a571c4a0318a5e4a8daf5936103b17cac0\",\"iterations\":2,\"repairs\":1,\"blocking\":0,\"review\":144,\"ruleCoverage\":0.2119205298013245,\"releaseReady\":false,\"model\":{\"board\":{\"widthMm\":60,\"heightMm\":40,\"layers\":2},\"stackupLayers\":0,\"componentCount\":3,\"netCount\":1,\"unknownSizeRefs\":[],\"keepouts\":0,\"digest\":\"83bd96797a3ae91a839e39f7a17808a571c4a0318a5e4a8daf5936103b17cac0\"}},\"ruleSummary\":{\"total\":151,\"pass\":7,\"fail\":0,\"review\":144,\"na\":0,\"blocking\":0,\"machineCheckable\":32,\"coverageRatio\":0.2119205298013245,\"releaseReady\":false},\"evidence\":{\"kind\":\"design-loop-evidence\",\"schemaVersion\":1,\"status\":\"needs-review\",\"initialDigest\":\"cd4867cdf73a8cbc980ec12a7ae1e8937649e67bc92cc153153f124a52adc5e3\",\"finalDigest\":\"83bd96797a3ae91a839e39f7a17808a571c4a0318a5e4a8daf5936103b17cac0\",\"iterations\":2,\"repairs\":[{\"iteration\":1,\"strategy\":\"solve_placement\",\"riskLevel\":\"medium\",\"fromD"
+  },
+  "at": "2026-11-06T08:09:31.791Z"
+}

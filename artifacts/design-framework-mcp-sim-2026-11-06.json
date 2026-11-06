@@ -1,0 +1,54 @@
+{
+  "ok": true,
+  "results": [
+    {
+      "name": "MCP initialize 成功",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "MCP tools/list = 13 且包含 cp_design_loop",
+      "ok": true,
+      "detail": {
+        "count": 13
+      }
+    },
+    {
+      "name": "MCP cp_design_loop → needs-review / blocking=0 / repair=1",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "status": "needs-review",
+        "blocking": [],
+        "repairs": 1
+      }
+    },
+    {
+      "name": "MCP stdout 不泄漏 cpa_ token",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "不兼容 Runtime(0.8.15)：cp_design_loop fail-closed RUNTIME_VERSION_UNSUPPORTED",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "RUNTIME_VERSION_UNSUPPORTED",
+        "message": "CircuitPilot Runtime 版本不兼容：检测到 0.8.15，插件只支持 >=0.2.0 <0.3.0（已验证 0.2.0）；已阻止后续请求，避免返回一串无上下文 404"
+      }
+    },
+    {
+      "name": "超大 model：本地拒绝 DESIGN_MODEL_TOO_LARGE（不请求 Runtime）",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "DESIGN_MODEL_TOO_LARGE"
+      }
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0
+  }
+}
