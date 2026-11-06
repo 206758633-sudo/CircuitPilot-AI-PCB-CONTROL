@@ -127,7 +127,7 @@ Agent 工具只做参数校验、审批、结果裁剪、错误映射，不绕�
 | `cp_validation` | execute | 运行 ERC/DRC/门禁并返回摘要；`boards` 最多 3 块板顺序批量只读校验（与单板参数互斥；ERC 必须带该板 schematicUuid） |
 | `cp_export` | execute | 导出/归档（需显式确认） |
 | `cp_job` | read | 长任务的 status/wait/cancel（插件内 job manager） |
-| `cp_design_loop` | read | 离线设计闭环：IR → Rule-as-Code + 求解器 + Plan-Verify-Repair；`POST /api/design/framework/run`；只读、不写 EDA、不签核 |
+| `cp_design_loop` | read | 离线设计闭环：IR（`model`）或项目+EDA 读回（`source:"project"`）→ Rule-as-Code + 求解器 + Plan-Verify-Repair；`POST /api/design/framework/run`；只读、不写 EDA、不签核 |
 
 > 实现按 13 个收敛；插件默认 `approvalMode: 'chat'`，可配置为 `off` 关闭审批类工具。
 

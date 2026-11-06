@@ -44,8 +44,13 @@ whenToUse: The user asks about the current CircuitPilot project/board/EDA status
 
 ## 1.1 离线设计闭环：cp_design_loop（只读，不替代审批链）
 
-- 入参 `model`：板级 IR（`schemaVersion`/`board`/`components`/`nets`/`rules`）；`options.maxIterations`
-  会被夹在 1–8，`options.fabProfile` 指定工艺档位。`model` JSON >200KB 直接失败（`DESIGN_MODEL_TOO_LARGE`）。
+- 入参二选一：`model`（板级 IR：`schemaVersion`/`board`/`components`/`nets`/`rules`）或 `source:"project"`
+  （Runtime 用当前项目 + EDA 只读读回构建 IR）。`options.maxIterations` 会被夹在 1–8，`options.fabProfile`
+  指定工艺档位。`model` JSON >200KB 直接失败（`DESIGN_MODEL_TOO_LARGE`）。
+- `source:"project"` 在 EDA 离线/未选中 PCB 时返回 `DESIGN_FRAMEWORK_EDA_OFFLINE`（不编造尺寸），
+  无活动项目返回 `DESIGN_FRAMEWORK_NO_ACTIVE_PROJECT`；都要求用户先打开 EDA/选项目，或改用 `model`。
+- Runtime 构建早于复合框架时返回 `RUNTIME_ROUTE_MISSING`：提示用户改用本仓库 `node runtime/server.mjs`
+  或重新打包/安装 CircuitPilot App，不要自行重试写操作。
 - 返回 `data.status`：
   - `passed`：离线规则层无阻断。把 `status`/`iterations`/`repairs`/`ruleSummary`/`plan.operations` 报告用户，
     并说明“仍需 CircuitPilot 官方 DRC/ERC + `cp_approve` → `cp_execute` 才能写 EDA”。

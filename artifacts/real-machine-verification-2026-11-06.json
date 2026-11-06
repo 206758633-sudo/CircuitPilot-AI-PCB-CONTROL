@@ -1,0 +1,100 @@
+{
+  "at": "2026-11-06T08:32:42.379Z",
+  "ok": true,
+  "results": [
+    {
+      "name": "安装版 App 0.2.0: cp_status ok",
+      "ok": true,
+      "detail": {
+        "summary": "CircuitPilot Runtime 0.2.0 在线；项目「未知」阶段 未知；EDA 离线；写暂停 否；未收口问题 0；证据 0 份",
+        "version": "0.2.0"
+      }
+    },
+    {
+      "name": "安装版 App: cp_design_loop 明确报 RUNTIME_ROUTE_MISSING（构建早于复合框架）",
+      "ok": true,
+      "detail": {
+        "code": "RUNTIME_ROUTE_MISSING",
+        "message": "当前 Runtime 不含 POST /api/design/framework/run（安装版 CircuitPilot 构建可能早于复合框架）：Runtime端点不存在",
+        "nextActions": [
+          "改用本仓库新构建的 Runtime：`node runtime/server.mjs`（或重新打包/安装 CircuitPilot App），该构建才包含 /api/design/framework/*",
+          "不要用新版插件连旧 Runtime 执行该工具；其余只读工具（cp_status/cp_project_context 等）不受影响",
+          "离线闭环只读：不写 EDA、不签核；任何写入仍必须走 cp_approve → cp_execute 审批链",
+          "blocked/needs-review 时必须把 blocking/review 项与 nextActions 报告给用户，不要自行重试写操作或绕过审批"
+        ]
+      }
+    },
+    {
+      "name": "本仓库 Runtime 0.2.0: cp_status ok",
+      "ok": true,
+      "detail": {
+        "summary": "CircuitPilot Runtime 0.2.0 在线；项目「未知」阶段 未知；EDA 离线；写暂停 否；未收口问题 0；证据 0 份",
+        "version": "0.2.0"
+      }
+    },
+    {
+      "name": "本仓库 Runtime: cp_design_loop(model) → needs-review 且 blocking=0",
+      "ok": true,
+      "detail": {
+        "status": "needs-review",
+        "blocking": 0,
+        "repairs": 1
+      }
+    },
+    {
+      "name": "本仓库 Runtime: 写入演示项目状态（PUT /api/project-state）",
+      "ok": true,
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "name": "本仓库 Runtime: 读回演示项目（activeProjectId=p-demo）",
+      "ok": true,
+      "detail": {
+        "activeProjectId": "p-demo"
+      }
+    },
+    {
+      "name": "本仓库 Runtime: cp_design_loop(source=project) 在 EDA 离线时 fail-closed DESIGN_FRAMEWORK_EDA_OFFLINE",
+      "ok": true,
+      "detail": {
+        "code": "DESIGN_FRAMEWORK_EDA_OFFLINE",
+        "message": "无法从项目构建板级 IR：EDA 未返回可用板框/铜层数（需要 pcb.outline.read 的 boundsMm 与 copperCount>=2）（拒绝编造尺寸；请打开 EDA 并选中目标 PCB 后重试）"
+      }
+    },
+    {
+      "name": "本仓库 Runtime: GET /api/design/framework/status 200 + 外部工具如实报告不可用",
+      "ok": true,
+      "detail": {
+        "kicad": false
+      }
+    },
+    {
+      "name": "本仓库 Runtime: GET /api/design/framework/golden 200 + 5/5 金板",
+      "ok": true,
+      "detail": {
+        "metrics": {
+          "schemaVersion": 1,
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "passRate": 1,
+          "statusCounts": {
+            "needs-review": 3,
+            "blocked": 2
+          },
+          "avgIterations": 1.4,
+          "totalRepairs": 2,
+          "ruleCoverageAvg": 0.2119,
+          "failures": []
+        }
+      }
+    }
+  ],
+  "summary": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0
+  }
+}

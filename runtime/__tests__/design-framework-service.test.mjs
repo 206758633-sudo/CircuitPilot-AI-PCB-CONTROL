@@ -6,8 +6,10 @@ import {
   DESIGN_FRAMEWORK_MAX_ITERATIONS,
   DESIGN_FRAMEWORK_MODEL_MAX_BYTES,
   DESIGN_FRAMEWORK_SERVICE_CODES,
+  buildModelFromProject,
   frameworkStatusView,
   goldenReport,
+  runFrameworkForProject,
   runFrameworkLoop,
   summarizeLoopResult,
 } from '../design-framework-service.mjs';
@@ -87,6 +89,58 @@ test('goldenReport：5 个金板用例全过，指标完整且与 CLI 一致', (
   assert.equal(report.metrics.passRate, 1);
   assert.ok(report.results.some((result) => result.id === 'fixable-overlap'));
   assert.ok(Number.isFinite(report.metrics.ruleCoverageAvg));
+});
+
+test('buildModelFromProject：项目 + EDA 读回构建 IR（板框/层数/器件几何；未读到的尺寸显式 sizeUnknown）', () => {
+  const projectState = { activeProjectId: 'p1', projects: [{ id: 'p1', name: 'Demo 板' }] };
+  const edaSnapshot = {
+    widthMm: 60, heightMm: 40, layers: 2,
+    placementRead: {
+      unit: 'mm',
+      components: [
+        { designator: 'U1', xMm: 20, yMm: 20, rotationDeg: 0, layer: 1, bboxMm: { xMm: 6, yMm: 6, centerXMm: 20, centerYMm: 20 } },
+        { designator: 'C1', xMm: 30, yMm: 20, rotationDeg: 0, layer: 1, bboxMm: { xMm: 2, yMm: 1, centerXMm: 30, centerYMm: 20 } },
+        { designator: 'R1', xMm: 40, yMm: 20, rotationDeg: 0, layer: 1 },
+      ],
+    },
+  };
+  const model = buildModelFromProject({ projectState, edaSnapshot });
+  assert.equal(model.board.widthMm, 60);
+  assert.equal(model.board.layers, 2);
+  assert.deepEqual(model.components.map((component) => component.ref).sort(), ['C1', 'R1', 'U1']);
+  const byRef = new Map(model.components.map((component) => [component.ref, component]));
+  assert.equal(byRef.get('U1').widthMm, 6);
+  assert.equal(byRef.get('U1').sizeUnknown, false);
+  assert.equal(byRef.get('R1').sizeUnknown, true);
+  assert.equal(model.meta.source, 'project+eda-readback');
+});
+
+test('buildModelFromProject：EDS 离线 / 无活动项目 → 409 fail-closed（不编造尺寸）', () => {
+  const projectState = { activeProjectId: 'p1', projects: [{ id: 'p1', name: 'Demo' }] };
+  assert.throws(() => buildModelFromProject({ projectState, edaSnapshot: null }), (error) => error.code === DESIGN_FRAMEWORK_SERVICE_CODES.EDA_OFFLINE && error.status === 409);
+  assert.throws(() => buildModelFromProject({ projectState, edaSnapshot: { widthMm: 0, heightMm: 40, layers: 2 } }), (error) => error.code === DESIGN_FRAMEWORK_SERVICE_CODES.EDA_OFFLINE && error.status === 409);
+  assert.throws(() => buildModelFromProject({ projectState: { projects: [] }, edaSnapshot: { widthMm: 60, heightMm: 40, layers: 2 } }), (error) => error.code === DESIGN_FRAMEWORK_SERVICE_CODES.NO_ACTIVE_PROJECT && error.status === 409);
+  assert.throws(() => buildModelFromProject({ projectState: null }), (error) => error.code === DESIGN_FRAMEWORK_SERVICE_CODES.NO_ACTIVE_PROJECT);
+});
+
+test('runFrameworkForProject：构建 IR 后跑闭环，返回 source=project 与模型摘要；尺寸未知器件 → blocked 不硬排', () => {
+  const projectState = { activeProjectId: 'p1', projects: [{ id: 'p1', name: 'Demo' }] };
+  const edaSnapshot = {
+    widthMm: 60, heightMm: 40, layers: 2,
+    placementRead: { unit: 'mm', components: [{ designator: 'U1', xMm: 20, yMm: 20, rotationDeg: 0, bboxMm: { xMm: 6, yMm: 6, centerXMm: 20, centerYMm: 20 } }] },
+  };
+  const summary = runFrameworkForProject({ projectState, edaSnapshot, options: { maxIterations: 2 } });
+  assert.equal(summary.source, 'project');
+  assert.equal(summary.status, 'needs-review');
+  assert.ok(summary.modelSummary.componentCount >= 1);
+
+  const noSize = runFrameworkForProject({
+    projectState,
+    edaSnapshot: { widthMm: 60, heightMm: 40, layers: 2, placementRead: { unit: 'mm', components: [{ designator: 'U1', xMm: 20, yMm: 20 }] } },
+    options: { maxIterations: 2 },
+  });
+  assert.equal(noSize.status, 'blocked');
+  assert.equal(noSize.ok, false);
 });
 
 test('summarizeLoopResult：稳定摘要（不含整份 IR/findings，plan 只给数量）', () => {

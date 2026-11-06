@@ -2233,12 +2233,17 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
 
   tools.push(makeTool({
     name: 'cp_design_loop',
-    description: '离线设计闭环（只读）：输入板级 IR（schemaVersion/board/components/nets/rules，结构见 runtime/design-framework/board-model.mjs），Runtime 在本地执行 Rule-as-Code 规则判定 + 布局/叠层/网表求解 + Plan-Verify-Repair 有界闭环，返回 status（passed/needs-review/blocked）、每轮迭代、确定性修复动作、规则覆盖与证据。不写 EDA、不签核；blocked/needs-review 时必须把 blocking/review 项与 nextActions 报告给用户，不要自行重试写操作，也不得绕过 cp_approve/cp_execute 审批链。',
+    description: '离线设计闭环（只读）：两种输入方式——(a) 传板级 IR（model，结构见 runtime/design-framework/board-model.mjs）；(b) source="project" 用本机当前项目 + EDA 只读读回（板框/铜层数/器件几何）构建 IR。Runtime 在本地执行 Rule-as-Code 规则判定 + 布局/叠层/网表求解 + Plan-Verify-Repair 有界闭环，返回 status（passed/needs-review/blocked）、每轮迭代、确定性修复动作、规则覆盖与证据。不写 EDA、不签核；blocked/needs-review 时必须把 blocking/review 项与 nextActions 报告给用户，不要自行重试写操作，也不得绕过 cp_approve/cp_execute 审批链。',
     type: 'read',
     inputSchema: objectSchema({
+      source: {
+        type: 'string',
+        enum: ['model', 'project'],
+        description: '输入来源：model=直接传板级 IR（默认）；project=用本机当前项目 + EDA 只读读回构建 IR（EDA 离线会 409 fail-closed，不编造尺寸）。',
+      },
       model: {
         type: 'object',
-        description: '板级 IR 对象：schemaVersion?/board/components/nets/rules（结构见 runtime/design-framework/board-model.mjs 文件头）。JSON 序列化后不得超过 200000 字节，超限直接拒绝、不会发给 Runtime。',
+        description: '板级 IR 对象：schemaVersion?/board/components/nets/rules（结构见 runtime/design-framework/board-model.mjs 文件头）。source=model 时必填；JSON 序列化后不得超过 200000 字节，超限直接拒绝、不会发给 Runtime。',
         additionalProperties: true,
       },
       options: {
@@ -2253,33 +2258,36 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
         },
         additionalProperties: false,
       },
-    }, ['model']),
+    }, []),
     async handler(args, { signal }) {
-      // 1) 输入上限校验：巨大 model 不能进 Runtime，也不能撑爆插件内存/上下文。
-      let serialized;
-      try {
-        serialized = JSON.stringify(args.model);
-      } catch {
-        serialized = undefined;
-      }
-      if (typeof serialized !== 'string') {
-        return failResult('INVALID_ARGUMENTS', 'model 必须是可 JSON 序列化的板级 IR 对象', {
-          nextActions: ['按 inputSchema 传入 model（board/components/nets/rules 结构）', ...DESIGN_LOOP_SAFETY_ACTIONS],
-        });
-      }
-      const modelBytes = Buffer.byteLength(serialized, 'utf8');
-      if (modelBytes > DESIGN_LOOP_MODEL_MAX_BYTES) {
-        return failResult(
-          'DESIGN_MODEL_TOO_LARGE',
-          `model JSON ${modelBytes} 字节，超过上限 ${DESIGN_LOOP_MODEL_MAX_BYTES} 字节：请只保留闭环需要的 board/components/nets/rules 后重试`,
-          {
-            data: { bytes: modelBytes, maxBytes: DESIGN_LOOP_MODEL_MAX_BYTES },
-            nextActions: [
-              '精简 model：去掉 EDA 原始几何/历史记录等闭环不需要的字段',
-              '不要为了绕过上限拆成多次调用（闭合结果会不一致）；也不要尝试改为写 EDA',
-            ],
-          },
-        );
+      const source = args.source === 'project' ? 'project' : 'model';
+      // 1) 输入上限校验（仅 model 来源）：巨大 model 不能进 Runtime，也不能撑爆插件内存/上下文。
+      if (source === 'model') {
+        let serialized;
+        try {
+          serialized = JSON.stringify(args.model);
+        } catch {
+          serialized = undefined;
+        }
+        if (typeof serialized !== 'string') {
+          return failResult('INVALID_ARGUMENTS', 'model 必须是可 JSON 序列化的板级 IR 对象（或传 source="project" 用项目+EDA 只读读回构建）', {
+            nextActions: ['按 inputSchema 传入 model（board/components/nets/rules 结构）', '或传 source="project" 让 Runtime 从当前项目/EDA 构建 IR', ...DESIGN_LOOP_SAFETY_ACTIONS],
+          });
+        }
+        const modelBytes = Buffer.byteLength(serialized, 'utf8');
+        if (modelBytes > DESIGN_LOOP_MODEL_MAX_BYTES) {
+          return failResult(
+            'DESIGN_MODEL_TOO_LARGE',
+            `model JSON ${modelBytes} 字节，超过上限 ${DESIGN_LOOP_MODEL_MAX_BYTES} 字节：请只保留闭环需要的 board/components/nets/rules 后重试`,
+            {
+              data: { bytes: modelBytes, maxBytes: DESIGN_LOOP_MODEL_MAX_BYTES },
+              nextActions: [
+                '精简 model：去掉 EDA 原始几何/历史记录等闭环不需要的字段',
+                '不要为了绕过上限拆成多次调用（闭合结果会不一致）；也不要尝试改为写 EDA',
+              ],
+            },
+          );
+        }
       }
       // 2) maxIterations 夹取：schema 不硬限 1–8，这里统一夹，避免模型传 0/999。
       const clampedMaxIterations = clampDesignLoopIterations(args.options?.maxIterations);
@@ -2288,8 +2296,36 @@ export function createCircuitPilotTools({ config, client, jobs, host } = {}) {
         ...(clampedMaxIterations === undefined ? {} : { maxIterations: clampedMaxIterations }),
       };
       // 3) Runtime 调用：只读离线路由（不做任何 EDA 写/批准）。
-      const result = await call('POST', '/api/design/framework/run', { body: { model: args.model, options }, signal });
+      const result = await call('POST', '/api/design/framework/run', {
+        body: source === 'project' ? { source: 'project', options } : { model: args.model, options },
+        signal,
+      });
       if (!result.ok) {
+        // 路由缺失：安装版 App 构建可能早于复合框架，给出比通用 ROUTE_NOT_FOUND 更准确的指引。
+        if (result.code === 'ROUTE_NOT_FOUND') {
+          return failResult('RUNTIME_ROUTE_MISSING', `当前 Runtime 不含 POST /api/design/framework/run（安装版 CircuitPilot 构建可能早于复合框架）：${result.message}`, {
+            data: { tool: 'cp_design_loop', originalCode: 'ROUTE_NOT_FOUND', routes: TOOL_ROUTES.cp_design_loop },
+            nextActions: [
+              '改用本仓库新构建的 Runtime：`node runtime/server.mjs`（或重新打包/安装 CircuitPilot App），该构建才包含 /api/design/framework/*',
+              '不要用新版插件连旧 Runtime 执行该工具；其余只读工具（cp_status/cp_project_context 等）不受影响',
+              ...DESIGN_LOOP_SAFETY_ACTIONS,
+            ],
+          });
+        }
+        if (result.code === 'DESIGN_FRAMEWORK_EDA_OFFLINE') {
+          return failResult(result.code, result.message, {
+            nextActions: [
+              'source="project" 需要 EDA 在线且已选中目标 PCB：打开嘉立创EDA并绑定工程后重试',
+              '或在离线环境直接传 model（板级 IR）运行闭环，不依赖 EDA',
+              ...DESIGN_LOOP_SAFETY_ACTIONS,
+            ],
+          });
+        }
+        if (result.code === 'DESIGN_FRAMEWORK_NO_ACTIVE_PROJECT') {
+          return failResult(result.code, result.message, {
+            nextActions: ['先在 CircuitPilot 创建/选择一个项目（或改用 model 直接传 IR）', ...DESIGN_LOOP_SAFETY_ACTIONS],
+          });
+        }
         return failResult(result.code, result.message, {
           data: { runtimeStatus: result.status ?? 0 },
           nextActions: Array.isArray(result.nextActions) && result.nextActions.length

@@ -211,7 +211,7 @@ node scripts/design-framework.mjs --status                   → kicad-cli 不�
 |---|---|---|---|
 | `/api/design/framework/status` | GET | 分层元数据 + KiCad CLI / OR-Tools / Z3 / Shapely 探测 | 缺失一律 `available:false`，不假装可用 |
 | `/api/design/framework/golden` | GET | 金板评估指标（5 个离线用例） | 返回 `evaluation.metrics`（通过率/状态分布/迭代/修复/规则覆盖率） |
-| `/api/design/framework/run` | POST | 离线设计闭环 | body `{ model, options?{maxIterations,fabProfile} }`；模型 JSON ≤200KB、迭代 ≤8；**不写 EDA、不签核** |
+| `/api/design/framework/run` | POST | 离线设计闭环 | body `{ model, options? }` 或 `{ source:"project", options? }`（项目+EDA 只读读回构建 IR）；模型 JSON ≤200KB、迭代 ≤8；**不写 EDA、不签核** |
 
 实现：`runtime/design-framework-service.mjs`（路由的纯函数包装，含模型大小/结构校验与稳定摘要）。
 Agent 授权：`runtime/agent-auth.mjs` 是 denylist，三条只读路由默认放行；写/签核路由仍被拒绝。

@@ -1179,6 +1179,37 @@ test('cp_design_loop：maxIterations 夹在 1–8（99→8、0→1、缺省不�
   }
 });
 
+test('cp_design_loop：source=project 时不需要 model，请求体带 source 且不带 model（EDA 只读读回由 Runtime 完成）', async () => {
+  const harness = await makeLoopHarness({ framework: { ...loopFramework(), status: 'needs-review', summary: { ...loopFramework().summary, blocking: 0, review: 3, releaseReady: false } } });
+  try {
+    const result = await harness.callTool('cp_design_loop', { source: 'project', options: { maxIterations: 2 } });
+    assert.equal(result.ok, true);
+    assert.equal(result.data.status, 'needs-review');
+    const runCalls = harness.runtime.calls.filter((call) => call.path === '/api/design/framework/run');
+    assert.equal(runCalls.length, 1);
+    assert.equal(runCalls[0].body.source, 'project');
+    assert.equal(runCalls[0].body.model, undefined);
+    assert.equal(runCalls[0].body.options.maxIterations, 2);
+  } finally {
+    await harness.close();
+  }
+});
+
+test('cp_design_loop：source=project 但 Runtime 报 EDA 离线 → 原码透传 + 可执行 nextActions（不伪造 IR）', async () => {
+  const harness = await makeLoopHarness({
+    frameworkResponse: () => [409, { ok: false, error: { code: 'DESIGN_FRAMEWORK_EDA_OFFLINE', message: 'EDA 不在线或未返回可用板框/铜层数' } }],
+  });
+  try {
+    const result = await harness.callTool('cp_design_loop', { source: 'project' });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'DESIGN_FRAMEWORK_EDA_OFFLINE');
+    assert.ok(result.nextActions.some((action) => /打开嘉立创EDA/.test(action)));
+    assert.ok(result.nextActions.some((action) => /传 model/.test(action)));
+  } finally {
+    await harness.close();
+  }
+});
+
 test('cp_design_loop：Runtime 错误码/nextActions 原样透传，不伪造通过、不漏 token', async () => {
   const harness = await makeLoopHarness({
     frameworkResponse: () => [500, { ok: false, error: { code: 'DESIGN_FRAMEWORK_RUN_FAILED', message: '板级 IR 非法：board.widthMm 缺失' } }],
@@ -1244,14 +1275,16 @@ test('cp_design_loop：超大闭环结果仍走结果裁剪（truncated 且保�
   }
 });
 
-test('cp_design_loop：schema 明确只读/必填 model/options 结构；非法参数统一 INVALID_ARGUMENTS', async () => {
+test('cp_design_loop：schema 明确只读/model|source 二选一/options 结构；非法参数统一 INVALID_ARGUMENTS', async () => {
   const harness = await makeLoopHarness();
   try {
     const tool = harness.byName.cp_design_loop;
     assert.equal(tool.type, 'read');
     assert.equal(tool.inputSchema.type, 'object');
-    assert.deepEqual(tool.inputSchema.required, ['model']);
+    // 2026-11-06 起支持 source=project：model 改为可选（handler 校验 model 或 source 至少一个）。
+    assert.deepEqual(tool.inputSchema.required, []);
     assert.equal(tool.inputSchema.properties.model.type, 'object');
+    assert.deepEqual(tool.inputSchema.properties.source.enum, ['model', 'project']);
     assert.equal(tool.inputSchema.properties.options.type, 'object');
     assert.equal(tool.inputSchema.properties.options.additionalProperties, false);
     assert.equal(tool.inputSchema.properties.options.properties.maxIterations.type, 'integer');

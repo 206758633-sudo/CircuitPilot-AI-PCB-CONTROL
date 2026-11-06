@@ -31,6 +31,28 @@ MCP 独立验证套件（`verification/agent/mcp/*.test.mjs`）依赖 `@modelcon
 | 5 | UI 测试 | 新面板无回归 | 新增 `src/components/__tests__/DesignFrameworkPanel.test.tsx`（4 用例：状态渲染、金板指标、needs-review≠passed、非法 JSON 不请求 Runtime） |
 | 6 | 文档一致性 | 架构文档仍写"UI 尚未接入"；历史验收文档的 12 工具无时间注记；MCP README 工具清单漏 `cp_design_loop` | 更新 `docs/architecture/composite-design-framework.md` §10.2/§10.4；历史验收文档加"当时 12 / 2026-11-06 起 13"注记；修正 MCP README 清单 |
 
+## 2.5 本机真机验证（2026-11-06 追加）
+
+用**真实安装版 CircuitPilot.app（0.2.0）**、**本仓库最新 Runtime（0.2.0）**、**真实 DSH 0.2.1-rc.5
+宿主**做了三层真机验证（隔离端口/临时 token，只读，不写 EDA、不碰用户 4178）：
+
+| 验证 | 结果 |
+|---|---|
+| 安装版 App：`cp_status` | ✔ ok:true（Runtime 0.2.0、版本/能力门禁通过） |
+| 安装版 App：`cp_design_loop(model)` | ✔ 明确 `RUNTIME_ROUTE_MISSING`——安装版构建早于复合框架，提示改用本仓库 `runtime/server.mjs` 或重新打包 App |
+| 本仓库 Runtime：`cp_design_loop(model)` | ✔ needs-review / blocking=0 / repair=1 |
+| 本仓库 Runtime：`cp_design_loop(source="project")`（EDA 离线） | ✔ `DESIGN_FRAMEWORK_EDA_OFFLINE` fail-closed（不编造板框尺寸） |
+| 本仓库 Runtime：framework status/golden | ✔ 200；金板 5/5 |
+| 真实 DSH 宿主 | ✔ 13 个 cp_* 工具；`cp_design_loop` 分别验证 model（needs-review）与 source=project（EDA_OFFLINE） |
+
+据此补齐：`source:"project"`（项目状态 + EDA 只读读回构建 IR）、`cp_design_loop` 的
+"安装版构建早于框架"精确提示、以及对应测试（服务层 11 项、插件 210 项）。
+
+详细报告与证据：[real-machine-verification-2026-11-06.md](./real-machine-verification-2026-11-06.md)、
+`artifacts/real-machine-verification-2026-11-06.json`、`artifacts/real-dsh-host-verification-2026-11-06.json`。
+
+---
+
 ## 3. 关键安全/确定性复核（本轮再次确认）
 
 - **token 不泄漏**：插件/MCP/HTTP 响应均不含 `cpa_`/token；`verification/agent/security.test.mjs`、模拟验收脚本均覆盖。

@@ -144,7 +144,7 @@ DSH 通过包里的 `dsh.bundle.patch`（`cordis.patch.yml`）声明插件条目
 | `cp_validation` | execute | `POST /api/eda/schematic/erc/run`、`POST /api/eda/pcb/drc/start` + `/drc/report`、`POST /api/eda/gates/evaluate` | ERC/DRC/门禁（job）；`boards` 可对最多 3 块板顺序批量校验 |
 | `cp_export` | execute | `POST /api/production/export` | 导出/归档（confirm + requestId，job） |
 | `cp_job` | read | 插件本地 JobManager | 长任务 status/wait/cancel |
-| `cp_design_loop` | read | `POST /api/design/framework/run`、`GET /api/design/framework/status` | 离线设计闭环：板级 IR → 规则/求解/Plan-Verify-Repair（不写 EDA、不签核） |
+| `cp_design_loop` | read | `POST /api/design/framework/run`、`GET /api/design/framework/status` | 离线设计闭环：板级 IR（`model`）或项目+EDA 读回（`source="project"`）→ 规则/求解/Plan-Verify-Repair（不写 EDA、不签核） |
 
 ### 4.1 多项目/多板只读总览（`cp_project_context` 可选参数）
 
@@ -207,8 +207,16 @@ DSH 通过包里的 `dsh.bundle.patch`（`cordis.patch.yml`）声明插件条目
 ### 4.5 离线设计闭环（`cp_design_loop`）
 
 `cp_design_loop` 把复合设计框架（`runtime/design-framework/**`）暴露成**只读**工具：
-输入板级 IR，Runtime 在本地执行 Rule-as-Code 规则判定 + 布局/叠层/网表求解 + 有界
-Plan-Verify-Repair 闭环，返回离线结论与证据。**不写 EDA、不签核、不走 `cp_approve`/`cp_execute`。**
+Runtime 在本地执行 Rule-as-Code 规则判定 + 布局/叠层/网表求解 + 有界 Plan-Verify-Repair 闭环，
+返回离线结论与证据。**不写 EDA、不签核、不走 `cp_approve`/`cp_execute`。**
+
+两种输入：
+- `model`：直接传板级 IR（`schemaVersion`/`board`/`components`/`nets`/`rules`），JSON ≤200KB；
+- `source: "project"`：由 Runtime 用**当前项目状态 + EDA 只读读回**（`pcb.outline.read` 板框、
+  `pcb.layers.copperCount` 层数、`pcb.placement.read` 器件几何）构建 IR。EDA 离线/未选中目标 PCB 时
+  返回 `DESIGN_FRAMEWORK_EDA_OFFLINE`（不编造尺寸）；无活动项目返回 `DESIGN_FRAMEWORK_NO_ACTIVE_PROJECT`。
+- 若 Runtime 构建早于复合框架（例如旧安装版 App），返回 `RUNTIME_ROUTE_MISSING` 并提示改用本仓库
+  `node runtime/server.mjs` 或重新打包/安装 CircuitPilot App。
 
 - 入参：`model`（必填，板级 IR：`schemaVersion`/`board`/`components`/`nets`/`rules`，结构见
   `runtime/design-framework/board-model.mjs` 文件头）；`options.maxIterations`（会被夹在 1–8）、

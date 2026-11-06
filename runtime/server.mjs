@@ -54,7 +54,7 @@ import { createRagStore } from './rag/store.mjs';
 import { createGateService, GATE_SERVICE_CODES } from './gates-service.mjs';
 import { collectGateEvidence } from './gates-evidence.mjs';
 import { buildDesignSpec } from './design-spec.mjs';
-import { frameworkStatusView, goldenReport, runFrameworkLoop } from './design-framework-service.mjs';
+import { frameworkStatusView, goldenReport, runFrameworkForProject, runFrameworkLoop } from './design-framework-service.mjs';
 import { createResearchConfig } from './research-config.mjs';
 import { buildKnowledgeChatContext } from './knowledge-chat.mjs';
 import { AGENT_TOKEN_HEADER, agentTokenFile, ensureAgentTokenFile, readAgentToken, verifyAgentToken } from './agent-token.mjs';
@@ -4445,8 +4445,43 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         result = { ok: true, evaluation: goldenReport() };
       } else if (method === 'POST' && url.pathname === '/api/design/framework/run') {
         // 离线设计闭环（只读）：IR → Rule-as-Code + 求解器 + Plan-Verify-Repair，不写 EDA、不签核。
+        // source='project' 时由「项目状态 + EDA 只读读回」构建 IR（EDA 离线则 409 fail-closed，不编造尺寸）。
         const body = await readBody(request);
-        result = { ok: true, framework: runFrameworkLoop({ model: body?.model, options: body?.options }) };
+        if (body?.source === 'project') {
+          let projectState = null;
+          try { projectState = projectStateStore.read().state; } catch { projectState = null; }
+          let edaSnapshot = null;
+          let edaError = null;
+          try {
+            if (!bridge.port) await bridge.discover();
+            if (bridge.port) {
+              const [outlineRaw, copperRaw, placementRaw] = await Promise.all([
+                bridge.execute('pcb.outline.read', {}).then((value) => value?.result ?? null).catch(() => null),
+                bridge.execute('pcb.layers.copperCount').then((value) => value?.result ?? null).catch(() => null),
+                bridge.execute('pcb.placement.read').then((value) => value?.result ?? null).catch(() => null),
+              ]);
+              const bounds = outlineRaw?.boundsMm;
+              const widthMm = bounds ? Number((Number(bounds.maxXMm) - Number(bounds.minXMm)).toFixed(3)) : null;
+              const heightMm = bounds ? Number((Number(bounds.maxYMm) - Number(bounds.minYMm)).toFixed(3)) : null;
+              const layers = Number(copperRaw);
+              if (Number.isFinite(widthMm) && widthMm > 0 && Number.isFinite(heightMm) && heightMm > 0 && Number.isInteger(layers) && layers >= 2) {
+                edaSnapshot = { widthMm, heightMm, layers, placementRead: placementRaw };
+              } else {
+                edaError = 'EDA 未返回可用板框/铜层数（需要 pcb.outline.read 的 boundsMm 与 copperCount>=2）';
+              }
+            } else {
+              edaError = 'EDA Bridge 不在线';
+            }
+          } catch (error) {
+            edaError = String(error?.message || error).slice(0, 200);
+          }
+          if (!edaSnapshot) {
+            throw Object.assign(new Error(`无法从项目构建板级 IR：${edaError || 'EDA 不在线'}（拒绝编造尺寸；请打开 EDA 并选中目标 PCB 后重试）`), { code: 'DESIGN_FRAMEWORK_EDA_OFFLINE', status: 409 });
+          }
+          result = { ok: true, framework: runFrameworkForProject({ projectState, edaSnapshot, options: body?.options }) };
+        } else {
+          result = { ok: true, framework: runFrameworkLoop({ model: body?.model, options: body?.options }) };
+        }
       } else if (method === 'POST' && url.pathname === '/api/design/execute') {
         const body = await readBody(request);
         result = { ok: true, execution: await designManager.execute(body) };

@@ -7,7 +7,9 @@
  *   - 稳定裁剪：HTTP 层返回摘要（不是整个 IR/全部 findings），避免把响应撑爆。
  */
 import { fileURLToPath } from 'node:url';
+import { adaptPlacements } from './engineering/skill-input.mjs';
 import {
+  createBoardModel,
   frameworkStatus,
   runDesignLoop,
   runGoldenEvaluation,
@@ -18,6 +20,9 @@ export const DESIGN_FRAMEWORK_SERVICE_CODES = Object.freeze({
   MODEL_TOO_LARGE: 'DESIGN_FRAMEWORK_MODEL_TOO_LARGE',
   RUN_FAILED: 'DESIGN_FRAMEWORK_RUN_FAILED',
   GOLDEN_FAILED: 'DESIGN_FRAMEWORK_GOLDEN_FAILED',
+  NO_ACTIVE_PROJECT: 'DESIGN_FRAMEWORK_NO_ACTIVE_PROJECT',
+  EDA_OFFLINE: 'DESIGN_FRAMEWORK_EDA_OFFLINE',
+  EDA_READ_FAILED: 'DESIGN_FRAMEWORK_EDA_READ_FAILED',
 });
 
 /** 与插件侧 `cp_design_loop` 约定一致：模型 JSON 上限 200KB、迭代上限 8。 */
@@ -108,6 +113,78 @@ export function runFrameworkLoop({ model, options } = {}) {
     throw coded(DESIGN_FRAMEWORK_SERVICE_CODES.RUN_FAILED, String(error?.message ?? error), status, { causeCode: error?.code ?? null });
   }
   return summarizeLoopResult(result);
+}
+
+/**
+ * 从「当前项目 + EDA 读回快照」构建板级 IR（只读，不写 EDA）。
+ *
+ * `projectState` 是 `/api/project-state` 的状态；`edaSnapshot` 由 server 侧只读读取：
+ *   { widthMm, heightMm, layers, placementRead? }
+ * - 板框/层数缺失（EDA 离线）→ DESIGN_FRAMEWORK_EDA_OFFLINE（409），绝不编造尺寸；
+ * - 器件几何来自 `pcb.placement.read`（经 adaptPlacements 归一）；尺寸未知的器件显式 sizeUnknown，
+ *   由闭环判 blocked，不猜尺寸；
+ * - 网表暂不从 EDA 自动读取（未实现前 nets=[]，规则层会 REVIEW，不冒充通过）。
+ */
+export function buildModelFromProject({ projectState, edaSnapshot, title } = {}) {
+  if (!isPlainObject(projectState)) {
+    throw coded(DESIGN_FRAMEWORK_SERVICE_CODES.NO_ACTIVE_PROJECT, '当前没有可读取的项目状态（projectState 非法）', 409);
+  }
+  const projects = Array.isArray(projectState.projects) ? projectState.projects : [];
+  const activeId = typeof projectState.activeProjectId === 'string' ? projectState.activeProjectId : '';
+  const project = projects.find((item) => item?.id === activeId) ?? projects[0] ?? null;
+  if (!project) {
+    throw coded(DESIGN_FRAMEWORK_SERVICE_CODES.NO_ACTIVE_PROJECT, '当前没有活动项目：请先在 CircuitPilot 创建/选择项目再运行离线闭环', 409);
+  }
+  const snapshot = isPlainObject(edaSnapshot) ? edaSnapshot : null;
+  const widthMm = Number(snapshot?.widthMm);
+  const heightMm = Number(snapshot?.heightMm);
+  const layers = Number(snapshot?.layers);
+  if (!snapshot || !(widthMm > 0) || !(heightMm > 0) || !Number.isInteger(layers) || layers < 2) {
+    throw coded(DESIGN_FRAMEWORK_SERVICE_CODES.EDA_OFFLINE, 'EDA 不在线或未返回可用板框/铜层数：无法从项目构建板级 IR（拒绝编造尺寸）', 409);
+  }
+  const placements = adaptPlacements(snapshot.placementRead ?? null);
+  const components = placements.map((placement) => ({
+    ref: placement.ref,
+    ...(placement.layerSide === 'bottom' ? { side: 'bottom' } : {}),
+    xMm: Number.isFinite(placement.centerXMm) ? placement.centerXMm : 0,
+    yMm: Number.isFinite(placement.centerYMm) ? placement.centerYMm : 0,
+    rotationDeg: Number.isFinite(placement.rotationDeg) ? placement.rotationDeg : 0,
+    ...(placement.widthMm > 0 && placement.heightMm > 0
+      ? { widthMm: placement.widthMm, heightMm: placement.heightMm }
+      : { sizeUnknown: true }),
+  }));
+  return createBoardModel({
+    meta: { title: typeof title === 'string' && title.trim() ? title.trim() : (project.name ?? project.id ?? 'project'), source: 'project+eda-readback' },
+    board: { widthMm, heightMm, layers, thicknessMm: snapshot.thicknessMm ?? null, copperOz: snapshot.copperOz ?? null },
+    components,
+    nets: [],
+    rules: {},
+  });
+}
+
+/**
+ * 运行「项目来源」的离线设计闭环（只读）。EDA 离线/项目缺失时抛结构化错误（409），
+ * 绝不返回"看起来通过"的模型。
+ */
+export function runFrameworkForProject({ projectState, edaSnapshot, options, title } = {}) {
+  const model = buildModelFromProject({ projectState, edaSnapshot, title });
+  const normalizedOptions = isPlainObject(options) ? options : {};
+  const maxIterations = clampIterations(normalizedOptions.maxIterations);
+  const fabProfile = typeof normalizedOptions.fabProfile === 'string' && normalizedOptions.fabProfile.trim() ? normalizedOptions.fabProfile.trim() : undefined;
+  try {
+    const result = runDesignLoop(model, {
+      ...(maxIterations === undefined ? {} : { maxIterations }),
+      ...(fabProfile === undefined ? {} : { fabProfile }),
+    });
+    return {
+      ...summarizeLoopResult(result),
+      source: 'project',
+      modelSummary: { board: { widthMm: model.board.widthMm, heightMm: model.board.heightMm, layers: model.board.layers }, componentCount: model.components.length, netCount: model.nets.length },
+    };
+  } catch (error) {
+    const status = Number.isInteger(error?.status) ? error.status : /BOARD_MODEL_/.test(String(error?.code ?? '')) ? 400 : 500;
+    throw coded(DESIGN_FRAMEWORK_SERVICE_CODES.RUN_FAILED, String(error?.message ?? error), status, { causeCode: error?.code ?? null });
+  }
 }
 
 /** 框架状态（KiCad CLI / 外部求解器探测 + 分层元数据），只读。 */
