@@ -168,3 +168,36 @@ npm run test:runtime
 > 结论：当前 App 画**新原理图**时走图框内布局；越界/重叠计划在 approve/execute 前被 fail-closed。
 > 当前页面已有的历史重叠/越界仍需单独修复（写操作，必须你批准）。
 
+## 8. 当前 P5-控制CAN 页面复核与"画线出框"补洞（2026-11-11 17:20）
+
+用户截图显示：A4 图框可见，但 MCU/网络标签/走线大量落在图框外（红框标出）。对当前文档
+`P5-控制CAN`（uuid `66ce5e62ba7100ad`）做只读读回审计：
+
+| 检查 | 结果 |
+|---|---|
+| 器件 | 9 个；**8 个越出 A4 可用区域**（如 MCU1 y=880 > 795） |
+| 器件重叠 | 2 处（估算） |
+| 标签压元件 | 15 处 |
+| 标签互叠 | 22 处 |
+| 走线端点 | `schematic.wires` 54 条 / 108 端点，**98 个端点在图框外**（如 y=1015/995） |
+
+证据：`artifacts/schematic-wire-frame-audit-2026-11-11.json`。
+
+**为什么修复后仍看到这张图？**
+- 该页面是在修复/门禁之前由 AI 坐标计划生成的（`/api/design/plan/ai` 的 candidate 直接给 x/y）；
+- 修复前只校验 `component.create` 的图框/重叠，**没有校验 `wire.create` 端点与 `netFlag.create` 标签**，
+  所以即使元件被拦住，走线/标签仍能出框；
+- 已存在的页面不会自动被改（写操作需批准）。
+
+**本轮补洞（已实现）**：
+1. `normalizePlan` 现在对 `wire.create` 每个点、`netFlag/netPort.create` 的 x/y 做图框校验，
+   并检查标签压元件/标签互叠；越界计划 `ready=false`（`WIRE_OUTSIDE_FRAME` / `LABEL_OUTSIDE_FRAME` /
+   `LABEL_ON_COMPONENT` / `LABEL_LABEL_OVERLAP`）。
+2. AI 计划提示增加 A4 约束：可用 x∈[30,1140]、y∈[30,795]，禁止出框/堆叠；
+3. 已重新打包安装版 App，使运行中的 Runtime 加载新门禁。运行态实测：越界计划返回
+   `layout:WIRE_OUTSIDE_FRAME:wire1-0` / `layout:LABEL_OUTSIDE_FRAME:netFlag.create2`（ready=false），
+   合法计划 ready=true；证据 `artifacts/installed-app-wire-label-gate-2026-11-11.json`。
+
+> 现有 P5 页面仍需要单独修复：可手动整理，或改用"候选提案/已审核网表"的布局优先链路重画；
+> 全选移动/缩放 54 条走线不是安全的自动写操作，需要人工确认。
+

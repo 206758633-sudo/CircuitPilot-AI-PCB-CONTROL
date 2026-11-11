@@ -96,30 +96,48 @@ export function normalizeTargetBinding({ projectId = null, documentUuid = null }
  */
 function schematicLayoutMissing(plan) {
   const components = [];
-  for (const [index, operation] of (Array.isArray(plan?.operations) ? plan.operations : []).entries()) {
-    if (operation?.type !== 'component.create') continue;
-    const x = Number(operation?.args?.x);
-    const y = Number(operation?.args?.y);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-    components.push({ ref: `R${index + 1}`, x, y, pinCount: 2 });
-  }
-  if (!components.length) return [];
+  const labels = [];
   const missing = [];
-  // 图框检查用点 + 保守无源件尺寸（计划操作没有真实符号尺寸；按 top-left 语义保守估计），
-  // 不拿"估算中心框"误杀合法坐标（真机 component.create 的 x/y 语义未逐版本验证）。
   const frame = SCHEMATIC_SHEET_FRAME;
   const margin = 10;
-  for (const component of components) {
-    const right = component.x + 80;
-    const bottom = component.y + 60;
-    if (component.x < margin || component.y < margin || right > frame.width - margin || bottom > frame.height - margin) {
-      missing.push(`layout:SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME:${component.ref}`.slice(0, 200));
+  const pointInside = (x, y) => Number.isFinite(x) && Number.isFinite(y)
+    && x >= margin && y >= margin && x <= frame.width - margin && y <= frame.height - margin;
+  const operations = Array.isArray(plan?.operations) ? plan.operations : [];
+  for (const [index, operation] of operations.entries()) {
+    if (operation?.type === 'component.create') {
+      const x = Number(operation?.args?.x);
+      const y = Number(operation?.args?.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      components.push({ ref: `R${index + 1}`, x, y, pinCount: 2 });
+      // 图框检查用点 + 保守无源件尺寸（计划操作没有真实符号尺寸；按 top-left 语义保守估计），
+      // 不拿"估算中心框"误杀合法坐标（真机 component.create 的 x/y 语义未逐版本验证）。
+      if (!pointInside(x, y) || x + 80 > frame.width - margin || y + 60 > frame.height - margin) {
+        missing.push(`layout:SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME:R${index + 1}`.slice(0, 200));
+      }
+    } else if (operation?.type === 'wire.create') {
+      const points = Array.isArray(operation?.args?.points) ? operation.args.points : [];
+      for (const [pointIndex, point] of points.entries()) {
+        const x = Number(point?.x);
+        const y = Number(point?.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        if (!pointInside(x, y)) {
+          missing.push(`layout:WIRE_OUTSIDE_FRAME:wire${index}-${pointIndex}`.slice(0, 200));
+        }
+      }
+    } else if (operation?.type === 'netFlag.create' || operation?.type === 'netPort.create') {
+      const x = Number(operation?.args?.x);
+      const y = Number(operation?.args?.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      if (!pointInside(x, y)) missing.push(`layout:LABEL_OUTSIDE_FRAME:${operation.type}${index}`.slice(0, 200));
+      labels.push({ net: operation?.args?.net ?? operation?.args?.name ?? '', x, y, rotation: operation?.args?.rotation ?? 0 });
     }
   }
-  // 重叠检查：用放大的图框只取 COMPONENT_OVERLAP，避开中心/左上语义差导致的图框误报。
-  const audit = auditSchematicReadability({ components, options: { frame: { width: 1_000_000, height: 1_000_000, margin: 0, titleBlock: null } } });
-  for (const finding of audit.findings.filter((item) => item.code === 'SCHEMATIC_LAYOUT_COMPONENT_OVERLAP').slice(0, 20)) {
-    missing.push(`layout:${finding.code}:${finding.first ?? ''}&${finding.second ?? ''}`.slice(0, 200));
+  if (!components.length && !labels.length) return missing;
+  // 重叠检查：图框放大只取元件重叠 / 标签压元件 / 标签互叠，避免中心/左上语义差导致图框误报。
+  const audit = auditSchematicReadability({ components, labels, options: { frame: { width: 1_000_000, height: 1_000_000, margin: 0, titleBlock: null } } });
+  const overlapCodes = new Set(['SCHEMATIC_LAYOUT_COMPONENT_OVERLAP', 'SCHEMATIC_LAYOUT_LABEL_ON_COMPONENT', 'SCHEMATIC_LAYOUT_LABEL_LABEL_OVERLAP']);
+  for (const finding of audit.findings.filter((item) => overlapCodes.has(item.code)).slice(0, 20)) {
+    missing.push(`layout:${finding.code}:${finding.first ?? finding.ref ?? finding.net ?? ''}`.slice(0, 200));
   }
   return missing;
 }

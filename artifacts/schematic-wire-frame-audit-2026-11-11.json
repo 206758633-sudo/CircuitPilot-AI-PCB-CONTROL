@@ -1,0 +1,77 @@
+{
+  "at": "2026-11-11T09:19:31.962Z",
+  "page": "P5-控制CAN (current document)",
+  "frame": {
+    "paper": "A4",
+    "width": 1170,
+    "height": 825,
+    "usable": {
+      "xMin": 30,
+      "yMin": 30,
+      "xMax": 1140,
+      "yMax": 795
+    },
+    "titleBlock": {
+      "xMin": 900,
+      "yMin": 665,
+      "xMax": 1140,
+      "yMax": 795
+    }
+  },
+  "wireCount": 54,
+  "pointCount": 108,
+  "outsidePoints": 98,
+  "outsideSamples": [
+    {
+      "x": 180,
+      "y": 1015,
+      "wire": "d73eb2ee702a01eb"
+    },
+    {
+      "x": 180,
+      "y": 995,
+      "wire": "d73eb2ee702a01eb"
+    },
+    {
+      "x": 160,
+      "y": 935,
+      "wire": "53fa40c93699a136"
+    },
+    {
+      "x": 180,
+      "y": 935,
+      "wire": "53fa40c93699a136"
+    },
+    {
+      "x": 160,
+      "y": 955,
+      "wire": "ed4b167575cc41a1"
+    },
+    {
+      "x": 180,
+      "y": 955,
+      "wire": "ed4b167575cc41a1"
+    },
+    {
+      "x": 75,
+      "y": 945,
+      "wire": "4deac5e9d2f8fecc"
+    },
+    {
+      "x": 180,
+      "y": 945,
+      "wire": "4deac5e9d2f8fecc"
+    },
+    {
+      "x": 95,
+      "y": 925,
+      "wire": "7b4f1c37b14165df"
+    },
+    {
+      "x": 180,
+      "y": 925,
+      "wire": "7b4f1c37b14165df"
+    }
+  ],
+  "note": "schematic.wires 读回端点中落在 A4 图框可用区域外的点数。"
+}

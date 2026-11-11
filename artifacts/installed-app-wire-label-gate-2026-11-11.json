@@ -1,0 +1,42 @@
+{
+  "at": "2026-11-11T09:21:49.128Z",
+  "app": {
+    "path": "/Applications/CircuitPilot.app",
+    "version": "0.2.0",
+    "running": true
+  },
+  "installedRuntimeMatchesWorkspace": true,
+  "files": {
+    "runtime/design.mjs": {
+      "same": true
+    },
+    "runtime/chat.mjs": {
+      "same": true
+    },
+    "runtime/schematic-layout.mjs": {
+      "same": true
+    }
+  },
+  "gateCheck": {
+    "badPlan": {
+      "ready": false,
+      "missing": [
+        "layout:WIRE_OUTSIDE_FRAME:wire1-0",
+        "layout:LABEL_OUTSIDE_FRAME:netFlag.create2"
+      ]
+    },
+    "goodPlan": {
+      "ready": true,
+      "missing": []
+    }
+  },
+  "currentPageAudit": {
+    "componentsOutsideFrame": 8,
+    "componentOverlaps": 2,
+    "labelOnComponent": 15,
+    "labelLabelOverlaps": 22,
+    "wireEndpointsOutside": 98,
+    "wireEndpointsTotal": 108
+  },
+  "note": "安装版 App 已加载 wire/netFlag 图框门禁：越界走线/标签计划 ready=false；合法计划 ready=true。当前 P5 页面为修复前生成，仍有大量框外内容，需单独修复。"
+}

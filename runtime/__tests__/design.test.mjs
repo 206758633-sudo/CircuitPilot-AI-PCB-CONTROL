@@ -32,6 +32,32 @@ test('normalizePlan：原理图元件坐标越出 A4 图框/互相重叠 → rea
   assert.equal(ok.ready, true, JSON.stringify(ok.missing));
 });
 
+test('normalizePlan：wire/netFlag 越出图框或标签压元件 → ready=false（2026-11-11 真机缺陷回归）', () => {
+  const base = { ...completePlan };
+  const outsideWire = normalizePlan({ ...base, operations: [
+    ...base.operations,
+    { type: 'wire.create', args: { points: [{ x: 3000, y: 100 }, { x: 200, y: 200 }] } },
+    { type: 'netFlag.create', args: { net: 'GND', x: 2000, y: 200 } },
+  ] });
+  assert.equal(outsideWire.ready, false);
+  assert.ok(outsideWire.missing.some((item) => item.includes('WIRE_OUTSIDE_FRAME')), JSON.stringify(outsideWire.missing));
+  assert.ok(outsideWire.missing.some((item) => item.includes('LABEL_OUTSIDE_FRAME')), JSON.stringify(outsideWire.missing));
+
+  const labelOnComponent = normalizePlan({ ...base, operations: [
+    { type: 'component.create', args: { component: { libraryUuid: 'lib-mcu', uuid: 'dev-mcu' }, x: 200, y: 200 } },
+    { type: 'netFlag.create', args: { net: 'GND', x: 200, y: 200 } },
+  ] });
+  assert.equal(labelOnComponent.ready, false);
+  assert.ok(labelOnComponent.missing.some((item) => item.includes('SCHEMATIC_LAYOUT_LABEL_ON_COMPONENT')), JSON.stringify(labelOnComponent.missing));
+
+  const good = normalizePlan({ ...base, operations: [
+    { type: 'component.create', args: { component: { libraryUuid: 'lib-mcu', uuid: 'dev-mcu' }, x: 200, y: 200 } },
+    { type: 'wire.create', args: { points: [{ x: 400, y: 400 }, { x: 500, y: 400 }] } },
+    { type: 'netFlag.create', args: { net: 'GND', x: 700, y: 600 } },
+  ] });
+  assert.equal(good.ready, true, JSON.stringify(good.missing));
+});
+
 test('plan normalization is deterministic and blocks unknown parts or arbitrary operations', () => {
   const first = normalizePlan(completePlan);
   const second = normalizePlan({ ...completePlan, title: 'MCU + 电源 + LED + 按键简单控制板' });
