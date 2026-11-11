@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "packId": "schematic-design-rules",
+  "version": "2026-11-11.1",
+  "title": "原理图设计规则（已验证子集，直接约束布局/计划/执行）",
+  "source": "真机 EDA 读回（schematic.catalog A4 1170×825）+ 回归缺陷 + 本地测试证据；仅收录已验证的规则，不把候选知识当门禁",
+  "rules": [
+    {
+      "id": "SCH-RULE-FRAME-A4",
+      "title": "原理图必须落在 A4 图框可用区域，避开右下标题栏",
+      "category": "schematic/frame",
+      "severity": "error",
+      "enforcement": "hard",
+      "appliesTo": ["layout", "plan", "execution", "audit"],
+      "parameters": {
+        "frame": {
+          "width": 1170,
+          "height": 825,
+          "margin": 30,
+          "planMargin": 10,
+          "titleBlock": { "width": 240, "height": 130, "position": "bottom-right" }
+        }
+      },
+      "verification": {
+        "status": "verified",
+        "verifiedAt": "2026-11-11",
+        "method": "真机 schematic.catalog.titleBlockData 读回 A4/1170/825/标题栏右下；回归测试覆盖越界拒绝",
+        "evidence": [
+          "artifacts/schematic-layout-audit-2026-11-11.json",
+          "artifacts/installed-app-hard-gate-2026-11-11.json",
+          "runtime/__tests__/schematic-layout.test.mjs",
+          "runtime/__tests__/design.test.mjs"
+        ]
+      }
+    },
+    {
+      "id": "SCH-RULE-GRID-10",
+      "title": "原理图落位/符号尺寸对齐 10 单位格点",
+      "category": "schematic/grid",
+      "severity": "error",
+      "enforcement": "hard",
+      "appliesTo": ["layout", "plan"],
+      "parameters": { "grid": 10 },
+      "verification": {
+        "status": "verified",
+        "verifiedAt": "2026-11-11",
+        "method": "真机密集引脚列实测间距 10；布局单测断言格点对齐",
+        "evidence": ["runtime/__tests__/schematic-layout.test.mjs"]
+      }
+    },
+    {
+      "id": "SCH-RULE-SYMBOL-SIZE",
+      "title": "符号尺寸保守估计（按类别+引脚数），保证包围盒不重叠",
+      "category": "schematic/symbol-size",
+      "severity": "error",
+      "enforcement": "hard",
+      "appliesTo": ["layout", "plan"],
+      "parameters": {
+        "symbolBase": {
+          "connector": { "width": 140, "height": 100 },
+          "ic": { "width": 120, "height": 100 },
+          "passive": { "width": 80, "height": 50 },
+          "other": { "width": 100, "height": 60 }
+        },
+        "pinPitch": 10,
+        "pinPadding": 40
+      },
+      "verification": {
+        "status": "verified",
+        "verifiedAt": "2026-11-11",
+        "method": "真机 0603≈80×40、32 脚 IC≈160×200；布局测试断言任意两元件框不重叠",
+        "evidence": ["runtime/__tests__/schematic-layout.test.mjs", "docs/implementation/schematic-readability-and-ai-layout-2026-10-28.md"]
+      }
+    },
+    {
+      "id": "SCH-RULE-COMPONENT-SPACING",
+      "title": "按连通簇分带落位，元件之间保留间距，不得堆叠/越框",
+      "category": "schematic/spacing",
+      "severity": "error",
+      "enforcement": "hard",
+      "appliesTo": ["layout", "plan", "execution"],
+      "parameters": { "layout": { "gapX": 40, "gapY": 40, "bandGap": 60 } },
+      "verification": {
+        "status": "verified",
+        "verifiedAt": "2026-11-11",
+        "method": "布局算法 + 箱装测试：12 元件在 A4 内、无重叠、不压标题栏",
+        "evidence": ["runtime/__tests__/schematic-layout.test.mjs", "artifacts/installed-app-hard-gate-2026-11-11.json"]
+      }
+    },
+    {
+      "id": "SCH-RULE-LABEL-READABILITY",
+      "title": "网络标签朝外、不得压元件/互叠，标签矩形按字符估计",
+      "category": "schematic/label",
+      "severity": "error",
+      "enforcement": "hard",
+      "appliesTo": ["layout", "plan", "execution", "audit"],
+      "parameters": {
+        "label": {
+          "charWidth": 8,
+          "textHeight": 14,
+          "padding": 4,
+          "minLength": 20,
+          "margin": 10,
+          "directions": { "right": 0, "up": 90, "left": 180, "down": 270 }
+        }
+      },
+      "verification": {
+        "status": "verified",
+        "verifiedAt": "2026-11-11",
+        "method": "4 方向碰撞打分 + 审计；真机页面标签压元件/互叠回归",
+        "evidence": ["runtime/__tests__/schematic-layout.test.mjs", "artifacts/schematic-layout-audit-2026-11-11.json"]
+      }
+    },
+    {
+      "id": "SCH-RULE-WIRE-INSIDE-FRAME",
+      "title": "走线端点必须在 A4 图框内，写入后回读门禁阻断新增越界",
+      "category": "schematic/wire",
+      "severity": "error",
+      "enforcement": "hard",
+      "appliesTo": ["plan", "execution"],
+      "parameters": { "enforcement": { "wiresInsideFrame": true, "blockNewViolationsAfterWrite": true } },
+      "verification": {
+        "status": "verified",
+        "verifiedAt": "2026-11-11",
+        "method": "真机 P5 页面 98/108 走线端点越框；计划门禁与执行回读门禁单测/真机验证",
+        "evidence": ["artifacts/schematic-wire-frame-audit-2026-11-11.json", "artifacts/installed-app-hard-gate-2026-11-11.json", "runtime/__tests__/design.test.mjs"]
+      }
+    }
+  ]
+}

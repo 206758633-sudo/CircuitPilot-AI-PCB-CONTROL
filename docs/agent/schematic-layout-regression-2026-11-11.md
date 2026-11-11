@@ -224,3 +224,24 @@ npm run test:runtime
 > 边界：EasyEDA 内**人工拖拽**不受我们代码约束；我们的约束覆盖"Dsh/插件/AI 通过 Runtime 的写入"。
 > 当前 P5 页面是历史遗留，仍需人工整理或走批准修复；新的写入若产生新增违规会被拒绝并回滚。
 
+## 10. 已验证经验 → 硬规则包（2026-11-11 18:20）
+
+用户要求"确保验证过的经验规则能直接改善和约束设计规则"，本轮落地：
+
+- 新增 **已验证设计规则包** `runtime/design-rules/schematic-design-rules.json`（随 Runtime 打包）：
+  6 条规则（图框 A4、格点、符号尺寸、间距、标签可读性、走线在图框内），每条都必须有
+  `verification.status=verified` + `evidence[]`，否则加载 fail-closed。
+- **参数直接驱动代码**：`schematic-layout.mjs` 的图框/格点/符号尺寸/间距/标签参数不再手写，
+  而是从规则包解析；`design.mjs` 的计划门禁 margin、走线检查、执行回读门禁开关同源。
+- **晋升流水线**（人工闸门）：`runtime/design-rules/rule-promotion.mjs` +
+  `scripts/promote-schematic-rules.mjs --check|--write --confirm`：
+  只有 `kind=rule + approved + trust≠unverified + verification.verified + evidence + 白名单参数`
+  才能进入规则包；候选/未验证/缺证据/未知参数一律拒绝。
+- **可审计状态**：`GET /api/design/framework/status` 返回 `designRules`
+  （packId/version/ruleIds/verified/enforced）；证据 `artifacts/verified-rules-pack-2026-11-11.json`。
+- 测试：`runtime/__tests__/verified-rules.test.mjs` 4/4（参数同源、晋升/拒绝路径）；
+  runtime **1592/1592**；design-framework 82/82。
+
+> 结论：经验不再"只写在文档/候选知识里"——验证过的参数会改变布局算法与门禁，
+> 候选知识必须经过人工批准的晋升流水线才能进入硬约束。
+

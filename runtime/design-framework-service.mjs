@@ -8,6 +8,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import { adaptPlacements } from './engineering/skill-input.mjs';
+import { getSchematicRulePackStatus } from './design-rules/verified-rules.mjs';
 import { parseEasyEdaNetlist } from './net-connectivity.mjs';
 import {
   createBoardModel,
@@ -230,7 +231,9 @@ export function runFrameworkForProject({ projectState, edaSnapshot, netlistText 
 
 /** 框架状态（KiCad CLI / 外部求解器探测 + 分层元数据），只读。 */
 export function frameworkStatusView() {
-  return frameworkStatus();
+  // 已验证设计规则包：让 UI/agent 能看到"哪些经验规则正在硬约束布局/计划/执行"，
+  // 而不是只有一份文档。规则包损坏会在 import 时 fail-closed。
+  return { ...frameworkStatus(), designRules: getSchematicRulePackStatus() };
 }
 
 /** 金板评估（5 个离线用例），只读；失败不抛异常，返回 ok:false + metrics。 */

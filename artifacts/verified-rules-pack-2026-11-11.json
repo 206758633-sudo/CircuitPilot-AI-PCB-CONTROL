@@ -1,0 +1,66 @@
+{
+  "at": "2026-11-11T10:20:22.059Z",
+  "pack": "runtime/design-rules/schematic-design-rules.json",
+  "status": {
+    "packId": "schematic-design-rules",
+    "version": "2026-11-11.1",
+    "ruleCount": 6,
+    "ruleIds": [
+      "SCH-RULE-FRAME-A4",
+      "SCH-RULE-GRID-10",
+      "SCH-RULE-SYMBOL-SIZE",
+      "SCH-RULE-COMPONENT-SPACING",
+      "SCH-RULE-LABEL-READABILITY",
+      "SCH-RULE-WIRE-INSIDE-FRAME"
+    ],
+    "verified": true,
+    "enforced": [
+      "SCH-RULE-FRAME-A4",
+      "SCH-RULE-GRID-10",
+      "SCH-RULE-SYMBOL-SIZE",
+      "SCH-RULE-COMPONENT-SPACING",
+      "SCH-RULE-LABEL-READABILITY",
+      "SCH-RULE-WIRE-INSIDE-FRAME"
+    ]
+  },
+  "enforcement": {
+    "layoutParameters": true,
+    "planGate": true,
+    "executionReadbackGate": true,
+    "directWriteBlocked": true
+  },
+  "promotion": {
+    "command": "node scripts/promote-schematic-rules.mjs --check|--write --confirm",
+    "requires": [
+      "approved",
+      "trust!=unverified",
+      "verification.status=verified",
+      "evidence[]",
+      "allowlisted parameters"
+    ]
+  },
+  "tests": {
+    "verifiedRules": "4/4",
+    "runtime": "1592/1592",
+    "designFramework": "82/82"
+  },
+  "note": "已验证规则包直接驱动布局常量、计划门禁、执行回读门禁；候选知识不会自动晋升。",
+  "installedApp": {
+    "path": "/Applications/CircuitPilot.app",
+    "version": "0.2.0",
+    "runtimeMatchesWorkspace": true,
+    "statusEndpoint": "GET /api/design/framework/status",
+    "statusReported": true
+  },
+  "promotionCheck": {
+    "command": "node scripts/promote-schematic-rules.mjs --check",
+    "result": "141 candidate rules rejected (not-approved); 0 promoted",
+    "wrote": false
+  },
+  "planGateCheck": {
+    "ready": false,
+    "missing": [
+      "layout:WIRE_OUTSIDE_FRAME:wire1-0"
+    ]
+  }
+}

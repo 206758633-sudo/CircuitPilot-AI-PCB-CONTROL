@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { createApprovalService } from './approval-service.mjs';
-import { SCHEMATIC_SHEET_FRAME, auditSchematicReadability } from './schematic-layout.mjs';
+import { SCHEMATIC_PLAN_MARGIN, SCHEMATIC_SHEET_FRAME, auditSchematicReadability } from './schematic-layout.mjs';
+import { SCHEMATIC_RULE_PARAMS } from './design-rules/verified-rules.mjs';
 
 export const DESIGN_API_VERSION = 1;
 const REQUIRED_BLOCKS = ['mcu', 'power', 'led', 'button'];
@@ -99,7 +100,7 @@ function schematicLayoutMissing(plan) {
   const labels = [];
   const missing = [];
   const frame = SCHEMATIC_SHEET_FRAME;
-  const margin = 10;
+  const margin = SCHEMATIC_PLAN_MARGIN;
   const pointInside = (x, y) => Number.isFinite(x) && Number.isFinite(y)
     && x >= margin && y >= margin && x <= frame.width - margin && y <= frame.height - margin;
   const operations = Array.isArray(plan?.operations) ? plan.operations : [];
@@ -115,6 +116,7 @@ function schematicLayoutMissing(plan) {
         missing.push(`layout:SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME:R${index + 1}`.slice(0, 200));
       }
     } else if (operation?.type === 'wire.create') {
+      if (SCHEMATIC_RULE_PARAMS.enforcement?.wiresInsideFrame === false) continue;
       const points = Array.isArray(operation?.args?.points) ? operation.args.points : [];
       for (const [pointIndex, point] of points.entries()) {
         const x = Number(point?.x);
@@ -523,7 +525,7 @@ export class DesignManager {
     const labels = list.filter((item) => isLabel(item?.componentType)).map((item) => ({ net: item.net ?? item.name ?? '', x: item.x, y: item.y, rotation: item.rotation ?? 0 }));
     const audit = auditSchematicReadability({ components: parts, pinsByComponent: pins, labels, options: { frame: SCHEMATIC_SHEET_FRAME } });
     const findings = [...audit.findings];
-    if (registered.has('schematic.wires')) {
+    if (registered.has('schematic.wires') && SCHEMATIC_RULE_PARAMS.enforcement?.wiresInsideFrame !== false) {
       const wiresRaw = unwrap(await this.bridge.execute('schematic.wires'));
       const wires = Array.isArray(wiresRaw) ? wiresRaw : (wiresRaw?.wires || []);
       for (const [wireIndex, wire] of wires.entries()) {
@@ -703,7 +705,7 @@ export class DesignManager {
       if (missingWireOperations.length) throw Object.assign(new Error(`回读缺少导线操作: ${missingWireOperations.join(',')}`), { code: 'READBACK_WIRE_GEOMETRY_MISSING' });
       event('readback', 'passed', { targetFingerprint: after.targetFingerprint, sourceDigest: documentSourceDigest(afterSource), verifiedPrimitiveIds: execution.createdPrimitiveIds, verifiedWireIds: uniqueWireIds.filter((primitiveId) => containsPrimitiveId(wireReadback, primitiveId)), verifiedWireOperations: wireOperations.length, verifiedNoConnectPins: execution.noConnectChecks.reduce((sum, item) => sum + item.pinNumbers.length, 0) });
       // 可读性硬门禁（2026-11-11）：写入后回读图框/重叠/标签/走线；本次新增的硬违规 → 回滚。
-      if (readabilityBaseline) {
+      if (readabilityBaseline && SCHEMATIC_RULE_PARAMS.enforcement?.blockNewViolationsAfterWrite !== false) {
         const afterReadability = await this.readSchematicReadability();
         const newFindings = newReadabilityFindings(readabilityBaseline.findings, afterReadability?.findings || []);
         execution.readability = { baseline: readabilityBaseline.summary, final: afterReadability?.summary ?? null, newFindings };
