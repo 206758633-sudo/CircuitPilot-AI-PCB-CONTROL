@@ -148,3 +148,23 @@ npm run test:runtime
 # 2) 调 Runtime POST /api/eda/commands/schematic.components
 # 3) 用 auditSchematicReadability({components,pinsByComponent,options:{frame:SCHEMATIC_SHEET_FRAME}})
 ```
+
+## 7. 安装版（当前运行的操作系统 App）验证（2026-11-11 17:10）
+
+用户要求把修复更新到"正在运行的操作系统 App"，并提交 GitHub。实际核查/验证：
+
+- `/Applications/CircuitPilot.app`（0.2.0）运行中；其 runtime 的
+  `schematic-layout.mjs / proposal.mjs / design.mjs / knowledge-scheduler.mjs / server.mjs`
+  与工作区修复**逐字节一致**（sha256 前 16 位相同）。
+- 通过运行中的 Runtime API（127.0.0.1:4178）实测：
+  - `POST /api/library/proposals/plan` → `ready=true`，落点 `(70,60)`、`(70,170)`，在 A4 图框内；
+  - `POST /api/design/plan` 传越界器件（x=3000）→ `ready=false`，
+    `missing=["layout:SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME:R1"]`（坏计划被拒绝）；
+  - 合法计划 → `ready=true`。
+- KMA：`lastRunAt=2026-11-11T09:00:07Z`、`nextRunAt=2026-11-12T09:00:07Z`、pendingReview=392；
+  EDA bridge 自动托管在线（adapter 49620）。
+- 证据：`artifacts/installed-app-schematic-layout-verification-2026-11-11.json`。
+
+> 结论：当前 App 画**新原理图**时走图框内布局；越界/重叠计划在 approve/execute 前被 fail-closed。
+> 当前页面已有的历史重叠/越界仍需单独修复（写操作，必须你批准）。
+

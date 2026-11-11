@@ -1,0 +1,73 @@
+{
+  "at": "2026-11-11T09:08:06.223Z",
+  "environment": {
+    "app": "/Applications/CircuitPilot.app",
+    "version": "0.2.0",
+    "runtime": "127.0.0.1:4178"
+  },
+  "installedRuntimeMatchesWorkspace": true,
+  "files": {
+    "runtime/schematic-layout.mjs": {
+      "workspace": "f567503f81be1b39",
+      "installed": "f567503f81be1b39",
+      "same": true
+    },
+    "runtime/proposal.mjs": {
+      "workspace": "5ff15fdcd3e84d55",
+      "installed": "5ff15fdcd3e84d55",
+      "same": true
+    },
+    "runtime/design.mjs": {
+      "workspace": "91f694ab82d273c0",
+      "installed": "91f694ab82d273c0",
+      "same": true
+    },
+    "runtime/knowledge-scheduler.mjs": {
+      "workspace": "df169b3143fca218",
+      "installed": "df169b3143fca218",
+      "same": true
+    },
+    "runtime/server.mjs": {
+      "workspace": "06abcb4e866a0556",
+      "installed": "06abcb4e866a0556",
+      "same": true
+    }
+  },
+  "knowledgeAgent": {
+    "lastRunAt": "2026-11-11T09:00:07.467Z",
+    "nextRunAt": "2026-11-12T09:00:07.467Z",
+    "pendingReview": 392
+  },
+  "apiChecks": {
+    "proposalPlan": {
+      "endpoint": "POST /api/library/proposals/plan",
+      "ok": true,
+      "ready": true,
+      "coordinates": [
+        {
+          "x": 70,
+          "y": 60
+        },
+        {
+          "x": 70,
+          "y": 170
+        }
+      ],
+      "note": "A4 图框内（1170×825）"
+    },
+    "badPlan": {
+      "endpoint": "POST /api/design/plan",
+      "ready": false,
+      "missing": [
+        "layout:SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME:R1"
+      ],
+      "note": "越界计划 fail-closed"
+    },
+    "goodPlan": {
+      "endpoint": "POST /api/design/plan",
+      "ready": true,
+      "missing": []
+    }
+  },
+  "note": "安装版 App 的 runtime 文件与工作区修复逐字节一致；运行中的 App 已加载修复，画新原理图会走图框内布局，坏计划会被拒绝。"
+}
