@@ -1,0 +1,66 @@
+{
+  "at": "2026-11-11T09:28:05.588Z",
+  "app": {
+    "path": "/Applications/CircuitPilot.app",
+    "version": "0.2.0",
+    "running": true
+  },
+  "installedRuntimeMatchesWorkspace": true,
+  "files": {
+    "runtime/design.mjs": {
+      "same": true
+    },
+    "runtime/chat.mjs": {
+      "same": true
+    },
+    "runtime/schematic-layout.mjs": {
+      "same": true
+    },
+    "runtime/server.mjs": {
+      "same": true
+    }
+  },
+  "hardGates": {
+    "planGate": {
+      "badPlanReady": false,
+      "missing": [
+        "layout:WIRE_OUTSIDE_FRAME:wire1-0",
+        "layout:LABEL_OUTSIDE_FRAME:netFlag.create2"
+      ]
+    },
+    "directSchematicWrite": {
+      "code": "SCHEMATIC_WRITE_REQUIRES_APPROVED_EXECUTION",
+      "httpStatus": 409,
+      "blockedCommands": [
+        "schematic.component.create",
+        "schematic.component.delete",
+        "schematic.wire.create",
+        "schematic.netFlag.create",
+        "schematic.pin.noConnect",
+        "schematic.component.designator.set"
+      ]
+    },
+    "executionReadbackGate": {
+      "implemented": true,
+      "baselineVsAfter": "只阻断本次新增硬违规",
+      "blockingCodes": [
+        "COMPONENT_OUTSIDE_FRAME",
+        "COMPONENT_ON_TITLE_BLOCK",
+        "COMPONENT_OVERLAP",
+        "LABEL_ON_COMPONENT",
+        "LABEL_LABEL_OVERLAP",
+        "WIRE_OUTSIDE_FRAME"
+      ],
+      "onViolation": "抛 SCHEMATIC_READABILITY_BLOCKING → document.source.restore 回滚"
+    },
+    "batchFrameGuard": {
+      "implemented": true,
+      "rule": "批量落件坐标必须在 A4 图框内，否则 400"
+    }
+  },
+  "tests": {
+    "design": "20/20",
+    "runtime": "1588/1588"
+  },
+  "note": "规则已从\"提示/审核\"升级为写入前拒绝 + 写入后回读门禁 + 回滚；直接结构写命令被 409 拦截。EasyEDA 内人工拖拽不在代码控制范围内。"
+}

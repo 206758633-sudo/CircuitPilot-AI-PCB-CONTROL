@@ -201,3 +201,26 @@ npm run test:runtime
 > 现有 P5 页面仍需要单独修复：可手动整理，或改用"候选提案/已审核网表"的布局优先链路重画；
 > 全选移动/缩放 54 条走线不是安全的自动写操作，需要人工确认。
 
+## 9. 规则硬约束升级（2026-11-11 17:35）
+
+用户要求"一定要把规则作为约束"——不只提示/审核，而是**写入前拒绝 + 写入后回读门禁 + 回滚**：
+
+1. **计划门禁（写前）**：`normalizePlan` 已对 `component.create` / `wire.create` / `netFlag/netPort`
+   做图框/重叠/标签检查；`ready=false` 不可批准。
+2. **执行期回读门禁（写后、保存后、DRC 前）**：`DesignManager.execute` 在写入前后各读回一次
+   器件/标签/走线，计算可读性审计；**只阻断本次新增的硬违规**（既有问题不误伤，便于逐步修复），
+   命中即抛 `SCHEMATIC_READABILITY_BLOCKING`，走既有 `document.source.restore` 回滚并保存。
+   硬违规覆盖：
+   - `COMPONENT_OUTSIDE_FRAME` / `COMPONENT_ON_TITLE_BLOCK` / `COMPONENT_OVERLAP`
+   - `LABEL_ON_COMPONENT` / `LABEL_LABEL_OVERLAP`
+   - `WIRE_OUTSIDE_FRAME`（走线端点出图框）
+3. **禁止绕过**：
+   - `POST /api/eda/commands/schematic.component.create|wire.create|netFlag.create|pin.noConnect|component.delete|designator.set`
+     直接返回 409 `SCHEMATIC_WRITE_REQUIRES_APPROVED_EXECUTION`（结构写必须走 `design.execute` 的批准链）；
+   - `POST /api/eda/schematic/component-batch` 写入前检查每个落件坐标在 A4 图框内，越界 400。
+4. **测试**：`design.test.mjs` 20/20（含可读性 diff 只拦新增）；runtime **1588/1588**；
+   安装版 App 重新打包并运行态验证计划门禁/直写拦截。
+
+> 边界：EasyEDA 内**人工拖拽**不受我们代码约束；我们的约束覆盖"Dsh/插件/AI 通过 Runtime 的写入"。
+> 当前 P5 页面是历史遗留，仍需人工整理或走批准修复；新的写入若产生新增违规会被拒绝并回滚。
+

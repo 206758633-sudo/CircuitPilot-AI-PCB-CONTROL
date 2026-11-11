@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ApprovalStore, DesignManager, attachPlanLineage, documentSourceDigest, normalizePlan, planLineageHashes, wireOperationMatches } from '../design.mjs';
+import { ApprovalStore, DesignManager, attachPlanLineage, documentSourceDigest, newReadabilityFindings, normalizePlan, planLineageHashes, readabilityFindingKey, wireOperationMatches } from '../design.mjs';
 import { createApprovalLedger } from '../approval-ledger.mjs';
 
 const completePlan = {
@@ -56,6 +56,26 @@ test('normalizePlan：wire/netFlag 越出图框或标签压元件 → ready=fals
     { type: 'netFlag.create', args: { net: 'GND', x: 700, y: 600 } },
   ] });
   assert.equal(good.ready, true, JSON.stringify(good.missing));
+});
+
+test('可读性硬门禁 diff：只拦本次新增的图框/重叠/标签/走线违规（不误伤既有问题）', () => {
+  assert.equal(readabilityFindingKey({ code: 'SCHEMATIC_LAYOUT_COMPONENT_OVERLAP', first: 'U1', second: 'C1' }), 'SCHEMATIC_LAYOUT_COMPONENT_OVERLAP|U1|C1');
+  const before = [
+    { code: 'SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME', ref: 'U7' },
+    { code: 'SCHEMATIC_LAYOUT_LABEL_LABEL_OVERLAP', first: 'A', second: 'B' },
+  ];
+  const after = [
+    ...before,
+    { code: 'SCHEMATIC_LAYOUT_WIRE_OUTSIDE_FRAME', ref: 'wire1-0' },
+    { code: 'SCHEMATIC_LAYOUT_COMPONENT_OVERLAP', first: 'U1', second: 'C1' },
+    { code: 'SCHEMATIC_LAYOUT_LABEL_ON_COMPONENT', net: 'GND', ref: 'U2' },
+  ];
+  const fresh = newReadabilityFindings(before, after);
+  assert.deepEqual(fresh.map(readabilityFindingKey).sort(), [
+    'SCHEMATIC_LAYOUT_COMPONENT_OVERLAP|U1|C1',
+    'SCHEMATIC_LAYOUT_LABEL_ON_COMPONENT|U2|',
+    'SCHEMATIC_LAYOUT_WIRE_OUTSIDE_FRAME|wire1-0|',
+  ]);
 });
 
 test('plan normalization is deterministic and blocks unknown parts or arbitrary operations', () => {

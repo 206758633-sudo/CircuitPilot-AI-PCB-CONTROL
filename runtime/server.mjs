@@ -51,6 +51,7 @@ import {
 } from './agents/retrospective-learner.mjs';
 import { createPcbWebCollectors, DEFAULT_PCB_TOPICS } from './collectors/pcb-web.mjs';
 import { createKnowledgeScheduler } from './knowledge-scheduler.mjs';
+import { SCHEMATIC_SHEET_FRAME } from './schematic-layout.mjs';
 import { createRagStore } from './rag/store.mjs';
 import { createGateService, GATE_SERVICE_CODES } from './gates-service.mjs';
 import { collectGateEvidence } from './gates-evidence.mjs';
@@ -2778,6 +2779,15 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         await ensureEdaSession();
         const commandStarted = performance.now();
         const metadata = bridge.listCommands().find((item) => item.id === commandId);
+        // 2026-11-11 硬约束：原理图结构写命令不能绕过 /api/design/execute 的批准/快照/回读/可读性门禁。
+        // 内部执行器（design.execute / batch / repair）直接调 bridge.execute，不受此路由限制。
+        const directSchematicWrites = new Set([
+          'schematic.component.create', 'schematic.component.delete', 'schematic.wire.create',
+          'schematic.netFlag.create', 'schematic.pin.noConnect', 'schematic.component.designator.set',
+        ]);
+        if (directSchematicWrites.has(commandId)) {
+          throw Object.assign(new Error(`原理图结构写命令 ${commandId} 必须通过 /api/design/execute 的批准/快照/回读门禁，不能直接调用`), { code: 'SCHEMATIC_WRITE_REQUIRES_APPROVED_EXECUTION', status: 409 });
+        }
         const commandResult = await bridge.execute(commandId, body);
         result = { ok: true, command: { id: commandId, permission: metadata?.permission || 'read', duration: Math.round(performance.now() - commandStarted), result: commandResult } };
         logger.info('EasyEDA', 'Executed registered non-write command', { commandId, permission: result.command.permission, duration: result.command.duration });
@@ -3286,6 +3296,15 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
         if (body.dryRun !== false) {
           result = { dryRun: true, plan: planView, willSave: body.save !== false, resume: Boolean(body.resume) };
         } else {
+          // 2026-11-11：批量落件同样必须在 A4 图框可用区域内（否则等于绕过图框约束）。
+          for (const item of planned.items) {
+            if (item.action !== 'create') continue;
+            const x = Number(item.x); const y = Number(item.y);
+            if (!Number.isFinite(x) || !Number.isFinite(y)
+              || x < 10 || y < 10 || x + 80 > SCHEMATIC_SHEET_FRAME.width - 10 || y + 60 > SCHEMATIC_SHEET_FRAME.height - 10) {
+              throw Object.assign(new Error(`批量落件坐标越出 A4 图框：${item.key ?? item.designator ?? ''} (${x}, ${y})`), { code: 'SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME', status: 400, details: { key: item.key ?? null, x, y } });
+            }
+          }
           const batchDir = String(process.env.CIRCUITPILOT_BATCH_DIR || '').trim() || join(homedir(), '.circuitpilot', 'schematic-batches');
           const stateFile = join(batchDir, `${planned.planHash}.json`);
           const applied = await applySchematicBatch({

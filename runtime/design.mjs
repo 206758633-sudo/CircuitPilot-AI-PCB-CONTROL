@@ -418,6 +418,30 @@ export function wireOperationMatches(operation, wires) {
   return expected.length > 0 && expected.every((segment) => segmentCovered(segment, actual));
 }
 
+/**
+ * 原理图可读性硬门禁：把"图框/重叠/标签/走线"从建议升级为执行期约束。
+ * - baseline 与写入后回读各算一次，只阻断本次新增的违规（不误伤页面既有问题，便于逐步修复）；
+ * - 违规 → 抛 SCHEMATIC_READABILITY_BLOCKING，由 execute 的既有回滚通道恢复源码。
+ */
+const READABILITY_HARD_CODES = new Set([
+  'SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME',
+  'SCHEMATIC_LAYOUT_COMPONENT_ON_TITLE_BLOCK',
+  'SCHEMATIC_LAYOUT_COMPONENT_OVERLAP',
+  'SCHEMATIC_LAYOUT_LABEL_ON_COMPONENT',
+  'SCHEMATIC_LAYOUT_LABEL_LABEL_OVERLAP',
+  'SCHEMATIC_LAYOUT_WIRE_OUTSIDE_FRAME',
+]);
+
+export function readabilityFindingKey(finding) {
+  return `${finding?.code ?? ''}|${finding?.ref ?? finding?.first ?? finding?.net ?? ''}|${finding?.second ?? ''}`;
+}
+
+/** 返回 after 中新增的硬违规（按 key 去重；before 里已有的不重复阻断）。 */
+export function newReadabilityFindings(before = [], after = []) {
+  const seen = new Set((Array.isArray(before) ? before : []).map(readabilityFindingKey));
+  return (Array.isArray(after) ? after : []).filter((finding) => READABILITY_HARD_CODES.has(finding?.code) && !seen.has(readabilityFindingKey(finding)));
+}
+
 export class DesignManager {
   constructor({ bridge, approvals = null, store = null, ledger = null }) {
     this.bridge = bridge; this.approvals = approvals || new ApprovalStore({ ledger }); this.store = store; this.executions = new Map(); this.running = false; this.persistenceError = null;
@@ -484,6 +508,39 @@ export class DesignManager {
       compiledPlanHash: normalized.plan.compiledPlanHash ?? null,
       ...target,
     };
+  }
+  /**
+   * 读回当前原理图的器件/标签/走线并审计。任何读命令缺失/失败返回 null（不伪造"通过"）。
+   */
+  async readSchematicReadability() {
+    const registered = new Set(this.bridge.listCommands().map((item) => item.id));
+    if (!registered.has('schematic.components')) return null;
+    const raw = unwrap(await this.bridge.execute('schematic.components')) || {};
+    const list = Array.isArray(raw) ? raw : (Array.isArray(raw.components) ? raw.components : []);
+    const pins = Array.isArray(raw) ? {} : (raw.pins || {});
+    const isLabel = (type) => ['netport', 'netflag', 'netlabel'].includes(String(type || '').toLowerCase());
+    const parts = list.filter((item) => !isLabel(item?.componentType) && String(item?.componentType || '').toLowerCase() !== 'sheet');
+    const labels = list.filter((item) => isLabel(item?.componentType)).map((item) => ({ net: item.net ?? item.name ?? '', x: item.x, y: item.y, rotation: item.rotation ?? 0 }));
+    const audit = auditSchematicReadability({ components: parts, pinsByComponent: pins, labels, options: { frame: SCHEMATIC_SHEET_FRAME } });
+    const findings = [...audit.findings];
+    if (registered.has('schematic.wires')) {
+      const wiresRaw = unwrap(await this.bridge.execute('schematic.wires'));
+      const wires = Array.isArray(wiresRaw) ? wiresRaw : (wiresRaw?.wires || []);
+      for (const [wireIndex, wire] of wires.entries()) {
+        const line = Array.isArray(wire?.line) ? wire.line : [];
+        for (let pointIndex = 0; pointIndex + 1 < line.length; pointIndex += 2) {
+          const x = Number(line[pointIndex]);
+          const y = Number(line[pointIndex + 1]);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+          if (x < SCHEMATIC_SHEET_FRAME.margin || y < SCHEMATIC_SHEET_FRAME.margin
+            || x > SCHEMATIC_SHEET_FRAME.width - SCHEMATIC_SHEET_FRAME.margin
+            || y > SCHEMATIC_SHEET_FRAME.height - SCHEMATIC_SHEET_FRAME.margin) {
+            findings.push({ severity: 'error', code: 'SCHEMATIC_LAYOUT_WIRE_OUTSIDE_FRAME', message: `走线 ${wireIndex} 端点 (${x},${y}) 在图框外`, ref: `wire${wireIndex}-${pointIndex}` });
+          }
+        }
+      }
+    }
+    return { findings, summary: { ...audit.summary, wireFindings: findings.filter((item) => item.code === 'SCHEMATIC_LAYOUT_WIRE_OUTSIDE_FRAME').length } };
   }
   cancel({ approvalToken }) { return this.approvals.revoke(approvalToken); }
   async probe(prefetched = {}) {
@@ -561,6 +618,14 @@ export class DesignManager {
       if (typeof source !== 'string' || !source.length) throw Object.assign(new Error('无法建立非空文档源码快照'), { code: 'SNAPSHOT_EMPTY' });
       execution.snapshot = { id: crypto.randomUUID(), digest: documentSourceDigest(source), size: source.length, source };
       event('snapshot', 'passed', { id: execution.snapshot.id, digest: execution.snapshot.digest, size: execution.snapshot.size });
+      let readabilityBaseline = null;
+      try {
+        readabilityBaseline = await this.readSchematicReadability();
+        execution.readability = readabilityBaseline ? { baseline: readabilityBaseline.summary } : { baseline: null, skipped: 'readability-unavailable' };
+        if (readabilityBaseline) event('readability-baseline', 'passed', readabilityBaseline.summary);
+      } catch (readError) {
+        event('readability-baseline', 'failed', { message: String(readError?.message || readError).slice(0, 160) });
+      }
       execution.state = 'executing';
       const componentPrimitiveIdsByOperationIndex = new Map();
       const realizedWireOperations = [];
@@ -637,6 +702,14 @@ export class DesignManager {
       const missingWireOperations = wireOperations.map((operation, index) => ({ operation, index })).filter(({ operation }) => !wireOperationMatches(operation, refreshedWires)).map(({ index }) => index);
       if (missingWireOperations.length) throw Object.assign(new Error(`回读缺少导线操作: ${missingWireOperations.join(',')}`), { code: 'READBACK_WIRE_GEOMETRY_MISSING' });
       event('readback', 'passed', { targetFingerprint: after.targetFingerprint, sourceDigest: documentSourceDigest(afterSource), verifiedPrimitiveIds: execution.createdPrimitiveIds, verifiedWireIds: uniqueWireIds.filter((primitiveId) => containsPrimitiveId(wireReadback, primitiveId)), verifiedWireOperations: wireOperations.length, verifiedNoConnectPins: execution.noConnectChecks.reduce((sum, item) => sum + item.pinNumbers.length, 0) });
+      // 可读性硬门禁（2026-11-11）：写入后回读图框/重叠/标签/走线；本次新增的硬违规 → 回滚。
+      if (readabilityBaseline) {
+        const afterReadability = await this.readSchematicReadability();
+        const newFindings = newReadabilityFindings(readabilityBaseline.findings, afterReadability?.findings || []);
+        execution.readability = { baseline: readabilityBaseline.summary, final: afterReadability?.summary ?? null, newFindings };
+        event('readability', newFindings.length ? 'failed' : 'passed', { newFindings: newFindings.slice(0, 20) });
+        if (newFindings.length) throw Object.assign(new Error(`原理图可读性门禁：本次写入新增 ${newFindings.length} 项图框/重叠/标签违规（已拒绝并回滚）`), { code: 'SCHEMATIC_READABILITY_BLOCKING', details: { newFindings: newFindings.slice(0, 50) } });
+      }
       execution.state = 'verifying';
       const drc = unwrap(await this.bridge.execute('schematic.drc'));
       if (!Array.isArray(drc)) throw Object.assign(new Error('官方原理图DRC返回结构未知'), { code: 'DRC_UNKNOWN_RESULT' });
