@@ -138,3 +138,17 @@
 - 布局依据链：[08-component-placement.md](../../knowledge/pcb/08-component-placement.md)
 - 既有布局证据体系：[placement-basis-k4-2026-10-22.md](placement-basis-k4-2026-10-22.md)
 - 已知缺口审计：[flow-gap-audit-2026-10-26.md](flow-gap-audit-2026-10-26.md)
+
+## 6. 2026-11-11 回归修复（真机反馈）
+
+> 现象：用户反馈"保存的原理图设计规则像没有了"，新画原理图仍重叠、器件落到/压到模板图框。
+
+- **规则没有丢**：知识库 392 条候选（含 141 条 rule），全部 `review.state=candidate`、approved=0；
+  KMA 因调度条件被"联网检索开关"连带关闭，自 2026-10-29 未再运行 → 候选不再增长，也从未审批成规则。
+- **主路径没接布局**：10-28 的布局算法只接在 `reviewed-netlist` 编译链路；"候选提案 → 画图"的
+  `selectProposalToPlan` 仍用固定栅格 `600+700n`，A4 图框仅 1170×825 → 必然越界/重叠；
+  `normalizePlan` 也只做结构校验。
+- **修复**：`schematic-layout.mjs` 增加 A4 图框常量与图框内装箱（越界/标题栏为 error）；
+  `proposal.mjs` 改走布局；`normalizePlan` 对越界/重叠计划 fail-closed；KMA 本地维护不再依赖联网开关。
+- 详细根因/证据/验证：`docs/agent/schematic-layout-regression-2026-11-11.md`。
+

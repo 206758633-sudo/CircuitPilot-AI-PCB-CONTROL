@@ -12,6 +12,7 @@
  */
 import crypto from 'node:crypto';
 import { normalizePlan } from './design.mjs';
+import { SCHEMATIC_SHEET_FRAME, layoutSchematicComponents } from './schematic-layout.mjs';
 
 export const PROPOSAL_API_VERSION = 1;
 export const MAX_PROPOSAL_QUERIES = 8;
@@ -180,6 +181,21 @@ export function buildPartProposal({ requirement = '', title = '', queries = [], 
   };
 }
 
+/** 布局用的临时位号前缀（只影响尺寸估计，不进入 EDA/计划）。 */
+function refPrefixOf(candidate) {
+  const label = `${candidate?.footprintName ?? ''} ${candidate?.name ?? ''}`.toUpperCase();
+  if (/LED|WS28/.test(label)) return 'D';
+  if (/^(?:C|CAP)|CAPACITOR|^CL\d|^C\d{3,}/.test(label)) return 'C';
+  if (/^(?:R|RES)|RESISTOR|^RC\d|^R\d{3,}/.test(label)) return 'R';
+  return 'U';
+}
+
+/** 布局尺寸估计用引脚数：IC/连接器给 8，无源/两脚件给 2。 */
+function pinCountOf(candidate) {
+  const footprint = String(candidate?.footprintName ?? '');
+  return /SOT|QFN|QFP|BGA|SOIC|TSSOP|IC|CONN|HEADER|USB/i.test(footprint) ? 8 : 2;
+}
+
 /**
  * 用户勾选 → 落 plan。
  * 产出的是既有 `reviewed-netlist` 计划（元件创建操作），可以直接送 `/api/design/plan → approve → execute`。
@@ -213,31 +229,47 @@ export function selectProposalToPlan({ proposal = null, selectedIds = [], title 
   // reviewed-netlist 要求 nets 非空：网络名由用户/上游给出，本模块不替用户发明网络。
   if (!plannedNets.length) missing.push('nets:需要至少一个网络名（本模块不臆造网络）');
 
-  const operations = [];
+  // 先展开"勾选项 × 数量"，再用确定性布局算落位（ref 只用于尺寸估计，不写 EDA；EDA 会分配真实位号）。
+  const copies = [];
   let slot = 0;
   for (const candidate of selected) {
     for (let copy = 1; copy <= candidate.quantity; copy += 1) {
-      operations.push({
-        type: 'component.create',
-        stage: 'placement',
-        args: {
-          component: { libraryUuid: candidate.libraryUuid, uuid: candidate.uuid },
-          // 只给一个确定性的栅格位置，避免"随手摆"；布局优化由布局页/后续流程负责。
-          x: 600 + (slot % 6) * 700,
-          y: 600 + Math.floor(slot / 6) * 700,
-          subPartName: '',
-          rotation: 0,
-          mirror: false,
-          addIntoBom: true,
-          addIntoPcb: true,
-        },
-        // 留痕：这一操作来自哪一条勾选的第几颗，便于审计"用户勾了什么、勾了几颗"
-        source: { candidateId: candidate.candidateId, lcscId: candidate.lcscId, name: candidate.name, copy, quantity: candidate.quantity },
-      });
+      copies.push({ candidate, copy, ref: `${refPrefixOf(candidate)}${slot + 1}` });
       slot += 1;
     }
   }
-
+  const layout = layoutSchematicComponents({
+    components: copies.map((item) => ({ ref: item.ref, pinCount: pinCountOf(item.candidate) })),
+    nets: [],
+    options: { frame: SCHEMATIC_SHEET_FRAME },
+  });
+  const placementByRef = new Map(layout.placements.map((item) => [item.ref, item]));
+  // 图框/标题栏越界是 error：宁可 planning.ready=false，也不能把器件摆到模板图框上。
+  for (const finding of layout.findings) {
+    if (finding.severity !== 'error') continue;
+    missing.push(`layout:${finding.code}:${finding.ref ?? finding.blockId ?? ''}`.slice(0, 200));
+  }
+  const operations = [];
+  for (const item of copies) {
+    const placement = placementByRef.get(item.ref);
+    if (!placement) { missing.push(`layout:no-placement:${item.ref}`); continue; }
+    operations.push({
+      type: 'component.create',
+      stage: 'placement',
+      args: {
+        component: { libraryUuid: item.candidate.libraryUuid, uuid: item.candidate.uuid },
+        // 2026-11-11：固定栅格 600+700n 会摆到 A4 图框(1170×825)外；改为图框内确定性布局。
+        x: placement.x,
+        y: placement.y,
+        subPartName: '',
+        rotation: 0,
+        mirror: false,
+        addIntoBom: true,
+        addIntoPcb: true,
+      },
+      source: { candidateId: item.candidate.candidateId, lcscId: item.candidate.lcscId, name: item.candidate.name, copy: item.copy, quantity: item.candidate.quantity },
+    });
+  }
   if (operations.length && !allHaveLibraryIdentity(selected)) missing.push('selection:候选项缺少库身份（libraryUuid/uuid）');
 
   const normalized = normalizePlan({

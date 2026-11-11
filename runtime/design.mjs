@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createApprovalService } from './approval-service.mjs';
+import { SCHEMATIC_SHEET_FRAME, auditSchematicReadability } from './schematic-layout.mjs';
 
 export const DESIGN_API_VERSION = 1;
 const REQUIRED_BLOCKS = ['mcu', 'power', 'led', 'button'];
@@ -88,6 +89,41 @@ export function normalizeTargetBinding({ projectId = null, documentUuid = null }
   return { projectId: clean(projectId, 'projectId'), documentUuid: clean(documentUuid, 'documentUuid') };
 }
 
+/**
+ * 计划里的元件坐标必须落在图纸可用区域且互不重叠（2026-11-11 真机缺陷：
+ * 固定栅格/AI 给点把元件摆到模板图框外或叠在一起，评审读不清）。
+ * 只对显式带 x/y 的 component.create 做检查；缺坐标交给执行期回读，不猜。
+ */
+function schematicLayoutMissing(plan) {
+  const components = [];
+  for (const [index, operation] of (Array.isArray(plan?.operations) ? plan.operations : []).entries()) {
+    if (operation?.type !== 'component.create') continue;
+    const x = Number(operation?.args?.x);
+    const y = Number(operation?.args?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    components.push({ ref: `R${index + 1}`, x, y, pinCount: 2 });
+  }
+  if (!components.length) return [];
+  const missing = [];
+  // 图框检查用点 + 保守无源件尺寸（计划操作没有真实符号尺寸；按 top-left 语义保守估计），
+  // 不拿"估算中心框"误杀合法坐标（真机 component.create 的 x/y 语义未逐版本验证）。
+  const frame = SCHEMATIC_SHEET_FRAME;
+  const margin = 10;
+  for (const component of components) {
+    const right = component.x + 80;
+    const bottom = component.y + 60;
+    if (component.x < margin || component.y < margin || right > frame.width - margin || bottom > frame.height - margin) {
+      missing.push(`layout:SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME:${component.ref}`.slice(0, 200));
+    }
+  }
+  // 重叠检查：用放大的图框只取 COMPONENT_OVERLAP，避开中心/左上语义差导致的图框误报。
+  const audit = auditSchematicReadability({ components, options: { frame: { width: 1_000_000, height: 1_000_000, margin: 0, titleBlock: null } } });
+  for (const finding of audit.findings.filter((item) => item.code === 'SCHEMATIC_LAYOUT_COMPONENT_OVERLAP').slice(0, 20)) {
+    missing.push(`layout:${finding.code}:${finding.first ?? ''}&${finding.second ?? ''}`.slice(0, 200));
+  }
+  return missing;
+}
+
 export function normalizePlan(input = {}) {
   if (input.kind === 'reviewed-netlist') {
     const plan = attachPlanLineage({ apiVersion: DESIGN_API_VERSION, kind: 'reviewed-netlist', title: String(input.title || '已审核项目网络表'), nets: Array.isArray(input.nets) ? input.nets.map(String) : [], operations: Array.isArray(input.operations) ? input.operations : [], assumptions: Array.isArray(input.assumptions) ? input.assumptions.map(String) : [] }, input);
@@ -98,6 +134,7 @@ export function normalizePlan(input = {}) {
       if (!['component.create','net.connect'].includes(operation?.type)) missing.push(`unsupported-operation:${operation?.type}`);
       if (operation?.type === 'net.connect' && (!operation.args?.net || !Array.isArray(operation.args?.endpoints) || operation.args.endpoints.length < 2)) missing.push(`net.connect.${index}`);
     }
+    missing.push(...schematicLayoutMissing(plan));
     return { plan, missing, ready: missing.length === 0, planHash: digest(plan) };
   }
   const blocks = Object.fromEntries(REQUIRED_BLOCKS.map((id) => [id, input.blocks?.[id] || null]));
@@ -125,6 +162,7 @@ export function normalizePlan(input = {}) {
   if (!plan.operations.length) missing.push('operations');
   const forbidden = plan.operations.find((item) => !['component.create', 'pin.noConnect', 'netFlag.create', 'wire.create'].includes(item?.type));
   if (forbidden) missing.push(`unsupported-operation:${forbidden.type}`);
+  missing.push(...schematicLayoutMissing(plan));
   return { plan, missing, ready: missing.length === 0, planHash: digest(plan) };
 }
 

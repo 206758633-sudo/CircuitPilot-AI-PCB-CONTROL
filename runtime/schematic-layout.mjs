@@ -46,6 +46,10 @@ export const SCHEMATIC_LAYOUT_CODES = {
   LABEL_LABEL_OVERLAP: 'SCHEMATIC_LAYOUT_LABEL_LABEL_OVERLAP',
   LABEL_ON_COMPONENT: 'SCHEMATIC_LAYOUT_LABEL_ON_COMPONENT',
   COMPONENT_OVERLAP: 'SCHEMATIC_LAYOUT_COMPONENT_OVERLAP',
+  // 2026-11-11：图框/标题栏约束（真机 A4 图纸 1170×825，模板图框不是可画区域）
+  COMPONENT_OUTSIDE_FRAME: 'SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME',
+  COMPONENT_ON_TITLE_BLOCK: 'SCHEMATIC_LAYOUT_COMPONENT_ON_TITLE_BLOCK',
+  SHEET_CAPACITY_EXCEEDED: 'SCHEMATIC_LAYOUT_SHEET_CAPACITY_EXCEEDED',
 };
 
 /** 原理图格点：真机密集引脚列实测间距 10 个单位，落位/尺寸都对齐到它。 */
@@ -68,8 +72,42 @@ const SYMBOL_PIN_PADDING = 4 * PIN_PITCH;
 /** 网络标签 AABB 估计：文本宽 ≈ 字符数 × 字宽，高 ≈ 字高，另加内边距。 */
 const DEFAULT_LABEL_OPTIONS = Object.freeze({ charWidth: 8, textHeight: 14, padding: 4, minLength: 20, margin: 10 });
 
-/** 布局默认参数：原点 120/120、列间距 40、行间距 40、带间距 60、带最大宽 1200，全部是格点倍数。 */
-const DEFAULT_LAYOUT_OPTIONS = Object.freeze({ originX: 120, originY: 120, grid: GRID, gapX: 40, gapY: 40, bandGap: 60, maxBandWidth: 1200 });
+/** 布局默认参数：原点/间距由图纸可用区域推导（见 SCHEMATIC_SHEET_FRAME），全部是格点倍数。 */
+const DEFAULT_LAYOUT_OPTIONS = Object.freeze({ originX: 30, originY: 30, grid: GRID, gapX: 40, gapY: 40, bandGap: 60, maxBandWidth: 1110 });
+
+/**
+ * 立创EDA 原理图图框默认值（真机 2026-11-11 从 `schematic.catalog.titleBlockData` 读回）：
+ * A4、Width=1170、Height=825、Border=1、Blade Width=10、X/Y Region=6×4、Title Block Position=3。
+ * 这里把"图框内可画区域"（扣掉边距与右下标题栏）作为布局硬边界——
+ * 模板图框不是可画区域，元件/标签落在图框上会遮挡标题栏/边框，评审读不清。
+ * 允许调用方用 options.frame 覆盖（不同模板/纸张）。
+ */
+export const SCHEMATIC_SHEET_FRAME = Object.freeze({
+  width: 1170,
+  height: 825,
+  margin: 30,
+  titleBlock: Object.freeze({ width: 240, height: 130, position: 'bottom-right' }),
+});
+
+/** 归一化图框：输出 usable 区域 + 标题栏矩形（越界/与标题栏重叠都要报 error）。 */
+export function normalizeSchematicFrame(input) {
+  const source = input && typeof input === 'object' ? input : SCHEMATIC_SHEET_FRAME;
+  const width = positive(source.width, SCHEMATIC_SHEET_FRAME.width);
+  const height = positive(source.height, SCHEMATIC_SHEET_FRAME.height);
+  const margin = nonNegative(source.margin, SCHEMATIC_SHEET_FRAME.margin);
+  const tbSource = source.titleBlock && typeof source.titleBlock === 'object' ? source.titleBlock : SCHEMATIC_SHEET_FRAME.titleBlock;
+  const tbWidth = nonNegative(tbSource.width, SCHEMATIC_SHEET_FRAME.titleBlock.width);
+  const tbHeight = nonNegative(tbSource.height, SCHEMATIC_SHEET_FRAME.titleBlock.height);
+  const position = tbSource.position === 'bottom-left' ? 'bottom-left' : 'bottom-right';
+  const usable = { xMin: margin, yMin: margin, xMax: width - margin, yMax: height - margin };
+  const titleBlock = tbWidth > 0 && tbHeight > 0
+    ? (position === 'bottom-left'
+      ? { xMin: usable.xMin, yMin: usable.yMax - tbHeight, xMax: usable.xMin + tbWidth, yMax: usable.yMax }
+      : { xMin: usable.xMax - tbWidth, yMin: usable.yMax - tbHeight, xMax: usable.xMax, yMax: usable.yMax })
+    : null;
+  return { width, height, margin, usable, titleBlock, position };
+}
+
 
 /** 小于这个面积（单位²）的接触算"贴边"，不算重叠——避免格点取整带来的浮点噪声。 */
 const OVERLAP_EPSILON = 1;
@@ -305,71 +343,105 @@ export function layoutSchematicComponents({ components = [], nets = [], options 
 
   const placements = [];
   const blocks = [];
-  let cursorY = finiteNumber(config.originY) ?? DEFAULT_LAYOUT_OPTIONS.originY;
-  const originX = finiteNumber(config.originX) ?? DEFAULT_LAYOUT_OPTIONS.originX;
+  const frame = normalizeSchematicFrame(config.frame);
+  const usable = frame.usable;
+  const usableWidth = Math.max(grid, usable.xMax - usable.xMin);
+  const usableHeight = Math.max(grid, usable.yMax - usable.yMin);
   const gapX = nonNegative(config.gapX, DEFAULT_LAYOUT_OPTIONS.gapX);
   const gapY = nonNegative(config.gapY, DEFAULT_LAYOUT_OPTIONS.gapY);
   const bandGap = nonNegative(config.bandGap, DEFAULT_LAYOUT_OPTIONS.bandGap);
-  const maxBandWidth = positive(config.maxBandWidth, DEFAULT_LAYOUT_OPTIONS.maxBandWidth);
 
+  // 先按"图纸可用宽度"把每个簇排成局部坐标（0,0 起），再按列/行装箱到图框内。
+  const packed = [];
   for (const [blockIndex, blockRefs] of blockSpecs.entries()) {
     const blockId = `block-${blockIndex + 1}`;
-    const startIndex = placements.length;
-    let cursorX = originX;
-    let rowY = cursorY;
+    const local = [];
+    let cursorX = 0;
+    let rowY = 0;
     let rowHeight = 0;
     for (const ref of blockRefs) {
       const { width, height } = estimateSymbolSize({ ref, pinCount: pinCountByRef.get(ref) });
       const alignedWidth = alignUp(width, grid);
       const alignedHeight = alignUp(height, grid);
-      if (cursorX > originX && cursorX + alignedWidth > originX + maxBandWidth) {
-        cursorX = originX;
+      if (cursorX > 0 && cursorX + alignedWidth > usableWidth) {
+        cursorX = 0;
         rowY += rowHeight + gapY;
         rowHeight = 0;
       }
-      if (alignedWidth > maxBandWidth) {
-        add('warning', SCHEMATIC_LAYOUT_CODES.COMPONENT_OVERSIZE, `元件 ${ref} 估计宽度 ${alignedWidth} 超过单带宽度 ${maxBandWidth}，单独占一行`, { ref, blockId });
+      if (alignedWidth > usableWidth) {
+        add('warning', SCHEMATIC_LAYOUT_CODES.COMPONENT_OVERSIZE, `元件 ${ref} 估计宽度 ${alignedWidth} 超过单带宽度 ${usableWidth}，单独占一行`, { ref, blockId });
       }
-      placements.push({
-        ref,
-        // 落位坐标 = 元件中心，对齐到格点；尺寸由上方估计（格点倍数），包围盒因此不重叠
-        x: roundGrid(cursorX + alignedWidth / 2, grid),
-        y: roundGrid(rowY + alignedHeight / 2, grid),
-        width: alignedWidth,
-        height: alignedHeight,
-        pinCount: pinCountByRef.get(ref),
-        blockId,
-        blockIndex,
-      });
+      local.push({ ref, x: cursorX + alignedWidth / 2, y: rowY + alignedHeight / 2, width: alignedWidth, height: alignedHeight, pinCount: pinCountByRef.get(ref), blockId, blockIndex });
       cursorX += alignedWidth + gapX;
       rowHeight = Math.max(rowHeight, alignedHeight);
     }
-    const blockPlacements = placements.slice(startIndex);
-    const blockRefSet = new Set(blockRefs);
-    const blockNets = memberNets.filter((net) => net.refs.some((ref) => blockRefSet.has(ref)));
-    // 代表网络：成员最多的网络（平局取字典序最小），供上层给"功能块"起名/展示
-    const representativeNet = blockNets
-      .map((net) => ({ name: net.name, count: net.refs.length }))
-      .sort((a, b) => (b.count - a.count) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))[0] ?? null;
-    const boxes = blockPlacements.map((placement) => boxOfCenter(placement));
+    const boxes = local.map((item) => boxOfCenter(item));
     const bbox = {
       xMin: Math.min(...boxes.map((box) => box.xMin)),
       yMin: Math.min(...boxes.map((box) => box.yMin)),
       xMax: Math.max(...boxes.map((box) => box.xMax)),
       yMax: Math.max(...boxes.map((box) => box.yMax)),
     };
-    blocks.push({
-      id: blockId,
-      index: blockIndex,
-      refs: [...blockRefs],
-      nets: sortStrings(new Set(blockNets.map((net) => net.name))),
-      representativeNet: representativeNet?.name ?? null,
-      bbox,
-      width: bbox.xMax - bbox.xMin,
-      height: bbox.yMax - bbox.yMin,
-      pinCount: blockPlacements.reduce((sum, placement) => sum + placement.pinCount, 0),
+    const blockNets = memberNets.filter((net) => net.refs.some((ref) => new Set(blockRefs).has(ref)));
+    const representativeNet = blockNets
+      .map((net) => ({ name: net.name, count: net.refs.length }))
+      .sort((a, b) => (b.count - a.count) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))[0] ?? null;
+    packed.push({ blockId, blockIndex, blockRefs, local, bbox, width: bbox.xMax - bbox.xMin, height: bbox.yMax - bbox.yMin, nets: sortStrings(new Set(blockNets.map((net) => net.name))), representativeNet: representativeNet?.name ?? null, pinCount: local.reduce((sum, item) => sum + item.pinCount, 0) });
+  }
+
+  // 装箱：按列优先（列内自上而下），任何越出图框/压标题栏都记 error，绝不静默摆到图框上。
+  let columnX = usable.xMin;
+  let columnWidth = 0;
+  let rowY = usable.yMin;
+  for (const block of packed) {
+    if (rowY + block.height > usable.yMax && rowY > usable.yMin) {
+      columnX += columnWidth + bandGap;
+      columnWidth = 0;
+      rowY = usable.yMin;
+    }
+    if (columnX + block.width > usable.xMax) {
+      add('error', SCHEMATIC_LAYOUT_CODES.SHEET_CAPACITY_EXCEEDED, `图纸可用区域放不下功能块 ${block.blockId}（需要更多页或更大的图纸模板）`, { blockId: block.blockId, width: block.width, height: block.height });
+      columnX = usable.xMin;
+      rowY = usable.yMin;
+    }
+    const offsetX = columnX - block.bbox.xMin;
+    const offsetY = rowY - block.bbox.yMin;
+    const blockPlacements = block.local.map((item) => {
+      const placement = { ...item, x: roundGrid(item.x + offsetX, grid), y: roundGrid(item.y + offsetY, grid), blockId: block.blockId, blockIndex: block.blockIndex };
+      placements.push(placement);
+      return placement;
     });
-    cursorY = rowY + rowHeight + bandGap;
+    const shiftedBoxes = blockPlacements.map((item) => boxOfCenter(item));
+    const shiftedBbox = {
+      xMin: Math.min(...shiftedBoxes.map((box) => box.xMin)),
+      yMin: Math.min(...shiftedBoxes.map((box) => box.yMin)),
+      xMax: Math.max(...shiftedBoxes.map((box) => box.xMax)),
+      yMax: Math.max(...shiftedBoxes.map((box) => box.yMax)),
+    };
+    blocks.push({
+      id: block.blockId,
+      index: block.blockIndex,
+      refs: [...block.blockRefs],
+      nets: block.nets,
+      representativeNet: block.representativeNet,
+      bbox: shiftedBbox,
+      width: shiftedBbox.xMax - shiftedBbox.xMin,
+      height: shiftedBbox.yMax - shiftedBbox.yMin,
+      pinCount: block.pinCount,
+    });
+    columnWidth = Math.max(columnWidth, block.width);
+    rowY += block.height + bandGap;
+  }
+
+  // 图框审计：逐个元件框检查是否越界/压标题栏（error，不降级成 warning）。
+  for (const placement of placements) {
+    const box = boxOfCenter(placement);
+    if (box.xMin < usable.xMin - OVERLAP_EPSILON || box.yMin < usable.yMin - OVERLAP_EPSILON || box.xMax > usable.xMax + OVERLAP_EPSILON || box.yMax > usable.yMax + OVERLAP_EPSILON) {
+      add('error', SCHEMATIC_LAYOUT_CODES.COMPONENT_OUTSIDE_FRAME, `元件 ${placement.ref} 落在图纸可用区域外（模板图框/边距内不可放器件）`, { ref: placement.ref, blockId: placement.blockId, box });
+    }
+    if (frame.titleBlock && overlapArea(box, frame.titleBlock) > OVERLAP_EPSILON) {
+      add('error', SCHEMATIC_LAYOUT_CODES.COMPONENT_ON_TITLE_BLOCK, `元件 ${placement.ref} 压到图纸标题栏/模板区域`, { ref: placement.ref, blockId: placement.blockId });
+    }
   }
 
   return { placements, blocks, findings };
@@ -430,6 +502,8 @@ export function planNetPortLabels({ operations = [], components = [], pinsByComp
   const findings = [];
   const add = (severity, code, message, extra = {}) => findings.push({ severity, code, message, ...extra });
   const labelOptions = options?.label || options || {};
+  const frame = normalizeSchematicFrame(options?.frame);
+  const usable = frame.usable;
   const merged = { ...DEFAULT_LABEL_OPTIONS, ...labelOptions };
   const margin = nonNegative(merged.margin, DEFAULT_LABEL_OPTIONS.margin);
   const componentList = Array.isArray(components) ? components : (components?.components || []);
@@ -588,8 +662,10 @@ export function planNetPortLabels({ operations = [], components = [], pinsByComp
  */
 export function auditSchematicReadability({ components = [], pinsByComponent = {}, labels = [], options = {} } = {}) {
   const findings = [];
-  const add = (code, message, extra = {}) => findings.push({ severity: 'warning', code, message, ...extra });
+  const add = (code, message, extra = {}, severity = 'warning') => findings.push({ severity, code, message, ...extra });
   const labelOptions = options?.label || options || {};
+  const frame = normalizeSchematicFrame(options?.frame);
+  const usable = frame.usable;
   const componentList = Array.isArray(components) ? components : (components?.components || []);
   const pinsIndex = pinsByComponent && typeof pinsByComponent === 'object' ? pinsByComponent : {};
   const boxes = [];
@@ -608,6 +684,16 @@ export function auditSchematicReadability({ components = [], pinsByComponent = {
     const width = positive(component?.width, estimated.width);
     const height = positive(component?.height, estimated.height);
     boxes.push({ id: id === null || id === undefined ? null : String(id), ref, box: boxOfCenter({ x, y, width, height }), width, height });
+  }
+
+  // 0) 图框/标题栏（2026-11-11 真机缺陷：元件摆到模板图框上/图纸外，评审读不清）
+  for (const item of boxes) {
+    if (item.box.xMin < usable.xMin - OVERLAP_EPSILON || item.box.yMin < usable.yMin - OVERLAP_EPSILON || item.box.xMax > usable.xMax + OVERLAP_EPSILON || item.box.yMax > usable.yMax + OVERLAP_EPSILON) {
+      add(SCHEMATIC_LAYOUT_CODES.COMPONENT_OUTSIDE_FRAME, `元件 ${item.ref || item.id || '?'} 落在图纸可用区域外（图框/边距内不可放器件）`, { ref: item.ref, box: item.box }, 'error');
+    }
+    if (frame.titleBlock && overlapArea(item.box, frame.titleBlock) > OVERLAP_EPSILON) {
+      add(SCHEMATIC_LAYOUT_CODES.COMPONENT_ON_TITLE_BLOCK, `元件 ${item.ref || item.id || '?'} 压到图纸标题栏/模板区域`, { ref: item.ref }, 'error');
+    }
   }
 
   // 1) 元件包围盒互叠（R2：元件不得压叠）

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { attachPriceEvidence, buildPartProposal, candidateIdOf, normalizeRequirement, selectProposalToPlan } from '../proposal.mjs';
 import { normalizePlan } from '../design.mjs';
+import { SCHEMATIC_SHEET_FRAME } from '../schematic-layout.mjs';
 
 const LIB = '0819f05c4eef4c71ace90d822a990e87';
 const ws2812 = { name: 'WS2812B-2020-V6', uuid: 'a6a2da6559dc4256a7a64ffe75e7653e', libraryUuid: LIB, lcscId: 'C52917434', footprintName: 'LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P' };
@@ -160,6 +161,12 @@ test('selectProposalToPlan：同一型号重复勾选 = 用量（真板补光 5 
     .filter((operation) => operation.args.component.uuid === ws2812.uuid)
     .map((operation) => `${operation.args.x},${operation.args.y}`));
   assert.equal(positions.size, 5); // 5 颗必须落在互不相同的位置
+  // 2026-11-11 真机缺陷回归：所有落点必须在 A4 图框可用区域内（旧 600+700n 栅格会摆到图框外/模板上）。
+  for (const operation of result.plan.operations) {
+    assert.ok(operation.args.x >= 10 && operation.args.y >= 10, '落点不能贴边/在框外');
+    assert.ok(operation.args.x + 80 <= SCHEMATIC_SHEET_FRAME.width - 10, '元件宽度不能越出 A4 图框');
+    assert.ok(operation.args.y + 60 <= SCHEMATIC_SHEET_FRAME.height - 10, '元件高度不能越出 A4 图框');
+  }
   assert.equal(normalizePlan(result.plan).ready, true);
 });
 

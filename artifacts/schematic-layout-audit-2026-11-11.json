@@ -1,0 +1,184 @@
+{
+  "at": "2026-11-11T08:56:56.764Z",
+  "source": {
+    "command": "schematic.components",
+    "page": "P1-功率通路 (foreground read-only switch)",
+    "frame": {
+      "paper": "1170x825",
+      "usable": {
+        "xMin": 30,
+        "yMin": 30,
+        "xMax": 1140,
+        "yMax": 795
+      },
+      "titleBlock": {
+        "xMin": 900,
+        "yMin": 665,
+        "xMax": 1140,
+        "yMax": 795
+      }
+    }
+  },
+  "componentCount": 45,
+  "summary": {
+    "components": 16,
+    "skippedComponents": 0,
+    "labels": 0,
+    "componentOverlaps": 15,
+    "labelOnComponent": 0,
+    "labelLabelOverlaps": 0,
+    "maxOverlapArea": 2250,
+    "overlapCount": 15,
+    "componentBoxArea": 90000
+  },
+  "findings": [
+    {
+      "severity": "error",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME",
+      "message": "元件 U7 落在图纸可用区域外（图框/边距内不可放器件）",
+      "ref": "U7",
+      "first": null,
+      "second": null,
+      "overlapArea": null
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 U6 与 L1 的包围盒重叠 150 单位²",
+      "ref": null,
+      "first": "U6",
+      "second": "L1",
+      "overlapArea": 150
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 U6 与 D2 的包围盒重叠 675 单位²",
+      "ref": null,
+      "first": "U6",
+      "second": "D2",
+      "overlapArea": 675
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 U6 与 D3 的包围盒重叠 600 单位²",
+      "ref": null,
+      "first": "U6",
+      "second": "D3",
+      "overlapArea": 600
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 U6 与 C_3V3 的包围盒重叠 1200 单位²",
+      "ref": null,
+      "first": "U6",
+      "second": "C_3V3",
+      "overlapArea": 1200
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 U6 与 C_5V 的包围盒重叠 1200 单位²",
+      "ref": null,
+      "first": "U6",
+      "second": "C_5V",
+      "overlapArea": 1200
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 U6 与 C_VAUX 的包围盒重叠 600 单位²",
+      "ref": null,
+      "first": "U6",
+      "second": "C_VAUX",
+      "overlapArea": 600
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 L1 与 C_5V 的包围盒重叠 400 单位²",
+      "ref": null,
+      "first": "L1",
+      "second": "C_5V",
+      "overlapArea": 400
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 D2 与 C_3V3 的包围盒重叠 1000 单位²",
+      "ref": null,
+      "first": "D2",
+      "second": "C_3V3",
+      "overlapArea": 1000
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 D3 与 C_5V 的包围盒重叠 1000 单位²",
+      "ref": null,
+      "first": "D3",
+      "second": "C_5V",
+      "overlapArea": 1000
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 C_3V3 与 C_VAUX 的包围盒重叠 1250 单位²",
+      "ref": null,
+      "first": "C_3V3",
+      "second": "C_VAUX",
+      "overlapArea": 1250
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 R_V48A 与 J1 的包围盒重叠 450 单位²",
+      "ref": null,
+      "first": "R_V48A",
+      "second": "J1",
+      "overlapArea": 450
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 R_V48B 与 J1 的包围盒重叠 450 单位²",
+      "ref": null,
+      "first": "R_V48B",
+      "second": "J1",
+      "overlapArea": 450
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 R_V24A 与 J1 的包围盒重叠 450 单位²",
+      "ref": null,
+      "first": "R_V24A",
+      "second": "J1",
+      "overlapArea": 450
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 R_V24B 与 J1 的包围盒重叠 450 单位²",
+      "ref": null,
+      "first": "R_V24B",
+      "second": "J1",
+      "overlapArea": 450
+    },
+    {
+      "severity": "warning",
+      "code": "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP",
+      "message": "元件 R_NTC 与 J1 的包围盒重叠 2250 单位²",
+      "ref": null,
+      "first": "R_NTC",
+      "second": "J1",
+      "overlapArea": 2250
+    }
+  ],
+  "counts": {
+    "SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME": 1,
+    "SCHEMATIC_LAYOUT_COMPONENT_OVERLAP": 15
+  }
+}

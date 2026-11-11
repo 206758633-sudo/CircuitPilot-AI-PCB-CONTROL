@@ -852,6 +852,9 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
     stateFile: join(stateDir, 'knowledge-agent.json'),
     intervalMs: Math.max(60 * 60 * 1000, (Number.isFinite(knowledgeIntervalHours) ? knowledgeIntervalHours : 24) * 60 * 60 * 1000),
     initialDelayMs: Math.max(60 * 1000, (Number.isFinite(knowledgeInitialMinutes) ? knowledgeInitialMinutes : 2) * 60 * 1000),
+    // 联网关闭时仍跑 badcase 采集 + 维护（纯本地、不联网）——否则经验永远不会沉淀；
+    // 只有 web 任务跟随联网开关。
+    tasks: knowledgeWebEnabled ? ['badcases', 'web', 'maintain'] : ['badcases', 'maintain'],
   });
   // W5-01：复盘学习 Agent（RLA）。项目收尾（交付归档/人工触发）时把"事实 + 经验"沉淀成知识候选，
   // 之后仍由 KMA 维护（去重/冲突/审核队列）与人工审核；RLA 自己绝不放行任何知识。
@@ -876,11 +879,13 @@ export function createRuntimeServer({ keychain = createKeychain(), bridge = crea
   let knowledgeSchedulerRunning = false;
   const applyResearchSchedule = async (config) => {
     if (knowledgeAgentEnv === 'off') return;
-    const shouldRun = knowledgeAgentEnv === 'on' || (config?.enabled === true && knowledgeWebEnabled);
+    // 2026-11-11 修复：KMA 的 badcase 采集/维护是本地能力，不应被“联网检索开关”连带关闭。
+    // 默认运行（除非显式 off）；联网抓取仍只在 knowledgeWebEnabled 时进入 tasks。
+    const shouldRun = knowledgeAgentEnv !== 'off';
     if (shouldRun && !knowledgeSchedulerRunning) {
       const schedulerStatus = knowledgeScheduler.start();
       knowledgeSchedulerRunning = true;
-      logger.info('Knowledge', 'KMA scheduler started', { intervalMs: schedulerStatus.intervalMs, nextRunAt: schedulerStatus.nextRunAt, source: knowledgeAgentEnv === 'on' ? 'env' : 'research-config' });
+      logger.info('Knowledge', 'KMA scheduler started', { intervalMs: schedulerStatus.intervalMs, nextRunAt: schedulerStatus.nextRunAt, source: knowledgeAgentEnv === 'on' ? 'env' : 'maintenance', web: knowledgeWebEnabled });
     } else if (!shouldRun && knowledgeSchedulerRunning) {
       knowledgeScheduler.stop();
       knowledgeSchedulerRunning = false;

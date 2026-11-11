@@ -49,6 +49,19 @@ test('scheduler：start 安排首轮；到点执行并写入状态/历史，再�
   assert.equal(JSON.parse(files.get('/state/knowledge-agent.json')).history.length, 1);
 });
 
+test('scheduler：可配置默认 tasks —— 联网关闭时只跑 badcases+maintain（仍本地沉淀经验）', async () => {
+  const timers = [];
+  const fakeTimers = { setTimeout: (fn, ms) => { const handle = { fn, ms }; timers.push(handle); return handle; }, clearTimeout: () => {} };
+  const manager = managerStub();
+  const scheduler = createKnowledgeScheduler({ manager, stateFile: null, timers: fakeTimers, fileIo: memoryFs().io, initialDelayMs: 60000, tasks: ['badcases', 'maintain'] });
+  scheduler.start();
+  await timers[0].fn();
+  assert.deepEqual(manager.calls[0].tasks, ['badcases', 'maintain']);
+  const status = scheduler.status();
+  assert.ok(status.lastResult.badcases, '本地维护必须仍产出 badcases 摘要');
+  assert.equal(status.lastResult.reason, 'schedule');
+});
+
 test('scheduler：running 时拒绝并发；stop 清理定时器；间隔过小拒绝', async () => {
   let release;
   const slowManager = { runCycle: () => new Promise((resolve) => { release = () => resolve({ ok: true, badcases: { created: 0 }, web: { created: 0 }, maintenance: { pendingReview: 0 }, startedAt: null, finishedAt: null, tasks: [] }); }) };

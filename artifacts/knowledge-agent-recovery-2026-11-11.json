@@ -1,0 +1,43 @@
+{
+  "at": "2026-11-11T09:00:35.394Z",
+  "source": "knowledge-agent.json (live, after app restart with 2026-11-11 fix)",
+  "before": {
+    "lastRunAt": "2026-10-29T02:16:51.548Z",
+    "nextRunAt": "2026-10-30T02:16:51.549Z"
+  },
+  "after": {
+    "lastRunAt": "2026-11-11T09:00:07.467Z",
+    "nextRunAt": "2026-11-12T09:00:07.467Z",
+    "lastResult": {
+      "reason": "schedule",
+      "ok": true,
+      "badcases": {
+        "created": 0,
+        "duplicates": 0,
+        "candidates": 0
+      },
+      "maintenance": {
+        "pendingReview": 392
+      }
+    }
+  },
+  "historyTail": [
+    {
+      "at": "2026-10-29T02:16:51.548Z",
+      "reason": "schedule",
+      "ok": true,
+      "badcases": 0,
+      "web": 0,
+      "pendingReview": 392
+    },
+    {
+      "at": "2026-11-11T09:00:07.467Z",
+      "reason": "schedule",
+      "ok": true,
+      "badcases": 0,
+      "web": 0,
+      "pendingReview": 392
+    }
+  ],
+  "note": "修复前 KMA 被 research-config/web 开关连带关闭；修复后默认运行本地 badcase 采集+维护（web 任务仍受联网开关控制），但仍只产 candidate，审批仍人工。"
+}

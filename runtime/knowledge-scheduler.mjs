@@ -22,6 +22,7 @@ export function createKnowledgeScheduler({
   stateFile = null,
   intervalMs = DEFAULT_INTERVAL_MS,
   initialDelayMs = DEFAULT_INITIAL_DELAY_MS,
+  tasks: defaultTasks = ['badcases', 'web', 'maintain'],
   now = () => new Date(),
   timers = { setTimeout, clearTimeout },
   fileIo = { readFileSync, writeFileSync, mkdirSync, existsSync },
@@ -82,7 +83,7 @@ export function createKnowledgeScheduler({
     persist();
   };
 
-  const runNow = async ({ reason = 'manual', tasks = ['badcases', 'web', 'maintain'] } = {}) => {
+  const runNow = async ({ reason = 'manual', tasks = defaultTasks } = {}) => {
     if (running) return { ok: false, code: 'KMA_BUSY', message: '上一轮维护仍在运行' };
     running = true;
     const startedAt = now().toISOString();

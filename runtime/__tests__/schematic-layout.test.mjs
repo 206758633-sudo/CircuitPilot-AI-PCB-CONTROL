@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   LABEL_ROTATION,
   SCHEMATIC_LAYOUT_CODES,
+  SCHEMATIC_SHEET_FRAME,
+  normalizeSchematicFrame,
   auditSchematicReadability,
   compareRef,
   estimateLabelRect,
@@ -240,3 +242,29 @@ test('netport/netflag 图元只按“标签”占位，不重复算成元件主�
   const blocked = planNetPortLabels({ operations: [operation], components, pinsByComponent, existingLabels: [{ net: 'OLD', x: 620, y: 500, rotation: LABEL_ROTATION.RIGHT }] });
   assert.notEqual(blocked.labels[0].rotation, LABEL_ROTATION.RIGHT);
 });
+
+test('图框：布局必须落在 A4 可用区域内且不压标题栏（真机 1170×825）', () => {
+  const components = Array.from({ length: 12 }, (_unused, index) => ({ ref: `R${index + 1}`, pinCount: 2 }));
+  const result = layoutSchematicComponents({ components, nets: [], options: { frame: SCHEMATIC_SHEET_FRAME } });
+  assert.equal(result.findings.filter((item) => item.severity === 'error').length, 0, JSON.stringify(result.findings));
+  const frame = normalizeSchematicFrame(SCHEMATIC_SHEET_FRAME);
+  for (const placement of result.placements) {
+    const box = { xMin: placement.x - placement.width / 2, yMin: placement.y - placement.height / 2, xMax: placement.x + placement.width / 2, yMax: placement.y + placement.height / 2 };
+    assert.ok(box.xMin >= frame.usable.xMin - 1e-9 && box.yMin >= frame.usable.yMin - 1e-9 && box.xMax <= frame.usable.xMax + 1e-9 && box.yMax <= frame.usable.yMax + 1e-9, `${placement.ref} outside frame`);
+    assert.equal(overlapArea(box, frame.titleBlock), 0, `${placement.ref} overlaps title block`);
+  }
+});
+
+test('图框：审计把图纸外/标题栏上的元件报为 error（不是 warning）', () => {
+  const frame = normalizeSchematicFrame(SCHEMATIC_SHEET_FRAME);
+  const audit = auditSchematicReadability({
+    components: [
+      { ref: 'U1', x: frame.width + 100, y: 100, width: 80, height: 50 },
+      { ref: 'U2', x: frame.titleBlock.xMin + 10, y: frame.titleBlock.yMin + 10, width: 80, height: 50 },
+    ],
+    options: { frame: SCHEMATIC_SHEET_FRAME },
+  });
+  assert.ok(audit.findings.some((item) => item.code === SCHEMATIC_LAYOUT_CODES.COMPONENT_OUTSIDE_FRAME && item.severity === 'error'));
+  assert.ok(audit.findings.some((item) => item.code === SCHEMATIC_LAYOUT_CODES.COMPONENT_ON_TITLE_BLOCK && item.severity === 'error'));
+});
+

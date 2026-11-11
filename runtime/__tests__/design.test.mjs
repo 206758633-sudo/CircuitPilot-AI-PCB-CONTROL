@@ -9,6 +9,29 @@ const completePlan = {
   operations: [{ type: 'component.create', args: { component: { libraryUuid: 'lib-mcu', uuid: 'dev-mcu' }, x: 10, y: 20 } }],
 };
 
+test('normalizePlan：原理图元件坐标越出 A4 图框/互相重叠 → ready=false（2026-11-11 真机缺陷回归）', () => {
+  const base = { kind: 'reviewed-netlist', title: 'layout regression', nets: ['A'], operations: [] };
+  const outside = normalizePlan({ ...base, operations: [
+    { type: 'component.create', args: { component: { libraryUuid: 'lib', uuid: 'x' }, x: 3000, y: 100 } },
+  ] });
+  assert.equal(outside.ready, false);
+  assert.ok(outside.missing.some((item) => item.includes('SCHEMATIC_LAYOUT_COMPONENT_OUTSIDE_FRAME')), JSON.stringify(outside.missing));
+
+  const overlap = normalizePlan({ ...base, operations: [
+    { type: 'component.create', args: { component: { libraryUuid: 'lib', uuid: 'x' }, x: 200, y: 200 } },
+    { type: 'component.create', args: { component: { libraryUuid: 'lib', uuid: 'y' }, x: 205, y: 205 } },
+  ] });
+  assert.equal(overlap.ready, false);
+  assert.ok(overlap.missing.some((item) => item.includes('SCHEMATIC_LAYOUT_COMPONENT_OVERLAP')), JSON.stringify(overlap.missing));
+
+  // 合法落点 + 足够间距仍必须 ready（不能把正常计划误杀）
+  const ok = normalizePlan({ ...base, operations: [
+    { type: 'component.create', args: { component: { libraryUuid: 'lib', uuid: 'x' }, x: 200, y: 200 } },
+    { type: 'component.create', args: { component: { libraryUuid: 'lib', uuid: 'y' }, x: 400, y: 400 } },
+  ] });
+  assert.equal(ok.ready, true, JSON.stringify(ok.missing));
+});
+
 test('plan normalization is deterministic and blocks unknown parts or arbitrary operations', () => {
   const first = normalizePlan(completePlan);
   const second = normalizePlan({ ...completePlan, title: 'MCU + 电源 + LED + 按键简单控制板' });
